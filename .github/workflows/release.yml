@@ -1,10 +1,15 @@
+# Release 工作流
+# 负责在推送正式 tag 或手动触发 beta 标签时，创建 GitHub Release、运行完整测试、
+# 跨平台构建 Tauri 安装包，并生成 latest.json 以支持应用内自动更新。
 name: Release
 
 on:
+  # 自动触发：推送符合规则的 tag 时执行，用于正式发布
   push:
     tags:
-      - 'v*'
-      - '!v*-beta*'
+      - 'v*'          # 匹配任意以 v 开头的 tag
+      - '!v*-beta*'   # 排除 beta tag，避免与 workflow_dispatch 手动 beta 发布冲突
+  # 手动触发：仅用于发布 beta 测试版本，输入框要求 beta 格式 tag
   workflow_dispatch:
     inputs:
       version:
@@ -13,22 +18,29 @@ on:
         type: string
 
 env:
+  # 禁用增量编译，保证 CI 构建可复现性
   CARGO_INCREMENTAL: 0
+  # Rust  panic 时输出简短回溯，避免日志过长
   RUST_BACKTRACE: short
+  # 统一 RELEASE_TAG 来源：push 事件取 tag 名，手动触发取输入值
   RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.version }}
 
 jobs:
+  # 创建 GitHub Release
+  # 职责：校验 tag 格式与版本一致性，生成 draft 状态的 Release 页面
   create-release:
     permissions:
       contents: write
     runs-on: ubuntu-latest
     outputs:
+      # 供后续 build / assemble-latest-json job 使用
       release_id: ${{ steps.create_release.outputs.id }}
       version: ${{ steps.get_version.outputs.version }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 手动触发时强制校验 beta tag 格式，防止误操作发布非 beta 版本
       - name: Validate manual beta tag
         if: github.event_name == 'workflow_dispatch'
         shell: bash
@@ -40,6 +52,7 @@ jobs:
           fi
           echo "Manual beta release tag validated: $RELEASE_TAG"
 
+      # 自动 push 正式 tag 时，校验 tag 版本号与 tauri.conf.json 中声明的版本一致
       - name: Validate version consistency
         if: github.event_name == 'push' && startsWith(github.ref_name, 'v') && !contains(github.ref_name, 'beta')
         shell: bash
@@ -53,10 +66,12 @@ jobs:
           fi
           echo "Version check passed: $TAG_VERSION"
 
+      # 去掉 tag 前的 v 前缀，作为后续步骤使用的纯版本号
       - name: Get version from tag
         id: get_version
         run: echo "version=${RELEASE_TAG#v}" >> $GITHUB_OUTPUT
 
+      # 创建 draft Release，构建完成后由 tauri-action 上传产物
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v2
@@ -70,6 +85,8 @@ jobs:
           draft: true
           prerelease: false
 
+  # 完整测试套件
+  # 职责：在 Ubuntu 上运行后端单元测试、前端类型检查与前端测试，作为发版前的质量关卡
   test:
     name: Run Full Test Suite
     runs-on: ubuntu-22.04
@@ -91,6 +108,7 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
+      # 安装 Tauri 在 Linux 平台编译运行所需的系统依赖
       - name: Install Linux dependencies
         run: |
           sudo apt-get update
@@ -102,9 +120,10 @@ jobs:
             libgtk-3-dev \
             libayatana-appindicator3-dev
 
-      - name: Update built-in models from reference project
-        run: node scripts/update-models.mjs
-        continue-on-error: true
+      # 该步骤已注释：原本用于从参考项目更新内置模型数据，目前暂不在测试阶段执行
+      # - name: Update built-in models from reference project
+      #   run: node scripts/update-models.mjs
+      #   continue-on-error: true
 
       - name: Run Rust tests
         run: cargo test --manifest-path src-tauri/Cargo.toml
@@ -115,6 +134,8 @@ jobs:
       - name: Run frontend tests
         run: pnpm test
 
+  # 跨平台构建 Tauri 安装包
+  # 职责：在 Windows / macOS(x86_64 + aarch64) / Linux 上并行构建并上传产物到 Release
   build:
     needs: create-release
     permissions:
@@ -146,6 +167,7 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
+      # macOS runner 需要显式添加两个架构目标，才能分别构建 Intel 与 Apple Silicon 版本
       - name: Add macOS targets
         if: runner.os == 'macOS'
         run: |
@@ -162,11 +184,12 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
+      # 打包前更新内置模型数据，失败不影响继续构建（continue-on-error）
       - name: Update built-in models from reference project
         run: node scripts/update-models.mjs
         continue-on-error: true
 
-      # Linux dependencies
+      # 仅在 Linux 构建时安装系统依赖与 rpm 打包工具
       - name: Install Linux dependencies
         if: matrix.platform == 'ubuntu-22.04'
         run: |
@@ -180,6 +203,11 @@ jobs:
             libgtk-3-dev \
             libayatana-appindicator3-dev
 
+      # 准备 Tauri 签名私钥，支持三种输入格式：
+      # 1. 已包含 untrusted comment 的完整 minisign 私钥文本
+      # 2. base64 编码后的完整私钥文本
+      # 3. 仅 base64 编码的私钥内容（会自动补全 comment 行）
+      # 未提供私钥时跳过签名准备
       - name: Prepare Tauri signing key
         shell: bash
         env:
@@ -226,6 +254,7 @@ jobs:
           fi
           echo "Tauri signing key prepared"
 
+      # 确认 Rust / Tauri 工具链可用
       - name: Verify Rust and Tauri toolchain
         shell: bash
         run: |
@@ -235,6 +264,7 @@ jobs:
           cargo metadata --manifest-path src-tauri/Cargo.toml --no-deps --format-version 1 >/dev/null
           pnpm tauri --version
 
+      # 执行 Tauri 跨平台构建，并将产物上传到同 create-release 创建的 Release
       - name: Build Tauri App
         uses: tauri-apps/tauri-action@v0
         env:
@@ -248,6 +278,7 @@ jobs:
           projectPath: src-tauri
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundle }}
 
+      # 构建完成后列出产物路径，便于调试
       - name: List generated bundles (debug)
         if: always()
         shell: bash
@@ -255,6 +286,9 @@ jobs:
           echo "Listing bundles in src-tauri/target..."
           find src-tauri/target -maxdepth 4 -type f \( -name "*.msi" -o -name "*.dmg" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" -o -name "*.tar.gz" -o -name "*.sig" \) 2>/dev/null || true
 
+  # 组装 latest.json
+  # 职责：等 build 与 test 都成功后，下载本次 Release 的所有签名资源包，
+  # 生成 Tauri 自动更新所需的 latest.json 并上传到 Release
   assemble-latest-json:
     name: Assemble latest.json
     runs-on: ubuntu-latest
@@ -278,6 +312,7 @@ jobs:
           gh release download "$TAG" --dir dl --repo "$GITHUB_REPOSITORY"
           ls -la dl || true
 
+      # 根据下载的安装包与 .sig 签名文件，按平台分类生成 latest.json
       - name: Generate latest.json
         env:
           REPO: ${{ github.repository }}
@@ -358,6 +393,7 @@ jobs:
           echo "Generated latest.json:" && cat "$tmp_json"
           mv "$tmp_json" latest.json
 
+      # 将生成的 latest.json 上传到 Release，覆盖旧版本
       - name: Upload latest.json to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

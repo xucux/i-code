@@ -27,7 +27,7 @@ pub mod global_config;
 pub mod migrations;
 pub mod schema;
 
-pub use connection::{close_db_pool, DbConn, init_db_pool, get_db_pool, reset_db_pool};
+pub use connection::{DbConn, get_db_pool, init_db_pool};
 pub use global_config::get_global_config;
 pub use migrations::{run_migrations, run_migrations_with_conn};
 pub use schema::SCHEMA_VERSION;

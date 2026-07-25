@@ -177,6 +177,8 @@ fn load_mini_panel_settings(app: &tauri::AppHandle) -> Result<MiniPanelSettings,
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        // 系统浏览器/文件打开插件（替代已弃用的 Shell::open）
+        .plugin(tauri_plugin_opener::init())
         // 进程管理插件：提供应用重启能力（备份恢复后使用）
         .plugin(tauri_plugin_process::init())
         // 开机自启插件：跨平台注册自启入口；传入 --autostart 参数用于启动时识别是否为自启调用

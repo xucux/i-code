@@ -17,7 +17,7 @@ use crate::error::{IcodeError, IcodeResult};
 use super::super::provider::{BalanceProvider, BalanceRefreshInput};
 use super::super::types::{
     BalanceDirection, BalanceMetric, BalancePeriod, BalanceSnapshot, BalanceStatusValue,
-    NewApiConfig, NewApiQuotaTransform,
+    NewApiQuotaTransform,
 };
 
 const DEFAULT_QUOTA_FIELD: &str = "quota";

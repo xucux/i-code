@@ -23,9 +23,13 @@ pub mod gateway_log;
 pub mod recorder;
 pub mod tauri_emitter;
 
+#[allow(unused_imports)]
 pub use forward_log::ForwardLogRecorder;
+#[allow(unused_imports)]
 pub use gateway_log::GatewayLogRecorder;
+#[allow(unused_imports)]
 pub use recorder::{
     LogKind, LogPipeline, LogRecord, LogRecordBuilder, LogRecorder, LogStatus,
 };
+#[allow(unused_imports)]
 pub use tauri_emitter::TauriLogEmitter;

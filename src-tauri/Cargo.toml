@@ -12,6 +12,7 @@ tauri-build = { version = "2.2.0", features = [] }
 # ===== Tauri 框架与官方插件 =====
 tauri = { version = "2.4.0", features = ["tray-icon"] }
 tauri-plugin-shell = "2.2.0"
+tauri-plugin-opener = "2"
 tauri-plugin-autostart = "2.0.0"
 tauri-plugin-process = "2.2.0"
 # tauri-plugin-store = "2.2.0"  # 预留：用于非敏感的应用偏好持久化（如迷你面板尺寸）

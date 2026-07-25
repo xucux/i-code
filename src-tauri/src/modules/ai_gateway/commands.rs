@@ -29,7 +29,6 @@
 //! - `gateway_exposed_models`：列出所有对外暴露的模型（`/v1/models` 数据源）
 
 use tauri::{Emitter, State};
-use tauri_plugin_shell::ShellExt;
 
 use crate::error::{IcodeError, IcodeResult};
 
@@ -379,7 +378,7 @@ use crate::modules::ai_gateway::auth::oauth2::OAuth2Client;
 /// 更新后的供应商对象。
 #[tauri::command]
 pub async fn gateway_provider_oauth_authorize(
-    app: tauri::AppHandle,
+    _app: tauri::AppHandle,
     state: State<'_, AiGatewayServiceHandle>,
     provider_id: String,
     auth_method: AuthMethod,
@@ -406,8 +405,7 @@ pub async fn gateway_provider_oauth_authorize(
         oauth_client.build_authorization_url(&oauth_config, &oauth_state)?;
 
     // 5. 打开系统浏览器
-    app.shell()
-        .open(auth_url, None)
+    tauri_plugin_opener::open_url(&auth_url, None::<&str>)
         .map_err(|e| IcodeError::internal(format!("打开浏览器失败: {}", e)))?;
 
     // 6. 等待回调（120 秒超时，与前端倒计时保持一致）
@@ -468,8 +466,7 @@ pub async fn gateway_provider_oauth_start(
         .await?;
 
     // 打开系统浏览器
-    app.shell()
-        .open(&result.authorization_url, None)
+    tauri_plugin_opener::open_url(&result.authorization_url, None::<&str>)
         .map_err(|e| IcodeError::internal(format!("打开浏览器失败: {}", e)))?;
 
     Ok(result)

@@ -15,7 +15,7 @@ use std::pin::Pin;
 use crate::error::{IcodeError, IcodeResult};
 
 use super::super::provider::{BalanceProvider, BalanceRefreshInput};
-use super::super::types::{BalanceDirection, BalanceMetric, BalanceMetricType, BalancePeriod, BalanceSnapshot};
+use super::super::types::{BalanceDirection, BalanceMetric, BalancePeriod, BalanceSnapshot};
 
 /// 解析后的 reset 时间
 struct ParsedResetAt {
