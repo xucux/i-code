@@ -112,7 +112,7 @@ function extractNotes(changelogPath, version, isBeta) {
       console.log(`[extractNotes] found section: "${line.trim()}"`);
       // Beta 版本在标题前添加预览版说明
       if (isBeta) {
-        notes.push('> 该版本为预览版（Beta），可能包含未完善的功能。');
+        notes.push('> 🚨该版本为预览版（Beta），可能包含未完善的功能🚧。');
         notes.push('');
       }
     }
