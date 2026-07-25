@@ -43,6 +43,33 @@
 import { readFileSync, writeFileSync, readdirSync, existsSync } from 'fs';
 import { resolve } from 'path';
 
+/**
+ * 从版本号中自动判断是否为 beta，并提取正式版本号
+ *
+ * 规则：
+ *   - 自动剔除开头的 `v` 前缀
+ *   - 版本号中包含 `-beta` 则视为预览版，正式版本号为 `-beta` 前的部分
+ * 示例：
+ *   `v0.0.1-beta20260725`  → { isBeta: true,  baseVersion: '0.0.1' }
+ *   `0.0.1-beta20260725`   → { isBeta: true,  baseVersion: '0.0.1' }
+ *   `v0.0.1`               → { isBeta: false, baseVersion: '0.0.1' }
+ *   `0.0.1`                → { isBeta: false, baseVersion: '0.0.1' }
+ *
+ * @param {string} version  原始版本号（可能带 v 前缀）
+ * @returns {{ isBeta: boolean, baseVersion: string }}
+ */
+function parseVersion(version) {
+  // 剔除开头的 v 前缀
+  const stripped = version.replace(/^v/i, '');
+  console.log(`[parseVersion] input: "${version}", stripped: "${stripped}"`);
+
+  const betaMatch = stripped.match(/^(.+?)-beta/i);
+  if (betaMatch) {
+    return { isBeta: true, baseVersion: betaMatch[1] };
+  }
+  return { isBeta: false, baseVersion: stripped };
+}
+
 function parseArgs() {
   const args = {};
   for (const arg of process.argv.slice(2)) {
@@ -67,6 +94,9 @@ function parseArgs() {
  * @returns {string} 提取的 notes 文本
  */
 function extractNotes(changelogPath, version, isBeta) {
+  console.log(`[extractNotes] changelog: ${changelogPath}`);
+  console.log(`[extractNotes] lookup version: "${version}", isBeta: ${isBeta}`);
+
   const content = readFileSync(changelogPath, 'utf-8');
   const lines = content.split('\n');
   let found = false;
@@ -79,6 +109,7 @@ function extractNotes(changelogPath, version, isBeta) {
     // 匹配目标版本行：## [version] ...
     if (!found && line.startsWith('## ') && line.includes(`[${version}]`)) {
       found = true;
+      console.log(`[extractNotes] found section: "${line.trim()}"`);
       // Beta 版本在标题前添加预览版说明
       if (isBeta) {
         notes.push('> 该版本为预览版（Beta），可能包含未完善的功能。');
@@ -93,7 +124,9 @@ function extractNotes(changelogPath, version, isBeta) {
 
   const result = notes.join('\n').trim();
   if (!result) {
-    console.error(`Warning: No section found for version "${version}" in CHANGELOG.md`);
+    console.warn(`[extractNotes] ⚠ No section found for version "${version}" in CHANGELOG.md`);
+  } else {
+    console.log(`[extractNotes] extracted ${result.split('\n').length} lines of notes`);
   }
   return result;
 }
@@ -108,6 +141,9 @@ function extractNotes(changelogPath, version, isBeta) {
  *   - *-setup.exe                 → windows-x86_64（优先）
  *   - *.msi                       → windows-x86_64（后备）
  *
+ * 注意：如果同目录下存在对应的 .sig 文件，签名会被读取并写入 platforms；
+ *       若不存在 .sig 文件，signature 为空字符串，不影响平台匹配。
+ *
  * @param {string|null} assetsDir  assets 目录绝对路径
  * @param {string} baseUrl         下载基础 URL
  * @returns {Record<string, {signature: string, url: string}>}
@@ -116,41 +152,64 @@ function scanAssets(assetsDir, baseUrl) {
   const platforms = {};
 
   if (!assetsDir || !existsSync(assetsDir)) {
+    console.warn(`[scanAssets] ⚠ assets directory not found: ${assetsDir}`);
     return platforms;
   }
+
+  const allFiles = readdirSync(assetsDir);
+  console.log(`[scanAssets] scanning ${allFiles.length} files in: ${assetsDir}`);
+
+  // 第一步：构建签名映射 { baseName → signature }
+  const sigMap = {};
+  for (const file of allFiles) {
+    if (file.endsWith('.sig')) {
+      const baseName = file.slice(0, -4);
+      const sigPath = resolve(assetsDir, file);
+      sigMap[baseName] = readFileSync(sigPath, 'utf-8').trim();
+      console.log(`[scanAssets]   found signature: ${file} → ${baseName}`);
+    }
+  }
+
+  // 第二步：遍历所有非 .sig 文件，匹配安装包
+  const installers = allFiles.filter(f => !f.endsWith('.sig'));
+  console.log(`[scanAssets] matching ${installers.length} installer files...`);
 
   let winUrl = '';
   let winSig = '';
 
-  const files = readdirSync(assetsDir);
+  for (const file of installers) {
+    const url = `${baseUrl}/${encodeURIComponent(file)}`;
+    const signature = sigMap[file] || '';
+    const sigInfo = signature ? `(signature: ${signature.slice(0, 20)}...)` : '(no signature)';
 
-  for (const file of files) {
-    if (!file.endsWith('.sig')) continue;
-
-    const baseName = file.slice(0, -4); // 去掉 .sig
-    const sigPath = resolve(assetsDir, file);
-    const sigContent = readFileSync(sigPath, 'utf-8').trim();
-    const url = `${baseUrl}/${encodeURIComponent(baseName)}`;
-
-    if (/aarch64|arm64/.test(baseName) && baseName.endsWith('.app.tar.gz')) {
-      platforms['darwin-aarch64'] = { signature: sigContent, url };
-    } else if (/x64|x86_64/.test(baseName) && baseName.endsWith('.app.tar.gz')) {
-      platforms['darwin-x86_64'] = { signature: sigContent, url };
-    } else if (/\.AppImage$/i.test(baseName) || /\.appimage$/i.test(baseName)) {
-      platforms['linux-x86_64'] = { signature: sigContent, url };
-    } else if (baseName.endsWith('-setup.exe')) {
+    if (/aarch64|arm64/.test(file) && file.endsWith('.app.tar.gz')) {
+      console.log(`[scanAssets]   ✓ darwin-aarch64 ← ${file} ${sigInfo}`);
+      platforms['darwin-aarch64'] = { signature, url };
+    } else if (/x64|x86_64/.test(file) && file.endsWith('.app.tar.gz')) {
+      console.log(`[scanAssets]   ✓ darwin-x86_64  ← ${file} ${sigInfo}`);
+      platforms['darwin-x86_64'] = { signature, url };
+    } else if (/\.AppImage$/i.test(file) || /\.appimage$/i.test(file)) {
+      console.log(`[scanAssets]   ✓ linux-x86_64   ← ${file} ${sigInfo}`);
+      platforms['linux-x86_64'] = { signature, url };
+    } else if (file.endsWith('-setup.exe')) {
+      console.log(`[scanAssets]   ✓ windows-x86_64 (exe) ← ${file} ${sigInfo}`);
       winUrl = url;
-      winSig = sigContent;
-    } else if (baseName.endsWith('.msi') && !winUrl) {
+      winSig = signature;
+    } else if (file.endsWith('.msi') && !winUrl) {
+      console.log(`[scanAssets]   . windows-x86_64 (msi) ← ${file} ${sigInfo} (后备，仅在无 exe 时使用)`);
       winUrl = url;
-      winSig = sigContent;
+      winSig = signature;
+    } else {
+      console.log(`[scanAssets]   - skipped: ${file}`);
     }
   }
 
-  if (winUrl && winSig) {
+  if (winUrl) {
     platforms['windows-x86_64'] = { signature: winSig, url: winUrl };
+    console.log(`[scanAssets]   ✓ windows-x86_64 final: ${winUrl.split('/').pop()}`);
   }
 
+  console.log(`[scanAssets] done. platforms: ${Object.keys(platforms).join(', ') || '(none)'}`);
   return platforms;
 }
 
@@ -174,14 +233,28 @@ function main() {
     process.exit(1);
   }
 
-  const changelogPath = resolve(process.cwd(), args.changelog || 'CHANGELOG.md');
-  const isBeta = !!args.beta;
+  // 自动解析版本号：检测 beta 并提取正式版本号，同时剔除可能的 v 前缀
+  const { isBeta: autoBeta, baseVersion } = parseVersion(args.version);
+  // --beta 显式传入时也视为 beta（兼容手动指定）
+  const isBeta = autoBeta || !!args.beta;
+  // 无 v 前缀的完整版本号（如 0.0.1-beta20260725）
+  const strippedVersion = args.version.replace(/^v/i, '');
 
-  // 1. 提取 notes
-  const notes = extractNotes(changelogPath, args.version, isBeta);
+  console.log(`[main] raw version:      "${args.version}"`);
+  console.log(`[main] stripped version: "${strippedVersion}"`);
+  console.log(`[main] base version:     "${baseVersion}"`);
+  console.log(`[main] is beta:          ${isBeta}`);
+  console.log(`[main] beta source:      ${autoBeta ? 'auto-detected from version' : args.beta ? '--beta flag' : 'N/A'}`);
+
+  const changelogPath = resolve(process.cwd(), args.changelog || 'CHANGELOG.md');
+  console.log(`[main] changelog path: ${changelogPath}`);
+
+  // 1. 用正式版本号（不含 -beta 后缀）查询 changelog
+  const notes = extractNotes(changelogPath, baseVersion, isBeta);
 
   // 2. --notes-only 模式：仅输出 notes 到 stdout，用于 release body
   if (args['notes-only']) {
+    console.log(`[main] mode: --notes-only, writing notes to stdout (${notes.length} chars)`);
     // 确保输出以换行结尾，适配 GitHub Actions body_path
     process.stdout.write(notes + '\n');
     return;
@@ -193,12 +266,17 @@ function main() {
   const baseUrl = `https://github.com/${repo}/releases/download/${tag}`;
   const assetsDir = args['assets-dir'] ? resolve(process.cwd(), args['assets-dir']) : null;
 
+  console.log(`[main] tag:            ${tag}`);
+  console.log(`[main] repo:           ${repo}`);
+  console.log(`[main] assets dir:     ${assetsDir || '(not provided)'}`);
+
   const platforms = scanAssets(assetsDir, baseUrl);
+  console.log(`[main] platforms found: ${Object.keys(platforms).join(', ') || '(none)'}`);
 
   const pubDate = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
 
   const latestJson = {
-    version: args.version,
+    version: strippedVersion,
     notes,
     pub_date: pubDate,
     platforms,
@@ -209,8 +287,8 @@ function main() {
   const outputPath = resolve(process.cwd(), args.output || 'latest.json');
   writeFileSync(outputPath, output, 'utf-8');
 
-  console.log(`latest.json generated (version: ${args.version})`);
-  console.log(`Platforms: ${Object.keys(platforms).join(', ') || '(none)'}`);
+  console.log(`[main] ✅ latest.json generated → ${outputPath}`);
+  console.log(`[main] version: ${strippedVersion}, platforms: ${Object.keys(platforms).join(', ') || '(none)'}`);
 }
 
 main();

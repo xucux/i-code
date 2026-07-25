@@ -298,6 +298,89 @@ jobs:
           echo "Listing bundles in src-tauri/target..."
           find src-tauri/target -maxdepth 4 -type f \( -name "*.msi" -o -name "*.dmg" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" -o -name "*.tar.gz" -o -name "*.sig" \) 2>/dev/null || true
 
+      # 生成 SHA-256 校验文件
+      # 以首个安装包的文件全名作为前缀生成校验文件并上传到 Release
+      # 例如：i-code_0.0.1_x64-setup.exe → i-code_0.0.1_x64-setup.exe-sha256sums.txt
+      - name: Generate SHA-256 checksums
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          # 收集所有安装包路径
+          BUNDLES=()
+          while IFS= read -r bundle; do
+            [ -z "$bundle" ] && continue
+            BUNDLES+=("$bundle")
+          done < <(
+            find src-tauri/target -maxdepth 4 -type f \( \
+              -name "*.msi" -o \
+              -name "*.dmg" -o \
+              -name "*.AppImage" -o \
+              -name "*.deb" -o \
+              -name "*.rpm" -o \
+              -name "*.tar.gz" \
+            \) 2>/dev/null || true
+          )
+
+          if [ ${#BUNDLES[@]} -eq 0 ]; then
+            echo "No bundles found, skipping SHA-256 generation"
+            exit 0
+          fi
+
+          echo "Found ${#BUNDLES[@]} bundle(s):"
+          for bundle in "${BUNDLES[@]}"; do
+            echo "  $(basename "$bundle")"
+          done
+
+          # 以首个安装包的文件全名作为前缀
+          FIRST_NAME=$(basename "${BUNDLES[0]}")
+          CHECKSUM_FILE="${FIRST_NAME}-sha256sums.txt"
+          : > "$CHECKSUM_FILE"
+
+          echo "Checksum file: $CHECKSUM_FILE"
+          echo ""
+
+          for bundle in "${BUNDLES[@]}"; do
+            filename=$(basename "$bundle")
+            echo "  Computing SHA-256 for: $filename"
+            sha256sum "$bundle" >> "$CHECKSUM_FILE"
+          done
+
+          echo ""
+          echo "=== $CHECKSUM_FILE (${#BUNDLES[@]} files) ==="
+          cat "$CHECKSUM_FILE"
+
+          echo ""
+          echo "Uploading $CHECKSUM_FILE to release $RELEASE_TAG ..."
+          gh release upload "$RELEASE_TAG" "$CHECKSUM_FILE" --clobber --repo "$GITHUB_REPOSITORY"
+          echo "✅ SHA-256 checksums uploaded successfully"
+
+          CHECKSUM_FILE="${PREFIX}_sha256sums.txt"
+          : > "$CHECKSUM_FILE"
+
+          echo ""
+          for bundle in "${BUNDLES[@]}"; do
+            filename=$(basename "$bundle")
+            echo "  Computing SHA-256 for: $filename"
+            sha256sum "$bundle" >> "$CHECKSUM_FILE"
+          done
+
+          echo ""
+          echo "=== $CHECKSUM_FILE (${#BUNDLES[@]} files) ==="
+          cat "$CHECKSUM_FILE"
+
+          echo ""
+          echo "Uploading $CHECKSUM_FILE to release $RELEASE_TAG ..."
+          gh release upload "$RELEASE_TAG" "$CHECKSUM_FILE" --clobber --repo "$GITHUB_REPOSITORY"
+          echo "✅ SHA-256 checksums uploaded successfully"
+
+          echo ""
+          echo "Uploading $CHECKSUM_FILE to release $RELEASE_TAG ..."
+          gh release upload "$RELEASE_TAG" "$CHECKSUM_FILE" --clobber --repo "$GITHUB_REPOSITORY"
+          echo "✅ SHA-256 checksums uploaded successfully"
+
   # 组装 latest.json
   # 职责：等 build 与 test 都成功后，下载本次 Release 的所有签名资源包，
   # 生成 Tauri 自动更新所需的 latest.json 并上传到 Release
