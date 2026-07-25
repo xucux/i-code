@@ -1062,7 +1062,7 @@ impl AiGatewayService {
             },
         };
 
-        if let Some(preset) = get_oauth_preset(method) {
+        if let Some(preset) = get_oauth_preset(method)? {
             preset.apply(&mut oauth);
         }
 

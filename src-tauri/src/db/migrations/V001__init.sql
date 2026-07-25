@@ -30,6 +30,18 @@ CREATE TABLE IF NOT EXISTS app_settings (
   updated_at TEXT NOT NULL
 , global_proxy_enabled INTEGER NOT NULL DEFAULT 0, config_key TEXT, titlebar_info_json TEXT NOT NULL DEFAULT '{"showTokens":true,"showRpm":true,"showLatency":false,"showMemory":true,"showGatewayStatus":true}', backup_settings_json TEXT, auto_start_enabled INTEGER NOT NULL DEFAULT 0, gateway_last_running INTEGER NOT NULL DEFAULT 0, log_level TEXT NOT NULL DEFAULT 'info');
 
+-- ===== 全局配置表 =====
+-- 用于存储不适合放入单例表的键值对配置，如 OAuth 预设 client_id / client_secret。
+CREATE TABLE IF NOT EXISTS global_configs (
+  id TEXT PRIMARY KEY,
+  "group" TEXT NOT NULL,
+  key TEXT NOT NULL,
+  value TEXT NOT NULL,
+  description TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE("group", key)
+);
+
 -- ===== 迁移版本记录表 =====
 -- 注意：迁移执行器会以 CREATE TABLE IF NOT EXISTS 方式预先创建本表，此处保留是为了基线完整性。
 CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -579,3 +591,18 @@ INSERT OR IGNORE INTO gateway_settings (id) VALUES ('default');
 
 -- 日志默认设置（单例）
 INSERT OR IGNORE INTO log_settings (id) VALUES ('default');
+
+-- OAuth 预设凭据
+-- Antigravity OAuth
+INSERT OR IGNORE INTO global_configs (id, "group", key, value, description, created_at)
+VALUES ('oauth-antigravity-client-id', 'oauth', 'antigravity_client_id', '1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com', 'Antigravity OAuth client_id', datetime('now'));
+
+INSERT OR IGNORE INTO global_configs (id, "group", key, value, description, created_at)
+VALUES ('oauth-antigravity-client-secret', 'oauth', 'antigravity_client_secret', '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', 'Antigravity OAuth client_secret', datetime('now'));
+
+-- Google Gemini OAuth
+INSERT OR IGNORE INTO global_configs (id, "group", key, value, description, created_at)
+VALUES ('oauth-google-gemini-client-id', 'oauth', 'google_gemini_client_id', '1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com', 'Google Gemini OAuth client_id', datetime('now'));
+
+INSERT OR IGNORE INTO global_configs (id, "group", key, value, description, created_at)
+VALUES ('oauth-google-gemini-client-secret', 'oauth', 'google_gemini_client_secret', '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', 'Google Gemini OAuth client_secret', datetime('now'));

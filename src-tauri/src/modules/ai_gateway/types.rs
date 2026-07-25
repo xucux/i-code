@@ -1272,6 +1272,8 @@ mod tests {
 
         // api-key
         let auth = AuthConfig::ApiKey {
+            label: None,
+            description: None,
             api_key: Some("$SECRET:abc-123$".to_string()),
         };
         let json = serde_json::to_string(&auth).unwrap();

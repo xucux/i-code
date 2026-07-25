@@ -162,7 +162,7 @@ mod tests {
         let table_count: i64 = conn
             .query_row(
                 "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN (
-                    'app_settings', 'providers', 'gateway_models', 'secrets',
+                    'app_settings', 'global_configs', 'providers', 'gateway_models', 'secrets',
                     'cli_profiles', 'workspaces', 'model_call_logs',
                     'gateway_settings', 'gateway_auth_keys', 'log_settings',
                     'virtual_providers', 'virtual_models', 'model_call_stats_daily',
@@ -172,7 +172,7 @@ mod tests {
                 |row| row.get(0),
             )
             .unwrap();
-        assert_eq!(table_count, 15);
+        assert_eq!(table_count, 16);
 
         // 验证聚合后的关键列已存在
         let check_column = |table: &str, column: &str| {
@@ -236,5 +236,55 @@ mod tests {
             )
             .unwrap();
         assert!(config_key.is_none());
+    }
+
+    #[test]
+    fn test_global_configs_oauth_credentials() {
+        use crate::db::schema::table;
+        use r2d2::Pool;
+        use r2d2_sqlite::SqliteConnectionManager;
+
+        let manager = SqliteConnectionManager::memory();
+        let pool = Pool::builder().max_size(1).build(manager).unwrap();
+        let mut conn = pool.get().unwrap();
+        run_migrations_with_conn(&mut conn).unwrap();
+
+        // 验证 global_configs 表存在
+        let exists: i64 = conn
+            .query_row(
+                &format!(
+                    "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name = '{}'",
+                    table::GLOBAL_CONFIGS
+                ),
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(exists, 1);
+
+        // 验证 Antigravity / Google Gemini OAuth 凭据已写入
+        let antigravity_id: String = conn
+            .query_row(
+                &format!(
+                    "SELECT value FROM {table} WHERE \"group\" = 'oauth' AND key = 'antigravity_client_id'",
+                    table = table::GLOBAL_CONFIGS
+                ),
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(!antigravity_id.is_empty());
+
+        let gemini_secret: String = conn
+            .query_row(
+                &format!(
+                    "SELECT value FROM {table} WHERE \"group\" = 'oauth' AND key = 'google_gemini_client_secret'",
+                    table = table::GLOBAL_CONFIGS
+                ),
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(!gemini_secret.is_empty());
     }
 }

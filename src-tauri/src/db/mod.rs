@@ -23,9 +23,11 @@
 //! 应用启动时自动执行未应用的迁移，按版本号顺序执行。
 
 pub mod connection;
+pub mod global_config;
 pub mod migrations;
 pub mod schema;
 
 pub use connection::{close_db_pool, DbConn, init_db_pool, get_db_pool, reset_db_pool};
+pub use global_config::get_global_config;
 pub use migrations::{run_migrations, run_migrations_with_conn};
 pub use schema::SCHEMA_VERSION;

@@ -19,6 +19,8 @@ pub const SCHEMA_VERSION: u32 = 1;
 pub mod table {
     /// 应用全局设置单例表
     pub const APP_SETTINGS: &str = "app_settings";
+    /// 全局配置键值表
+    pub const GLOBAL_CONFIGS: &str = "global_configs";
     /// 敏感凭据表（加密存储）
     pub const SECRETS: &str = "secrets";
     /// AI Gateway 供应商表
@@ -94,6 +96,7 @@ pub mod table {
 /// 所有表名集合，用于备份模块遍历与 schema 一致性校验
 pub const TABLE_NAMES: &[&str] = &[
     table::APP_SETTINGS,
+    table::GLOBAL_CONFIGS,
     table::SECRETS,
     table::PROVIDERS,
     table::PROVIDER_EXTRA_HEADERS,
