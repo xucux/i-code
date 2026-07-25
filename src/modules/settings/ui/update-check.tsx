@@ -44,8 +44,11 @@ function MarkdownContent({ content }: { content: string }) {
     <div
       className={cn(
         'prose prose-xs max-w-none text-xs leading-relaxed',
-        'prose-headings:mt-3 prose-headings:mb-1.5 prose-headings:text-sm prose-headings:font-semibold prose-headings:text-foreground',
-        'prose-h3:mt-2.5 prose-h3:mb-1 prose-h3:text-xs prose-h3:font-semibold',
+        'prose-headings:mt-3 prose-headings:mb-1.5 prose-headings:text-foreground',
+        'prose-h1:mt-3.5 prose-h1:mb-2 prose-h1:text-lg prose-h1:font-bold',
+        'prose-h2:mt-3 prose-h2:mb-1.5 prose-h2:text-base prose-h2:font-semibold',
+        'prose-h3:mt-2.5 prose-h3:mb-1 prose-h3:text-sm prose-h3:font-semibold',
+        'prose-h4:mt-2 prose-h4:mb-0.5 prose-h4:text-xs prose-h4:font-medium',
         'prose-p:my-1 prose-p:text-foreground',
         'prose-li:my-0.5 prose-li:text-foreground',
         'prose-ul:my-1 prose-ul:pl-4 prose-ul:list-disc',
@@ -206,7 +209,7 @@ export function UpdateCheck() {
           )}
 
           {/* 底部按钮 */}
-          <div className="flex items-center justify-end gap-2 border-t px-4 py-1">
+          <div className="flex items-center justify-end gap-2 border-t px-4 py-2">
             <Button variant="outline" size="sm" onClick={() => setDialogOpen(false)}>
               {t('common.cancel')}
             </Button>
