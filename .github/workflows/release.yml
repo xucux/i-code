@@ -308,6 +308,9 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
       - name: Prepare GH
         run: |
           gh --version || (type -p curl >/dev/null && sudo apt-get update && sudo apt-get install -y gh || true)

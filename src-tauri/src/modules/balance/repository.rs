@@ -66,6 +66,7 @@ pub fn upsert_balance_snapshot(
 }
 
 /// 查询单个供应商的额度快照
+#[expect(dead_code)]
 pub fn get_balance_snapshot(provider_id: &str) -> IcodeResult<Option<BalanceSnapshot>> {
     let conn = get_conn()?;
     let mut stmt = conn.prepare(

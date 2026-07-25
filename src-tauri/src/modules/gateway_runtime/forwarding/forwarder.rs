@@ -33,26 +33,6 @@ use super::route_resolver::{resolve_route, ResolvedRoute};
 use super::util::{build_error_tags, is_network_error, protocol_tags};
 use super::virtual_forwarder::VirtualForwarder;
 
-/// 转发执行结果
-///
-/// 在管道中携带上游响应、用于日志的请求/响应快照、usage 累加器等。
-struct ExecutionOutcome {
-    /// 上游响应
-    response: UpstreamResponse,
-    /// 上游 URL（用于日志）
-    upstream_url: String,
-    /// 原始请求体字符串（未截断，供 tauri-plugin-log 与 logger 复用）
-    request_body_full: Option<String>,
-    /// 协议标签
-    tags: Vec<String>,
-    /// 流式响应的 usage 累加器（非流式为 None）
-    usage_accumulator: Option<
-        crate::modules::gateway_runtime::client::SseUsageAccumulator,
-    >,
-    /// 已通过 ForwardContext（含失败时降级路由所需信息）
-    virtual_route_id: Option<String>,
-}
-
 /// Forwarder trait：执行一次上游请求
 #[async_trait]
 pub trait Forwarder: Send + Sync {
@@ -407,8 +387,15 @@ fn clone_upstream_response(response: &UpstreamResponse) -> UpstreamResponseSnaps
 }
 
 enum UpstreamResponseSnapshot {
-    Streaming { status: u16 },
-    Complete { status: u16, body: Vec<u8> },
+    Streaming {
+        #[expect(dead_code)]
+        status: u16,
+    },
+    Complete {
+        #[expect(dead_code)]
+        status: u16,
+        body: Vec<u8>,
+    },
 }
 
 /// 从响应快照解析 usage 数据（不消费原始 response）

@@ -19,7 +19,7 @@
 //! ## 扩展方式
 //!
 //! 1. 新建 `xxx_client.rs` 实现 `UpstreamClient`。
-//! 2. 在 `ClientKind` 与 `ClientFactory::create` 中注册新类型。
+//! 2. 在 `ClientFactory::create` 中注册新类型。
 //! 3. 在 `UpstreamClient::execute` 的 match 分支中调用新方法（如需要单独协议入口）。
 
 use std::fmt;
@@ -75,6 +75,7 @@ pub struct UpstreamContext {
     /// 真实模型 ID（已去除 provider_slug / virtual_alias 前缀）
     pub upstream_model_id: String,
     /// 是否通过虚拟供应商路由
+    #[expect(dead_code)]
     pub is_virtual: bool,
     /// 当前使用的路由索引（仅虚拟供应商有意义，保留用于后续日志扩展）
     #[allow(dead_code)]
@@ -205,15 +206,8 @@ pub trait UpstreamClient: Send + Sync {
     ) -> Result<UpstreamResponse, ClientError>;
 
     /// 返回客户端对应的供应商类型标识
+    #[expect(dead_code)]
     fn provider_type(&self) -> &'static str;
-}
-
-/// Client 类型标识
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ClientKind {
-    OpenAiChat,
-    Anthropic,
-    WebSocket,
 }
 
 /// 根据 provider_type 创建对应 Client

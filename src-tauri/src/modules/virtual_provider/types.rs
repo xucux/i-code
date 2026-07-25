@@ -264,6 +264,7 @@ pub struct SaveVirtualModelRouteInput {
 /// 路由解析结果
 ///
 /// 由 Service 层返回给 gateway_runtime，用于实际请求转发
+#[expect(dead_code)]
 #[derive(Debug, Clone)]
 pub struct ResolvedVirtualRoute {
     /// 目标真实供应商 ID

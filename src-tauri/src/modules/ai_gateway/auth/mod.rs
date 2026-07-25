@@ -99,6 +99,7 @@ pub struct OAuth2TokenData {
 
 impl OAuth2TokenData {
     /// 判断是否已过期（预留 60 秒缓冲）
+    #[expect(dead_code)]
     pub fn is_expired(&self) -> bool {
         match self.expires_at {
             Some(exp) => {

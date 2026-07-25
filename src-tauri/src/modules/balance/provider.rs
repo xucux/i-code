@@ -41,6 +41,7 @@ type BalanceRefreshFuture<'a> = Pin<Box<dyn Future<Output = IcodeResult<BalanceS
 /// 各供应商实现此 trait，在 `refresh()` 中调用对应的 HTTP API 并解析响应。
 pub trait BalanceProvider: Send + Sync {
     /// 该 Provider 对应的 BalanceConfig method
+    #[expect(dead_code)]
     fn method(&self) -> &'static str;
 
     /// 查询额度快照

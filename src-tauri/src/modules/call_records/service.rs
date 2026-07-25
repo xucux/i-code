@@ -75,6 +75,7 @@ impl CallRecordsService {
     /// 完成一次调用记录（含耗时）
     ///
     /// 由上层传入从请求开始到响应完成的耗时（毫秒）。
+    #[expect(dead_code)]
     pub fn finish_call_with_duration(
         &self,
         id: &str,

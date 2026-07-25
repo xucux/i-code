@@ -26,10 +26,13 @@ use crate::modules::ai_gateway::types::{AuthConfig, GoogleVertexAiAuthSubType};
 struct OAuthTokenData {
     access_token: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[expect(dead_code)]
     token_type: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[expect(dead_code)]
     refresh_token: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[expect(dead_code)]
     expires_at: Option<i64>,
 }
 

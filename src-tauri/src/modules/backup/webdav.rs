@@ -16,6 +16,7 @@ pub struct WebDavItem {
     pub display_name: String,
     pub content_length: u64,
     pub last_modified: String,
+    #[expect(dead_code)]
     pub is_collection: bool,
 }
 

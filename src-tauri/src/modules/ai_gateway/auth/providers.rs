@@ -18,6 +18,7 @@ use crate::modules::ai_gateway::types::{AuthMethod, OAuth2Config, OAuth2GrantTyp
 #[derive(Debug, Clone)]
 pub struct OAuthProviderPreset {
     /// 认证方法标识
+    #[expect(dead_code)]
     pub method: AuthMethod,
     /// OAuth 授权类型
     pub grant_type: OAuth2GrantType,

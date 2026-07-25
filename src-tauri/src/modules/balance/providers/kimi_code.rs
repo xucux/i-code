@@ -31,6 +31,7 @@ struct UsageRow {
     label: String,
     used: i64,
     limit: i64,
+    #[expect(dead_code)]
     reset_hint: Option<String>,
     reset_at: Option<String>,
 }

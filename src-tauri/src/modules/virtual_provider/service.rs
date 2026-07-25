@@ -26,8 +26,10 @@ use super::types::{
 };
 
 /// 虚拟供应商级默认重试次数
+#[expect(dead_code)]
 const DEFAULT_PROVIDER_MAX_RETRIES: i64 = 3;
 /// 虚拟供应商级默认重试间隔（毫秒）
+#[expect(dead_code)]
 const DEFAULT_PROVIDER_RETRY_INTERVAL_MS: i64 = 1000;
 
 /// 虚拟供应商 Service 在 Tauri State 中的句柄
@@ -409,6 +411,7 @@ impl VirtualProviderService {
     /// 1. 按 `priority` 升序、创建时间升序查询启用的路由。
     /// 2. 返回第一条 `is_healthy = 1` 的路由。
     /// 3. 若所有路由都不健康，返回优先级最高的一条（让上游请求触发健康检查更新）。
+    #[expect(dead_code)]
     pub fn resolve_virtual_route(
         &self,
         provider_alias: &str,
@@ -511,6 +514,7 @@ impl VirtualProviderService {
     /// 获取虚拟供应商级重试配置
     ///
     /// 返回 `(max_retries, retry_interval_ms)`，用于网关层按虚拟供应商策略重试。
+    #[expect(dead_code)]
     pub fn get_provider_retry_config(
         &self,
         virtual_provider_id: &str,

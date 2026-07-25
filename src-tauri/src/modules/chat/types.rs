@@ -22,6 +22,7 @@ pub enum ChatRole {
 }
 
 impl ChatRole {
+    #[expect(dead_code)]
     pub fn as_str(self) -> &'static str {
         match self {
             Self::System => "system",

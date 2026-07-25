@@ -53,6 +53,7 @@ fn pick_number(record: &serde_json::Value, key: &str) -> Option<f64> {
 }
 
 /// 从 JSON 对象中取字符串字段
+#[expect(dead_code)]
 fn pick_string(record: &serde_json::Value, key: &str) -> Option<String> {
     record.get(key).and_then(|v| v.as_str()).map(|s| s.to_string())
 }

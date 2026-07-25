@@ -251,6 +251,7 @@ impl OAuth2Client {
     }
 
     /// Client Credentials 流程换 token
+    #[expect(dead_code)]
     pub async fn exchange_client_credentials(
         &self,
         config: &OAuth2Config,
