@@ -1,0 +1,224 @@
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { getVersion } from '@tauri-apps/api/app'
+import { invoke } from '@tauri-apps/api/core'
+import { marked } from 'marked'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Separator } from '@/components/ui/separator'
+import { useTranslation } from '@/modules/i18n/use-translation'
+import { cn } from '@/lib/utils'
+
+const GITHUB_REPO = 'xucux/i-code'
+const RELEASES_URL = `https://github.com/${GITHUB_REPO}/releases/latest`
+
+interface CheckUpdateResult {
+  has_update: boolean
+  is_beta: boolean
+  current_version: string
+  latest_version: string
+  notes: string
+  pub_date: string
+  platforms: Record<string, { signature: string; url: string }>
+}
+
+function stripV(v: string): string {
+  return v.replace(/^v/i, '')
+}
+
+// 配置 marked：同步渲染 + GFM（任务列表、表格、删除线等）
+marked.use({ async: false, gfm: true })
+
+function MarkdownContent({ content }: { content: string }) {
+  const html = useMemo(() => {
+    if (!content) return ''
+    return marked.parse(content) as string
+  }, [content])
+
+  return (
+    <div
+      className={cn(
+        'prose prose-xs max-w-none text-xs leading-relaxed',
+        'prose-headings:mt-3 prose-headings:mb-1.5 prose-headings:text-sm prose-headings:font-semibold prose-headings:text-foreground',
+        'prose-h3:mt-2.5 prose-h3:mb-1 prose-h3:text-xs prose-h3:font-semibold',
+        'prose-p:my-1 prose-p:text-foreground',
+        'prose-li:my-0.5 prose-li:text-foreground',
+        'prose-ul:my-1 prose-ul:pl-4 prose-ul:list-disc',
+        'prose-ol:my-1 prose-ol:pl-4 prose-ol:list-decimal',
+        'prose-code:rounded prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:text-xs prose-code:font-mono',
+        'prose-a:text-primary prose-a:underline prose-a:underline-offset-2',
+        'prose-strong:text-foreground prose-strong:font-semibold',
+        'prose-del:text-muted-foreground',
+        'prose-table:my-2 prose-table:text-xs',
+        'prose-th:border prose-th:px-2 prose-th:py-1 prose-th:text-left prose-th:text-xs prose-th:text-muted-foreground prose-th:bg-muted/50',
+        'prose-td:border prose-td:px-2 prose-td:py-1 prose-td:text-xs',
+        // GFM 任务列表：input checkbox 美化
+        'prose-li:input:mr-1.5 prose-li:input:size-3 prose-li:input:align-middle',
+        '[&_li>input[type="checkbox"]]:mr-1.5',
+        '[&_li>input[type="checkbox"]]:size-3',
+        '[&_li>input[type="checkbox"]]:align-middle',
+        '[&_li>input[type="checkbox"]]:accent-primary',
+        // 去除任务列表 li 的圆点
+        '[&_li:has(>input[type="checkbox"])]:list-none',
+        '[&_li:has(>input[type="checkbox"])]:-ml-4',
+        '[&h2:first-child]:mt-0'
+      )}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  )
+}
+
+export function UpdateCheck() {
+  const { t } = useTranslation()
+  const [currentVersion, setCurrentVersion] = useState('')
+  const [result, setResult] = useState<CheckUpdateResult | null>(null)
+  const [hasUpdate, setHasUpdate] = useState(false)
+  const [checking, setChecking] = useState(false)
+  const [dialogOpen, setDialogOpen] = useState(false)
+
+  useEffect(() => {
+    getVersion()
+      .then(setCurrentVersion)
+      .catch(() => setCurrentVersion('0.0.1'))
+  }, [])
+
+  const checkUpdate = useCallback(async (showDialog: boolean) => {
+    setChecking(true)
+    try {
+      const res = await invoke<CheckUpdateResult>('check_update')
+      setResult(res)
+      setHasUpdate(res.has_update)
+      if (showDialog) {
+        setDialogOpen(true)
+      }
+    } catch {
+      setHasUpdate(false)
+    } finally {
+      setChecking(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    checkUpdate(false)
+  }, [checkUpdate])
+
+  const openDownloadPage = useCallback(() => {
+    invoke('open_url', { url: RELEASES_URL })
+    setDialogOpen(false)
+  }, [])
+
+  return (
+    <>
+      {/* 更新检查按钮 */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="relative size-6 text-primary hover:text-primary/80"
+        onClick={() => checkUpdate(true)}
+        disabled={checking}
+        title={t('settings.about.checkUpdate')}
+      >
+        <i className={`fa-regular fa-circle-up ${checking ? 'fa-beat-fade' : ''}`} />
+        {hasUpdate && (
+          <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-red-500" />
+        )}
+      </Button>
+
+      {/* 更新弹窗 */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className=" gap-0 p-0 h-15">
+          {/* 标题区 */}
+          <DialogHeader className="px-4 py-1">
+            <DialogTitle className="flex items-center gap-2 text-sm">
+              <i className={cn(
+                'fa-regular',
+                hasUpdate ? 'fa-circle-up text-primary' : 'fa-circle-check text-primary'
+              )} />
+              {hasUpdate ? t('settings.about.updateAvailable') : t('settings.about.upToDate')}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              {hasUpdate
+                ? t('settings.about.updateDescription', {
+                    current: stripV(currentVersion),
+                    latest: stripV(result?.latest_version ?? ''),
+                  })
+                : t('settings.about.upToDateDescription', {
+                    current: stripV(currentVersion),
+                  })}
+            </DialogDescription>
+          </DialogHeader>
+
+          <Separator />
+
+          {/* 版本对比 */}
+          {result && (
+            <div className="px-4 pt-3">
+              <div className="flex items-center justify-center gap-3 rounded-md border bg-muted/30 p-2.5">
+                <div className="text-center">
+                  <div className="text-[10px] text-muted-foreground">{t('settings.about.currentVersion')}</div>
+                  <div className="mt-0.5 font-mono text-xs tabular-nums">{stripV(result.current_version)}</div>
+                </div>
+                <i className="fa-solid fa-arrow-right text-[10px] text-muted-foreground" />
+                <div className="text-center">
+                  <div className="text-[10px] text-muted-foreground">{t('settings.about.latestVersion')}</div>
+                  <div className={cn(
+                    'mt-0.5 font-mono text-xs tabular-nums',
+                    hasUpdate ? 'font-semibold text-primary' : ''
+                  )}>
+                    {stripV(result.latest_version)}
+                    {result.is_beta && (
+                      <span className="ml-1 rounded bg-amber-100 px-1 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-900 dark:text-amber-300">
+                        Beta
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 预览版提示 */}
+          {result?.is_beta && hasUpdate && (
+            <div className="mx-4 mt-3 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+              <i className="fa-solid fa-triangle-exclamation mt-0.5 shrink-0 text-[10px]" />
+              <span>{t('settings.about.betaWarning')}</span>
+            </div>
+          )}
+
+          {/* 更新日志 */}
+          {result?.notes && (
+            <div className="px-4 py-3">
+              <div className="max-h-52 overflow-y-auto rounded-md border p-3 custom-scrollbar">
+                <MarkdownContent content={result.notes} />
+              </div>
+            </div>
+          )}
+
+          {result && !result.notes && (
+            <p className="px-4 pt-3 text-xs text-muted-foreground">
+              {t('settings.about.noReleaseNotes')}
+            </p>
+          )}
+
+          {/* 底部按钮 */}
+          <div className="flex items-center justify-end gap-2 border-t px-4 py-1">
+            <Button variant="outline" size="sm" onClick={() => setDialogOpen(false)}>
+              {t('common.cancel')}
+            </Button>
+            {hasUpdate && (
+              <Button size="sm" onClick={openDownloadPage}>
+                <i className="fa-solid fa-download mr-1.5 text-xs" />
+                {t('settings.about.downloadUpdate')}
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}

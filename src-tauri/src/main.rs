@@ -14,6 +14,13 @@ use tauri::{Emitter, Listener, Manager};
 use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_log::{Target, TargetKind};
 
+/// 在系统默认浏览器中打开指定 URL
+#[tauri::command]
+fn open_url(url: String) -> Result<(), String> {
+    tauri_plugin_opener::open_url(&url, None::<&str>)
+        .map_err(|e| format!("打开浏览器失败: {}", e))
+}
+
 // 供应商列表，用于托盘子菜单展示
 const PROVIDERS: &[(&str, &str)] = &[
     ("openai", "OpenAI"),
@@ -202,7 +209,8 @@ fn main() {
                 .build(),
         )
         .invoke_handler(tauri::generate_handler![
-
+            modules::update_version::check_update,
+            open_url,
             get_memory_usage,
             open_mini_panel,
             close_mini_panel,

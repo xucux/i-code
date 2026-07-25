@@ -39,6 +39,7 @@ import { useAvailableHeight } from '@/hooks/use-available-height'
 import { enable as autostartEnable, disable as autostartDisable } from '@tauri-apps/plugin-autostart'
 import { DateTimeRangePicker } from '@/components/ui/date-time-range-picker'
 import type { DateRange } from 'react-day-picker'
+import { UpdateCheck } from '@/modules/settings/ui/update-check'
 
 /**
  * 设置页面
@@ -521,7 +522,10 @@ function SettingsPage() {
             <Separator />
             <div className="flex items-center justify-between">
               <Label className="text-sm">{t('settings.about.version')}</Label>
-              <span className="text-xs text-muted-foreground tabular-nums">0.0.1</span>
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-muted-foreground tabular-nums">0.0.1</span>
+                <UpdateCheck />
+              </div>
             </div>
             <div className="flex items-center justify-between">
               <Label className="text-sm">{t('settings.about.basedOn')}</Label>

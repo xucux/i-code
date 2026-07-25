@@ -63,6 +63,7 @@
     "i18next": "^24.2.3",
     "i18next-browser-languagedetector": "^8.0.4",
     "lucide-react": "^0.487.0",
+    "marked": "^18.0.7",
     "mitt": "^3.0.1",
     "react": "^19.1.0",
     "react-day-picker": "^10.0.1",
@@ -77,6 +78,7 @@
     "zustand": "^5.0.3"
   },
   "devDependencies": {
+    "@tailwindcss/typography": "^0.5.20",
     "@tanstack/router-plugin": "^1.114.0",
     "@tauri-apps/cli": "~2.4.0",
     "@types/node": "^22.14.0",

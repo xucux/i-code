@@ -17,6 +17,7 @@
 //! - [`gateway_runtime`]：本地 HTTP 网关生命周期与请求路由
 //! - [`virtual_provider`]：虚拟供应商与模型故障转移
 //! - [`call_records`]：模型调用记录与统计
+//! - [`update_version`]：版本更新检查
 //!
 //! ## 跨模块调用规则
 //!
@@ -36,5 +37,6 @@ pub mod secret;
 pub mod settings;
 pub mod shared;
 pub mod tokenizer;
+pub mod update_version;
 pub mod virtual_provider;
 pub mod workspace;

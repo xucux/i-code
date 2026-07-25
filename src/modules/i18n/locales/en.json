@@ -112,12 +112,22 @@
       "clearSuccess": "Cleared {{count}} records"
     },
     "about": {
-      "title": "About",
+      "title": "About & Updates",
       "description": "Local AI Gateway & CLI configuration management center",
       "version": "Version",
       "basedOn": "Based on",
       "license": "License",
-      "licenseValue": "MIT"
+      "licenseValue": "MIT",
+      "checkUpdate": "Check for updates",
+      "updateAvailable": "Update Available",
+      "updateDescription": "i-code {{latest}} is now available (current: {{current}})",
+      "downloadUpdate": "Download Update",
+      "noReleaseNotes": "No release notes available.",
+      "upToDate": "Up to Date",
+      "upToDateDescription": "i-code {{current}} is the latest version.",
+      "betaWarning": "This is a preview (Beta) release. It may contain incomplete features.",
+      "currentVersion": "Current",
+      "latestVersion": "Latest"
     },
     "subtitle": "Application preferences",
     "globalProxy": "Global proxy",
