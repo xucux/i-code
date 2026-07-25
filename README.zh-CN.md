@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://github.com/xucux/i-code/releases">
-    <img src="https://img.shields.io/github/v/release/your-org/i-code?style=flat-square" alt="Release" />
+    <img src="https://img.shields.io/github/v/release/xucux/i-code?style=flat-square" alt="Release" />
   </a>
   <img src="https://img.shields.io/badge/Tauri-2.x-24C8D8?style=flat-square&logo=tauri" alt="Tauri 2.x" />
   <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react" alt="React 19" />
