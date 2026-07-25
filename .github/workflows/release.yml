@@ -38,7 +38,7 @@ jobs:
       version: ${{ steps.get_version.outputs.version }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       # 手动触发时强制校验 beta tag 格式，防止误操作发布非 beta 版本
       - name: Validate manual beta tag
@@ -71,17 +71,29 @@ jobs:
         id: get_version
         run: echo "version=${RELEASE_TAG#v}" >> $GITHUB_OUTPUT
 
+      # 从 CHANGELOG.md 中提取当前版本对应的章节，写入临时文件作为 Release body
+      # 避免将整个 changelog 历史全部带入发布说明
+      # Beta 版本会额外添加「预览版」说明标题
+      - name: Extract release body from CHANGELOG.md
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.get_version.outputs.version }}"
+          BETA_FLAG="${{ github.event_name == 'workflow_dispatch' && '--beta' || '' }}"
+          node .github/scripts/generate-latest-json.mjs \
+            --version="$VERSION" \
+            $BETA_FLAG \
+            --notes-only > release_body.md
+          echo "Extracted release body for v$VERSION, wrote $(wc -c < release_body.md) bytes"
+
       # 创建 draft Release，构建完成后由 tauri-action 上传产物
       - name: Create Release
         id: create_release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ env.RELEASE_TAG }}
           name: 'i-code ${{ env.RELEASE_TAG }}'
-          body: |
-            See the assets to download this version and install.
-
-            ⚠️ macOS 安装提示：如提示 `"应用程序"已损坏`，可运行 `xattr -cr /Applications/i-code.app` 解除隔离。
+          body_path: release_body.md
           draft: true
           prerelease: false
 
@@ -92,16 +104,16 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 22
 
@@ -160,7 +172,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -174,10 +186,10 @@ jobs:
           rustup target add aarch64-apple-darwin x86_64-apple-darwin
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 22
 
@@ -320,78 +332,14 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${TAG#v}"
-          PUB_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          base_url="https://github.com/$REPO/releases/download/$TAG"
-
-          # 初始化空平台映射
-          mac_intel_url=""; mac_intel_sig=""
-          mac_arm_url=""; mac_arm_sig=""
-          win_url=""; win_sig=""
-          linux_url=""; linux_sig=""
-
-          shopt -s nullglob
-          for sig in dl/*.sig; do
-            base=${sig%.sig}
-            fname=$(basename "$base")
-            url="$base_url/$fname"
-            sig_content=$(cat "$sig")
-
-            case "$fname" in
-              # macOS app bundles (Tauri auto-generated format: name_version_arch.app.tar.gz)
-              *aarch64*.app.tar.gz|*arm64*.app.tar.gz)
-                mac_arm_url="$url"; mac_arm_sig="$sig_content";;
-              *x64*.app.tar.gz|*x86_64*.app.tar.gz)
-                mac_intel_url="$url"; mac_intel_sig="$sig_content";;
-              # Linux AppImage
-              *.AppImage|*.appimage)
-                linux_url="$url"; linux_sig="$sig_content";;
-              # Windows installers (NSIS .exe preferred, fallback to MSI)
-              *-setup.exe)
-                win_url="$url"; win_sig="$sig_content";;
-              *.msi)
-                [ -z "$win_url" ] && { win_url="$url"; win_sig="$sig_content"; };;
-            esac
-          done
-
-          # 构造 JSON
-          tmp_json=$(mktemp)
-          {
-            echo '{'
-            echo "  \"version\": \"$VERSION\","
-            echo "  \"notes\": \"Release $TAG\","
-            echo "  \"pub_date\": \"$PUB_DATE\","
-            echo '  "platforms": {'
-            first=1
-
-            if [ -n "$mac_arm_url" ] && [ -n "$mac_arm_sig" ]; then
-              [ $first -eq 0 ] && echo ','
-              echo "    \"darwin-aarch64\": {\"signature\": \"$mac_arm_sig\", \"url\": \"$mac_arm_url\"}"
-              first=0
-            fi
-
-            if [ -n "$mac_intel_url" ] && [ -n "$mac_intel_sig" ]; then
-              [ $first -eq 0 ] && echo ','
-              echo "    \"darwin-x86_64\": {\"signature\": \"$mac_intel_sig\", \"url\": \"$mac_intel_url\"}"
-              first=0
-            fi
-
-            if [ -n "$win_url" ] && [ -n "$win_sig" ]; then
-              [ $first -eq 0 ] && echo ','
-              echo "    \"windows-x86_64\": {\"signature\": \"$win_sig\", \"url\": \"$win_url\"}"
-              first=0
-            fi
-
-            if [ -n "$linux_url" ] && [ -n "$linux_sig" ]; then
-              [ $first -eq 0 ] && echo ','
-              echo "    \"linux-x86_64\": {\"signature\": \"$linux_sig\", \"url\": \"$linux_url\"}"
-              first=0
-            fi
-
-            echo '  }'
-            echo '}'
-          } > "$tmp_json"
-          echo "Generated latest.json:" && cat "$tmp_json"
-          mv "$tmp_json" latest.json
+          BETA_FLAG="${{ github.event_name == 'workflow_dispatch' && '--beta' || '' }}"
+          node .github/scripts/generate-latest-json.mjs \
+            --version="$VERSION" \
+            --tag="$TAG" \
+            --repo="$REPO" \
+            --assets-dir="./dl" \
+            $BETA_FLAG
+          echo "Generated latest.json:" && cat latest.json
 
       # 将生成的 latest.json 上传到 Release，覆盖旧版本
       - name: Upload latest.json to release

@@ -10,7 +10,6 @@ const paths = {
   packageJson: path.join(rootDir, 'package.json'),
   tauriConf: path.join(rootDir, 'src-tauri', 'tauri.conf.json'),
   cargoToml: path.join(rootDir, 'src-tauri', 'Cargo.toml'),
-  versionJson: path.join(rootDir, 'version.json'),
   titleBar: path.join(rootDir, 'src', 'components', 'ui', 'title-bar.tsx'),
   settingsPage: path.join(rootDir, 'src', 'routes', 'settings.tsx'),
   agentsMd: path.join(rootDir, 'AGENTS.md'),
@@ -118,20 +117,14 @@ function syncStaticVersionRefs(oldVersion, newVersion) {
 /**
  * 解析命令行参数。
  * @param {string[]} argv
- * @returns {{ version?: string, notes?: string, date?: string, noHistory: boolean, help: boolean }}
+ * @returns {{ version?: string, help: boolean }}
  */
 function parseArgs(argv) {
-  const result = { noHistory: false, help: false }
+  const result = { help: false }
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]
     if (arg === '--help' || arg === '-h') {
       result.help = true
-    } else if (arg === '--notes' || arg === '-n') {
-      result.notes = argv[++i]
-    } else if (arg === '--date' || arg === '-d') {
-      result.date = argv[++i]
-    } else if (arg === '--no-history') {
-      result.noHistory = true
     } else if (!arg.startsWith('-') && !result.version) {
       result.version = arg
     }
@@ -151,69 +144,15 @@ function ask(rl, question) {
   })
 }
 
-/**
- * 多行输入，用户输入空行结束。
- * @param {readline.Interface} rl
- * @param {string} prompt
- * @returns {Promise<string>}
- */
-function askMultiline(rl, prompt) {
-  return new Promise((resolve) => {
-    console.log(prompt)
-    console.log('（连续输入空行结束；每行会自动转为列表项，也可直接输入 HTML）')
-    const lines = []
-    const promptLine = () => {
-      rl.question('> ', (line) => {
-        if (line === '' && lines.length > 0 && lines[lines.length - 1] === '') {
-          lines.pop()
-          const raw = lines.join('\n').trim()
-          resolve(raw)
-          return
-        }
-        lines.push(line)
-        promptLine()
-      })
-    }
-    promptLine()
-  })
-}
-
-/**
- * 将普通文本行转换为富文本 HTML；如果输入本身像 HTML，则原样返回。
- * @param {string} raw
- * @returns {string}
- */
-function toRichNotes(raw) {
-  const trimmed = raw.trim()
-  if (!trimmed) return ''
-  // 若用户已提供 HTML，直接保留
-  if (/^<[a-z][\s\S]*>$/i.test(trimmed)) {
-    return trimmed
-  }
-  // 否则按行拆分为无序列表
-  const items = trimmed
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-  if (items.length === 0) return ''
-  return `<ul>\n${items.map((item) => `  <li>${item}</li>`).join('\n')}\n</ul>`
-}
-
 function printUsage() {
   console.log(`用法：
-  node scripts/bump-version.mjs [version] [选项]
+  node scripts/bump-version.mjs [version]
 
 示例：
   node scripts/bump-version.mjs 0.3.0
-  node scripts/bump-version.mjs 0.3.0 --notes "修复若干 Bug"
-  node scripts/bump-version.mjs 0.3.0 --notes "<p>重要更新</p>" --date 2026-07-23
-  node scripts/bump-version.mjs --no-history 0.3.0
   pnpm version:bump
 
 选项：
-  --notes, -n     更新内容（支持 HTML 富文本；纯文本会自动转为 <ul><li>...）
-  --date, -d      发布日期，默认今天
-  --no-history    仅更新版本号，不追加历史记录
   --help, -h      显示帮助`)
 }
 
@@ -251,33 +190,7 @@ async function main() {
       process.exit(1)
     }
 
-    // 读取或创建 version.json
-    let versionInfo = { version: currentVersion, history: [] }
-    if (fs.existsSync(paths.versionJson)) {
-      try {
-        versionInfo = JSON.parse(fs.readFileSync(paths.versionJson, 'utf-8'))
-      } catch (err) {
-        console.warn('读取 version.json 失败，将重新创建。', err.message)
-      }
-    }
-
-    // 收集发布信息
-    let releaseDate = args.date || new Date().toISOString().slice(0, 10)
-    let notes = args.notes || ''
-
-    if (!args.noHistory) {
-      if (!args.date) {
-        const inputDate = await ask(rl, `发布日期（默认 ${releaseDate}）：`)
-        if (inputDate) releaseDate = inputDate
-      }
-      if (!args.notes) {
-        const inputNotes = await askMultiline(rl, `请输入 ${targetVersion} 的更新内容：`)
-        notes = toRichNotes(inputNotes)
-      } else {
-        notes = toRichNotes(notes)
-      }
-    }
-
+    // 更新到目标版本
     // 更新 package.json
     pkg.data.version = targetVersion
     writeJson(paths.packageJson, pkg.data, pkg.indent, pkg.trailing)
@@ -295,24 +208,6 @@ async function main() {
 
     // 同步散落在 UI 与文档中的硬编码版本号
     syncStaticVersionRefs(currentVersion, targetVersion)
-
-    // 更新 version.json
-    versionInfo.version = targetVersion
-    if (!args.noHistory) {
-      // 若已有同版本记录则替换，否则追加到头部
-      const existingIndex = versionInfo.history.findIndex((h) => h.version === targetVersion)
-      const entry = { version: targetVersion, date: releaseDate, notes }
-      if (existingIndex >= 0) {
-        versionInfo.history[existingIndex] = entry
-        console.log(`✓ version.json: 已替换 ${targetVersion} 的历史记录`)
-      } else {
-        versionInfo.history.unshift(entry)
-        console.log(`✓ version.json: 已追加 ${targetVersion} 的历史记录`)
-      }
-    } else {
-      console.log(`✓ version.json: 版本号已更新为 ${targetVersion}（未写入历史记录）`)
-    }
-    writeJson(paths.versionJson, versionInfo, '  ', '\n')
 
     console.log('\n版本更新完成。')
   } finally {
