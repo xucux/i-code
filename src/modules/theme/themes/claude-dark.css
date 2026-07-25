@@ -1,0 +1,35 @@
+.theme-claude-dark {
+  --background: 30 12% 9%;
+  --foreground: 30 15% 92%;
+  --card: 30 12% 11%;
+  --card-foreground: 30 15% 92%;
+  --popover: 30 12% 11%;
+  --popover-foreground: 30 15% 92%;
+  --primary: 25 78% 58%;
+  --primary-foreground: 30 12% 9%;
+  --secondary: 30 10% 17%;
+  --secondary-foreground: 30 15% 92%;
+  --muted: 30 10% 17%;
+  --muted-foreground: 30 10% 60%;
+  --accent: 30 10% 17%;
+  --accent-foreground: 30 15% 92%;
+  --destructive: 0 62.8% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 30 10% 20%;
+  --input: 30 10% 20%;
+  --ring: 25 78% 58%;
+  --radius: 0.75rem;
+  --chart-1: 25 78% 58%;
+  --chart-2: 160 60% 45%;
+  --chart-3: 30 80% 55%;
+  --chart-4: 280 65% 60%;
+  --chart-5: 340 75% 55%;
+  --sidebar-background: 30 12% 8%;
+  --sidebar-foreground: 30 15% 85%;
+  --sidebar-primary: 25 78% 58%;
+  --sidebar-primary-foreground: 30 12% 9%;
+  --sidebar-accent: 30 10% 16%;
+  --sidebar-accent-foreground: 30 15% 92%;
+  --sidebar-border: 30 10% 18%;
+  --sidebar-ring: 25 78% 58%;
+}

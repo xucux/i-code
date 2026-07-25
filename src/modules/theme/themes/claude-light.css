@@ -1,0 +1,35 @@
+.theme-claude-light {
+  --background: 30 25% 98%;
+  --foreground: 30 10% 10%;
+  --card: 30 20% 99%;
+  --card-foreground: 30 10% 10%;
+  --popover: 30 20% 99%;
+  --popover-foreground: 30 10% 10%;
+  --primary: 25 75% 47%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 30 15% 94%;
+  --secondary-foreground: 30 10% 15%;
+  --muted: 30 15% 94%;
+  --muted-foreground: 30 8% 45%;
+  --accent: 30 15% 94%;
+  --accent-foreground: 30 10% 15%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 30 15% 88%;
+  --input: 30 15% 88%;
+  --ring: 25 75% 47%;
+  --radius: 0.75rem;
+  --chart-1: 25 75% 47%;
+  --chart-2: 160 60% 45%;
+  --chart-3: 30 80% 55%;
+  --chart-4: 280 65% 60%;
+  --chart-5: 340 75% 55%;
+  --sidebar-background: 30 20% 97%;
+  --sidebar-foreground: 30 10% 20%;
+  --sidebar-primary: 25 75% 47%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 30 15% 93%;
+  --sidebar-accent-foreground: 30 10% 15%;
+  --sidebar-border: 30 15% 90%;
+  --sidebar-ring: 25 75% 47%;
+}

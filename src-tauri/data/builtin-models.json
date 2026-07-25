@@ -1,0 +1,2288 @@
+{
+  "version": "1.0.0",
+  "description": "i-code 内置模型预设。该文件随项目发版变更，不在运行时被用户修改，也不导入数据库。",
+  "models": [
+    {
+      "id": "doubao-seed-evolving",
+      "displayName": "Doubao Seed Evolving",
+      "family": "volcano",
+      "providerTypes": [
+        "openai-responses"
+      ],
+      "maxInputTokens": 256000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "high"
+      }
+    },
+    {
+      "id": "doubao-seed-2-1-pro-260628",
+      "displayName": "Doubao Seed 2.1 Pro",
+      "family": "volcano",
+      "providerTypes": [
+        "openai-responses"
+      ],
+      "maxInputTokens": 256000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "high"
+      }
+    },
+    {
+      "id": "doubao-seed-2-1-turbo-260628",
+      "displayName": "Doubao Seed 2.1 Turbo",
+      "family": "volcano",
+      "providerTypes": [
+        "openai-responses"
+      ],
+      "maxInputTokens": 256000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "high"
+      }
+    },
+    {
+      "id": "doubao-seed-2-0-pro-260215",
+      "displayName": "Doubao Seed 2.0 Pro",
+      "family": "volcano",
+      "providerTypes": [
+        "openai-responses"
+      ],
+      "maxInputTokens": 256000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "high"
+      }
+    },
+    {
+      "id": "doubao-seed-2-0-lite-260215",
+      "displayName": "Doubao Seed 2.0 Lite",
+      "family": "volcano",
+      "providerTypes": [
+        "openai-responses"
+      ],
+      "maxInputTokens": 256000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "high"
+      }
+    },
+    {
+      "id": "doubao-seed-2-0-mini-260215",
+      "displayName": "Doubao Seed 2.0 Mini",
+      "family": "volcano",
+      "providerTypes": [
+        "openai-responses"
+      ],
+      "maxInputTokens": 256000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "high"
+      }
+    },
+    {
+      "id": "doubao-seed-2-0-code-preview-260215",
+      "displayName": "Doubao Seed 2.0 Code Preview",
+      "family": "volcano",
+      "providerTypes": [
+        "openai-responses"
+      ],
+      "maxInputTokens": 256000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "high"
+      }
+    },
+    {
+      "id": "claude-fable-5",
+      "displayName": "Claude Fable 5",
+      "family": "anthropic",
+      "providerTypes": [
+        "anthropic",
+        "claude-code"
+      ],
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true,
+        "editTools": "multi-find-replace"
+      },
+      "thinking": {
+        "type": "auto",
+        "effort": "high",
+        "summary": "auto"
+      }
+    },
+    {
+      "id": "claude-mythos-5",
+      "displayName": "Claude Mythos 5",
+      "family": "anthropic",
+      "providerTypes": [
+        "anthropic",
+        "claude-code"
+      ],
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true,
+        "editTools": "multi-find-replace"
+      },
+      "thinking": {
+        "type": "auto",
+        "effort": "high",
+        "summary": "auto"
+      }
+    },
+    {
+      "id": "claude-sonnet-5",
+      "displayName": "Claude Sonnet 5",
+      "family": "anthropic",
+      "providerTypes": [
+        "anthropic",
+        "claude-code"
+      ],
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true,
+        "editTools": "multi-find-replace"
+      },
+      "thinking": {
+        "type": "auto",
+        "effort": "xhigh",
+        "summary": "auto"
+      }
+    },
+    {
+      "id": "claude-opus-4-8",
+      "displayName": "Claude Opus 4.8",
+      "family": "anthropic",
+      "providerTypes": [
+        "anthropic",
+        "claude-code"
+      ],
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true,
+        "editTools": "multi-find-replace"
+      },
+      "thinking": {
+        "type": "auto",
+        "effort": "max",
+        "summary": "auto"
+      }
+    },
+    {
+      "id": "claude-opus-4-7",
+      "displayName": "Claude Opus 4.7",
+      "family": "anthropic",
+      "providerTypes": [
+        "anthropic",
+        "claude-code"
+      ],
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true,
+        "editTools": "multi-find-replace"
+      },
+      "thinking": {
+        "type": "auto",
+        "effort": "max",
+        "summary": "auto"
+      }
+    },
+    {
+      "id": "claude-opus-4-6",
+      "displayName": "Claude Opus 4.6",
+      "family": "anthropic",
+      "providerTypes": [
+        "anthropic",
+        "openai-chat-completion",
+        "claude-code"
+      ],
+      "maxInputTokens": 200000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true,
+        "editTools": "multi-find-replace"
+      },
+      "thinking": {
+        "type": "auto",
+        "effort": "xhigh"
+      }
+    },
+    {
+      "id": "claude-sonnet-4-6",
+      "displayName": "Claude Sonnet 4.6",
+      "family": "anthropic",
+      "providerTypes": [
+        "openai-chat-completion",
+        "claude-code"
+      ],
+      "maxInputTokens": 200000,
+      "maxOutputTokens": 64000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true,
+        "editTools": "multi-find-replace"
+      },
+      "thinking": {
+        "type": "auto",
+        "effort": "high"
+      }
+    },
+    {
+      "id": "claude-opus-4-5",
+      "displayName": "Claude Opus 4.5",
+      "family": "anthropic",
+      "providerTypes": [
+        "anthropic",
+        "claude-code"
+      ],
+      "maxInputTokens": 200000,
+      "maxOutputTokens": 64000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true,
+        "editTools": "multi-find-replace"
+      },
+      "thinking": {
+        "type": "enabled",
+        "budgetTokens": 32000
+      }
+    },
+    {
+      "id": "claude-sonnet-4-5",
+      "displayName": "Claude Sonnet 4.5",
+      "family": "anthropic",
+      "providerTypes": [
+        "anthropic",
+        "claude-code"
+      ],
+      "maxInputTokens": 200000,
+      "maxOutputTokens": 64000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true,
+        "editTools": "multi-find-replace"
+      },
+      "thinking": {
+        "type": "enabled",
+        "budgetTokens": 16000
+      }
+    },
+    {
+      "id": "claude-haiku-4-5",
+      "displayName": "Claude Haiku 4.5",
+      "family": "anthropic",
+      "providerTypes": [
+        "anthropic",
+        "claude-code"
+      ],
+      "maxInputTokens": 200000,
+      "maxOutputTokens": 64000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true,
+        "editTools": "multi-find-replace"
+      },
+      "thinking": {
+        "type": "enabled",
+        "budgetTokens": 1024
+      }
+    },
+    {
+      "id": "gpt-5.6-sol",
+      "displayName": "GPT-5.6 Sol",
+      "family": "openai",
+      "providerTypes": [
+        "openai-responses"
+      ],
+      "maxInputTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": "openai",
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true,
+        "editTools": "apply-patch"
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "xhigh",
+        "mode": "standard",
+        "context": "auto"
+      }
+    },
+    {
+      "id": "gpt-5.6-terra",
+      "displayName": "GPT-5.6 Terra",
+      "family": "openai",
+      "providerTypes": [
+        "openai-responses"
+      ],
+      "maxInputTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": "openai",
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true,
+        "editTools": "apply-patch"
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "xhigh",
+        "mode": "standard",
+        "context": "auto"
+      }
+    },
+    {
+      "id": "gpt-5.6-luna",
+      "displayName": "GPT-5.6 Luna",
+      "family": "openai",
+      "providerTypes": [
+        "openai-responses"
+      ],
+      "maxInputTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": "openai",
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true,
+        "editTools": "apply-patch"
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "xhigh",
+        "mode": "standard",
+        "context": "auto"
+      }
+    },
+    {
+      "id": "gpt-5.4",
+      "displayName": "GPT-5.4",
+      "family": "openai",
+      "providerTypes": [
+        "openai-responses"
+      ],
+      "maxInputTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": "openai",
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true,
+        "editTools": "apply-patch"
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "xhigh"
+      }
+    },
+    {
+      "id": "gpt-5.4-pro",
+      "displayName": "GPT-5.4 pro",
+      "family": "openai",
+      "providerTypes": [
+        "openai-responses"
+      ],
+      "maxInputTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": "openai",
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true,
+        "editTools": "apply-patch"
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "xhigh"
+      }
+    },
+    {
+      "id": "gpt-5.4-mini",
+      "displayName": "GPT-5.4 Mini",
+      "family": "openai",
+      "providerTypes": [
+        "openai-responses"
+      ],
+      "maxInputTokens": 400000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": "openai",
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true,
+        "editTools": "apply-patch"
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "none"
+      }
+    },
+    {
+      "id": "gpt-5.4-nano",
+      "displayName": "GPT-5.4 Nano",
+      "family": "openai",
+      "providerTypes": [
+        "openai-responses"
+      ],
+      "maxInputTokens": 400000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": "openai",
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true,
+        "editTools": "apply-patch"
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "none"
+      }
+    },
+    {
+      "id": "gpt-5.3-codex",
+      "displayName": "GPT-5.3-Codex",
+      "family": "openai",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 400000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": "openai",
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true,
+        "editTools": "apply-patch"
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "xhigh",
+        "summary": "auto"
+      }
+    },
+    {
+      "id": "gpt-4.1",
+      "displayName": "GPT-4.1",
+      "family": "openai",
+      "providerTypes": [
+        "openai-responses"
+      ],
+      "maxInputTokens": 1047576,
+      "maxOutputTokens": 32768,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": "openai",
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": null
+    },
+    {
+      "id": "gpt-oss-120b",
+      "displayName": "GPT-OSS 120B",
+      "family": "openai",
+      "providerTypes": [
+        "openai-responses",
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 131072,
+      "maxOutputTokens": 131072,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": "openai",
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false,
+        "editTools": "apply-patch"
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "high"
+      }
+    },
+    {
+      "id": "gpt-oss-20b",
+      "displayName": "GPT-OSS 20B",
+      "family": "openai",
+      "providerTypes": [
+        "openai-responses"
+      ],
+      "maxInputTokens": 131072,
+      "maxOutputTokens": 131072,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": "openai",
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false,
+        "editTools": "apply-patch"
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "high"
+      }
+    },
+    {
+      "id": "MiniMax-M3",
+      "displayName": "MiniMax-M3",
+      "family": "minimax",
+      "providerTypes": [
+        "anthropic"
+      ],
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 102400,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "auto"
+      }
+    },
+    {
+      "id": "MiniMax-M2.7",
+      "displayName": "MiniMax-M2.7",
+      "family": "minimax",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 204800,
+      "maxOutputTokens": 102400,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": {
+        "type": "enabled"
+      }
+    },
+    {
+      "id": "MiniMax-M2.7-highspeed",
+      "displayName": "MiniMax-M2.7-Highspeed",
+      "family": "minimax",
+      "providerTypes": [
+        "anthropic"
+      ],
+      "maxInputTokens": 204800,
+      "maxOutputTokens": 102400,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": {
+        "type": "enabled"
+      }
+    },
+    {
+      "id": "MiniMax-M2.5",
+      "displayName": "MiniMax-M2.5",
+      "family": "minimax",
+      "providerTypes": [
+        "openai-chat-completion",
+        "anthropic"
+      ],
+      "maxInputTokens": 204800,
+      "maxOutputTokens": 102400,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": {
+        "type": "enabled"
+      }
+    },
+    {
+      "id": "MiniMax-M2.1",
+      "displayName": "MiniMax-M2.1",
+      "family": "minimax",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 204800,
+      "maxOutputTokens": 102400,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": {
+        "type": "enabled"
+      }
+    },
+    {
+      "id": "ernie-5.0",
+      "displayName": "ERNIE 5.0",
+      "family": "baidu",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 128000,
+      "maxOutputTokens": 65536,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": null
+    },
+    {
+      "id": "ernie-5.0-thinking-preview",
+      "displayName": "ERNIE 5.0 Thinking Preview",
+      "family": "baidu",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 128000,
+      "maxOutputTokens": 65536,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled"
+      }
+    },
+    {
+      "id": "ernie-4.5-turbo-128k",
+      "displayName": "ERNIE 4.5 Turbo 128K",
+      "family": "baidu",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 128000,
+      "maxOutputTokens": 12288,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": null
+    },
+    {
+      "id": "ernie-4.5-turbo-vl",
+      "displayName": "ERNIE 4.5 Turbo VL",
+      "family": "baidu",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 128000,
+      "maxOutputTokens": 16384,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": null
+    },
+    {
+      "id": "ernie-4.5-turbo-vl-preview",
+      "displayName": "ERNIE 4.5 Turbo VL Preview",
+      "family": "baidu",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 128000,
+      "maxOutputTokens": 16384,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": null
+    },
+    {
+      "id": "ernie-4.5-turbo-vl-32k-preview",
+      "displayName": "ERNIE 4.5 Turbo VL 32K Preview",
+      "family": "baidu",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 32000,
+      "maxOutputTokens": 16384,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": null
+    },
+    {
+      "id": "ernie-4.5-vl-28b-a3b",
+      "displayName": "ERNIE 4.5 VL 28B A3B",
+      "family": "baidu",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 32000,
+      "maxOutputTokens": 8192,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": null
+    },
+    {
+      "id": "ernie-speed-pro-128k",
+      "displayName": "ERNIE Speed Pro 128K",
+      "family": "baidu",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 128000,
+      "maxOutputTokens": 4096,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": null
+    },
+    {
+      "id": "ernie-lite-pro-128k",
+      "displayName": "ERNIE Lite Pro 128K",
+      "family": "baidu",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 128000,
+      "maxOutputTokens": 4096,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": null
+    },
+    {
+      "id": "qianfan-lightning-128b-a19b",
+      "displayName": "Qianfan Lightning 128B A19B",
+      "family": "openai",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 128000,
+      "maxOutputTokens": 16384,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": null
+    },
+    {
+      "id": "deepseek-v4-flash",
+      "displayName": "DeepSeek V4 Flash",
+      "family": "deepseek",
+      "providerTypes": [
+        "anthropic",
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 384000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": "deepseek",
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "max"
+      }
+    },
+    {
+      "id": "deepseek-v4-pro",
+      "displayName": "DeepSeek V4 Pro",
+      "family": "deepseek",
+      "providerTypes": [
+        "anthropic",
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 384000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": "deepseek",
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "max"
+      }
+    },
+    {
+      "id": "deepseek-v3.2",
+      "displayName": "DeepSeek V3.2",
+      "family": "deepseek",
+      "providerTypes": [
+        "openai-chat-completion",
+        "anthropic"
+      ],
+      "maxInputTokens": 128000,
+      "maxOutputTokens": 8000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": "deepseek",
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": {
+        "type": "enabled"
+      }
+    },
+    {
+      "id": "deepseek-v3",
+      "displayName": "DeepSeek V3",
+      "family": "deepseek",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 128000,
+      "maxOutputTokens": 8000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": "deepseek",
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": null
+    },
+    {
+      "id": "deepseek-v3-0324",
+      "displayName": "DeepSeek V3 (0324)",
+      "family": "deepseek",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 128000,
+      "maxOutputTokens": 8000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": "deepseek",
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": null
+    },
+    {
+      "id": "deepseek-r1-0528",
+      "displayName": "DeepSeek R1 (0528)",
+      "family": "deepseek",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 128000,
+      "maxOutputTokens": 32768,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": "deepseek",
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": {
+        "type": "enabled"
+      }
+    },
+    {
+      "id": "kimi-k3",
+      "displayName": "Kimi K3",
+      "family": "moonshot",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled"
+      }
+    },
+    {
+      "id": "kimi-k2.7-code",
+      "displayName": "Kimi K2.7 Code",
+      "family": "moonshot",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 256000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled"
+      }
+    },
+    {
+      "id": "kimi-k2.6",
+      "displayName": "Kimi K2.6",
+      "family": "moonshot",
+      "providerTypes": [
+        "anthropic",
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 256000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled"
+      }
+    },
+    {
+      "id": "kimi-k2.5",
+      "displayName": "Kimi K2.5",
+      "family": "moonshot",
+      "providerTypes": [
+        "openai-chat-completion",
+        "anthropic"
+      ],
+      "maxInputTokens": 256000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled"
+      }
+    },
+    {
+      "id": "kimi-k2-thinking",
+      "displayName": "Kimi K2 Thinking",
+      "family": "moonshot",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 256000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": {
+        "type": "enabled"
+      }
+    },
+    {
+      "id": "kimi-k2-0905-preview",
+      "displayName": "Kimi K2 0905 Preview",
+      "family": "moonshot",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 256000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": null
+    },
+    {
+      "id": "kimi-for-coding",
+      "displayName": "Kimi For Coding",
+      "family": "moonshot",
+      "providerTypes": [
+        "anthropic"
+      ],
+      "maxInputTokens": 262144,
+      "maxOutputTokens": 32768,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "medium"
+      }
+    },
+    {
+      "id": "qwen3.7-max",
+      "displayName": "Qwen3.7-Max",
+      "family": "alibaba",
+      "providerTypes": [
+        "openai-chat-completion",
+        "anthropic"
+      ],
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 64000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": {
+        "type": "enabled"
+      }
+    },
+    {
+      "id": "qwen3.7-plus",
+      "displayName": "Qwen3.7-Plus",
+      "family": "alibaba",
+      "providerTypes": [
+        "openai-chat-completion",
+        "anthropic"
+      ],
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 64000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled"
+      }
+    },
+    {
+      "id": "qwen3.6-plus",
+      "displayName": "Qwen3.6-Plus",
+      "family": "alibaba",
+      "providerTypes": [
+        "anthropic"
+      ],
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 64000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled"
+      }
+    },
+    {
+      "id": "qwen3.6-flash",
+      "displayName": "Qwen3.6-Flash",
+      "family": "alibaba",
+      "providerTypes": [
+        "openai-chat-completion",
+        "anthropic"
+      ],
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 64000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled"
+      }
+    },
+    {
+      "id": "qwen3.5-397b-a17b",
+      "displayName": "Qwen3.5-397B-A17B",
+      "family": "alibaba",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 262144,
+      "maxOutputTokens": 64000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled"
+      }
+    },
+    {
+      "id": "llama-3.1-8b",
+      "displayName": "Llama 3.1 8B",
+      "family": "meta",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 128000,
+      "maxOutputTokens": null,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": null
+    },
+    {
+      "id": "llama-3.3-70b",
+      "displayName": "Llama 3.3 70B",
+      "family": "meta",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 128000,
+      "maxOutputTokens": null,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": null
+    },
+    {
+      "id": "qwen3-32b",
+      "displayName": "Qwen3 32B",
+      "family": "alibaba",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 129024,
+      "maxOutputTokens": null,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": false,
+      "tokenizer": null,
+      "capabilities": {},
+      "thinking": {
+        "type": "enabled"
+      }
+    },
+    {
+      "id": "qwen3-235b-a22b-thinking-2507",
+      "displayName": "Qwen3 235B A22B Thinking 2507",
+      "family": "alibaba",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 126976,
+      "maxOutputTokens": 32768,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": false,
+      "tokenizer": null,
+      "capabilities": {},
+      "thinking": {
+        "type": "enabled"
+      }
+    },
+    {
+      "id": "qwen3-235b-a22b-instruct-2507",
+      "displayName": "Qwen3 235B A22B Instruct 2507",
+      "family": "alibaba",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 129024,
+      "maxOutputTokens": null,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": false,
+      "tokenizer": null,
+      "capabilities": {},
+      "thinking": null
+    },
+    {
+      "id": "qwen3-coder-480b-a35b-instruct",
+      "displayName": "Qwen3 Coder 480B A35B Instruct",
+      "family": "alibaba",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 262144,
+      "maxOutputTokens": 65536,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": null
+    },
+    {
+      "id": "mimo-v2.5-pro",
+      "displayName": "MiMo V2.5 Pro",
+      "family": "xiaomi",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": {
+        "type": "enabled"
+      }
+    },
+    {
+      "id": "mimo-v2.5",
+      "displayName": "MiMo V2.5",
+      "family": "xiaomi",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled"
+      }
+    },
+    {
+      "id": "glm-5.2",
+      "displayName": "GLM-5.2",
+      "family": "zhipu",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "max"
+      }
+    },
+    {
+      "id": "glm-5.1",
+      "displayName": "GLM-5.1",
+      "family": "zhipu",
+      "providerTypes": [
+        "anthropic",
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 200000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": {
+        "type": "enabled"
+      }
+    },
+    {
+      "id": "glm-5v-turbo",
+      "displayName": "GLM-5V-Turbo",
+      "family": "zhipu",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 200000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled"
+      }
+    },
+    {
+      "id": "glm-5-turbo",
+      "displayName": "GLM-5-Turbo",
+      "family": "zhipu",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 200000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": {
+        "type": "enabled"
+      }
+    },
+    {
+      "id": "glm-5",
+      "displayName": "GLM-5",
+      "family": "zhipu",
+      "providerTypes": [
+        "anthropic",
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 200000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": {
+        "type": "enabled"
+      }
+    },
+    {
+      "id": "glm-4.7",
+      "displayName": "GLM-4.7",
+      "family": "zhipu",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 200000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": {
+        "type": "enabled"
+      }
+    },
+    {
+      "id": "glm-4.7-flash",
+      "displayName": "GLM-4.7-Flash",
+      "family": "zhipu",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 200000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": {
+        "type": "enabled"
+      }
+    },
+    {
+      "id": "glm-4.7-flashx",
+      "displayName": "GLM-4.7-FlashX",
+      "family": "zhipu",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 200000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": {
+        "type": "enabled"
+      }
+    },
+    {
+      "id": "glm-4.6",
+      "displayName": "GLM-4.6",
+      "family": "zhipu",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 200000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": {
+        "type": "enabled"
+      }
+    },
+    {
+      "id": "glm-4.6v",
+      "displayName": "GLM-4.6V",
+      "family": "zhipu",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 128000,
+      "maxOutputTokens": 32768,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "budgetTokens": 8192
+      }
+    },
+    {
+      "id": "codegeex-4",
+      "displayName": "CodeGeeX-4",
+      "family": "openai",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 128000,
+      "maxOutputTokens": 32768,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": null
+    },
+    {
+      "id": "grok-4.5",
+      "displayName": "Grok 4.5",
+      "family": "xai",
+      "providerTypes": [
+        "openai-responses"
+      ],
+      "maxInputTokens": 500000,
+      "maxOutputTokens": 65536,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "high"
+      }
+    },
+    {
+      "id": "grok-4.3",
+      "displayName": "Grok 4.3",
+      "family": "xai",
+      "providerTypes": [
+        "openai-responses"
+      ],
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 65536,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "high"
+      }
+    },
+    {
+      "id": "grok-4.20-0309-reasoning",
+      "displayName": "Grok 4.20 0309 (Reasoning)",
+      "family": "xai",
+      "providerTypes": [
+        "openai-responses"
+      ],
+      "maxInputTokens": 2000000,
+      "maxOutputTokens": 1000000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": null
+    },
+    {
+      "id": "grok-4.20-0309-non-reasoning",
+      "displayName": "Grok 4.20 0309 (Non-Reasoning)",
+      "family": "xai",
+      "providerTypes": [
+        "openai-responses"
+      ],
+      "maxInputTokens": 2000000,
+      "maxOutputTokens": 1000000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": null
+    },
+    {
+      "id": "grok-4-1-fast-reasoning",
+      "displayName": "Grok 4.1 Fast (Reasoning)",
+      "family": "xai",
+      "providerTypes": [
+        "openai-responses"
+      ],
+      "maxInputTokens": 2000000,
+      "maxOutputTokens": 1000000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": null
+    },
+    {
+      "id": "grok-4-1-fast-non-reasoning",
+      "displayName": "Grok 4.1 Fast (Non-Reasoning)",
+      "family": "xai",
+      "providerTypes": [
+        "openai-responses"
+      ],
+      "maxInputTokens": 2000000,
+      "maxOutputTokens": 1000000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": null
+    },
+    {
+      "id": "grok-code-fast-1",
+      "displayName": "Grok Code Fast 1",
+      "family": "xai",
+      "providerTypes": [
+        "openai-responses"
+      ],
+      "maxInputTokens": 256000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": null
+    },
+    {
+      "id": "grok-4",
+      "displayName": "Grok 4",
+      "family": "xai",
+      "providerTypes": [
+        "openai-responses"
+      ],
+      "maxInputTokens": 256000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": null
+    },
+    {
+      "id": "gemini-3.5-flash",
+      "displayName": "Gemini 3.5 Flash",
+      "family": "gemini",
+      "providerTypes": [
+        "google-ai-studio",
+        "google-vertex-ai"
+      ],
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65535,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "medium"
+      }
+    },
+    {
+      "id": "gemini-3.1-pro-preview",
+      "displayName": "Gemini 3.1 Pro Preview",
+      "family": "gemini",
+      "providerTypes": [
+        "google-ai-studio",
+        "google-vertex-ai",
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65535,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "high"
+      }
+    },
+    {
+      "id": "gemini-3.1-flash-lite-preview",
+      "displayName": "Gemini 3.1 Flash Lite Preview",
+      "family": "gemini",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65535,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "high"
+      }
+    },
+    {
+      "id": "gemini-3-pro-preview",
+      "displayName": "Gemini 3 Pro Preview",
+      "family": "gemini",
+      "providerTypes": [
+        "google-ai-studio",
+        "google-vertex-ai"
+      ],
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65535,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "high"
+      }
+    },
+    {
+      "id": "gemini-3-flash-preview",
+      "displayName": "Gemini 3 Flash Preview",
+      "family": "gemini",
+      "providerTypes": [
+        "google-ai-studio",
+        "google-vertex-ai",
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65536,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "high"
+      }
+    },
+    {
+      "id": "gemini-2.5-pro",
+      "displayName": "Gemini 2.5 Pro",
+      "family": "gemini",
+      "providerTypes": [
+        "google-ai-studio",
+        "google-vertex-ai"
+      ],
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65536,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "auto"
+      }
+    },
+    {
+      "id": "gemini-2.5-flash",
+      "displayName": "Gemini 2.5 Flash",
+      "family": "gemini",
+      "providerTypes": [
+        "google-ai-studio",
+        "google-vertex-ai"
+      ],
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65536,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "auto"
+      }
+    },
+    {
+      "id": "gemini-2.5-flash-lite",
+      "displayName": "Gemini 2.5 Flash-Lite",
+      "family": "gemini",
+      "providerTypes": [
+        "google-ai-studio",
+        "google-vertex-ai"
+      ],
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65536,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "disabled"
+      }
+    },
+    {
+      "id": "gemini-2.0-flash",
+      "displayName": "Gemini 2.0 Flash",
+      "family": "gemini",
+      "providerTypes": [
+        "google-ai-studio",
+        "google-vertex-ai"
+      ],
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 8192,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": null
+    },
+    {
+      "id": "gemini-2.0-flash-lite",
+      "displayName": "Gemini 2.0 Flash-Lite",
+      "family": "gemini",
+      "providerTypes": [
+        "google-ai-studio",
+        "google-vertex-ai"
+      ],
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 8192,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": null
+    },
+    {
+      "id": "hy3",
+      "displayName": "Hy3",
+      "family": "tencent",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 256000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "high"
+      }
+    },
+    {
+      "id": "LongCat-2.0",
+      "displayName": "LongCat 2.0",
+      "family": "openai",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": {
+        "type": "enabled"
+      }
+    },
+    {
+      "id": "kat-coder-pro-v2",
+      "displayName": "KAT-Coder-Pro V2",
+      "family": "vanchin",
+      "providerTypes": [
+        "openai-chat-completion",
+        "anthropic"
+      ],
+      "maxInputTokens": 256000,
+      "maxOutputTokens": 80000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": null
+    },
+    {
+      "id": "kat-coder-pro-v1",
+      "displayName": "KAT-Coder-Pro V1",
+      "family": "vanchin",
+      "providerTypes": [
+        "openai-chat-completion",
+        "anthropic"
+      ],
+      "maxInputTokens": 256000,
+      "maxOutputTokens": 32000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": null
+    },
+    {
+      "id": "kat-coder-exp-72b-1010",
+      "displayName": "KAT-Coder-Exp-72B-1010",
+      "family": "vanchin",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 128000,
+      "maxOutputTokens": 32000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": null
+    },
+    {
+      "id": "kat-coder-air-v1",
+      "displayName": "KAT-Coder-Air V1",
+      "family": "vanchin",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 128000,
+      "maxOutputTokens": 32000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": null
+    },
+    {
+      "id": "step-2-mini",
+      "displayName": "Step 2 Mini",
+      "family": "stepfun",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 32000,
+      "maxOutputTokens": 32000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": null
+    },
+    {
+      "id": "step-1o-turbo-vision",
+      "displayName": "Step 1o Turbo Vision",
+      "family": "stepfun",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 32000,
+      "maxOutputTokens": 32000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": false,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": false,
+        "imageInput": true
+      },
+      "thinking": null
+    },
+    {
+      "id": "step-3.5-flash",
+      "displayName": "Step 3.5 Flash",
+      "family": "stepfun",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 256000,
+      "maxOutputTokens": null,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": {
+        "type": "enabled"
+      }
+    }
+  ]
+}

@@ -1,0 +1,94 @@
+[package]
+name = "i-code"
+version = "0.0.1"
+description = "Local AI Gateway & CLI Config Manager"
+authors = ["i-code"]
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2.2.0", features = [] }
+
+[dependencies]
+# ===== Tauri 框架与官方插件 =====
+tauri = { version = "2.4.0", features = ["tray-icon"] }
+tauri-plugin-shell = "2.2.0"
+tauri-plugin-autostart = "2.0.0"
+tauri-plugin-process = "2.2.0"
+# tauri-plugin-store = "2.2.0"  # 预留：用于非敏感的应用偏好持久化（如迷你面板尺寸）
+
+# ===== 序列化与类型生成 =====
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+json5 = "0.4"
+toml = "0.8"
+# Rust struct → TypeScript 类型自动生成，保持前后端类型一致
+ts-rs = { version = "10", features = ["chrono-impl", "uuid-impl", "no-serde-warnings"] }
+
+# ===== 数据库 =====
+# SQLite 驱动，bundled 特性内置 SQLite 二进制，避免依赖系统 SQLite
+rusqlite = { version = "0.32", features = ["bundled", "chrono", "backup"] }
+r2d2 = "0.8"
+r2d2_sqlite = "0.25"
+# reflink 用于备份时快速复制数据库文件（写时复制）
+reflink = "0.1"
+
+# ===== 异步运行时与 HTTP 客户端 =====
+tokio = { version = "1.0", features = ["full"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls", "socks"] }
+# futures 用于流式响应处理
+futures = "0.3"
+
+# ===== 本地 HTTP 网关 Server =====
+axum = { version = "0.7", features = ["macros"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "trace", "limit"] }
+hyper = { version = "1", features = ["full"] }
+
+# ===== 加密与安全 =====
+# AES-GCM 用于本地加密存储敏感数据
+aes-gcm = "0.10"
+# 生成随机数与密钥
+rand = "0.8"
+# 密钥派生（从用户密码派生加密密钥）
+pbkdf2 = "0.12"
+hmac = "0.12"
+sha2 = "0.10"
+# base64 编解码（用于配置导入/导出）
+base64 = "0.22"
+hex = "0.4"
+
+# ===== 通用工具 =====
+# UUID 生成（保留给运行时随机 token / 请求 ID 等非表主键场景）
+uuid = { version = "1", features = ["v4", "serde"] }
+# 雪花 ID 生成（数据库表主键）
+rs-snowflake = "0.6"
+# 时间戳处理
+chrono = { version = "0.4", features = ["serde"] }
+# 异步 trait 支持
+async-trait = "0.1"
+# 错误链
+thiserror = "1.0"
+anyhow = "1.0"
+# 日志门面（tauri-plugin-log 依赖 log crate 作为后端日志接口）
+log = "0.4"
+# Tauri 官方日志插件：统一输出到终端、WebView 控制台、日志文件
+tauri-plugin-log = "2.8.0"
+# 正则（用于内置模型别名匹配、Secret 引用扫描）
+regex = "1"
+# once_cell 用于全局静态初始化
+once_cell = "1"
+# 系统信息（内存监控）
+sysinfo = "0.33"
+# 目录路径处理
+dirs = "5"
+# 在 PATH 中查找可执行文件
+which = "7"
+# zip 备份压缩
+zip = "2"
+# WebDAV PROPFIND XML 解析
+quick-xml = "0.36"
+# tiktoken BPE 分词器（纯 Rust 实现，支持 OpenAI / DeepSeek / Llama3 等编码）
+tiktoken = "3"
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]

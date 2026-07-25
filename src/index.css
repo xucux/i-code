@@ -1,0 +1,79 @@
+@import './modules/theme/themes/light.css';
+@import './modules/theme/themes/dark.css';
+@import './modules/theme/themes/claude-light.css';
+@import './modules/theme/themes/claude-dark.css';
+@import './modules/theme/themes/deepseek-light.css';
+@import './modules/theme/themes/deepseek-dark.css';
+
+/* 引入 Font Awesome Free 图标字体 */
+@import '@fortawesome/fontawesome-free/css/all.min.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    @apply antialiased;
+  }
+
+  body {
+    @apply bg-background text-foreground min-h-screen;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* 迷你面板原生 range 滑块样式 */
+  .mini-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    background: hsl(var(--muted));
+    border-radius: 9999px;
+    outline: none;
+  }
+  .mini-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: hsl(var(--primary));
+    cursor: pointer;
+  }
+  .mini-slider::-moz-range-thumb {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: hsl(var(--primary));
+    cursor: pointer;
+    border: none;
+  }
+
+  /* 修复 Radix ScrollArea Viewport 内部 display:table 包裹层问题 */
+  [data-radix-scroll-area-viewport] > div {
+
+  display: block !important;
+
+  }
+}
+
+@layer utilities {
+  /* 与 ScrollPage 组件一致的原生滚动条主题样式 */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.3);
+    border-radius: 9999px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.5);
+  }
+}

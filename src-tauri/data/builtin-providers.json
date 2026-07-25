@@ -1,0 +1,1166 @@
+{
+  "version": "1.0.0",
+  "description": "i-code 内置供应商预设。该文件随项目发版变更，不在运行时被用户修改，也不导入数据库。",
+  "providers": [
+    {
+      "id": "openai",
+      "displayName": "Open AI",
+      "category": "General",
+      "providerType": "openai-responses",
+      "baseUrl": "https://api.openai.com/v1",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 0,
+      "displayCnName": "OpenAI"
+    },
+    {
+      "id": "google-ai-studio",
+      "displayName": "Google AI Studio",
+      "category": "General",
+      "providerType": "google-ai-studio",
+      "baseUrl": "https://generativelanguage.googleapis.com/v1beta",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 1,
+      "displayCnName": "Google AI Studio"
+    },
+    {
+      "id": "google-vertex-ai",
+      "displayName": "Google Vertex AI",
+      "category": "General",
+      "providerType": "google-vertex-ai",
+      "baseUrl": "https://{region}-aiplatform.googleapis.com/v1",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "google-vertex-ai-auth"
+      ],
+      "defaultAuth": {
+        "method": "google-vertex-ai-auth",
+        "subType": "google-vertex-ai",
+        "projectId": ""
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 2,
+      "displayCnName": "Google Vertex AI"
+    },
+    {
+      "id": "anthropic",
+      "displayName": "Anthropic",
+      "category": "General",
+      "providerType": "anthropic",
+      "baseUrl": "https://api.anthropic.com",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 3,
+      "displayCnName": "Anthropic"
+    },
+    {
+      "id": "xai",
+      "displayName": "xAI",
+      "category": "General",
+      "providerType": "openai-responses",
+      "baseUrl": "https://api.x.ai",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 4,
+      "displayCnName": "xAI"
+    },
+    {
+      "id": "hugging-face-inference-providers",
+      "displayName": "Hugging Face (Inference Providers)",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://router.huggingface.co/v1",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 5,
+      "displayCnName": "Hugging Face 推理服务"
+    },
+    {
+      "id": "openrouter",
+      "displayName": "OpenRouter",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 6,
+      "displayCnName": "OpenRouter"
+    },
+    {
+      "id": "synthetic",
+      "displayName": "Synthetic",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://api.synthetic.new/openai/v1",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 7,
+      "displayCnName": ""
+    },
+    {
+      "id": "aihubmix",
+      "displayName": "AIHubMix",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://aihubmix.com/v1",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 8,
+      "displayCnName": "AIHubMix"
+    },
+    {
+      "id": "cerebras",
+      "displayName": "Cerebras",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://api.cerebras.ai",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 9,
+      "displayCnName": "Cerebras"
+    },
+    {
+      "id": "opencode-zen-openai-chat-completion",
+      "displayName": "OpenCode Zen (OpenAI Chat Completion)",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://opencode.ai/zen",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": true,
+      "sortOrder": 10,
+      "displayCnName": "OpenCode Zen (OpenAI Chat)"
+    },
+    {
+      "id": "opencode-zen-openai-responses",
+      "displayName": "OpenCode Zen (OpenAI Responses)",
+      "category": "General",
+      "providerType": "openai-responses",
+      "baseUrl": "https://opencode.ai/zen",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": true,
+      "sortOrder": 11,
+      "displayCnName": "OpenCode Zen (OpenAI Responses)"
+    },
+    {
+      "id": "opencode-zen-anthropic-messages",
+      "displayName": "OpenCode Zen (Anthropic Messages)",
+      "category": "General",
+      "providerType": "anthropic",
+      "baseUrl": "https://opencode.ai/zen",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": true,
+      "sortOrder": 12,
+      "displayCnName": "OpenCode Zen (Anthropic)"
+    },
+    {
+      "id": "opencode-zen-gemini",
+      "displayName": "OpenCode Zen (Gemini)",
+      "category": "General",
+      "providerType": "google-ai-studio",
+      "baseUrl": "https://opencode.ai/zen",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": true,
+      "sortOrder": 13,
+      "displayCnName": "OpenCode Zen (Gemini)"
+    },
+    {
+      "id": "opencode-go-openai-chat-completion",
+      "displayName": "OpenCode Go (OpenAI Chat Completion)",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://opencode.ai/zen/go/v1",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": true,
+      "sortOrder": 14,
+      "displayCnName": "OpenCode Go (OpenAI Chat)"
+    },
+    {
+      "id": "opencode-go-anthropic-messages",
+      "displayName": "OpenCode Go (Anthropic Messages)",
+      "category": "General",
+      "providerType": "anthropic",
+      "baseUrl": "https://opencode.ai/zen/go/v1",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": true,
+      "sortOrder": 15,
+      "displayCnName": "OpenCode Go (Anthropic)"
+    },
+    {
+      "id": "nvidia",
+      "displayName": "Nvidia",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://integrate.api.nvidia.com/v1",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 16,
+      "displayCnName": "英伟达"
+    },
+    {
+      "id": "alibaba-cloud-model-studio-china",
+      "displayName": "Alibaba Cloud Model Studio (China)",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 17,
+      "displayCnName": "阿里云百炼（国内）"
+    },
+    {
+      "id": "alibaba-cloud-model-studio-team-token-plan",
+      "displayName": "Alibaba Cloud Model Studio (Team Token Plan)",
+      "category": "General",
+      "providerType": "anthropic",
+      "baseUrl": "https://token-plan.cn-beijing.maas.aliyuncs.com/apps/anthropic",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 18,
+      "displayCnName": "阿里云百炼（团队Token版）"
+    },
+    {
+      "id": "alibaba-cloud-model-studio-international",
+      "displayName": "Alibaba Cloud Model Studio (International)",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 19,
+      "displayCnName": "阿里云百炼（国际）"
+    },
+    {
+      "id": "tencent-cloud-tokenhub-china",
+      "displayName": "Tencent Cloud TokenHub (China)",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://tokenhub.tencentmaas.com",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 20,
+      "displayCnName": "腾讯云 TokenHub（国内）"
+    },
+    {
+      "id": "tencent-cloud-tokenhub-international",
+      "displayName": "Tencent Cloud TokenHub (International)",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://tokenhub-intl.tencentmaas.com",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 21,
+      "displayCnName": "腾讯云 TokenHub（国际）"
+    },
+    {
+      "id": "tencent-cloud-tokenhub-personal-token-plan",
+      "displayName": "Tencent Cloud TokenHub (Personal Token Plan)",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://api.lkeap.cloud.tencent.com/plan/v3",
+      "useRawBaseUrl": true,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 22,
+      "displayCnName": "腾讯云 TokenHub（个人Token版）"
+    },
+    {
+      "id": "tencent-cloud-token-plan-enterprise",
+      "displayName": "Tencent Cloud Token Plan (Enterprise)",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://tokenhub.tencentmaas.com/plan/v3",
+      "useRawBaseUrl": true,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 23,
+      "displayCnName": "腾讯云 Token（企业版）"
+    },
+    {
+      "id": "model-scope-api-inference",
+      "displayName": "Model Scope (API-Inference)",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://api-inference.modelscope.cn/v1",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 24,
+      "displayCnName": "魔搭社区（API推理）"
+    },
+    {
+      "id": "baidu-qianfan",
+      "displayName": "Baidu Qianfan",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://qianfan.baidubce.com/v2",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 25,
+      "displayCnName": "百度千帆"
+    },
+    {
+      "id": "baidu-qianfan-coding-plan",
+      "displayName": "Baidu Qianfan (Coding Plan)",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://qianfan.baidubce.com/v2/coding",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 26,
+      "displayCnName": "百度千帆（编程版）"
+    },
+    {
+      "id": "cline-bot",
+      "displayName": "Cline Bot",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://api.cline.bot/api/v1",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 27,
+      "displayCnName": "Cline Bot"
+    },
+    {
+      "id": "volcano-engine",
+      "displayName": "Volcano Engine",
+      "category": "General",
+      "providerType": "openai-responses",
+      "baseUrl": "https://ark.cn-beijing.volces.com/api/v3",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 28,
+      "displayCnName": "火山引擎"
+    },
+    {
+      "id": "volcano-engine-agent-plan",
+      "displayName": "Volcano Engine (Agent Plan)",
+      "category": "General",
+      "providerType": "openai-responses",
+      "baseUrl": "https://ark.cn-beijing.volces.com/api/plan/v3",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": true,
+      "sortOrder": 29,
+      "displayCnName": "火山引擎（Agent版）"
+    },
+    {
+      "id": "volcano-engine-coding-plan",
+      "displayName": "Volcano Engine (Coding Plan)",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://ark.cn-beijing.volces.com/api/coding/v3",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": true,
+      "sortOrder": 30,
+      "displayCnName": "火山引擎（编程版）"
+    },
+    {
+      "id": "byte-plus",
+      "displayName": "Byte Plus",
+      "category": "General",
+      "providerType": "openai-responses",
+      "baseUrl": "https://ark.ap-southeast.bytepluses.com/api/v3",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 31,
+      "displayCnName": "BytePlus"
+    },
+    {
+      "id": "byte-plus-coding-plan",
+      "displayName": "Byte Plus (Coding Plan)",
+      "category": "General",
+      "providerType": "openai-responses",
+      "baseUrl": "https://ark.ap-southeast.bytepluses.com/api/coding/v3",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": true,
+      "sortOrder": 32,
+      "displayCnName": "BytePlus（编程版）"
+    },
+    {
+      "id": "deepseek",
+      "displayName": "DeepSeek",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://api.deepseek.com",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 33,
+      "displayCnName": "深度求索"
+    },
+    {
+      "id": "gitee-ai",
+      "displayName": "Gitee AI",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://ai.gitee.com/v1",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 34,
+      "displayCnName": "Gitee AI"
+    },
+    {
+      "id": "xiaomi-mimo",
+      "displayName": "Xiaomi MIMO",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://api.xiaomimimo.com/v1",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 35,
+      "displayCnName": "小米 MIMO"
+    },
+    {
+      "id": "xiaomi-mimo-china-token-plan",
+      "displayName": "Xiaomi MIMO (China, Token Plan)",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://token-plan-cn.xiaomimimo.com/v1",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 36,
+      "displayCnName": "小米 MIMO（国内Token版）"
+    },
+    {
+      "id": "xiaomi-mimo-singapore-token-plan",
+      "displayName": "Xiaomi MIMO (Singapore, Token Plan)",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://token-plan-sgp.xiaomimimo.com/v1",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 37,
+      "displayCnName": "小米 MIMO（新加坡Token版）"
+    },
+    {
+      "id": "xiaomi-mimo-europe-token-plan",
+      "displayName": "Xiaomi MIMO (Europe, Token Plan)",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://token-plan-ams.xiaomimimo.com/v1",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 38,
+      "displayCnName": "小米 MIMO（欧洲Token版）"
+    },
+    {
+      "id": "stepfun-china",
+      "displayName": "StepFun (China)",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://api.stepfun.com/v1",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 39,
+      "displayCnName": "阶跃星辰（国内）"
+    },
+    {
+      "id": "stepfun-international",
+      "displayName": "StepFun (International)",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://api.stepfun.ai/v1",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 40,
+      "displayCnName": "阶跃星辰（国际）"
+    },
+    {
+      "id": "ollama",
+      "displayName": "Ollama Local",
+      "category": "General",
+      "providerType": "ollama",
+      "baseUrl": "http://127.0.0.1:11434",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "none"
+      ],
+      "defaultAuth": {
+        "method": "none"
+      },
+      "autoFetchOfficialModels": true,
+      "sortOrder": 41,
+      "displayCnName": "Ollama 本地"
+    },
+    {
+      "id": "ollama-cloud",
+      "displayName": "Ollama Cloud",
+      "category": "General",
+      "providerType": "ollama",
+      "baseUrl": "https://ollama.com/api",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 42,
+      "displayCnName": "Ollama 云端"
+    },
+    {
+      "id": "zhipu-ai",
+      "displayName": "ZhiPu AI",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://open.bigmodel.cn/api/paas/v4",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 43,
+      "displayCnName": "智谱 AI"
+    },
+    {
+      "id": "zhipu-ai-coding-plan",
+      "displayName": "ZhiPu AI (Coding Plan)",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://open.bigmodel.cn/api/coding/paas/v4",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 44,
+      "displayCnName": "智谱 AI（编程版）"
+    },
+    {
+      "id": "zai",
+      "displayName": "Z.AI",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://api.z.ai/api/paas/v4",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 45,
+      "displayCnName": "Z.AI"
+    },
+    {
+      "id": "zai-coding-plan",
+      "displayName": "Z.AI (Coding Plan)",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://api.z.ai/api/coding/paas/v4",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 46,
+      "displayCnName": "Z.AI（编程版）"
+    },
+    {
+      "id": "minimax-china",
+      "displayName": "MiniMax (China)",
+      "category": "General",
+      "providerType": "anthropic",
+      "baseUrl": "https://api.minimaxi.com/anthropic",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 47,
+      "displayCnName": "MiniMax（国内）"
+    },
+    {
+      "id": "minimax-international",
+      "displayName": "MiniMax (International)",
+      "category": "General",
+      "providerType": "anthropic",
+      "baseUrl": "https://api.minimax.io/anthropic",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 48,
+      "displayCnName": "MiniMax（国际）"
+    },
+    {
+      "id": "longcat",
+      "displayName": "LongCat",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://api.longcat.chat/openai",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 49,
+      "displayCnName": "美团 龙猫"
+    },
+    {
+      "id": "moonshot",
+      "displayName": "Moonshot AI (China)",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://api.moonshot.cn",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 50,
+      "displayCnName": "月之暗面（国内）"
+    },
+    {
+      "id": "moonshot-international",
+      "displayName": "Moonshot AI (International)",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://api.moonshot.ai",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 51,
+      "displayCnName": "月之暗面（国际）"
+    },
+    {
+      "id": "moonshot-ai-coding-plan",
+      "displayName": "Moonshot AI (Coding Plan)",
+      "category": "General",
+      "providerType": "anthropic",
+      "baseUrl": "https://api.kimi.com/coding",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 52,
+      "displayCnName": "月之暗面（编程版）"
+    },
+    {
+      "id": "siliconflow-china",
+      "displayName": "SiliconFlow (China)",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://api.siliconflow.cn/v1",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 53,
+      "displayCnName": "硅基流动（国内）"
+    },
+    {
+      "id": "siliconflow-international",
+      "displayName": "SiliconFlow (International)",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://api.siliconflow.com/v1",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 54,
+      "displayCnName": "硅基流动（国际）"
+    },
+    {
+      "id": "streamlake-vanchin-china",
+      "displayName": "StreamLake Vanchin (China)",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://wanqing.streamlakeapi.com/api/gateway/v1/endpoints",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 55,
+      "displayCnName": "StreamLake 万兴（国内）"
+    },
+    {
+      "id": "streamlake-vanchin-china-coding-plan",
+      "displayName": "StreamLake Vanchin (China, Coding Plan)",
+      "category": "General",
+      "providerType": "anthropic",
+      "baseUrl": "https://wanqing.streamlakeapi.com/api/gateway/coding/kat-coder-pro-v1/claude-code-proxy",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 56,
+      "displayCnName": "StreamLake 万兴（国内编程版）"
+    },
+    {
+      "id": "streamlake-vanchin-international",
+      "displayName": "StreamLake Vanchin (International)",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://vanchin.streamlake.ai/api/gateway/v1/endpoints",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 57,
+      "displayCnName": "StreamLake 万兴（国际）"
+    },
+    {
+      "id": "streamlake-vanchin-international-coding-plan",
+      "displayName": "StreamLake Vanchin (International, Coding Plan)",
+      "category": "General",
+      "providerType": "anthropic",
+      "baseUrl": "https://vanchin.streamlake.ai/api/gateway/coding/kat-coder-pro-v1/claude-code-proxy",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 58,
+      "displayCnName": "StreamLake 万兴（国际编程版）"
+    },
+    {
+      "id": "openai-codex-chatgpt-pluspro",
+      "displayName": "OpenAI Codex (ChatGPT Plus/Pro)",
+      "category": "Experimental",
+      "providerType": "openai-codex",
+      "baseUrl": "https://chatgpt.com/backend-api/codex/responses",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key",
+        "openai-codex"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": true,
+      "sortOrder": 59,
+      "displayCnName": "OpenAI Codex (ChatGPT Plus/Pro)"
+    },
+    {
+      "id": "xai-grok-build-supergrok-x-premium",
+      "displayName": "xAI Grok Build (SuperGrok / X Premium+)",
+      "category": "Experimental",
+      "providerType": "xai-grok-build",
+      "baseUrl": "https://api.x.ai",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "xai-grok-oauth"
+      ],
+      "defaultAuth": {
+        "method": "xai-grok-oauth"
+      },
+      "autoFetchOfficialModels": true,
+      "sortOrder": 60,
+      "displayCnName": "xAI Grok Build (SuperGrok / X Premium+)"
+    },
+    {
+      "id": "github-copilot",
+      "displayName": "GitHub Copilot",
+      "category": "Experimental",
+      "providerType": "github-copilot",
+      "baseUrl": "https://api.githubcopilot.com",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "github-copilot"
+      ],
+      "defaultAuth": {
+        "method": "github-copilot"
+      },
+      "autoFetchOfficialModels": true,
+      "sortOrder": 61,
+      "displayCnName": "GitHub Copilot"
+    },
+    {
+      "id": "google-antigravity",
+      "displayName": "Google Antigravity",
+      "category": "Experimental",
+      "providerType": "google-antigravity",
+      "baseUrl": "https://daily-cloudcode-pa.sandbox.googleapis.com",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "antigravity-oauth"
+      ],
+      "defaultAuth": {
+        "method": "antigravity-oauth"
+      },
+      "autoFetchOfficialModels": true,
+      "sortOrder": 62,
+      "displayCnName": "Google Antigravity"
+    },
+    {
+      "id": "google-gemini-cli",
+      "displayName": "Google Gemini CLI",
+      "category": "Experimental",
+      "providerType": "google-gemini-cli",
+      "baseUrl": "https://cloudcode-pa.googleapis.com",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "google-gemini-oauth"
+      ],
+      "defaultAuth": {
+        "method": "google-gemini-oauth"
+      },
+      "autoFetchOfficialModels": true,
+      "sortOrder": 63,
+      "displayCnName": "Google Gemini CLI"
+    },
+    {
+      "id": "claude-code",
+      "displayName": "Claude Code",
+      "category": "Experimental",
+      "providerType": "claude-code",
+      "baseUrl": "https://api.anthropic.com",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key",
+        "claude-code"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 64,
+      "displayCnName": "Claude Code"
+    },
+    {
+      "id": "kilo-code",
+      "displayName": "Kilo Code",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://api.kilo.ai/api/gateway",
+      "useRawBaseUrl": true,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 65,
+      "displayCnName": "Kilo Code"
+    },
+    {
+      "id": "jd-joy-agent",
+      "displayName": "Joy Agent",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://agentrs.jd.com/api/saas/openai-u/v1",
+      "useRawBaseUrl": true,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 66,
+      "displayCnName": "京东 JoyAgent"
+    },
+    {
+      "id": "sensenova",
+      "displayName": "Sensenova",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://token.sensenova.cn/v1",
+      "useRawBaseUrl": true,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 67,
+      "displayCnName": "日日新 （商汤科技）"
+    }
+  ]
+}

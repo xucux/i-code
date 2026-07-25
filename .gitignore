@@ -1,0 +1,52 @@
+# --- Node.js ---
+node_modules/
+.pnpm-store/
+
+# --- Build output ---
+dist/
+build/
+
+# --- Rust / Cargo ---
+src-tauri/target/
+
+# --- Tauri ---
+src-tauri/gen/schemas/
+src-tauri/icons/**
+
+# --- Environment ---
+.env
+.env.local
+.env.*.local
+
+# --- IDE / Editor ---
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# --- Logs ---
+*.log
+
+# --- TypeScript ---
+*.tsbuildinfo
+
+# --- Reports ---
+report.*.json
+
+参考项目/*
+.trae/
+.vscode/
+.tanstack/
+.mimocode/
+.agents/
+提示词语.md
+*.py
+doc/
+docs/
+old_docs/

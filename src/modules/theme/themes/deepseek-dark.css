@@ -1,0 +1,35 @@
+.theme-deepseek-dark {
+  --background: 210 25% 8%;
+  --foreground: 210 20% 92%;
+  --card: 210 22% 10%;
+  --card-foreground: 210 20% 92%;
+  --popover: 210 22% 10%;
+  --popover-foreground: 210 20% 92%;
+  --primary: 190 85% 55%;
+  --primary-foreground: 210 25% 8%;
+  --secondary: 210 18% 16%;
+  --secondary-foreground: 210 20% 92%;
+  --muted: 210 18% 16%;
+  --muted-foreground: 210 15% 60%;
+  --accent: 210 18% 15%;
+  --accent-foreground: 210 20% 92%;
+  --destructive: 0 62.8% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 210 18% 18%;
+  --input: 210 18% 18%;
+  --ring: 190 85% 55%;
+  --radius: 0.625rem;
+  --chart-1: 190 85% 55%;
+  --chart-2: 160 60% 45%;
+  --chart-3: 30 80% 55%;
+  --chart-4: 280 65% 60%;
+  --chart-5: 340 75% 55%;
+  --sidebar-background: 210 25% 7%;
+  --sidebar-foreground: 210 20% 85%;
+  --sidebar-primary: 190 85% 55%;
+  --sidebar-primary-foreground: 210 25% 8%;
+  --sidebar-accent: 210 18% 14%;
+  --sidebar-accent-foreground: 210 20% 92%;
+  --sidebar-border: 210 18% 16%;
+  --sidebar-ring: 190 85% 55%;
+}
