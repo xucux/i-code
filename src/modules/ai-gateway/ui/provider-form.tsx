@@ -1540,13 +1540,33 @@ function ModelManagementSection({ provider }: ModelManagementSectionProps) {
     }
   }
 
-  // 根据模型 ID 在全部内置模型中做忽略大小写的模糊匹配，返回首个匹配项
+  // 根据模型 ID 在全部内置模型中做匹配，返回首个匹配项
+  // 匹配优先级：精确匹配 > 前缀匹配（modelId 以 builtin.id 开头） > 包含匹配
   const findBuiltinByModelId = (modelId: string): BuiltinModel | undefined => {
     const lower = modelId.toLowerCase()
-    return allBuiltinModels.find((b) => {
-      const bl = b.id.toLowerCase()
-      return lower.includes(bl) || bl.includes(lower)
-    })
+
+    // 1. 精确匹配
+    const exact = allBuiltinModels.find((b) => b.id.toLowerCase() === lower)
+    if (exact) return exact
+
+    // 2. modelId 以某个 builtin.id 开头（如 "gpt-4o-2024-01-01" 匹配 "gpt-4o"）
+    const prefix = allBuiltinModels.find((b) => lower.startsWith(b.id.toLowerCase()))
+    if (prefix) return prefix
+
+    // 3. builtin.id 以 modelId 开头（如 "mimo-v2.5" 匹配 "mimo-v2.5-pro" 时优先选最短的）
+    const suffixMatches = allBuiltinModels
+      .filter((b) => b.id.toLowerCase().startsWith(lower))
+      .sort((a, b) => a.id.length - b.id.length)
+    if (suffixMatches.length > 0) return suffixMatches[0]
+
+    // 4. 兜底：双向包含，优先选最短匹配
+    const containsMatches = allBuiltinModels
+      .filter((b) => {
+        const bl = b.id.toLowerCase()
+        return lower.includes(bl) || bl.includes(lower)
+      })
+      .sort((a, b) => a.id.length - b.id.length)
+    return containsMatches[0]
   }
 
   // 快速创建模型配置并关联到供应商
