@@ -101,6 +101,11 @@ function extractNotes(changelogPath, version, isBeta) {
   const lines = content.split('\n');
   let found = false;
   const notes = [];
+  // Beta 版本在标题前添加预览版说明
+  if (isBeta) {
+    notes.push('> 🚨该版本为预览版（Beta），可能包含未完善的功能🚧。');
+    notes.push('');
+  }
 
   for (const line of lines) {
     // 遇到下一个 ## 标题时停止（已找到目标节后）
@@ -110,11 +115,7 @@ function extractNotes(changelogPath, version, isBeta) {
     if (!found && line.startsWith('## ') && line.includes(`[${version}]`)) {
       found = true;
       console.warn(`[extractNotes] found section: "${line.trim()}"`);
-      // Beta 版本在标题前添加预览版说明
-      if (isBeta) {
-        notes.push('> 🚨该版本为预览版（Beta），可能包含未完善的功能🚧。');
-        notes.push('');
-      }
+      
     }
 
     if (found) {
