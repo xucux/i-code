@@ -106,46 +106,6 @@ fn is_beta_version(version: &str) -> bool {
     version.to_lowercase().contains("beta")
 }
 
-/// 读取全局代理配置并应用到 reqwest ClientBuilder
-///
-/// 从 `app_settings` 表读取 `global_proxy_enabled` 和 `global_proxy_json`，
-/// 根据代理类型配置客户端：
-/// - `custom`：使用自定义代理 URL
-/// - `system` / `vscode`：使用系统环境变量代理（reqwest 默认行为）
-/// - `direct`：显式禁用代理
-fn apply_global_proxy(builder: reqwest::ClientBuilder) -> reqwest::ClientBuilder {
-    let settings = match crate::modules::settings::repository::find() {
-        Ok(s) => s,
-        Err(_) => return builder,
-    };
-    if !settings.global_proxy_enabled {
-        return builder;
-    }
-    let Some(json) = settings.global_proxy_json.as_deref() else {
-        return builder;
-    };
-    let cfg: crate::modules::shared::ProxyConfig = match serde_json::from_str(json) {
-        Ok(c) => c,
-        Err(_) => return builder,
-    };
-    match cfg.proxy_type {
-        crate::modules::shared::ProxyType::Direct => builder.no_proxy(),
-        crate::modules::shared::ProxyType::Custom => {
-            if let Some(url) = cfg.url.as_deref().filter(|s| !s.is_empty()) {
-                if let Ok(proxy) = reqwest::Proxy::all(url) {
-                    builder.proxy(proxy)
-                } else {
-                    builder
-                }
-            } else {
-                builder
-            }
-        }
-        // `system` / `vscode`：沿用 reqwest 默认行为（读取系统环境变量代理）
-        _ => builder,
-    }
-}
-
 /// 执行一次更新检查的核心逻辑（供 Command 与启动期事件推送复用）
 ///
 /// 拉取 GitHub Releases 的 `latest.json`，与当前版本比较，返回结构化结果。
@@ -160,7 +120,7 @@ async fn check_update_internal(app: &tauri::AppHandle) -> Result<CheckUpdateResu
     log::info!("[check_update] current version: {}", current_version);
     log::info!("[check_update] fetching: {}", url);
 
-    let client = apply_global_proxy(
+    let client = crate::modules::shared::apply_global_proxy(
         reqwest::Client::builder().timeout(std::time::Duration::from_secs(15)),
     )
     .build()
@@ -230,7 +190,7 @@ pub async fn download_and_install_update(
 
     log::info!("[download_update] 开始下载: {}", url);
 
-    let client = apply_global_proxy(
+    let client = crate::modules::shared::apply_global_proxy(
         reqwest::Client::builder().timeout(std::time::Duration::from_secs(300)),
     )
     .build()

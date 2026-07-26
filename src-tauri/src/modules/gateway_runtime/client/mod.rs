@@ -319,13 +319,16 @@ const DEFAULT_USER_AGENT: &str = concat!("i-code-gateway/", env!("CARGO_PKG_VERS
 static DEFAULT_HTTP_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
 
 /// 取进程级默认 HTTP 客户端
+///
+/// 首次调用时读取全局代理配置并应用；之后复用同一实例。
+/// 若用户修改全局代理设置后需重启应用才能生效。
 fn default_http_client() -> reqwest::Client {
     DEFAULT_HTTP_CLIENT
         .get_or_init(|| {
-            reqwest::Client::builder()
-                .user_agent(DEFAULT_USER_AGENT)
-                .build()
-                .expect("构造默认 HTTP 客户端失败")
+            let builder = reqwest::Client::builder().user_agent(DEFAULT_USER_AGENT);
+            // 应用全局代理配置
+            let builder = crate::modules::shared::apply_global_proxy(builder);
+            builder.build().expect("构造默认 HTTP 客户端失败")
         })
         .clone()
 }
@@ -386,7 +389,7 @@ fn parse_timeout(provider: &Provider) -> Result<Option<TimeoutConfig>, ClientErr
 /// 按 `provider.proxy_json` 配置代理
 ///
 /// 供应商级代理策略：
-/// - `global`：使用应用全局代理设置，此处沿用 reqwest 默认（读取系统环境变量代理）。
+/// - `global`：读取全局代理配置并应用；若全局代理未启用则沿用 reqwest 默认行为。
 /// - `direct`：显式 `no_proxy()` 禁用代理。
 /// - `socks` / `http`：构造 `reqwest::Proxy::all(url)`；reqwest 根据 URL scheme
 ///   自动选择 SOCKS5 或 HTTP 代理协议。
@@ -395,15 +398,15 @@ fn apply_proxy(
     provider: &Provider,
 ) -> Result<reqwest::ClientBuilder, ClientError> {
     let Some(json) = provider.proxy_json.as_deref() else {
-        // 未配置：沿用 reqwest 默认（读取系统环境变量代理）
-        return Ok(builder);
+        // 未配置：回退到全局代理
+        return Ok(crate::modules::shared::apply_global_proxy(builder));
     };
     let cfg: ProviderProxyConfig = serde_json::from_str(json)
         .map_err(|e| ClientError::BuildRequestError(format!("解析 proxy_json 失败: {}", e)))?;
     match cfg.proxy_type {
         ProviderProxyType::Global => {
-            // 使用全局代理：沿用 reqwest 默认行为（读取系统环境变量代理）
-            Ok(builder)
+            // 读取全局代理配置并应用
+            Ok(crate::modules::shared::apply_global_proxy(builder))
         }
         ProviderProxyType::Direct => Ok(builder.no_proxy()),
         ProviderProxyType::Socks | ProviderProxyType::Http => {

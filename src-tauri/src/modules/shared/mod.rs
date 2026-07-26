@@ -18,46 +18,97 @@
 
 use serde::{Deserialize, Serialize};
 
-/// 代理配置
+/// 全局代理配置
 ///
-/// 对应 `docs/database.md` §5.3，用于 `app_settings.global_proxy_json`
-/// 与 `providers.proxy_json` 字段。
+/// 对应 `docs/database.md` §5.3，用于 `app_settings.global_proxy_json`。
+/// 与供应商级代理 `ProviderProxyConfig` 区分：全局代理支持「直连」「系统代理」
+/// 「HTTP 代理」「SOCKS 代理」四种策略，用于应用级网络设置。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProxyConfig {
     /// 代理类型
     /// - `direct`：直连，不使用代理
-    /// - `custom`：自定义代理 URL
-    /// - `system`：使用系统代理设置
-    /// - `vscode`：使用 VSCode 代理设置（仅 CLI 集成场景）
+    /// - `system`：使用系统代理设置（读取 HTTP_PROXY / HTTPS_PROXY 环境变量）
+    /// - `http`：HTTP 代理（URL 可含用户名:密码，如 `http://user:pass@host:port`）
+    /// - `socks`：SOCKS5 代理（URL 可含用户名:密码，如 `socks5://user:pass@host:port`）
     #[serde(rename = "type")]
     pub proxy_type: ProxyType,
-    /// 自定义代理 URL（仅 `custom` 类型生效）
+    /// 代理 URL（仅 `http` / `socks` 类型生效）
+    /// 支持在 URL 中包含认证信息：`http://user:pass@host:port`
     #[serde(skip_serializing_if = "Option::is_none")]
     pub url: Option<String>,
-    /// 代理认证凭据或 `$SECRET:{snowflake_id}$` 引用
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub authorization: Option<String>,
-    /// 是否严格校验 SSL 证书（默认 true）
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub strict_ssl: Option<bool>,
     /// 不走代理的主机列表（NO_PROXY 环境变量等价物）
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub no_proxy: Vec<String>,
 }
 
-/// 代理类型枚举
+/// 全局代理类型枚举
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ProxyType {
     /// 直连
     Direct,
-    /// 自定义代理
-    Custom,
     /// 系统代理
     System,
-    /// VSCode 代理
-    Vscode,
+    /// HTTP 代理
+    Http,
+    /// SOCKS5 代理
+    Socks,
+}
+
+impl ProxyConfig {
+    /// 将全局代理配置应用到 `reqwest::ClientBuilder`
+    ///
+    /// - `direct`：显式禁用代理
+    /// - `system`：沿用 reqwest 默认行为（读取系统环境变量代理）
+    /// - `http` / `socks`：构造 `reqwest::Proxy::all(url)`，URL 可含用户名:密码
+    pub fn apply_to_client_builder(
+        &self,
+        mut builder: reqwest::ClientBuilder,
+    ) -> reqwest::ClientBuilder {
+        match self.proxy_type {
+            ProxyType::Direct => {
+                builder = builder.no_proxy();
+                builder
+            }
+            ProxyType::System => {
+                // 沿用 reqwest 默认行为（读取 HTTP_PROXY / HTTPS_PROXY 环境变量）
+                builder
+            }
+            ProxyType::Http | ProxyType::Socks => {
+                if let Some(url) = self.url.as_deref().filter(|s| !s.is_empty()) {
+                    if let Ok(proxy) = reqwest::Proxy::all(url) {
+                        builder = builder.proxy(proxy);
+                    }
+                }
+                builder
+            }
+        }
+    }
+
+    /// 将全局代理配置应用到 `reqwest::blocking::ClientBuilder`
+    ///
+    /// 与 `apply_to_client_builder` 相同逻辑，用于同步阻塞客户端。
+    pub fn apply_to_blocking_client_builder(
+        &self,
+        mut builder: reqwest::blocking::ClientBuilder,
+    ) -> reqwest::blocking::ClientBuilder {
+        match self.proxy_type {
+            ProxyType::Direct => {
+                builder = builder.no_proxy();
+                builder
+            }
+            ProxyType::System => builder,
+            ProxyType::Http | ProxyType::Socks => {
+                if let Some(url) = self.url.as_deref().filter(|s| !s.is_empty()) {
+                    if let Ok(proxy) = reqwest::Proxy::all(url) {
+                        builder = builder.proxy(proxy);
+                    }
+                }
+                builder
+            }
+        }
+    }
 }
 
 /// 供应商级代理配置
@@ -144,6 +195,62 @@ impl Default for RetryConfig {
     }
 }
 
+/// 从数据库读取全局代理配置并应用到 `reqwest::ClientBuilder`
+///
+/// 若全局代理未启用或配置无效，返回原始 builder。
+/// 供 `update_version`、`gateway_runtime`、`balance/script` 等模块复用。
+pub fn apply_global_proxy(builder: reqwest::ClientBuilder) -> reqwest::ClientBuilder {
+    let settings = match crate::modules::settings::repository::find() {
+        Ok(s) => s,
+        Err(_) => return builder,
+    };
+    if !settings.global_proxy_enabled {
+        return builder;
+    }
+    let Some(json) = settings.global_proxy_json.as_deref() else {
+        return builder;
+    };
+    let cfg: ProxyConfig = match serde_json::from_str(json) {
+        Ok(c) => c,
+        Err(_) => return builder,
+    };
+    cfg.apply_to_client_builder(builder)
+}
+
+/// 从数据库读取全局代理配置并应用到 `reqwest::blocking::ClientBuilder`
+///
+/// 与 `apply_global_proxy` 相同逻辑，用于同步阻塞客户端（如 Rhai 脚本 HTTP 调用）。
+pub fn apply_global_proxy_blocking(builder: reqwest::blocking::ClientBuilder) -> reqwest::blocking::ClientBuilder {
+    let settings = match crate::modules::settings::repository::find() {
+        Ok(s) => s,
+        Err(_) => return builder,
+    };
+    if !settings.global_proxy_enabled {
+        return builder;
+    }
+    let Some(json) = settings.global_proxy_json.as_deref() else {
+        return builder;
+    };
+    let cfg: ProxyConfig = match serde_json::from_str(json) {
+        Ok(c) => c,
+        Err(_) => return builder,
+    };
+    cfg.apply_to_blocking_client_builder(builder)
+}
+
+/// 从数据库读取全局代理配置
+///
+/// 返回 `Some(ProxyConfig)` 表示全局代理已启用且配置有效。
+#[allow(dead_code)]
+pub fn read_global_proxy() -> Option<ProxyConfig> {
+    let settings = crate::modules::settings::repository::find().ok()?;
+    if !settings.global_proxy_enabled {
+        return None;
+    }
+    let json = settings.global_proxy_json.as_deref()?;
+    serde_json::from_str(json).ok()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -151,22 +258,30 @@ mod tests {
     #[test]
     fn test_proxy_config_serde() {
         let config = ProxyConfig {
-            proxy_type: ProxyType::Custom,
-            url: Some("http://127.0.0.1:7890".to_string()),
-            authorization: Some("$SECRET:abc-123$".to_string()),
-            strict_ssl: Some(false),
+            proxy_type: ProxyType::Http,
+            url: Some("http://user:pass@127.0.0.1:7890".to_string()),
             no_proxy: vec!["localhost".to_string(), "127.0.0.1".to_string()],
         };
         let json = serde_json::to_string(&config).unwrap();
         // 字段名应为 camelCase / type
-        assert!(json.contains("\"type\":\"custom\""));
-        assert!(json.contains("\"strictSsl\""));
+        assert!(json.contains("\"type\":\"http\""));
         assert!(json.contains("\"noProxy\""));
+        assert!(json.contains("127.0.0.1:7890"));
 
         // 反序列化往返
         let back: ProxyConfig = serde_json::from_str(&json).unwrap();
-        assert_eq!(back.proxy_type, ProxyType::Custom);
+        assert_eq!(back.proxy_type, ProxyType::Http);
         assert_eq!(back.no_proxy.len(), 2);
+        assert!(back.url.unwrap().contains("user:pass@127.0.0.1:7890"));
+
+        // SOCKS 代理
+        let socks = ProxyConfig {
+            proxy_type: ProxyType::Socks,
+            url: Some("socks5://127.0.0.1:1080".to_string()),
+            no_proxy: vec![],
+        };
+        let json = serde_json::to_string(&socks).unwrap();
+        assert!(json.contains("\"type\":\"socks\""));
     }
 
     #[test]
@@ -196,8 +311,12 @@ mod tests {
             "\"direct\""
         );
         assert_eq!(
-            serde_json::to_string(&ProxyType::Custom).unwrap(),
-            "\"custom\""
+            serde_json::to_string(&ProxyType::Http).unwrap(),
+            "\"http\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ProxyType::Socks).unwrap(),
+            "\"socks\""
         );
         // 反序列化
         let t: ProxyType = serde_json::from_str("\"system\"").unwrap();

@@ -72,7 +72,7 @@ function syncStaticVersionRefs(oldVersion, newVersion) {
       file: paths.titleBar,
       patterns: [
         {
-          regex: new RegExp(`(const APP_VERSION = ')${oldVersion}(')`, 'g'),
+          regex: new RegExp(`(const APP_VERSION = ')${oldVersion}(')`),
           replacement: `$1${newVersion}$2`,
         },
       ],
@@ -81,7 +81,7 @@ function syncStaticVersionRefs(oldVersion, newVersion) {
       file: paths.settingsPage,
       patterns: [
         {
-          regex: new RegExp(`(<span className="text-xs text-muted-foreground tabular-nums">)${oldVersion}(</span>)`, 'g'),
+          regex: new RegExp(`(<span className="text-xs text-muted-foreground tabular-nums">)${oldVersion}(</span>)`),
           replacement: `$1${newVersion}$2`,
         },
       ],
@@ -90,7 +90,7 @@ function syncStaticVersionRefs(oldVersion, newVersion) {
       file: paths.agentsMd,
       patterns: [
         {
-          regex: new RegExp(`(版本：\`)${oldVersion}(\`)`, 'g'),
+          regex: new RegExp(`(版本：\`)${oldVersion}(\`)`),
           replacement: `$1${newVersion}$2`,
         },
       ],

@@ -16,17 +16,14 @@ import type { BackupSettings } from '@/modules/backup/types'
  * 全局代理配置
  * 对应 app_settings.global_proxy_json 字段
  *
- * 与供应商级代理 `ProxyConfig` 区分：全局代理支持「直连」「自定义」「系统代理」
- * 「VS Code 代理」四种策略，用于应用级网络设置。
+ * 与供应商级代理 `ProxyConfig` 区分：全局代理支持「直连」「系统代理」
+ * 「HTTP 代理」「SOCKS 代理」四种策略，用于应用级网络设置。
+ * HTTP/SOCKS 代理 URL 支持包含认证信息：`http://user:pass@host:port`
  */
 export interface GlobalProxyConfig {
-  type: 'direct' | 'custom' | 'system' | 'vscode'
-  /** 自定义代理 URL（仅 `custom` 类型生效） */
+  type: 'direct' | 'system' | 'http' | 'socks'
+  /** 代理 URL（仅 `http` / `socks` 类型生效），可含用户名:密码 */
   url?: string
-  /** 代理认证凭据或 `$SECRET:{snowflake_id}$` 引用 */
-  authorization?: string
-  /** 是否严格校验 SSL 证书（默认 true） */
-  strictSSL?: boolean
   /** 不走代理的主机列表（NO_PROXY 环境变量等价物） */
   noProxy?: string[]
 }

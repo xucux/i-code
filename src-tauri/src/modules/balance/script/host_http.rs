@@ -83,8 +83,11 @@ impl HttpHostState {
     ) -> Result<Map, Box<rhai::EvalAltResult>> {
         self.ensure_url_allowed(url)?;
 
-        let client = reqwest::blocking::Client::builder()
-            .timeout(self.timeout)
+        let builder = reqwest::blocking::Client::builder()
+            .timeout(self.timeout);
+        // 应用全局代理配置
+        let builder = crate::modules::shared::apply_global_proxy_blocking(builder);
+        let client = builder
             .build()
             .map_err(|e| format!("HTTP 客户端创建失败: {e}"))?;
 

@@ -53,7 +53,7 @@ function SettingsPage() {
   const [settings, setSettings] = useState<AppSettingsDto | null>(null)
 
   const [globalProxyEnabled, setGlobalProxyEnabled] = useState(false)
-  const [proxyType, setProxyType] = useState<'direct' | 'custom' | 'system' | 'vscode'>('custom')
+  const [proxyType, setProxyType] = useState<'direct' | 'system' | 'http' | 'socks'>('http')
   const [proxyUrl, setProxyUrl] = useState('')
 
   const [titlebarInfo, setTitlebarInfo] = useState<TitleBarInfoConfig>(DEFAULT_TITLEBAR_INFO_CONFIG)
@@ -78,7 +78,7 @@ function SettingsPage() {
         if (cancelled) return
         setSettings(s)
         setGlobalProxyEnabled(s.globalProxyEnabled ?? false)
-        setProxyType(s.globalProxy?.type ?? 'custom')
+        setProxyType(s.globalProxy?.type ?? 'http')
         setProxyUrl(s.globalProxy?.url ?? '')
         setTitlebarInfo(s.titlebarInfo ?? DEFAULT_TITLEBAR_INFO_CONFIG)
         setAutoStartEnabled(s.autoStartEnabled ?? false)
@@ -253,7 +253,7 @@ function SettingsPage() {
                   <div className="flex items-center gap-3">
                     <Label className="text-sm shrink-0">{t('settings.proxyType')}</Label>
                     <Select value={proxyType} onValueChange={(v) => {
-                      const next = v as 'direct' | 'custom' | 'system' | 'vscode'
+                      const next = v as 'direct' | 'system' | 'http' | 'socks'
                       setProxyType(next)
                       void patchSettings({ globalProxy: { type: next, url: proxyUrl } as GlobalProxyConfig })
                     }}>
@@ -263,17 +263,17 @@ function SettingsPage() {
                       <SelectContent>
                         <SelectItem value="direct">{t('settings.proxyTypeDirect')}</SelectItem>
                         <SelectItem value="system">{t('settings.proxyTypeSystem')}</SelectItem>
-                        <SelectItem value="custom">{t('settings.proxyTypeCustom')}</SelectItem>
-                        <SelectItem value="vscode">{t('settings.proxyTypeVscode')}</SelectItem>
+                        <SelectItem value="http">{t('settings.proxyTypeHttp')}</SelectItem>
+                        <SelectItem value="socks">{t('settings.proxyTypeSocks')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  {proxyType === 'custom' && (
+                  {(proxyType === 'http' || proxyType === 'socks') && (
                     <div className="flex items-center gap-3">
                       <Label className="text-sm shrink-0">{t('settings.proxyUrl')}</Label>
                       <Input
                         className="h-8 text-xs"
-                        placeholder="http://127.0.0.1:7890"
+                        placeholder={proxyType === 'socks' ? 'socks5://user:pass@127.0.0.1:1080' : 'http://user:pass@127.0.0.1:7890'}
                         value={proxyUrl}
                         onChange={(e) => {
                           const next = e.target.value
@@ -523,7 +523,7 @@ function SettingsPage() {
             <div className="flex items-center justify-between">
               <Label className="text-sm">{t('settings.about.version')}</Label>
               <div className="flex items-center gap-1">
-                <span className="text-xs text-muted-foreground tabular-nums">0.0.2</span>
+                <span className="text-xs text-muted-foreground tabular-nums">0.0.4</span>
                 <UpdateCheck />
               </div>
             </div>
