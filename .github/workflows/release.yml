@@ -279,12 +279,13 @@ jobs:
           pnpm tauri --version
 
       # 执行 Tauri 跨平台构建，并将产物上传到同 create-release 创建的 Release
+      # 签名密钥已在上一步「Prepare Tauri signing key」中解析并写入 $GITHUB_ENV，
+      # 此处**不要**再次从 secrets 显式赋值 TAURI_SIGNING_PRIVATE_KEY，
+      # 否则会覆盖已编码的密钥，导致签名失败、.sig 文件缺失。
       - name: Build Tauri App
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
           NODE_OPTIONS: --max-old-space-size=4096
         with:
           releaseId: ${{ needs.create-release.outputs.release_id }}

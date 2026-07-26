@@ -87,4 +87,6 @@ export const BACKEND_EVENTS = {
   CHAT_STREAM_DONE: 'chat:stream-done',
   /** 聊天流式/HTTP 错误 */
   CHAT_STREAM_ERROR: 'chat:stream-error',
+  /** 更新下载进度 */
+  UPDATE_DOWNLOAD_PROGRESS: 'update-download-progress',
 } as const

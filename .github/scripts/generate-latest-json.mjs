@@ -133,14 +133,68 @@ function extractNotes(changelogPath, version, isBeta) {
 }
 
 /**
- * 扫描 assets 目录，按平台归类安装包 URL 与签名
+ * 判断安装包所属的基础平台键名
  *
  * 匹配规则（与 Tauri 产物命名对齐）：
  *   - *aarch64|arm64*.app.tar.gz  → darwin-aarch64
  *   - *x64|x86_64*.app.tar.gz     → darwin-x86_64
+ *   - *aarch64|arm64*.dmg         → darwin-aarch64
+ *   - *x64|x86_64*.dmg            → darwin-x86_64
  *   - *.AppImage|*.appimage       → linux-x86_64
- *   - *-setup.exe                 → windows-x86_64（优先）
- *   - *.msi                       → windows-x86_64（后备）
+ *   - *-setup.exe                 → windows-x86_64
+ *   - *.msi                       → windows-x86_64
+ *   - *.deb / *.rpm               → linux-x86_64（默认）
+ *
+ * @param {string} file  文件名
+ * @returns {string|null} 基础平台键名，无法匹配时返回 null
+ */
+function getBasePlatform(file) {
+  if (/aarch64|arm64/.test(file) && file.endsWith('.app.tar.gz')) return 'darwin-aarch64';
+  if (/x64|x86_64/.test(file) && file.endsWith('.app.tar.gz'))    return 'darwin-x86_64';
+  if (/aarch64|arm64/.test(file) && /\.dmg$/i.test(file))          return 'darwin-aarch64';
+  if (/x64|x86_64/.test(file) && /\.dmg$/i.test(file))            return 'darwin-x86_64';
+  if (/\.AppImage$/i.test(file) || /\.appimage$/i.test(file))      return 'linux-x86_64';
+  if (file.endsWith('-setup.exe'))                                  return 'windows-x86_64';
+  if (file.endsWith('.msi'))                                        return 'windows-x86_64';
+  if (file.endsWith('.deb'))                                        return 'linux-x86_64';
+  if (file.endsWith('.rpm'))                                        return 'linux-x86_64';
+  return null;
+}
+
+/**
+ * 获取安装包格式后缀，用于生成带格式标识的平台键名
+ *
+ * 规则：
+ *   - .app.tar.gz → app
+ *   - .AppImage   → appimage
+ *   - .deb        → deb
+ *   - .rpm        → rpm
+ *   - .dmg        → dmg
+ *   - .msi        → msi
+ *   - -setup.exe  → nsis
+ *
+ * @param {string} file  文件名
+ * @returns {string|null} 格式后缀，无法识别时返回 null
+ */
+function getInstallerSuffix(file) {
+  if (file.endsWith('.app.tar.gz')) return 'app';
+  if (/\.AppImage$/i.test(file))    return 'appimage';
+  if (file.endsWith('.deb'))        return 'deb';
+  if (file.endsWith('.rpm'))        return 'rpm';
+  if (/\.dmg$/i.test(file))        return 'dmg';
+  if (file.endsWith('.msi'))        return 'msi';
+  if (file.endsWith('-setup.exe'))  return 'nsis';
+  return null;
+}
+
+/**
+ * 扫描 assets 目录，按平台归类安装包 URL 与签名
+ *
+ * 生成两类平台条目（与 Tauri updater 社区惯例对齐）：
+ *   1. 基础平台键 — 如 `linux-x86_64`、`darwin-aarch64`、`windows-x86_64`
+ *      （每种平台取一种安装包：AppImage / .app.tar.gz / -setup.exe）
+ *   2. 格式后缀键 — 如 `linux-x86_64-deb`、`linux-x86_64-rpm`、`windows-x86_64-msi`
+ *      （每种安装包都有独立条目，供客户端选择特定格式）
  *
  * 注意：如果同目录下存在对应的 .sig 文件，签名会被读取并写入 platforms；
  *       若不存在 .sig 文件，signature 为空字符串，不影响平台匹配。
@@ -171,43 +225,42 @@ function scanAssets(assetsDir, baseUrl) {
     }
   }
 
-  // 第二步：遍历所有非 .sig 文件，匹配安装包
+  // 第二步：遍历所有非 .sig 文件，匹配安装包并归类
   const installers = allFiles.filter(f => !f.endsWith('.sig'));
   console.warn(`[scanAssets] matching ${installers.length} installer files...`);
 
-  let winUrl = '';
-  let winSig = '';
+  // 基础平台条目优先级（越小越优先）：
+  //   Linux: AppImage(0) > deb(1) > rpm(2)
+  //   macOS: .app.tar.gz(0) > .dmg(1)
+  //   Windows: -setup.exe(0) > .msi(1)
+  const BASE_PRIORITY = { appimage: 0, app: 0, nsis: 0, deb: 1, dmg: 1, msi: 1, rpm: 2 };
+  // 记录每个基础平台当前最高优先级条目
+  const basePriority = {};
 
   for (const file of installers) {
+    const basePlatform = getBasePlatform(file);
+    const suffix = getInstallerSuffix(file);
     const url = `${baseUrl}/${encodeURIComponent(file)}`;
     const signature = sigMap[file] || '';
-    const sigInfo = signature ? `(signature: ${signature.slice(0, 20)}...)` : '(no signature)';
+    const sigInfo = signature ? `(sig: ${signature.slice(0, 20)}…)` : '(no sig)';
 
-    if (/aarch64|arm64/.test(file) && file.endsWith('.app.tar.gz')) {
-      console.warn(`[scanAssets]   ✓ darwin-aarch64 ← ${file} ${sigInfo}`);
-      platforms['darwin-aarch64'] = { signature, url };
-    } else if (/x64|x86_64/.test(file) && file.endsWith('.app.tar.gz')) {
-      console.warn(`[scanAssets]   ✓ darwin-x86_64  ← ${file} ${sigInfo}`);
-      platforms['darwin-x86_64'] = { signature, url };
-    } else if (/\.AppImage$/i.test(file) || /\.appimage$/i.test(file)) {
-      console.warn(`[scanAssets]   ✓ linux-x86_64   ← ${file} ${sigInfo}`);
-      platforms['linux-x86_64'] = { signature, url };
-    } else if (file.endsWith('-setup.exe')) {
-      console.warn(`[scanAssets]   ✓ windows-x86_64 (exe) ← ${file} ${sigInfo}`);
-      winUrl = url;
-      winSig = signature;
-    } else if (file.endsWith('.msi') && !winUrl) {
-      console.warn(`[scanAssets]   . windows-x86_64 (msi) ← ${file} ${sigInfo} (后备，仅在无 exe 时使用)`);
-      winUrl = url;
-      winSig = signature;
-    } else {
+    if (!basePlatform || !suffix) {
       console.warn(`[scanAssets]   - skipped: ${file}`);
+      continue;
     }
-  }
 
-  if (winUrl) {
-    platforms['windows-x86_64'] = { signature: winSig, url: winUrl };
-    console.warn(`[scanAssets]   ✓ windows-x86_64 final: ${winUrl.split('/').pop()}`);
+    // 带格式后缀的条目（如 linux-x86_64-deb、windows-x86_64-msi）
+    const suffixKey = `${basePlatform}-${suffix}`;
+    platforms[suffixKey] = { signature, url };
+    console.warn(`[scanAssets]   ✓ ${suffixKey} ← ${file} ${sigInfo}`);
+
+    // 基础平台条目（按优先级选择，不依赖文件系统顺序）
+    const priority = BASE_PRIORITY[suffix] ?? 99;
+    if (basePriority[basePlatform] === undefined || priority < basePriority[basePlatform]) {
+      platforms[basePlatform] = { signature, url };
+      basePriority[basePlatform] = priority;
+      console.warn(`[scanAssets]   ✓ ${basePlatform}  ← ${file} ${sigInfo} (base, priority=${priority})`);
+    }
   }
 
   console.warn(`[scanAssets] done. platforms: ${Object.keys(platforms).join(', ') || '(none)'}`);

@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Progress } from '@/components/ui/progress'
 import { Separator } from '@/components/ui/separator'
 import { useTranslation } from '@/modules/i18n/use-translation'
 import { BACKEND_EVENTS } from '@/core/events'
@@ -27,6 +28,63 @@ interface CheckUpdateResult {
   notes: string
   pub_date: string
   platforms: Record<string, { signature: string; url: string }>
+}
+
+interface DownloadProgress {
+  downloaded: number
+  total: number
+}
+
+/**
+ * 检测当前运行平台，在 platforms 中找到最佳匹配的下载条目
+ *
+ * 优先匹配格式后缀键（如 `windows-x86_64-nsis`、`linux-x86_64-appimage`），
+ * 未命中时回退到基础平台键（如 `windows-x86_64`）。
+ */
+function resolvePlatformDownload(
+  platforms: Record<string, { signature: string; url: string }>
+): { key: string; url: string } | null {
+  const ua = navigator.userAgent.toLowerCase()
+  let base = ''
+  const preferredSuffixes: string[] = []
+
+  if (ua.includes('win')) {
+    base = 'windows-x86_64'
+    preferredSuffixes.push('nsis', 'msi')
+  } else if (ua.includes('mac')) {
+    // macOS：优先 .app.tar.gz（更新器标准格式），其次 .dmg
+    const isArm = ua.includes('arm64') || ua.includes('aarch64')
+    base = isArm ? 'darwin-aarch64' : 'darwin-x86_64'
+    preferredSuffixes.push('app', 'dmg')
+  } else if (ua.includes('linux')) {
+    base = 'linux-x86_64'
+    preferredSuffixes.push('appimage', 'deb', 'rpm')
+  } else {
+    return null
+  }
+
+  // 优先匹配格式后缀键
+  for (const suffix of preferredSuffixes) {
+    const key = `${base}-${suffix}`
+    if (platforms[key]) {
+      return { key, url: platforms[key].url }
+    }
+  }
+
+  // 回退到基础平台键
+  if (platforms[base]) {
+    return { key: base, url: platforms[base].url }
+  }
+
+  return null
+}
+
+/**
+ * 从 URL 中提取文件名（用于后端保存下载文件）
+ */
+function extractFileName(url: string): string {
+  const parts = url.split('/')
+  return decodeURIComponent(parts[parts.length - 1] || 'update-installer')
 }
 
 function stripV(v: string): string {
@@ -79,10 +137,24 @@ function MarkdownContent({ content }: { content: string }) {
 }
 
 /**
+ * 更新弹窗下载状态
+ */
+type DownloadState =
+  | { status: 'idle' }
+  | { status: 'downloading'; downloaded: number; total: number }
+  | { status: 'done' }
+  | { status: 'error'; message: string }
+
+/**
  * 更新检查弹窗（受控组件）
  *
  * 供设置页面「检查更新」入口与标题栏更新指示器复用，
  * 由父级控制 open 状态并传入检查结果。
+ *
+ * 底部三个功能按钮：
+ *   - 取消：关闭弹窗
+ *   - 打开下载页：跳转 GitHub Release 页面
+ *   - 下载更新：自动下载当前平台安装包，完成后触发安装
  */
 interface UpdateCheckDialogProps {
   open: boolean
@@ -94,14 +166,67 @@ interface UpdateCheckDialogProps {
 export function UpdateCheckDialog({ open, onOpenChange, result, currentVersion }: UpdateCheckDialogProps) {
   const { t } = useTranslation()
   const hasUpdate = result?.has_update ?? false
+  const [dlState, setDlState] = useState<DownloadState>({ status: 'idle' })
 
+  // 打开下载页
   const openDownloadPage = useCallback(() => {
     invoke('open_url', { url: RELEASES_URL })
     onOpenChange(false)
   }, [onOpenChange])
 
+  // 下载并安装
+  const startDownload = useCallback(async () => {
+    if (!result?.platforms) return
+
+    const match = resolvePlatformDownload(result.platforms)
+    if (!match) {
+      setDlState({ status: 'error', message: t('settings.about.downloadUnsupported') })
+      return
+    }
+
+    setDlState({ status: 'downloading', downloaded: 0, total: 0 })
+
+    // 监听下载进度
+    let unlisten: UnlistenFn | undefined
+    try {
+      unlisten = await listen<DownloadProgress>(BACKEND_EVENTS.UPDATE_DOWNLOAD_PROGRESS, (event) => {
+        const { downloaded, total } = event.payload
+        setDlState({ status: 'downloading', downloaded, total })
+      })
+
+      const fileName = extractFileName(match.url)
+      await invoke('download_and_install_update', { url: match.url, fileName })
+
+      // 安装程序已启动，显示完成状态，让用户手动关闭弹窗
+      setDlState({ status: 'done' })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      setDlState({ status: 'error', message: msg })
+    } finally {
+      if (unlisten) unlisten()
+    }
+  }, [result, onOpenChange, t])
+
+  // 弹窗关闭时重置下载状态
+  const handleOpenChange = useCallback((nextOpen: boolean) => {
+    if (!nextOpen && dlState.status !== 'downloading') {
+      setDlState({ status: 'idle' })
+    }
+    // 下载中不允许关闭弹窗
+    if (!nextOpen && dlState.status === 'downloading') {
+      return
+    }
+    onOpenChange(nextOpen)
+  }, [dlState.status, onOpenChange])
+
+  const isBusy = dlState.status === 'downloading'
+  const isDone = dlState.status === 'done'
+  const downloadPercent = dlState.status === 'downloading' && dlState.total > 0
+    ? Math.round((dlState.downloaded / dlState.total) * 100)
+    : 0
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className=" gap-0 p-0 h-15">
         {/* 标题区 */}
         <DialogHeader className="px-4 py-1">
@@ -176,16 +301,91 @@ export function UpdateCheckDialog({ open, onOpenChange, result, currentVersion }
           </p>
         )}
 
+        {/* 下载进度 */}
+        {isBusy && (
+          <div className="px-4 pt-2">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <i className="fa-solid fa-spinner fa-spin text-[10px]" />
+              <span>
+                {dlState.total > 0
+                  ? t('settings.about.downloadingPercent', { percent: downloadPercent })
+                  : t('settings.about.downloading')}
+              </span>
+            </div>
+            <Progress value={downloadPercent} className="mt-1.5 h-1.5" />
+          </div>
+        )}
+
+        {/* 安装程序已启动 */}
+        {isDone && (
+          <div className="px-4 pt-2">
+            <div className="flex items-center gap-2 text-xs text-green-600 dark:text-green-400">
+              <i className="fa-solid fa-circle-check text-[10px]" />
+              <span>{t('settings.about.downloadDone')}</span>
+            </div>
+            <Progress value={100} className="mt-1.5 h-1.5" />
+          </div>
+        )}
+
+        {/* 下载错误提示 */}
+        {dlState.status === 'error' && (
+          <div className="mx-4 mt-2 flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-2 text-xs text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300">
+            <i className="fa-solid fa-circle-exclamation mt-0.5 shrink-0 text-[10px]" />
+            <span>{dlState.message}</span>
+          </div>
+        )}
+
         {/* 底部按钮 */}
-        <div className="flex items-center justify-end gap-2 border-t px-4 py-2">
-          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
-            {t('common.cancel')}
-          </Button>
-          {hasUpdate && (
-            <Button size="sm" onClick={openDownloadPage}>
-              <i className="fa-solid fa-download mr-1.5 text-xs" />
-              {t('settings.about.downloadUpdate')}
-            </Button>
+        <div className="flex items-center justify-between gap-2 border-t px-4 py-2">
+          {/* 完成状态：单个关闭按钮 */}
+          {isDone && (
+            <div className="flex w-full justify-end">
+              <Button size="sm" onClick={() => onOpenChange(false)}>
+                {t('common.close')}
+              </Button>
+            </div>
+          )}
+
+          {/* 非完成状态：三个功能按钮 */}
+          {!isDone && (
+            <>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onOpenChange(false)}
+                  disabled={isBusy}
+                >
+                  {t('common.cancel')}
+                </Button>
+                {hasUpdate && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={openDownloadPage}
+                    disabled={isBusy}
+                  >
+                    <i className="fa-solid fa-arrow-up-right-from-square mr-1.5 text-xs" />
+                    {t('settings.about.openDownloadPage')}
+                  </Button>
+                )}
+              </div>
+              {hasUpdate && (
+                <Button
+                  size="sm"
+                  onClick={startDownload}
+                  disabled={isBusy}
+                >
+                  <i className={cn(
+                    'mr-1.5 text-xs',
+                    isBusy ? 'fa-solid fa-spinner fa-spin' : 'fa-solid fa-download'
+                  )} />
+                  {isBusy
+                    ? t('settings.about.downloading')
+                    : t('settings.about.downloadUpdate')}
+                </Button>
+              )}
+            </>
           )}
         </div>
       </DialogContent>
