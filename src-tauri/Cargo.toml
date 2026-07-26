@@ -35,7 +35,9 @@ reflink = "0.1"
 
 # ===== 异步运行时与 HTTP 客户端 =====
 tokio = { version = "1.0", features = ["full"] }
-reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls", "socks"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls", "socks", "blocking"] }
+# URL 解析（脚本 HTTP host 白名单）
+url = "2"
 # futures 用于流式响应处理
 futures = "0.3"
 
@@ -90,6 +92,8 @@ zip = "2"
 quick-xml = "0.36"
 # tiktoken BPE 分词器（纯 Rust 实现，支持 OpenAI / DeepSeek / Llama3 等编码）
 tiktoken = "3"
+# Rhai 脚本引擎：额度监控自定义脚本（禁文件系统相关能力）
+rhai = { version = "1", default-features = false, features = ["sync", "serde"] }
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]

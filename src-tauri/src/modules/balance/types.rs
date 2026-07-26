@@ -42,6 +42,8 @@ pub enum BalanceMethod {
     Synthetic,
     /// MiniMax
     Minimax,
+    /// 自定义 Rhai 脚本
+    Script,
 }
 
 impl BalanceMethod {
@@ -62,6 +64,7 @@ impl BalanceMethod {
             "codex" => Some(Self::Codex),
             "synthetic" => Some(Self::Synthetic),
             "minimax" => Some(Self::Minimax),
+            "script" => Some(Self::Script),
             _ => None,
         }
     }
@@ -83,6 +86,7 @@ impl BalanceMethod {
             Self::Codex => "codex",
             Self::Synthetic => "synthetic",
             Self::Minimax => "minimax",
+            Self::Script => "script",
         }
     }
 }
@@ -129,6 +133,22 @@ pub struct ClaudeRelayServiceConfig {
     pub base_url: Option<String>,
 }
 
+/// 自定义脚本额度监控配置
+///
+/// 引用 `script_templates` 中 status=active 的模板。
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScriptBalanceConfig {
+    /// 引用 script_templates.id
+    pub script_template_id: String,
+    /// 可选：单次查询超时（毫秒）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timeout_ms: Option<u64>,
+    /// 可选：额外允许的 host 白名单
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allowed_hosts: Option<Vec<String>>,
+}
+
 /// 额度监控配置
 ///
 /// 由 `method` 字段区分不同供应商的查询参数。
@@ -150,6 +170,7 @@ pub enum BalanceConfig {
     Codex,
     Synthetic,
     Minimax,
+    Script(ScriptBalanceConfig),
 }
 
 impl BalanceConfig {
@@ -170,6 +191,7 @@ impl BalanceConfig {
             Self::Codex => BalanceMethod::Codex,
             Self::Synthetic => BalanceMethod::Synthetic,
             Self::Minimax => BalanceMethod::Minimax,
+            Self::Script(_) => BalanceMethod::Script,
         }
     }
 }
@@ -517,6 +539,7 @@ mod tests {
             BalanceMethod::Codex,
             BalanceMethod::Synthetic,
             BalanceMethod::Minimax,
+            BalanceMethod::Script,
         ] {
             let s = method.as_str();
             assert_eq!(BalanceMethod::from_str(s), Some(method));

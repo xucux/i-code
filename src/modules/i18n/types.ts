@@ -9,6 +9,7 @@ export type Namespace =
   | 'cli'
   | 'workspace'
   | 'virtualProvider'
+  | 'scriptTemplate'
   | 'theme'
   | 'preview'
   | 'dashboard'

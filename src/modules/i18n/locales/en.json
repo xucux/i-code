@@ -244,33 +244,14 @@
       "editModel": "Edit",
       "deleteModel": "Delete",
       "modelEdit": {
-        "title": "Edit Model",
-        "description": "Modify model parameters; all fields are optional",
-        "loadConfigFailed": "Failed to load model config",
-        "saveSuccess": "Model saved",
-        "tabBasic": "Basic",
-        "tabCapabilities": "Capabilities",
-        "tabThinking": "Thinking",
-        "modelId": "Model ID",
-        "displayName": "Display Name",
-        "family": "Family",
-        "tokenizer": "Tokenizer",
-        "tokenizerPlaceholder": "None",
-        "tokenizerNone": "None",
-        "maxInputTokens": "Max Input Tokens",
-        "maxOutputTokens": "Max Output Tokens",
-        "tokenCountMultiplier": "Token Count Multiplier",
-        "pricePer1mTokens": "¥ / 1M tokens",
-        "stream": "Stream",
-        "temperature": "Temperature",
-        "topP": "Top P",
-        "toolCalling": "Tool Calling",
-        "imageInput": "Image Input",
-        "editTools": "Edit Tools",
-        "thinkingType": "Thinking Mode",
-        "thinkingTypePlaceholder": "Disabled",
-        "thinkingEffort": "Effort",
-        "thinkingBudgetTokens": "Budget Tokens"
+        "editToolsNone": "None",
+        "familyPlaceholder": "e.g. gpt, claude",
+        "thinkingEnabled": "Enabled",
+        "thinkingDisabled": "Disabled",
+        "thinkingAuto": "Auto",
+        "validation": {
+          "modelIdRequired": "Please enter model ID"
+        }
       },
       "editTitle": "Edit Provider",
       "createTitle": "Create Provider",
@@ -391,16 +372,6 @@
         "loadBuiltinFailed": "Failed to load builtin models: {{message}}",
         "deleteSuccess": "Model deleted"
       },
-      "modelEdit": {
-        "editToolsNone": "None",
-        "familyPlaceholder": "e.g. gpt, claude",
-        "thinkingEnabled": "Enabled",
-        "thinkingDisabled": "Disabled",
-        "thinkingAuto": "Auto",
-        "validation": {
-          "modelIdRequired": "Please enter model ID"
-        }
-      },
       "modelAdd": {
         "addSuccess": "Added {{count}} models"
       }
@@ -418,7 +389,7 @@
     },
     "authKey": {
       "title": "API Key Management",
-      "description": "Manage API Keys for accessing the local Gateway",
+      "description": "Description",
       "add": "Add API Key",
       "empty": "No API Keys",
       "editTitle": "Edit API Key",
@@ -426,7 +397,6 @@
       "formDescription": "API Keys are stored in plain text for Gateway reverse lookup",
       "name": "Name",
       "namePlaceholder": "e.g. CLI dedicated",
-      "description": "Description",
       "descriptionPlaceholder": "Optional description",
       "value": "Key Value",
       "valuePlaceholderCreate": "Leave empty to auto-generate sk-icode- prefix key",
@@ -490,7 +460,7 @@
       "cacheHit": "Cache / Hit",
       "cost": "Cost",
       "costRatio": "Cost Ratio",
-      "costPer1m": "¥/1M Tokens",
+      "costPer1m": "$/1M Tokens",
       "avgDuration": "Avg Duration",
       "avgTtfb": "Avg TTFB",
       "avgRate": "Avg Rate",
@@ -580,7 +550,10 @@
       "balanceNoConfig": "No balance monitoring configured",
       "balanceNoData": "No balance data",
       "balanceRefreshSuccess": "Balance refreshed",
-      "balanceRefreshFailed": "Balance refresh failed"
+      "balanceRefreshFailed": "Balance refresh failed",
+      "balancePercent": "Left",
+      "balanceLimit": "Limit",
+      "balanceUsed": "Used"
     },
     "providersPage": {
       "tabs": {
@@ -602,7 +575,8 @@
         "settings": "Settings",
         "modelStats": "Model Stats",
         "providers": "Providers",
-        "virtualProviders": "Virtual Providers"
+        "virtualProviders": "Virtual Providers",
+        "scriptTemplates": "Script Templates"
       },
       "startGateway": "Start Gateway",
       "stopGateway": "Stop Gateway",
@@ -618,7 +592,8 @@
         "settings": "Configure host, port, default API Key and log level",
         "modelStats": "View model call details and aggregated statistics",
         "providers": "Manage real upstream providers",
-        "virtualProviders": "Manage virtual providers and failover strategies"
+        "virtualProviders": "Manage virtual providers and failover strategies",
+        "scriptTemplates": "Author Rhai scripts for custom balance queries and select active templates in provider balance settings"
       }
     },
     "charts": {
@@ -1185,5 +1160,83 @@
       "cache": "Cache Stats",
       "cacheDesc": "Bar chart of cache hits and misses."
     }
+  },
+  "scriptTemplate": {
+    "title": "Script Templates",
+    "create": "New",
+    "createTitle": "New Script Template",
+    "editTitle": "Edit Script Template",
+    "edit": "Edit",
+    "delete": "Delete",
+    "deleteSuccess": "Deleted",
+    "deleteConfirm": "Delete template \"{{name}}\"? Templates still referenced by providers cannot be deleted.",
+    "save": "Save",
+    "saving": "Saving…",
+    "saveSuccess": "Saved",
+    "createSuccess": "Created",
+    "publish": "Publish",
+    "disable": "Disable",
+    "revertDraft": "Revert to draft",
+    "statusUpdated": "Status updated",
+    "empty": "No script templates yet.",
+    "createFromExample": "Create from example",
+    "engineHint": "Engine is Rhai; editor uses JavaScript highlighting as an approximation.",
+    "status": {
+      "draft": "Draft",
+      "active": "Active",
+      "disabled": "Disabled"
+    },
+    "filter": {
+      "allStatus": "All statuses",
+      "search": "Search name/slug"
+    },
+    "columns": {
+      "name": "Name",
+      "status": "Status",
+      "lastTest": "Last test",
+      "updatedAt": "Updated",
+      "actions": "Actions"
+    },
+    "fields": {
+      "name": "Name",
+      "slug": "slug",
+      "timeout": "Timeout (ms)",
+      "description": "Description",
+      "script": "Script body",
+      "scriptPlaceholder": "// return { items: [...] }"
+    },
+    "docs": {
+      "variables": "Variables",
+      "functions": "Functions",
+      "snippets": "Snippets",
+      "returnShape": "Return shape",
+      "examples": "Examples",
+      "insert": "Insert"
+    },
+    "test": {
+      "provider": "Test provider",
+      "run": "Run",
+      "running": "Running…",
+      "result": "Test result",
+      "duration": "Duration",
+      "noResult": "Not tested yet"
+    },
+    "testSuccess": "Test succeeded",
+    "testFailed": "Test failed",
+    "validation": {
+      "nameSlugRequired": "Name and slug are required",
+      "saveFirst": "Save the template first",
+      "scriptRequired": "Script body is required before publish",
+      "providerRequired": "Select a provider for testing"
+    },
+    "balanceForm": {
+      "customScripts": "Custom scripts",
+      "manageHint": "Manage templates in the Gateway Script Templates tab",
+      "timeout": "Query timeout (ms)",
+      "unavailable": "Selected script template is unavailable (disabled or missing)",
+      "activeOnly": "Only active templates appear in this list"
+    },
+    "expand": "Expand",
+    "restore": "Restore"
   }
 }

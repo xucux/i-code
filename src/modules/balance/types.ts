@@ -25,6 +25,7 @@
  * - `codex`：OpenAI Codex
  * - `synthetic`：合成数据（测试用）
  * - `minimax`：MiniMax
+ * - `script`：自定义 Rhai 脚本模板
  */
 export type BalanceMethod =
   | 'none'
@@ -41,6 +42,7 @@ export type BalanceMethod =
   | 'codex'
   | 'synthetic'
   | 'minimax'
+  | 'script'
 
 /**
  * New API 额度转换配置
@@ -64,6 +66,7 @@ export interface NewApiQuotaTransform {
  * 由 `method` 字段区分不同供应商的查询参数：
  * - `newapi`：可选 userId / systemToken / quotaTransform
  * - `claude-relay-service`：可选 baseUrl（自定义 apiStats API 地址）
+ * - `script`：引用启用中的脚本模板
  * - 其他方法：仅需 method 字段
  */
 export type BalanceConfig =
@@ -87,6 +90,15 @@ export type BalanceConfig =
   | { method: 'codex' }
   | { method: 'synthetic' }
   | { method: 'minimax' }
+  | {
+      method: 'script'
+      /** 引用 script_templates.id */
+      scriptTemplateId: string
+      /** 可选：单次查询超时（毫秒） */
+      timeoutMs?: number
+      /** 可选：额外允许的 host */
+      allowedHosts?: string[]
+    }
 
 /**
  * 额度指标时间范围
@@ -303,4 +315,93 @@ export function extractPercentSummary(snapshot: BalanceSnapshot | undefined | nu
   }
 
   return hasAny ? result : null
+}
+
+/**
+ * 供应商列表额度展示摘要
+ *
+ * 精简三项：剩余百分比、总额（limit）、已花费（used）。
+ */
+export interface BalanceListDisplay {
+  /** 0–100 百分比（优先 remaining 语义的 percent 指标） */
+  percent?: number
+  /** 总额 / 上限 */
+  limit?: string
+  /** 已花费 / 已用 */
+  used?: string
+  /** 货币符号（若有） */
+  currencySymbol?: string
+}
+
+function formatMetricNumber(value: number | string | undefined | null): string | undefined {
+  if (value === undefined || value === null || value === '') return undefined
+  const n = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(n)) return String(value)
+  // 金额类保留最多 2 位小数，避免过长
+  if (Math.abs(n) >= 1000) {
+    return n.toLocaleString(undefined, { maximumFractionDigits: 2 })
+  }
+  return Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/\.?0+$/, '')
+}
+
+/**
+ * 从快照提取列表展示用额度摘要（百分比 / 总额 / 已花费）
+ */
+export function extractBalanceListDisplay(
+  snapshot: BalanceSnapshot | undefined | null
+): BalanceListDisplay | null {
+  if (!snapshot?.items?.length) return null
+
+  const display: BalanceListDisplay = {}
+  let currency: string | undefined
+
+  for (const item of snapshot.items) {
+    if (item.type === 'percent') {
+      const val = item.value
+      if (typeof val === 'number' && Number.isFinite(val)) {
+        // remaining 基准优先；否则取第一条 percent
+        if (item.basis === 'remaining') {
+          display.percent = val
+        } else if (display.percent === undefined) {
+          display.percent = val
+        }
+      }
+    } else if (item.type === 'amount') {
+      if (item.currencySymbol) currency = item.currencySymbol
+      const formatted = formatMetricNumber(item.value)
+      if (!formatted) continue
+      if (item.direction === 'limit' && display.limit === undefined) {
+        display.limit = formatted
+      } else if (item.direction === 'used' && display.used === undefined) {
+        display.used = formatted
+      }
+    }
+  }
+
+  // 若 percent 仍为空，尝试用 amount remaining/limit 估算
+  if (display.percent === undefined) {
+    let remaining: number | undefined
+    let limit: number | undefined
+    for (const item of snapshot.items) {
+      if (item.type !== 'amount') continue
+      const n = typeof item.value === 'number' ? item.value : Number(item.value)
+      if (!Number.isFinite(n)) continue
+      if (item.direction === 'remaining') remaining = n
+      if (item.direction === 'limit') limit = n
+    }
+    if (remaining !== undefined && limit !== undefined && limit > 0) {
+      display.percent = (remaining / limit) * 100
+    }
+  }
+
+  if (currency) display.currencySymbol = currency
+
+  if (
+    display.percent === undefined &&
+    display.limit === undefined &&
+    display.used === undefined
+  ) {
+    return null
+  }
+  return display
 }

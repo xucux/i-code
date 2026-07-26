@@ -166,13 +166,13 @@ mod tests {
                     'cli_profiles', 'workspaces', 'model_call_logs',
                     'gateway_settings', 'gateway_auth_keys', 'log_settings',
                     'virtual_providers', 'virtual_models', 'model_call_stats_daily',
-                    'model_call_stats_hourly', 'webdav_configs'
+                    'model_call_stats_hourly', 'webdav_configs', 'script_templates'
                 )",
                 [],
                 |row| row.get(0),
             )
             .unwrap();
-        assert_eq!(table_count, 16);
+        assert_eq!(table_count, 17);
 
         // 验证聚合后的关键列已存在
         let check_column = |table: &str, column: &str| {

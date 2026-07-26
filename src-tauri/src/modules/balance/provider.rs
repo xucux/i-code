@@ -31,6 +31,14 @@ pub struct BalanceRefreshInput {
     pub managed_project_id: Option<String>,
     /// Codex ChatGPT Account Id
     pub account_id: Option<String>,
+    /// 供应商元信息（脚本模板注入用）
+    pub provider_id: Option<String>,
+    pub provider_slug: Option<String>,
+    pub provider_name: Option<String>,
+    pub provider_type: Option<String>,
+    pub provider_is_enabled: Option<bool>,
+    /// 认证方法摘要（脚本 auth.method）
+    pub auth_method: Option<String>,
 }
 
 /// 异步查询结果类型（boxed future，支持 dyn trait）

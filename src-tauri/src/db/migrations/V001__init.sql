@@ -354,6 +354,34 @@ CREATE TABLE IF NOT EXISTS provider_balance_snapshots (
   updated_at TEXT NOT NULL                                   -- 最近一次刷新时间（ISO 8601）
 );
 
+-- ===== 额度监控脚本模板 =====
+-- 用户自定义 Rhai 脚本，用于对接未内置的供应商额度接口
+CREATE TABLE IF NOT EXISTS script_templates (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  slug TEXT NOT NULL UNIQUE,
+  kind TEXT NOT NULL,                                        -- 模板类型：本期固定 balance
+  status TEXT NOT NULL DEFAULT 'draft',                      -- draft / active / disabled
+  description TEXT,
+  script_body TEXT NOT NULL DEFAULT '',
+  engine TEXT NOT NULL DEFAULT 'rhai',                       -- 预留多引擎；本期仅 rhai
+  default_timeout_ms INTEGER NOT NULL DEFAULT 15000,
+  allowed_hosts_json TEXT,                                   -- JSON 字符串数组，额外允许 host
+  snippet_id TEXT,                                           -- 创建时选用的内置 snippet 标识
+  last_test_at TEXT,
+  last_test_ok INTEGER,
+  last_test_message TEXT,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_script_templates_kind_status
+  ON script_templates(kind, status, sort_order);
+
+CREATE INDEX IF NOT EXISTS idx_script_templates_status
+  ON script_templates(status);
+
 -- ===== 供应商级附加请求体参数 =====
 CREATE TABLE IF NOT EXISTS provider_extra_body (
   provider_id TEXT NOT NULL REFERENCES providers(id) ON DELETE CASCADE,

@@ -2,7 +2,6 @@ import { useState, useMemo } from 'react'
 import { useTranslation } from '@/modules/i18n/use-translation'
 import { useProviderList, useBuiltinProviders } from '@/hooks/use-provider-list'
 import { useBalanceSnapshots, refreshProviderBalance } from '@/hooks/use-balance-snapshots'
-import { formatDateTime } from '@/core/utils'
 import {
   createProvider,
   updateProvider,
@@ -36,7 +35,7 @@ import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import type { Provider, AuthConfig, BuiltinProvider } from '@/modules/ai-gateway/types'
 import type { IcodeError } from '@/core/errors'
-import { extractPercentSummary } from '@/modules/balance/types'
+import { extractBalanceListDisplay } from '@/modules/balance/types'
 
 /**
  * 从内置预设的 displayName 自动生成 slug
@@ -369,8 +368,9 @@ export function ProviderList() {
               {filteredProviders.map((provider) => {
                 const snapshotRow = snapshots.get(provider.id)
                 const hasBalanceConfig = !!provider.balanceProviderJson
-                const percentSummary = extractPercentSummary(snapshotRow?.snapshot)
+                const balanceDisplay = extractBalanceListDisplay(snapshotRow?.snapshot)
                 const isRefreshing = refreshingId === provider.id
+                const currency = balanceDisplay?.currencySymbol ?? ''
                 return (
                 <div
                   key={provider.id}
@@ -384,7 +384,7 @@ export function ProviderList() {
                       </Badge>
                     </div>
                     <p className="text-muted-foreground truncate text-xs font-mono">{provider.baseUrl}</p>
-                    {/* 额度信息：小字展示百分比与重置时间 */}
+                    {/* 额度信息：百分比 / 总额 / 已花费 */}
                     {hasBalanceConfig && (
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground tabular-nums">
                         {isRefreshing && (
@@ -393,34 +393,31 @@ export function ProviderList() {
                             {t('aiGateway.providerList.balanceRefreshing')}
                           </span>
                         )}
-                        {!isRefreshing && percentSummary && (
+                        {!isRefreshing && balanceDisplay && (
                           <>
-                            {percentSummary.weekPercent !== undefined && (
-                              <span title={percentSummary.weekResetAt ? formatDateTime(percentSummary.weekResetAt) : undefined}>
-                                {t('aiGateway.providerList.balanceWeek')}{Math.round(percentSummary.weekPercent)}%
-                                {percentSummary.weekResetAt && (
-                                  <span className="text-muted-foreground/70 ml-0.5">
-                                    {t('aiGateway.providerList.balanceReset')}{formatDateTime(percentSummary.weekResetAt)}
-                                  </span>
-                                )}
+                            {balanceDisplay.percent !== undefined && (
+                              <span>
+                                {t('aiGateway.providerList.balancePercent')}
+                                {Math.round(balanceDisplay.percent)}%
                               </span>
                             )}
-                            {percentSummary.monthPercent !== undefined && (
-                              <span title={percentSummary.monthResetAt ? formatDateTime(percentSummary.monthResetAt) : undefined}>
-                                {t('aiGateway.providerList.balanceMonth')}{Math.round(percentSummary.monthPercent)}%
-                                {percentSummary.monthResetAt && (
-                                  <span className="text-muted-foreground/70 ml-0.5">
-                                    {t('aiGateway.providerList.balanceReset')}{formatDateTime(percentSummary.monthResetAt)}
-                                  </span>
-                                )}
+                            {balanceDisplay.limit !== undefined && (
+                              <span>
+                                {t('aiGateway.providerList.balanceLimit')}
+                                {currency}
+                                {balanceDisplay.limit}
                               </span>
                             )}
-                            {percentSummary.weekPercent === undefined && percentSummary.monthPercent === undefined && percentSummary.otherPercent !== undefined && (
-                              <span>{Math.round(percentSummary.otherPercent)}%</span>
+                            {balanceDisplay.used !== undefined && (
+                              <span>
+                                {t('aiGateway.providerList.balanceUsed')}
+                                {currency}
+                                {balanceDisplay.used}
+                              </span>
                             )}
                           </>
                         )}
-                        {!isRefreshing && !percentSummary && (
+                        {!isRefreshing && !balanceDisplay && (
                           <span>{t('aiGateway.providerList.balanceNoData')}</span>
                         )}
                       </div>
@@ -628,7 +625,7 @@ function ProviderBuiltinDialog({
           <div className="space-y-1.5">
             {builtinProviders.length === 0 && (
               <p className="text-muted-foreground py-4 text-center text-sm">
-                {searchQuery ? t('aiGateway.providerList.builtinNoMatches', { query: searchQuery }) : t('aiGateway.providerList.builtinEmpty')}
+                {searchQuery ? t('providerList.builtinNoMatches', { query: searchQuery }) : t('aiGateway.providerList.builtinEmpty')}
               </p>
             )}
             {builtinProviders.map((builtin) => (

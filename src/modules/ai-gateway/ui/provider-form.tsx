@@ -1274,7 +1274,7 @@ function ModelManagementSection({ provider }: ModelManagementSectionProps) {
   const [editingGatewayModel, setEditingGatewayModel] = useState<GatewayModel | null>(null)
   const [editingModelConfig, setEditingModelConfig] = useState<ModelConfig | null>(null)
 
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
 
   // 全部内置模型（用于官方模型添加时的模糊匹配预填充）
   const [allBuiltinModels, setAllBuiltinModels] = useState<BuiltinModel[]>([])
@@ -2025,7 +2025,7 @@ function ModelManagementSection({ provider }: ModelManagementSectionProps) {
                       <Input id="model-edit-tokenCountMultiplier" type="number" step="0.1" {...modelEditForm.register('tokenCountMultiplier', { valueAsNumber: true })} className="h-8 text-xs" />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs" htmlFor="model-edit-pricePer1mTokens">{t('aiGateway.providerForm.modelEdit.pricePer1mTokens', '¥ / 百万 tokens')}</Label>
+                      <Label className="text-xs" htmlFor="model-edit-pricePer1mTokens">{t('aiGateway.providerForm.modelEdit.pricePer1mTokens', i18n.language === 'zh-CN' ? '¥ / 百万 tokens' : '$ / million tokens')}</Label>
                       <Input id="model-edit-pricePer1mTokens" type="number" step="0.0001" {...modelEditForm.register('pricePer1mTokens')} className="h-8 text-xs" />
                     </div>
                     <div className="flex items-end pb-1.5">

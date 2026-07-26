@@ -81,6 +81,8 @@ pub mod table {
     pub const VIRTUAL_MODELS: &str = "virtual_models";
     /// 虚拟模型路由表
     pub const VIRTUAL_MODEL_ROUTES: &str = "virtual_model_routes";
+    /// 额度监控脚本模板表
+    pub const SCRIPT_TEMPLATES: &str = "script_templates";
     /// 迁移版本记录表
     pub const SCHEMA_MIGRATIONS: &str = "schema_migrations";
     /// 网关设置单例表
@@ -125,6 +127,7 @@ pub const TABLE_NAMES: &[&str] = &[
     table::VIRTUAL_PROVIDERS,
     table::VIRTUAL_MODELS,
     table::VIRTUAL_MODEL_ROUTES,
+    table::SCRIPT_TEMPLATES,
     table::SCHEMA_MIGRATIONS,
     table::GATEWAY_SETTINGS,
     table::GATEWAY_AUTH_KEYS,

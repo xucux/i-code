@@ -1181,6 +1181,52 @@ CREATE TABLE virtual_model_routes (
 );
 ```
 
+### 4.33 `script_templates` — 额度监控脚本模板
+
+用户自定义 Rhai 脚本，用于对接未内置的供应商额度接口。供应商通过 `balance_provider_json.method = "script"` + `scriptTemplateId` 引用；仅 `status = active` 可被正式额度刷新使用。
+
+| 列名 | 类型 | 约束 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| `id` | TEXT | PRIMARY KEY | | 雪花 ID |
+| `name` | TEXT | NOT NULL | | 展示名称 |
+| `slug` | TEXT | UNIQUE NOT NULL | | 稳定标识，如 `my-deepseek-balance` |
+| `kind` | TEXT | NOT NULL | | 模板类型，本期固定 `balance` |
+| `status` | TEXT | NOT NULL | `'draft'` | `draft` / `active` / `disabled` |
+| `description` | TEXT | | | 说明 |
+| `script_body` | TEXT | NOT NULL | `''` | Rhai 源码 |
+| `engine` | TEXT | NOT NULL | `'rhai'` | 预留多引擎；本期仅 `rhai` |
+| `default_timeout_ms` | INTEGER | NOT NULL | 15000 | 默认超时 |
+| `allowed_hosts_json` | TEXT | | | JSON 字符串数组，额外允许 host |
+| `snippet_id` | TEXT | | | 创建时选用的内置 snippet 标识 |
+| `last_test_at` | TEXT | | | 最近试运行时间 ISO8601 |
+| `last_test_ok` | INTEGER | | | 0/1 |
+| `last_test_message` | TEXT | | | 最近试运行摘要（脱敏） |
+| `sort_order` | INTEGER | NOT NULL | 0 | |
+| `created_at` | TEXT | NOT NULL | | |
+| `updated_at` | TEXT | NOT NULL | | |
+
+```sql
+CREATE TABLE IF NOT EXISTS script_templates (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  slug TEXT NOT NULL UNIQUE,
+  kind TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'draft',
+  description TEXT,
+  script_body TEXT NOT NULL DEFAULT '',
+  engine TEXT NOT NULL DEFAULT 'rhai',
+  default_timeout_ms INTEGER NOT NULL DEFAULT 15000,
+  allowed_hosts_json TEXT,
+  snippet_id TEXT,
+  last_test_at TEXT,
+  last_test_ok INTEGER,
+  last_test_message TEXT,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+```
+
 ---
 
 ## 5. 枚举与 JSON Schema 引用
@@ -1612,6 +1658,22 @@ claude-code | codex | gemini-cli | cursor-agent | custom
 | `'codex'` | Codex | 无 |
 | `'synthetic'` | Synthetic | 无 |
 | `'minimax'` | MiniMax | 无 |
+| `'script'` | 自定义 Rhai 脚本 | `scriptTemplateId`, `timeoutMs?`, `allowedHosts?` |
+
+`script` 方法扩展字段示例：
+```json
+{
+  "method": "script",
+  "scriptTemplateId": "550e8400-e29b-41d4-a716-446655440000",
+  "timeoutMs": 12000
+}
+```
+
+| `script` 子字段 | 类型 | 说明 |
+|------|------|------|
+| `scriptTemplateId` | `string` | 引用 `script_templates.id`；正式刷新要求模板 `status=active` |
+| `timeoutMs` | `number` | 可选，单次查询超时（毫秒），默认取模板 `default_timeout_ms` |
+| `allowedHosts` | `string[]` | 可选，额外允许的 HTTP host 白名单 |
 
 `newapi` 方法扩展字段示例：
 ```json

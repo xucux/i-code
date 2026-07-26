@@ -17,6 +17,8 @@ pub mod commands;
 pub mod provider;
 pub mod providers;
 pub mod repository;
+/// 自定义 Rhai 脚本运行时（额度监控）
+pub mod script;
 pub mod service;
 pub mod types;
 

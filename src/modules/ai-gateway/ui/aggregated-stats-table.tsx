@@ -1,4 +1,5 @@
 import { useTranslation } from '@/modules/i18n/use-translation'
+import { getLocale } from '@/modules/i18n/i18n'
 import {
   TableBody,
   TableCell,
@@ -45,10 +46,11 @@ function formatNumber(value: number, fractionDigits = 0): string {
 }
 
 /**
- * 格式化人民币金额
+ * 格式化金额：中文环境使用 ¥，其他环境使用 $
  */
 function formatCny(value: number): string {
-  return `¥${value.toLocaleString('zh-CN', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`
+  const symbol = getLocale() === 'zh-CN' ? '¥' : '$'
+  return `${symbol}${value.toLocaleString('zh-CN', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`
 }
 
 /**

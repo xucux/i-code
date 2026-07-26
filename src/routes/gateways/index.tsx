@@ -9,6 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ProviderList } from '@/modules/ai-gateway/ui/provider-list'
 import { ModelList } from '@/modules/ai-gateway/ui/model-list'
 import { VirtualProviderList } from '@/modules/virtual-provider/ui/virtual-provider-list'
+import { ScriptTemplateList } from '@/modules/script-template/ui/script-template-list'
 import { GatewayBasicSettings, GatewayAuthKeyManager } from '@/modules/ai-gateway/ui/gateway-settings'
 import { GatewayTrafficChart } from '@/modules/gateway-runtime/ui/gateway-traffic-chart'
 import { GatewayTrendChart } from '@/modules/gateway-runtime/ui/gateway-trend-chart'
@@ -26,6 +27,7 @@ import { toast } from 'sonner'
  * - 对外模型：暴露给客户端的 Gateway 模型
  * - 供应商：真实上游供应商
  * - 虚拟供应商：聚合真实供应商的故障转移入口
+ * - 脚本模板：自定义额度监控 Rhai 脚本
  */
 function GatewaysIndexPage() {
   const { t } = useTranslation('aiGateway')
@@ -65,6 +67,10 @@ function GatewaysIndexPage() {
             <TabsTrigger value="model-stats" className="text-xs">{t('gatewayOverview.tabs.modelStats')}</TabsTrigger>
             <TabsTrigger value="real" className="text-xs">{t('gatewayOverview.tabs.providers')}</TabsTrigger>
             <TabsTrigger value="virtual" className="text-xs">{t('gatewayOverview.tabs.virtualProviders')}</TabsTrigger>
+            <TabsTrigger value="script-templates" className="text-xs">
+              {/* <i className="fa-solid fa-scroll mr-1" /> */}
+              {t('gatewayOverview.tabs.scriptTemplates')}
+            </TabsTrigger>
           </TabsList>
           <div className="flex items-center gap-2">
             <Button
@@ -92,6 +98,7 @@ function GatewaysIndexPage() {
                 <ul className="space-y-1.5">
                   <li>• {t('gatewayOverview.tabs.gateway')}：{t('gatewayOverview.help.gateway')}</li>
                   <li>• {t('gatewayOverview.tabs.auth')}：{t('gatewayOverview.help.auth')}</li>
+                  <li>• {t('gatewayOverview.tabs.scriptTemplates')}：{t('gatewayOverview.help.scriptTemplates')}</li>
                   <li>• {t('gatewayOverview.tabs.settings')}：{t('gatewayOverview.help.settings')}</li>
                   <li>• {t('gatewayOverview.tabs.modelStats')}：{t('gatewayOverview.help.modelStats')}</li>
                   <li>• {t('gatewayOverview.tabs.providers')}：{t('gatewayOverview.help.providers')}</li>
@@ -187,6 +194,11 @@ function GatewaysIndexPage() {
         {/* 虚拟供应商 */}
         <TabsContent value="virtual" className="h-full">
           <VirtualProviderList />
+        </TabsContent>
+
+        {/* 脚本模板 */}
+        <TabsContent value="script-templates" className="h-full">
+          <ScriptTemplateList />
         </TabsContent>
       </Tabs>
     </div>

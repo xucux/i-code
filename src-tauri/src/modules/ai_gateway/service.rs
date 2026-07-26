@@ -970,8 +970,21 @@ impl AiGatewayService {
         let resolved_auth = self.resolve_auth_for_request(provider)?;
 
         // 3. 从明文 AuthConfig 提取凭证字段
+        // 从 auth_json 提取 method 摘要（不解密完整 token）
+        let auth_method = provider
+            .auth_json
+            .as_deref()
+            .and_then(|j| serde_json::from_str::<serde_json::Value>(j).ok())
+            .and_then(|v| v.get("method").and_then(|m| m.as_str().map(|s| s.to_string())));
+
         let mut input = crate::modules::balance::provider::BalanceRefreshInput {
             base_url: Some(provider.base_url.clone()),
+            provider_id: Some(provider.id.clone()),
+            provider_slug: Some(provider.slug.clone()),
+            provider_name: Some(provider.display_name.clone()),
+            provider_type: Some(provider.provider_type.clone()),
+            provider_is_enabled: Some(provider.is_enabled),
+            auth_method,
             ..Default::default()
         };
 

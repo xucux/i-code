@@ -1,40 +1,45 @@
-/**
+﻿/**
  * 额度监控配置表单组件
  *
  * 替代原先的 JSON 文本输入，提供结构化的额度监控配置界面：
  * - 选择监控方法（BalanceMethod）
  * - 根据方法动态展示额外配置字段（如 NewAPI 的 userId/systemToken）
+ * - 自定义脚本分组：仅列出 status=active 的模板
  * - 自动序列化为 BalanceConfig JSON 字符串
  */
 
 import { useMemo } from 'react'
+import { useTranslation } from '@/modules/i18n/use-translation'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { useActiveScriptTemplates } from '@/hooks/use-script-templates'
 import type { BalanceMethod, BalanceConfig } from '@/modules/balance/types'
 
-/** 监控方法选项 */
-const BALANCE_METHOD_OPTIONS: { value: BalanceMethod; label: string; description: string }[] = [
-  { value: 'none', label: '不监控', description: '不查询额度' },
-  { value: 'deepseek', label: 'DeepSeek', description: '用户余额 API' },
-  { value: 'openrouter', label: 'OpenRouter', description: 'Credits API' },
-  { value: 'siliconflow', label: '硅基流动', description: '用户信息 API' },
-  { value: 'moonshot-ai', label: 'Moonshot AI', description: 'Kimi 国内站余额 API' },
-  { value: 'kimi-code', label: 'Kimi Code', description: 'Kimi 国际站 usages API' },
-  { value: 'newapi', label: 'New API', description: 'OneAPI 系分支，需额外配置' },
-  { value: 'aihubmix', label: 'AIHubMix', description: 'remain API' },
-  { value: 'claude-relay-service', label: 'Claude Relay', description: 'apiStats 系列，可自定义地址' },
-  { value: 'minimax', label: 'MiniMax', description: 'coding plan 余额 API' },
-  { value: 'antigravity', label: 'Antigravity', description: 'Google Code Assist 配额' },
-  { value: 'gemini-cli', label: 'Gemini CLI', description: 'Google Code Assist 配额' },
-  { value: 'codex', label: 'Codex', description: 'OpenAI usage API' },
-  { value: 'synthetic', label: '测试数据', description: '合成数据，用于调试' },
+/** 内置监控方法选项 */
+const BUILTIN_METHOD_OPTIONS: { value: BalanceMethod; label: string }[] = [
+  { value: 'none', label: '不监控' },
+  { value: 'deepseek', label: 'DeepSeek' },
+  { value: 'openrouter', label: 'OpenRouter' },
+  { value: 'siliconflow', label: '硅基流动' },
+  { value: 'moonshot-ai', label: 'Moonshot AI' },
+  { value: 'kimi-code', label: 'Kimi Code' },
+  { value: 'newapi', label: 'New API' },
+  { value: 'aihubmix', label: 'AIHubMix' },
+  { value: 'claude-relay-service', label: 'Claude Relay' },
+  { value: 'minimax', label: 'MiniMax' },
+  { value: 'antigravity', label: 'Antigravity' },
+  { value: 'gemini-cli', label: 'Gemini CLI' },
+  { value: 'codex', label: 'Codex' },
+  { value: 'synthetic', label: '测试数据' },
 ]
 
 export interface BalanceConfigFormProps {
@@ -51,7 +56,9 @@ export interface BalanceConfigFormProps {
  * 变更时自动序列化回 JSON 字符串。
  */
 export function BalanceConfigForm({ value, onChange }: BalanceConfigFormProps) {
-  // 解析当前配置
+  const { t } = useTranslation('scriptTemplate')
+  const { items: activeScripts } = useActiveScriptTemplates()
+
   const config = useMemo<BalanceConfig>(() => {
     if (!value.trim()) return { method: 'none' }
     try {
@@ -62,16 +69,45 @@ export function BalanceConfigForm({ value, onChange }: BalanceConfigFormProps) {
   }, [value])
 
   const method = config.method
+  const scriptTemplateId =
+    method === 'script'
+      ? (config as Extract<BalanceConfig, { method: 'script' }>).scriptTemplateId
+      : ''
+  const scriptTimeoutMs =
+    method === 'script'
+      ? (config as Extract<BalanceConfig, { method: 'script' }>).timeoutMs
+      : undefined
 
-  /** 更新配置并序列化 */
+  const scriptStillActive = useMemo(() => {
+    if (method !== 'script' || !scriptTemplateId) return true
+    return activeScripts.some((s) => s.id === scriptTemplateId)
+  }, [method, scriptTemplateId, activeScripts])
+
   const updateConfig = (newConfig: BalanceConfig) => {
     onChange(JSON.stringify(newConfig))
   }
 
-  /** 切换监控方法 */
-  const handleMethodChange = (newMethod: string) => {
-    // 切换方法时保留该方法的特有字段，其他字段清空
-    switch (newMethod as BalanceMethod) {
+  const selectValue =
+    method === 'script' && scriptTemplateId
+      ? `script:${scriptTemplateId}`
+      : method === 'script'
+        ? 'script:__missing__'
+        : method
+
+  const handleMethodChange = (newValue: string) => {
+    if (newValue.startsWith('script:')) {
+      const id = newValue.slice('script:'.length)
+      if (id === '__missing__' || id === '__empty__') return
+      updateConfig({
+        method: 'script',
+        scriptTemplateId: id,
+        timeoutMs: scriptTimeoutMs,
+      })
+      return
+    }
+
+    const newMethod = newValue as BalanceMethod
+    switch (newMethod) {
       case 'newapi':
         updateConfig({
           method: 'newapi',
@@ -85,39 +121,89 @@ export function BalanceConfigForm({ value, onChange }: BalanceConfigFormProps) {
           baseUrl: (config as { method: 'claude-relay-service'; baseUrl?: string }).baseUrl,
         })
         break
+      case 'script':
+        break
       default:
-        updateConfig({ method: newMethod as BalanceMethod })
+        updateConfig({ method: newMethod as Exclude<BalanceMethod, 'script' | 'newapi' | 'claude-relay-service'> })
     }
   }
 
-  const selectedOption = BALANCE_METHOD_OPTIONS.find((o) => o.value === method)
-
   return (
     <div className="space-y-3">
-      {/* 监控方法选择 */}
       <div className="space-y-1.5">
         <Label className="text-xs">监控方法</Label>
-        <Select value={method} onValueChange={handleMethodChange}>
+        <Select value={selectValue} onValueChange={handleMethodChange}>
           <SelectTrigger className="h-8 text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {BALANCE_METHOD_OPTIONS.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                <span className="font-medium">{opt.label}</span>
-                <span className="text-muted-foreground ml-1.5 text-[10px]">{opt.description}</span>
-              </SelectItem>
-            ))}
+            <SelectGroup>
+              <SelectLabel className="text-[10px]">内置</SelectLabel>
+              {BUILTIN_METHOD_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                  <span className="font-medium">{opt.label}</span>
+                </SelectItem>
+              ))}
+            </SelectGroup>
+            <SelectGroup>
+              <SelectLabel className="text-[10px]">{t('balanceForm.customScripts')}</SelectLabel>
+              {activeScripts.length === 0 ? (
+                <SelectItem value="script:__empty__" disabled className="text-xs">
+                  {t('balanceForm.manageHint')}
+                </SelectItem>
+              ) : (
+                activeScripts.map((s) => (
+                  <SelectItem key={s.id} value={`script:${s.id}`} className="text-xs">
+                    <span className="font-medium">{s.name}</span>
+                    <span className="text-muted-foreground ml-1.5 font-mono text-[10px]">
+                      {s.slug}
+                    </span>
+                  </SelectItem>
+                ))
+              )}
+              {method === 'script' && scriptTemplateId && !scriptStillActive && (
+                <SelectItem value={`script:${scriptTemplateId}`} className="text-xs">
+                  <span className="text-destructive font-medium">
+                    {scriptTemplateId.slice(0, 8)}…
+                  </span>
+                </SelectItem>
+              )}
+            </SelectGroup>
           </SelectContent>
         </Select>
-        {selectedOption && method !== 'none' && (
-          <p className="text-muted-foreground text-[10px]">
-            {selectedOption.description}
-          </p>
+        {method === 'script' && (
+          <p className="text-muted-foreground text-[10px]">{t('balanceForm.activeOnly')}</p>
+        )}
+        {method === 'script' && !scriptStillActive && (
+          <p className="text-destructive text-[10px]">{t('balanceForm.unavailable')}</p>
         )}
       </div>
 
-      {/* New API 特有配置 */}
+      {method === 'script' && (
+        <div className="space-y-2 rounded-md border p-3">
+          <div className="text-xs font-medium">{t('balanceForm.customScripts')}</div>
+          <div className="space-y-1.5">
+            <Label className="text-[11px]">{t('balanceForm.timeout')}</Label>
+            <Input
+              type="number"
+              value={scriptTimeoutMs ?? ''}
+              onChange={(e) => {
+                const v = e.target.value
+                updateConfig({
+                  method: 'script',
+                  scriptTemplateId,
+                  timeoutMs: v ? Number(v) : undefined,
+                })
+              }}
+              className="h-7 text-xs tabular-nums"
+              placeholder="15000"
+              min={1000}
+              max={30000}
+            />
+          </div>
+        </div>
+      )}
+
       {method === 'newapi' && (
         <div className="space-y-2 rounded-md border p-3">
           <div className="text-xs font-medium">New API 配置</div>
@@ -126,7 +212,10 @@ export function BalanceConfigForm({ value, onChange }: BalanceConfigFormProps) {
             <Input
               value={(config as { method: 'newapi'; userId?: string }).userId ?? ''}
               onChange={(e) =>
-                updateConfig({ ...config as Extract<BalanceConfig, { method: 'newapi' }>, userId: e.target.value || undefined })
+                updateConfig({
+                  ...(config as Extract<BalanceConfig, { method: 'newapi' }>),
+                  userId: e.target.value || undefined,
+                })
               }
               className="h-7 text-xs"
               placeholder="NewAPI 用户 ID"
@@ -138,7 +227,10 @@ export function BalanceConfigForm({ value, onChange }: BalanceConfigFormProps) {
               type="password"
               value={(config as { method: 'newapi'; systemToken?: string }).systemToken ?? ''}
               onChange={(e) =>
-                updateConfig({ ...config as Extract<BalanceConfig, { method: 'newapi' }>, systemToken: e.target.value || undefined })
+                updateConfig({
+                  ...(config as Extract<BalanceConfig, { method: 'newapi' }>),
+                  systemToken: e.target.value || undefined,
+                })
               }
               className="h-7 text-xs"
               placeholder="系统管理 Token"
@@ -148,16 +240,20 @@ export function BalanceConfigForm({ value, onChange }: BalanceConfigFormProps) {
         </div>
       )}
 
-      {/* Claude Relay Service 特有配置 */}
       {method === 'claude-relay-service' && (
         <div className="space-y-2 rounded-md border p-3">
           <div className="text-xs font-medium">Claude Relay 配置</div>
           <div className="space-y-1.5">
             <Label className="text-[11px]">自定义 API 地址</Label>
             <Input
-              value={(config as { method: 'claude-relay-service'; baseUrl?: string }).baseUrl ?? ''}
+              value={
+                (config as { method: 'claude-relay-service'; baseUrl?: string }).baseUrl ?? ''
+              }
               onChange={(e) =>
-                updateConfig({ ...config as Extract<BalanceConfig, { method: 'claude-relay-service' }>, baseUrl: e.target.value || undefined })
+                updateConfig({
+                  ...(config as Extract<BalanceConfig, { method: 'claude-relay-service' }>),
+                  baseUrl: e.target.value || undefined,
+                })
               }
               className="h-7 text-xs font-mono"
               placeholder="https://your-relay.example.com/api/stats"
@@ -167,8 +263,7 @@ export function BalanceConfigForm({ value, onChange }: BalanceConfigFormProps) {
         </div>
       )}
 
-      {/* 已实现的供应商提示 */}
-      {method !== 'none' && method !== 'synthetic' && (
+      {method !== 'none' && method !== 'synthetic' && method !== 'script' && (
         <p className="text-muted-foreground text-[10px]">
           <i className="fa-solid fa-circle-check mr-1 text-emerald-500" />
           该供应商额度查询已实现，保存后可刷新查看额度

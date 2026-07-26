@@ -41,19 +41,22 @@ fn get_memory_usage() -> u64 {
     sys.process(pid).map(|p| p.memory() / 1024).unwrap_or(0)
 }
 
-/// 从额度快照中提取百分比摘要文本
+/// 从额度快照中提取摘要文本（含百分比与用量/限额）
 ///
-/// 解析 `BalanceSnapshot.items` 中的 percent 类型指标，按 period（week/month）
-/// 分组汇总，返回托盘菜单展示用的简短文本：
-/// - 同时有周/月限额：`周87% 月65%`
-/// - 仅单一百分比：`87%`
-/// - 无百分比指标：`已查询`
+/// 解析 `BalanceSnapshot.items` 中的 percent 与 amount 类型指标，
+/// 返回托盘菜单展示用的紧凑文本：
+/// - 同时有周/月百分比 + 用量/限额：`周87% 月65% | $12.50/$100`
+/// - 仅百分比：`周87% 月65%`
+/// - 仅用量/限额：`$12.50/$100`
+/// - 无指标：`暂无数据` / `已查询`
 fn format_balance_summary(snapshot: &modules::balance::types::BalanceSnapshot) -> String {
-    use modules::balance::types::{BalanceMetricType, BalancePeriod};
+    use modules::balance::types::{BalanceDirection, BalanceMetricType, BalancePeriod};
 
     let mut week_pct: Option<f64> = None;
     let mut month_pct: Option<f64> = None;
     let mut other_pct: Option<f64> = None;
+    let mut used_amount: Option<(f64, Option<String>)> = None;
+    let mut limit_amount: Option<(f64, Option<String>)> = None;
 
     for item in &snapshot.items {
         if item.metric_type == BalanceMetricType::Percent {
@@ -67,23 +70,84 @@ fn format_balance_summary(snapshot: &modules::balance::types::BalanceSnapshot) -
                 Some(BalancePeriod::Month) => month_pct = Some(val),
                 _ => other_pct = Some(val),
             }
+        } else if item.metric_type == BalanceMetricType::Amount {
+            let val = item
+                .value
+                .as_ref()
+                .and_then(|v| v.as_f64());
+            if let Some(v) = val {
+                let currency = item.currency_symbol.clone();
+                match item.direction {
+                    Some(BalanceDirection::Used) => used_amount = Some((v, currency)),
+                    Some(BalanceDirection::Limit) => limit_amount = Some((v, currency)),
+                    _ => {}
+                }
+            }
         }
     }
 
-    match (week_pct, month_pct) {
-        (Some(w), Some(m)) => format!("周{}% 月{}%", w as u32, m as u32),
-        (Some(w), None) => format!("周{}%", w as u32),
-        (None, Some(m)) => format!("月{}%", m as u32),
-        (None, None) => match other_pct {
-            Some(v) => format!("{}%", v as u32),
-            None => {
-                if snapshot.items.is_empty() {
-                    "暂无数据".to_string()
-                } else {
-                    "已查询".to_string()
+    /// 格式化金额数值（保留最多 2 位小数，大数加千分位分隔）
+    fn fmt_amount(val: f64) -> String {
+        if val >= 1000.0 {
+            let s = (val * 100.0).round() / 100.0;
+            let whole = s.trunc() as i64;
+            let dec = ((s.fract() * 100.0).round()) as u32;
+            // 分组千分位
+            let num_str = whole.to_string();
+            let mut result = String::new();
+            for (i, c) in num_str.chars().enumerate() {
+                if i > 0 && (num_str.len() - i) % 3 == 0 {
+                    result.push(',');
                 }
+                result.push(c);
             }
-        },
+            if dec > 0 {
+                result.push_str(&format!(".{:02}", dec));
+            }
+            result
+        } else if val == val.trunc() {
+            format!("{}", val as i64)
+        } else {
+            format!("{:.2}", val)
+        }
+    }
+
+    /// 构建金额部分字符串
+    fn build_amount_str(used: Option<(f64, Option<String>)>, limit: Option<(f64, Option<String>)>) -> Option<String> {
+        match (used, limit) {
+            (Some((u, _)), Some((l, _))) => {
+                let u_str = fmt_amount(u);
+                let l_str = fmt_amount(l);
+                // 优先使用 used 的货币符号
+                let sym = " ";
+                Some(format!("{}{}/{}", sym, u_str, l_str))
+            }
+            (Some((u, _)), None) => Some(format!(" {}", fmt_amount(u))),
+            (None, Some((l, _))) => Some(format!(" /{}", fmt_amount(l))),
+            (None, None) => None,
+        }
+    }
+
+    let pct_part = match (week_pct, month_pct) {
+        (Some(w), Some(m)) => Some(format!("周{}% 月{}%", w as u32, m as u32)),
+        (Some(w), None) => Some(format!("周{}%", w as u32)),
+        (None, Some(m)) => Some(format!("月{}%", m as u32)),
+        (None, None) => other_pct.map(|v| format!("{}%", v as u32)),
+    };
+
+    let amount_part = build_amount_str(used_amount, limit_amount);
+
+    match (pct_part, amount_part) {
+        (Some(p), Some(a)) => format!("{}{}", p, a),
+        (Some(p), None) => p,
+        (None, Some(a)) => a.trim().to_string(),
+        (None, None) => {
+            if snapshot.items.is_empty() {
+                "暂无数据".to_string()
+            } else {
+                "已查询".to_string()
+            }
+        }
     }
 }
 
@@ -343,6 +407,17 @@ fn main() {
             modules::workspace::commands::workspace_aggregate,
             modules::workspace::commands::workspace_preview,
             modules::workspace::commands::workspace_apply_cli_config,
+            // ===== Script Template 模块 =====
+            modules::script_template::commands::script_template_list,
+            modules::script_template::commands::script_template_get,
+            modules::script_template::commands::script_template_create,
+            modules::script_template::commands::script_template_update,
+            modules::script_template::commands::script_template_delete,
+            modules::script_template::commands::script_template_set_status,
+            modules::script_template::commands::script_template_test,
+            modules::script_template::commands::script_template_list_active_for_select,
+            modules::script_template::commands::script_template_list_snippets,
+            modules::script_template::commands::script_template_list_refs,
             // ===== Virtual Provider 模块 =====
             modules::virtual_provider::commands::virtual_provider_list,
             modules::virtual_provider::commands::virtual_provider_get,
@@ -511,6 +586,13 @@ fn main() {
             );
             log::info!("Workspace 模块初始化完成");
             app.manage(workspace_handle);
+
+            // ===== 初始化 Script Template 模块 =====
+            // 依赖 AI Gateway 做试运行时的 Secret 解密与供应商加载。
+            let script_template_handle =
+                modules::script_template::ScriptTemplateHandle::new(ai_gateway_handle.clone());
+            log::info!("Script Template 模块初始化完成");
+            app.manage(script_template_handle);
 
             // ===== 初始化 Virtual Provider 模块 =====
             // Virtual Provider 无启动期依赖，直接构造句柄。

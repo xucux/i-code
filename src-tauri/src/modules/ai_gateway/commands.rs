@@ -600,18 +600,132 @@ pub async fn balance_refresh_provider(
     };
 
     // 3. 查询额度
-    let result = balance_state
+    let method = config.method().as_str();
+    let result = match balance_state
         .service()
         .query_balance(&provider_id, &config, &input)
-        .await?;
+        .await
+    {
+        Ok(r) => r,
+        Err(e) => {
+            // 双日志：开发追踪 + 应用内日志页
+            let msg = format!(
+                "额度刷新失败 | provider={} slug={} method={} | {}",
+                provider.display_name, provider.slug, method, e.message
+            );
+            log::warn!("{}", msg);
+            crate::modules::logger::Log::warn(&msg);
+            return Err(e);
+        }
+    };
 
     // 4. 持久化快照
     balance_repository::upsert_balance_snapshot(&provider_id, &result.snapshot)?;
 
-    // 5. 广播事件
+    // 5. 打印额度调用结果（双日志，不写 Secret）
+    let summary = format_balance_snapshot_summary(&result.snapshot);
+    let ok_msg = format!(
+        "额度刷新成功 | provider={} slug={} method={} | items={} | {}",
+        provider.display_name,
+        provider.slug,
+        method,
+        result.snapshot.items.len(),
+        summary
+    );
+    log::info!("{}", ok_msg);
+    crate::modules::logger::Log::info(&ok_msg);
+    if !result.warnings.is_empty() {
+        let warn_msg = format!(
+            "额度刷新警告 | provider={} | {}",
+            provider.slug,
+            result.warnings.join("; ")
+        );
+        log::warn!("{}", warn_msg);
+        crate::modules::logger::Log::warn(&warn_msg);
+    }
+
+    // 6. 广播事件
     let _ = app_handle.emit("balance:snapshot-updated", &result);
 
     Ok(result)
+}
+
+/// 将快照压缩为一行摘要，供日志使用（不含密钥）
+fn format_balance_snapshot_summary(
+    snapshot: &crate::modules::balance::types::BalanceSnapshot,
+) -> String {
+    use crate::modules::balance::types::{BalanceDirection, BalanceMetricType};
+
+    let mut parts: Vec<String> = Vec::new();
+    for item in &snapshot.items {
+        match item.metric_type {
+            BalanceMetricType::Amount => {
+                let dir = item
+                    .direction
+                    .map(|d| match d {
+                        BalanceDirection::Remaining => "remaining",
+                        BalanceDirection::Used => "used",
+                        BalanceDirection::Limit => "limit",
+                    })
+                    .unwrap_or("amount");
+                let val = item
+                    .value
+                    .as_ref()
+                    .map(|v| v.to_string())
+                    .unwrap_or_else(|| "-".into());
+                let cur = item.currency_symbol.as_deref().unwrap_or("");
+                parts.push(format!(
+                    "{}({}):{}{}",
+                    item.id, dir, cur, val
+                ));
+            }
+            BalanceMetricType::Percent => {
+                let val = item
+                    .value
+                    .as_ref()
+                    .map(|v| v.to_string())
+                    .unwrap_or_else(|| "-".into());
+                parts.push(format!("{}:{}%", item.id, val));
+            }
+            BalanceMetricType::Token => {
+                let used = item
+                    .used
+                    .as_ref()
+                    .map(|v| v.to_string())
+                    .unwrap_or_else(|| "-".into());
+                parts.push(format!("{}:tokens_used={}", item.id, used));
+            }
+            BalanceMetricType::Integer => {
+                let val = item
+                    .value
+                    .as_ref()
+                    .map(|v| v.to_string())
+                    .unwrap_or_else(|| "-".into());
+                parts.push(format!("{}:{}", item.id, val));
+            }
+            BalanceMetricType::Status => {
+                let val = item
+                    .value
+                    .as_ref()
+                    .map(|v| v.to_string())
+                    .unwrap_or_else(|| "-".into());
+                parts.push(format!("{}:status={}", item.id, val));
+            }
+            BalanceMetricType::Time => {
+                let val = item
+                    .value
+                    .as_ref()
+                    .map(|v| v.to_string())
+                    .unwrap_or_else(|| "-".into());
+                parts.push(format!("{}:{}", item.id, val));
+            }
+        }
+    }
+    if parts.is_empty() {
+        "empty".into()
+    } else {
+        parts.join(", ")
+    }
 }
 
 /// 列出所有供应商的额度快照

@@ -244,33 +244,14 @@
       "editModel": "编辑参数",
       "deleteModel": "删除模型",
       "modelEdit": {
-        "title": "编辑模型",
-        "description": "修改模型参数，所有字段均为可选，留空则使用默认值",
-        "loadConfigFailed": "加载模型配置失败",
-        "saveSuccess": "模型已保存",
-        "tabBasic": "基础",
-        "tabCapabilities": "能力",
-        "tabThinking": "思考",
-        "modelId": "模型 ID",
-        "displayName": "展示名称",
-        "family": "模型族",
-        "tokenizer": "分词器",
-        "tokenizerPlaceholder": "不指定",
-        "tokenizerNone": "不指定",
-        "maxInputTokens": "最大输入 Token",
-        "maxOutputTokens": "最大输出 Token",
-        "tokenCountMultiplier": "成本倍率",
-        "pricePer1mTokens": "¥ / 百万 tokens",
-        "stream": "流式",
-        "temperature": "Temperature",
-        "topP": "Top P",
-        "toolCalling": "工具调用",
-        "imageInput": "图片输入",
-        "editTools": "编辑器工具",
-        "thinkingType": "思考模式",
-        "thinkingTypePlaceholder": "不启用",
-        "thinkingEffort": "努力程度",
-        "thinkingBudgetTokens": "预算 Token"
+        "editToolsNone": "不使用",
+        "familyPlaceholder": "如 gpt、claude",
+        "thinkingEnabled": "启用",
+        "thinkingDisabled": "禁用",
+        "thinkingAuto": "自动",
+        "validation": {
+          "modelIdRequired": "请输入模型 ID"
+        }
       },
       "editTitle": "编辑供应商",
       "createTitle": "新建供应商",
@@ -391,16 +372,6 @@
         "loadBuiltinFailed": "加载内置模型失败：{{message}}",
         "deleteSuccess": "模型已删除"
       },
-      "modelEdit": {
-        "editToolsNone": "不使用",
-        "familyPlaceholder": "如 gpt、claude",
-        "thinkingEnabled": "启用",
-        "thinkingDisabled": "禁用",
-        "thinkingAuto": "自动",
-        "validation": {
-          "modelIdRequired": "请输入模型 ID"
-        }
-      },
       "modelAdd": {
         "addSuccess": "成功添加 {{count}} 个模型"
       }
@@ -418,7 +389,7 @@
     },
     "authKey": {
       "title": "API Key 管理",
-      "description": "管理用于访问本地 Gateway 的 API Key",
+      "description": "描述",
       "add": "新增 API Key",
       "empty": "暂无 API Key",
       "editTitle": "编辑 API Key",
@@ -426,7 +397,6 @@
       "formDescription": "API Key 将以明文存储，便于网关请求反查",
       "name": "名称",
       "namePlaceholder": "例如：CLI 专用",
-      "description": "描述",
       "descriptionPlaceholder": "可选描述",
       "value": "Key 值",
       "valuePlaceholderCreate": "留空将自动生成 sk-icode- 前缀的 Key",
@@ -580,7 +550,10 @@
       "balanceNoConfig": "未配置额度监控",
       "balanceNoData": "暂无额度数据",
       "balanceRefreshSuccess": "额度已刷新",
-      "balanceRefreshFailed": "额度刷新失败"
+      "balanceRefreshFailed": "额度刷新失败",
+      "balancePercent": "剩余",
+      "balanceLimit": "总额",
+      "balanceUsed": "已花费"
     },
     "providersPage": {
       "tabs": {
@@ -602,7 +575,8 @@
         "settings": "配置",
         "modelStats": "模型统计",
         "providers": "供应商",
-        "virtualProviders": "虚拟供应商"
+        "virtualProviders": "虚拟供应商",
+        "scriptTemplates": "脚本模板"
       },
       "startGateway": "启动网关",
       "stopGateway": "停止网关",
@@ -618,7 +592,8 @@
         "settings": "配置监听地址、端口、默认 API Key 与日志级别",
         "modelStats": "查看模型调用明细与聚合统计",
         "providers": "管理真实上游供应商",
-        "virtualProviders": "管理虚拟供应商与故障转移策略"
+        "virtualProviders": "管理虚拟供应商与故障转移策略",
+        "scriptTemplates": "用 Rhai 自定义额度查询脚本，并在供应商额度监控中选用启用中的模板"
       }
     },
     "charts": {
@@ -1185,5 +1160,83 @@
       "cache": "缓存统计",
       "cacheDesc": "缓存命中与未命中的柱状图。"
     }
+  },
+  "scriptTemplate": {
+    "title": "脚本模板",
+    "create": "新建",
+    "createTitle": "新建脚本模板",
+    "editTitle": "编辑脚本模板",
+    "edit": "编辑",
+    "delete": "删除",
+    "deleteSuccess": "已删除",
+    "deleteConfirm": "确认删除模板「{{name}}」？若仍被供应商引用将无法删除。",
+    "save": "保存",
+    "saving": "保存中…",
+    "saveSuccess": "已保存",
+    "createSuccess": "已创建",
+    "publish": "启用",
+    "disable": "禁用",
+    "revertDraft": "设为草稿",
+    "statusUpdated": "状态已更新",
+    "empty": "暂无脚本模板。",
+    "createFromExample": "从示例创建",
+    "engineHint": "引擎为 Rhai；编辑器使用 JavaScript 语法高亮近似显示。",
+    "status": {
+      "draft": "草稿",
+      "active": "启用",
+      "disabled": "禁用"
+    },
+    "filter": {
+      "allStatus": "全部状态",
+      "search": "搜索名称/slug"
+    },
+    "columns": {
+      "name": "名称",
+      "status": "状态",
+      "lastTest": "试运行",
+      "updatedAt": "更新时间",
+      "actions": "操作"
+    },
+    "fields": {
+      "name": "名称",
+      "slug": "slug",
+      "timeout": "超时(ms)",
+      "description": "描述",
+      "script": "脚本正文",
+      "scriptPlaceholder": "// 返回 { items: [...] }"
+    },
+    "docs": {
+      "variables": "系统变量",
+      "functions": "系统函数",
+      "snippets": "Snippets",
+      "returnShape": "返回结构",
+      "examples": "参考示例",
+      "insert": "插入"
+    },
+    "test": {
+      "provider": "试运行供应商",
+      "run": "执行",
+      "running": "执行中…",
+      "result": "试运行结果",
+      "duration": "耗时",
+      "noResult": "尚未试运行"
+    },
+    "testSuccess": "试运行成功",
+    "testFailed": "试运行失败",
+    "validation": {
+      "nameSlugRequired": "名称与 slug 必填",
+      "saveFirst": "请先保存模板",
+      "scriptRequired": "启用前脚本正文不能为空",
+      "providerRequired": "请选择试运行供应商"
+    },
+    "balanceForm": {
+      "customScripts": "自定义脚本",
+      "manageHint": "请在网关页「脚本模板」Tab 管理",
+      "timeout": "查询超时(ms)",
+      "unavailable": "所选脚本模板不可用（未启用或不存在）",
+      "activeOnly": "仅启用中的模板会出现在此列表"
+    },
+    "expand": "全屏",
+    "restore": "还原"
   }
 }

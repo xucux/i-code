@@ -38,8 +38,8 @@ pub fn get_provider(method: BalanceMethod) -> Option<Box<dyn BalanceProvider>> {
         BalanceMethod::GeminiCli => Some(Box::new(gemini_cli::GeminiCliBalanceProvider)),
         BalanceMethod::Codex => Some(Box::new(codex::CodexBalanceProvider)),
         BalanceMethod::Minimax => Some(Box::new(minimax::MinimaxBalanceProvider)),
-        // none / synthetic 不走 Provider
-        BalanceMethod::None | BalanceMethod::Synthetic => None,
+        // none / synthetic / script 不走通用 Provider 注册表
+        BalanceMethod::None | BalanceMethod::Synthetic | BalanceMethod::Script => None,
     }
 }
 
@@ -47,8 +47,9 @@ pub fn get_provider(method: BalanceMethod) -> Option<Box<dyn BalanceProvider>> {
 ///
 /// 1. `none` → 空快照
 /// 2. `synthetic` → 合成测试数据
-/// 3. 其他 → 查找 Provider 并调用 `refresh()`
-/// 4. 未实现的 Provider → 返回 INTERNAL 错误
+/// 3. `script` → 加载 active 模板并执行 Rhai 脚本
+/// 4. 其他 → 查找 Provider 并调用 `refresh()`
+/// 5. 未实现的 Provider → 返回 INTERNAL 错误
 pub async fn dispatch_refresh(
     config: &BalanceConfig,
     input: &BalanceRefreshInput,
@@ -67,6 +68,11 @@ pub async fn dispatch_refresh(
         return Ok(synthetic_snapshot());
     }
 
+    // 自定义脚本：要求模板存在且 status=active
+    if let BalanceConfig::Script(cfg) = config {
+        return refresh_with_script(cfg, input).await;
+    }
+
     // 查找 Provider
     if let Some(provider) = get_provider(method) {
         return provider.refresh(input).await;
@@ -77,6 +83,82 @@ pub async fn dispatch_refresh(
         "余额查询方法 '{}' 暂未实现，将在后续迭代中支持",
         method.as_str()
     )))
+}
+
+/// 执行脚本额度查询
+async fn refresh_with_script(
+    cfg: &super::types::ScriptBalanceConfig,
+    input: &BalanceRefreshInput,
+) -> IcodeResult<BalanceSnapshot> {
+    use crate::modules::script_template::types::ScriptTemplateStatus;
+
+    let template =
+        crate::modules::script_template::repository::find_by_id(&cfg.script_template_id)?;
+    let status = ScriptTemplateStatus::from_str(&template.status);
+    if status != Some(ScriptTemplateStatus::Active) {
+        return Err(IcodeError::validation(format!(
+            "脚本模板未启用（当前状态: {}），无法刷新额度",
+            template.status
+        )));
+    }
+    if template.script_body.trim().is_empty() {
+        return Err(IcodeError::validation("脚本模板正文为空"));
+    }
+
+    // 从 BalanceRefreshInput 还原 Provider 视图供脚本变量注入
+    let provider = crate::modules::ai_gateway::types::Provider {
+        id: input.provider_id.clone().unwrap_or_default(),
+        slug: input.provider_slug.clone().unwrap_or_default(),
+        display_name: input.provider_name.clone().unwrap_or_default(),
+        provider_type: input.provider_type.clone().unwrap_or_default(),
+        base_url: input.base_url.clone().unwrap_or_default(),
+        use_raw_base_url: false,
+        transport: None,
+        service_tier: None,
+        auth_json: input
+            .auth_method
+            .as_ref()
+            .map(|m| format!(r#"{{"method":"{}"}}"#, m)),
+        balance_provider_json: None,
+        timeout_json: None,
+        retry_json: None,
+        proxy_json: None,
+        auto_fetch_official_models: false,
+        context_cache_json: None,
+        well_known_template_id: None,
+        is_enabled: input.provider_is_enabled.unwrap_or(true),
+        sort_order: 0,
+        created_at: String::new(),
+        updated_at: String::new(),
+    };
+
+    let timeout_ms = cfg
+        .timeout_ms
+        .unwrap_or(template.default_timeout_ms.max(1000) as u64)
+        .min(30_000);
+
+    let mut allowed_hosts: Vec<String> = cfg.allowed_hosts.clone().unwrap_or_default();
+    if let Some(json) = &template.allowed_hosts_json {
+        if let Ok(hosts) = serde_json::from_str::<Vec<String>>(json) {
+            for h in hosts {
+                if !allowed_hosts.iter().any(|x| x == &h) {
+                    allowed_hosts.push(h);
+                }
+            }
+        }
+    }
+
+    let result = super::script::execute_balance_script(
+        &template.script_body,
+        &template,
+        &provider,
+        input,
+        timeout_ms,
+        &allowed_hosts,
+    )
+    .await?;
+
+    Ok(result.snapshot)
 }
 
 /// 获取当前毫秒时间戳

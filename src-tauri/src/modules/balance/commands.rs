@@ -60,6 +60,8 @@ pub async fn balance_refresh(
         project_id,
         managed_project_id,
         account_id,
+        provider_id: Some(provider_id.clone()),
+        ..Default::default()
     };
 
     let result = state.service().query_balance(&provider_id, &config, &input).await?;
