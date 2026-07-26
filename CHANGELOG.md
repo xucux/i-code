@@ -8,6 +8,44 @@
 
 ### 变更
 
+## [0.0.3] - 2026-07-26
+
+### 新增
+
+#### 额度监控脚本模块
+
+- **数据库**：新增 `script_templates` 表，支持模板名称、slug、类型、状态（draft/active/disabled）、脚本正文、引擎、超时、host 白名单、试运行记录等字段
+- **后端 CRUD**：完整 10 个 Command（`script_template_list`、`get`、`create`、`update`、`delete`、`set_status`、`test`、`list_active_for_select`、`list_snippets`、`list_refs`），全部注册在 `main.rs`
+- **状态机**：`draft → active → disabled` 三态迁移，`publish`/`disable`/`revert_to_draft`，启用前校验脚本非空，删除时检查供应商引用
+- **Rhai 运行时**：纯 Rust 脚本引擎，每请求新建 Engine + Scope 避免状态泄漏，`spawn_blocking` 避免阻塞 tokio
+- **系统变量注入**：`api_key`（已解密）、`provider`（id/slug/name/base_url/type/is_enabled）、`auth`（method/project_id/account_id 白名单）、`now_ms`、`template`（id/name/kind）
+- **Host Functions**：
+  - `http.get/post/request/get_json` — 基于 reqwest，host 白名单校验、超时（默认 15s，上限 30s）、响应 body 2MB 上限
+  - `json.parse/stringify/stringify_pretty` — 字符串与 Dynamic 互转
+  - `log.info/warn/error` — 自研 logger，自动脱敏 API Key
+  - `error(msg)` — 中止执行并转为业务错误
+  - `str.contains/replace`、`url.join` — 工具函数
+- **沙箱策略**：禁止文件/进程/环境变量访问，最大执行步数 100_000，脚本正文上限 64 KiB，并行脚本数信号量控制
+- **Dynamic → BalanceSnapshot 映射**：校验返回结构合法性，`updatedAt` 缺省时自动补 `now_ms`
+- **内置 Snippet**（6 个）：余额 GET + Bearer、返回 items 骨架、Bearer 请求头、小米 MiMo 按量计费、小米 MiMo TokenPlan、Grok Usage
+- **BalanceMethod 扩展**：新增 `Script` 方法，`BalanceConfig::Script` 含 `scriptTemplateId`、`timeoutMs`、`allowedHosts`
+- **额度刷新适配**：`dispatch_refresh` 中识别 Script 分支，加载 active 模板后执行脚本，失败返回明确错误信息
+- **前端类型**：`ScriptTemplate`、`ScriptTemplateStatus`、`CreateScriptTemplateInput`、`UpdateScriptTemplateInput`、`ScriptTemplateTestResult`、`ScriptSnippet` 等完整 DTO
+- **前端 Hooks**：`useScriptTemplateList`（含 kind/status/keyword 筛选）、`useActiveScriptTemplates`（仅 active 模板）、`useScriptSnippets`（内置 snippet 列表）、`useScriptTemplateMutation`（CRUD + 状态迁移 + 试运行 + 引用查询）
+- **前端组件**：
+  - `ScriptTemplateList` — 列表页，支持类型/状态/搜索筛选、紧凑 900×700 布局、空状态引导
+  - `ScriptTemplateEditor` — 全功能编辑对话框，元数据字段、CodeMirror 编辑器（JS 高亮近似 Rhai）、系统全屏切换、状态徽章、发布/禁用/恢复草稿
+  - `ScriptSidebarDocs` — 右侧文档面板，系统变量/函数/Snippet/返回结构/示例 五个 Tab，点击插入编辑器
+  - `ScriptTestPanel` — 试运行面板，供应商 Select 下拉选择、执行结果展示（snapshot / 错误 / 耗时 / 日志）
+  - `ScriptTemplateStatusBadge` — 状态徽章（草稿/启用/禁用）
+  - `BalanceConfigForm` — 供应商额度配置表单下拉分组「内置」+「自定义脚本」，选择脚本模板后支持 timeoutMs 覆盖，模板禁用时显示警告
+- **安全设计**：API Key 仅内存注入，禁止明文落库或写入日志，host 白名单默认跟随 `base_url`，日志脱敏，导出备份不含密钥
+
+### 修复
+
+- 修复全屏模式下 Select 弹出层被 Radix aria-hidden 阻断的问题：改用 `document.documentElement.requestFullscreen()` 全屏整个文档而非 DialogContent，确保 portal 渲染的弹出层可见  
+
+
 ## [0.0.2] - 2026-07-26
 
 ### 新增
