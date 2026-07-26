@@ -95,7 +95,8 @@ jobs:
           name: 'i-code ${{ env.RELEASE_TAG }}'
           body_path: release_body.md
           draft: true
-          prerelease: false
+          # 当 tag 含 beta 字符时标记为预发布版本，正式版则为 false
+          prerelease: ${{ contains(env.RELEASE_TAG, 'beta') }}
           generate_release_notes: false
 
   # 完整测试套件
