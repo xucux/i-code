@@ -868,6 +868,16 @@ fn main() {
                 }
             });
 
+            // ===== 启动期异步检查更新 =====
+            // 应用启动后异步拉取一次 GitHub latest.json，无论是否有更新（或请求失败）
+            // 都通过 `update-check-result` 事件推送给前端；前端据此决定是否在标题栏
+            // 展示更新入口。延迟 3 秒发起，确保前端已完成事件监听注册。
+            let app_handle_for_update = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+                modules::update_version::run_update_check_and_emit(app_handle_for_update).await;
+            });
+
             Ok(())
         })
         .run(tauri::generate_context!())

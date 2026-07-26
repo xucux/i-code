@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { getVersion } from '@tauri-apps/api/app'
 import { invoke } from '@tauri-apps/api/core'
+import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { marked } from 'marked'
 import { Button } from '@/components/ui/button'
 import {
@@ -12,6 +13,7 @@ import {
 } from '@/components/ui/dialog'
 import { Separator } from '@/components/ui/separator'
 import { useTranslation } from '@/modules/i18n/use-translation'
+import { BACKEND_EVENTS } from '@/core/events'
 import { cn } from '@/lib/utils'
 
 const GITHUB_REPO = 'xucux/i-code'
@@ -76,6 +78,122 @@ function MarkdownContent({ content }: { content: string }) {
   )
 }
 
+/**
+ * 更新检查弹窗（受控组件）
+ *
+ * 供设置页面「检查更新」入口与标题栏更新指示器复用，
+ * 由父级控制 open 状态并传入检查结果。
+ */
+interface UpdateCheckDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  result: CheckUpdateResult | null
+  currentVersion: string
+}
+
+export function UpdateCheckDialog({ open, onOpenChange, result, currentVersion }: UpdateCheckDialogProps) {
+  const { t } = useTranslation()
+  const hasUpdate = result?.has_update ?? false
+
+  const openDownloadPage = useCallback(() => {
+    invoke('open_url', { url: RELEASES_URL })
+    onOpenChange(false)
+  }, [onOpenChange])
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className=" gap-0 p-0 h-15">
+        {/* 标题区 */}
+        <DialogHeader className="px-4 py-1">
+          <DialogTitle className="flex items-center gap-2 text-sm">
+            <i className={cn(
+              'fa-regular',
+              hasUpdate ? 'fa-circle-up text-primary' : 'fa-circle-check text-primary'
+            )} />
+            {hasUpdate ? t('settings.about.updateAvailable') : t('settings.about.upToDate')}
+          </DialogTitle>
+          <DialogDescription className="text-xs">
+            {hasUpdate
+              ? t('settings.about.updateDescription', {
+                  current: stripV(currentVersion),
+                  latest: stripV(result?.latest_version ?? ''),
+                })
+              : t('settings.about.upToDateDescription', {
+                  current: stripV(currentVersion),
+                })}
+          </DialogDescription>
+        </DialogHeader>
+
+        <Separator />
+
+        {/* 版本对比 */}
+        {result && (
+          <div className="px-4 pt-3">
+            <div className="flex items-center justify-center gap-3 rounded-md border bg-muted/30 p-2.5">
+              <div className="text-center">
+                <div className="text-[10px] text-muted-foreground">{t('settings.about.currentVersion')}</div>
+                <div className="mt-0.5 font-mono text-xs tabular-nums">{stripV(result.current_version)}</div>
+              </div>
+              <i className="fa-solid fa-arrow-right text-[10px] text-muted-foreground" />
+              <div className="text-center">
+                <div className="text-[10px] text-muted-foreground">{t('settings.about.latestVersion')}</div>
+                <div className={cn(
+                  'mt-0.5 font-mono text-xs tabular-nums',
+                  hasUpdate ? 'font-semibold text-primary' : ''
+                )}>
+                  {stripV(result.latest_version)}
+                  {result.is_beta && (
+                    <span className="ml-1 rounded bg-amber-100 px-1 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-900 dark:text-amber-300">
+                      Beta
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 预览版提示 */}
+        {result?.is_beta && hasUpdate && (
+          <div className="mx-4 mt-3 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+            <i className="fa-solid fa-triangle-exclamation mt-0.5 shrink-0 text-[10px]" />
+            <span>{t('settings.about.betaWarning')}</span>
+          </div>
+        )}
+
+        {/* 更新日志 */}
+        {result?.notes && (
+          <div className="px-4 py-3">
+            <div className="max-h-52 overflow-y-auto rounded-md border p-3 custom-scrollbar">
+              <MarkdownContent content={result.notes} />
+            </div>
+          </div>
+        )}
+
+        {result && !result.notes && (
+          <p className="px-4 pt-3 text-xs text-muted-foreground">
+            {t('settings.about.noReleaseNotes')}
+          </p>
+        )}
+
+        {/* 底部按钮 */}
+        <div className="flex items-center justify-end gap-2 border-t px-4 py-2">
+          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+            {t('common.cancel')}
+          </Button>
+          {hasUpdate && (
+            <Button size="sm" onClick={openDownloadPage}>
+              <i className="fa-solid fa-download mr-1.5 text-xs" />
+              {t('settings.about.downloadUpdate')}
+            </Button>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/** 设置页面「检查更新」入口（按钮 + 弹窗） */
 export function UpdateCheck() {
   const { t } = useTranslation()
   const [currentVersion, setCurrentVersion] = useState('')
@@ -110,11 +228,6 @@ export function UpdateCheck() {
     checkUpdate(false)
   }, [checkUpdate])
 
-  const openDownloadPage = useCallback(() => {
-    invoke('open_url', { url: RELEASES_URL })
-    setDialogOpen(false)
-  }, [])
-
   return (
     <>
       {/* 更新检查按钮 */}
@@ -133,95 +246,61 @@ export function UpdateCheck() {
       </Button>
 
       {/* 更新弹窗 */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className=" gap-0 p-0 h-15">
-          {/* 标题区 */}
-          <DialogHeader className="px-4 py-1">
-            <DialogTitle className="flex items-center gap-2 text-sm">
-              <i className={cn(
-                'fa-regular',
-                hasUpdate ? 'fa-circle-up text-primary' : 'fa-circle-check text-primary'
-              )} />
-              {hasUpdate ? t('settings.about.updateAvailable') : t('settings.about.upToDate')}
-            </DialogTitle>
-            <DialogDescription className="text-xs">
-              {hasUpdate
-                ? t('settings.about.updateDescription', {
-                    current: stripV(currentVersion),
-                    latest: stripV(result?.latest_version ?? ''),
-                  })
-                : t('settings.about.upToDateDescription', {
-                    current: stripV(currentVersion),
-                  })}
-            </DialogDescription>
-          </DialogHeader>
+      <UpdateCheckDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        result={result}
+        currentVersion={currentVersion}
+      />
+    </>
+  )
+}
 
-          <Separator />
+/**
+ * 标题栏更新指示器
+ *
+ * 监听后端启动期推送的 `update-check-result` 事件：
+ * - 当 `has_update=true` 且 `is_beta=false` 时，在 i-code 标题右侧展示更新 icon；
+ * - 点击 icon 打开复用的 `UpdateCheckDialog`；
+ * - 当事件返回无更新或最新版本为 beta 时，icon 自动隐藏（实现自动关闭）。
+ */
+export function UpdateCheckIndicator() {
+  const { t } = useTranslation()
+  const [result, setResult] = useState<CheckUpdateResult | null>(null)
+  const [dialogOpen, setDialogOpen] = useState(false)
 
-          {/* 版本对比 */}
-          {result && (
-            <div className="px-4 pt-3">
-              <div className="flex items-center justify-center gap-3 rounded-md border bg-muted/30 p-2.5">
-                <div className="text-center">
-                  <div className="text-[10px] text-muted-foreground">{t('settings.about.currentVersion')}</div>
-                  <div className="mt-0.5 font-mono text-xs tabular-nums">{stripV(result.current_version)}</div>
-                </div>
-                <i className="fa-solid fa-arrow-right text-[10px] text-muted-foreground" />
-                <div className="text-center">
-                  <div className="text-[10px] text-muted-foreground">{t('settings.about.latestVersion')}</div>
-                  <div className={cn(
-                    'mt-0.5 font-mono text-xs tabular-nums',
-                    hasUpdate ? 'font-semibold text-primary' : ''
-                  )}>
-                    {stripV(result.latest_version)}
-                    {result.is_beta && (
-                      <span className="ml-1 rounded bg-amber-100 px-1 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-900 dark:text-amber-300">
-                        Beta
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+  useEffect(() => {
+    let unlisten: UnlistenFn | undefined
+    listen<CheckUpdateResult>(BACKEND_EVENTS.UPDATE_CHECK_RESULT, (event) => {
+      setResult(event.payload)
+    }).then((fn) => {
+      unlisten = fn
+    })
+    return () => {
+      if (unlisten) unlisten()
+    }
+  }, [])
 
-          {/* 预览版提示 */}
-          {result?.is_beta && hasUpdate && (
-            <div className="mx-4 mt-3 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
-              <i className="fa-solid fa-triangle-exclamation mt-0.5 shrink-0 text-[10px]" />
-              <span>{t('settings.about.betaWarning')}</span>
-            </div>
-          )}
+  const showIcon = (result?.has_update ?? false) && !(result?.is_beta ?? false)
+  if (!showIcon) return null
 
-          {/* 更新日志 */}
-          {result?.notes && (
-            <div className="px-4 py-3">
-              <div className="max-h-52 overflow-y-auto rounded-md border p-3 custom-scrollbar">
-                <MarkdownContent content={result.notes} />
-              </div>
-            </div>
-          )}
-
-          {result && !result.notes && (
-            <p className="px-4 pt-3 text-xs text-muted-foreground">
-              {t('settings.about.noReleaseNotes')}
-            </p>
-          )}
-
-          {/* 底部按钮 */}
-          <div className="flex items-center justify-end gap-2 border-t px-4 py-2">
-            <Button variant="outline" size="sm" onClick={() => setDialogOpen(false)}>
-              {t('common.cancel')}
-            </Button>
-            {hasUpdate && (
-              <Button size="sm" onClick={openDownloadPage}>
-                <i className="fa-solid fa-download mr-1.5 text-xs" />
-                {t('settings.about.downloadUpdate')}
-              </Button>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setDialogOpen(true)}
+        className="flex items-center justify-center rounded p-0.5 text-primary transition-colors hover:text-primary/80"
+        title={t('settings.about.updateAvailable')}
+        aria-label={t('settings.about.updateAvailable')}
+      >
+        <i className="fa-regular fa-circle-up text-xs" />
+      </button>
+      <UpdateCheckDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        result={result}
+        currentVersion={result?.current_version ?? ''}
+      />
     </>
   )
 }

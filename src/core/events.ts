@@ -77,6 +77,8 @@ export const BACKEND_EVENTS = {
   TODAY_TOKENS: 'today-tokens',
   /** 余额快照刷新完成 */
   BALANCE_SNAPSHOT_UPDATED: 'balance:snapshot-updated',
+  /** 启动期版本更新检查完成（无论是否有更新都推送），前端据此控制标题栏更新图标 */
+  UPDATE_CHECK_RESULT: 'update-check-result',
   /** 应用设置变更完成，用于标题栏信息配置实时更新 */
   SETTINGS_CHANGED: 'settings:changed',
   /** 聊天流式增量 */

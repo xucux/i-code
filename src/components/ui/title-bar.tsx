@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dialog'
 
 /** 应用版本号，与 package.json / tauri.conf.json 保持同步 */
-const APP_VERSION = '0.0.1'
+const APP_VERSION = '0.0.2'
 
 interface TitleBarProps {
   /** 标题栏中间展示的可选信息内容（如 MemoryInfo 胶囊） */
@@ -21,6 +21,8 @@ interface TitleBarProps {
   showMiniPanel?: boolean
   /** 是否显示关于入口（问号 icon），点击后弹出关于对话框 */
   showAbout?: boolean
+  /** 渲染在 i-code 标题右侧的附加内容（如更新指示器），由路由层注入以避免 UI 组件耦合业务模块 */
+  leftExtra?: React.ReactNode
 }
 
 /**
@@ -36,6 +38,7 @@ export function TitleBar({
   info,
   showMiniPanel = true,
   // showAbout = true,
+  leftExtra,
 }: TitleBarProps) {
   const [isMaximized, setIsMaximized] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
@@ -86,6 +89,7 @@ export function TitleBar({
             i
           </div>
           <span className="text-xs font-medium">i-code</span>
+          {leftExtra}
         </div>
 
         {/* 中间：拖拽区域，可插入信息展示胶囊 */}

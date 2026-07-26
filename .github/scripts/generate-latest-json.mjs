@@ -61,7 +61,7 @@ import { resolve } from 'path';
 function parseVersion(version) {
   // 剔除开头的 v 前缀
   const stripped = version.replace(/^v/i, '');
-  console.log(`[parseVersion] input: "${version}", stripped: "${stripped}"`);
+  console.warn(`[parseVersion] input: "${version}", stripped: "${stripped}"`);
 
   const betaMatch = stripped.match(/^(.+?)-beta/i);
   if (betaMatch) {
@@ -94,8 +94,8 @@ function parseArgs() {
  * @returns {string} 提取的 notes 文本
  */
 function extractNotes(changelogPath, version, isBeta) {
-  console.log(`[extractNotes] changelog: ${changelogPath}`);
-  console.log(`[extractNotes] lookup version: "${version}", isBeta: ${isBeta}`);
+  console.warn(`[extractNotes] changelog: ${changelogPath}`);
+  console.warn(`[extractNotes] lookup version: "${version}", isBeta: ${isBeta}`);
 
   const content = readFileSync(changelogPath, 'utf-8');
   const lines = content.split('\n');
@@ -109,7 +109,7 @@ function extractNotes(changelogPath, version, isBeta) {
     // 匹配目标版本行：## [version] ...
     if (!found && line.startsWith('## ') && line.includes(`[${version}]`)) {
       found = true;
-      console.log(`[extractNotes] found section: "${line.trim()}"`);
+      console.warn(`[extractNotes] found section: "${line.trim()}"`);
       // Beta 版本在标题前添加预览版说明
       if (isBeta) {
         notes.push('> 🚨该版本为预览版（Beta），可能包含未完善的功能🚧。');
@@ -124,9 +124,9 @@ function extractNotes(changelogPath, version, isBeta) {
 
   const result = notes.join('\n').trim();
   if (!result) {
-    console.warn(`[extractNotes] ⚠ No section found for version "${version}" in CHANGELOG.md`);
+    console.error(`[extractNotes] ⚠ No section found for version "${version}" in CHANGELOG.md`);
   } else {
-    console.log(`[extractNotes] extracted ${result.split('\n').length} lines of notes`);
+    console.warn(`[extractNotes] extracted ${result.split('\n').length} lines of notes`);
   }
   return result;
 }
@@ -152,12 +152,12 @@ function scanAssets(assetsDir, baseUrl) {
   const platforms = {};
 
   if (!assetsDir || !existsSync(assetsDir)) {
-    console.warn(`[scanAssets] ⚠ assets directory not found: ${assetsDir}`);
+    console.error(`[scanAssets] ⚠ assets directory not found: ${assetsDir}`);
     return platforms;
   }
 
   const allFiles = readdirSync(assetsDir);
-  console.log(`[scanAssets] scanning ${allFiles.length} files in: ${assetsDir}`);
+  console.warn(`[scanAssets] scanning ${allFiles.length} files in: ${assetsDir}`);
 
   // 第一步：构建签名映射 { baseName → signature }
   const sigMap = {};
@@ -166,13 +166,13 @@ function scanAssets(assetsDir, baseUrl) {
       const baseName = file.slice(0, -4);
       const sigPath = resolve(assetsDir, file);
       sigMap[baseName] = readFileSync(sigPath, 'utf-8').trim();
-      console.log(`[scanAssets]   found signature: ${file} → ${baseName}`);
+      console.warn(`[scanAssets]   found signature: ${file} → ${baseName}`);
     }
   }
 
   // 第二步：遍历所有非 .sig 文件，匹配安装包
   const installers = allFiles.filter(f => !f.endsWith('.sig'));
-  console.log(`[scanAssets] matching ${installers.length} installer files...`);
+  console.warn(`[scanAssets] matching ${installers.length} installer files...`);
 
   let winUrl = '';
   let winSig = '';
@@ -183,33 +183,33 @@ function scanAssets(assetsDir, baseUrl) {
     const sigInfo = signature ? `(signature: ${signature.slice(0, 20)}...)` : '(no signature)';
 
     if (/aarch64|arm64/.test(file) && file.endsWith('.app.tar.gz')) {
-      console.log(`[scanAssets]   ✓ darwin-aarch64 ← ${file} ${sigInfo}`);
+      console.warn(`[scanAssets]   ✓ darwin-aarch64 ← ${file} ${sigInfo}`);
       platforms['darwin-aarch64'] = { signature, url };
     } else if (/x64|x86_64/.test(file) && file.endsWith('.app.tar.gz')) {
-      console.log(`[scanAssets]   ✓ darwin-x86_64  ← ${file} ${sigInfo}`);
+      console.warn(`[scanAssets]   ✓ darwin-x86_64  ← ${file} ${sigInfo}`);
       platforms['darwin-x86_64'] = { signature, url };
     } else if (/\.AppImage$/i.test(file) || /\.appimage$/i.test(file)) {
-      console.log(`[scanAssets]   ✓ linux-x86_64   ← ${file} ${sigInfo}`);
+      console.warn(`[scanAssets]   ✓ linux-x86_64   ← ${file} ${sigInfo}`);
       platforms['linux-x86_64'] = { signature, url };
     } else if (file.endsWith('-setup.exe')) {
-      console.log(`[scanAssets]   ✓ windows-x86_64 (exe) ← ${file} ${sigInfo}`);
+      console.warn(`[scanAssets]   ✓ windows-x86_64 (exe) ← ${file} ${sigInfo}`);
       winUrl = url;
       winSig = signature;
     } else if (file.endsWith('.msi') && !winUrl) {
-      console.log(`[scanAssets]   . windows-x86_64 (msi) ← ${file} ${sigInfo} (后备，仅在无 exe 时使用)`);
+      console.warn(`[scanAssets]   . windows-x86_64 (msi) ← ${file} ${sigInfo} (后备，仅在无 exe 时使用)`);
       winUrl = url;
       winSig = signature;
     } else {
-      console.log(`[scanAssets]   - skipped: ${file}`);
+      console.warn(`[scanAssets]   - skipped: ${file}`);
     }
   }
 
   if (winUrl) {
     platforms['windows-x86_64'] = { signature: winSig, url: winUrl };
-    console.log(`[scanAssets]   ✓ windows-x86_64 final: ${winUrl.split('/').pop()}`);
+    console.warn(`[scanAssets]   ✓ windows-x86_64 final: ${winUrl.split('/').pop()}`);
   }
 
-  console.log(`[scanAssets] done. platforms: ${Object.keys(platforms).join(', ') || '(none)'}`);
+  console.warn(`[scanAssets] done. platforms: ${Object.keys(platforms).join(', ') || '(none)'}`);
   return platforms;
 }
 
@@ -240,21 +240,21 @@ function main() {
   // 无 v 前缀的完整版本号（如 0.0.1-beta20260725）
   const strippedVersion = args.version.replace(/^v/i, '');
 
-  console.log(`[main] raw version:      "${args.version}"`);
-  console.log(`[main] stripped version: "${strippedVersion}"`);
-  console.log(`[main] base version:     "${baseVersion}"`);
-  console.log(`[main] is beta:          ${isBeta}`);
-  console.log(`[main] beta source:      ${autoBeta ? 'auto-detected from version' : args.beta ? '--beta flag' : 'N/A'}`);
+  console.warn(`[main] raw version:      "${args.version}"`);
+  console.warn(`[main] stripped version: "${strippedVersion}"`);
+  console.warn(`[main] base version:     "${baseVersion}"`);
+  console.warn(`[main] is beta:          ${isBeta}`);
+  console.warn(`[main] beta source:      ${autoBeta ? 'auto-detected from version' : args.beta ? '--beta flag' : 'N/A'}`);
 
   const changelogPath = resolve(process.cwd(), args.changelog || 'CHANGELOG.md');
-  console.log(`[main] changelog path: ${changelogPath}`);
+  console.warn(`[main] changelog path: ${changelogPath}`);
 
   // 1. 用正式版本号（不含 -beta 后缀）查询 changelog
   const notes = extractNotes(changelogPath, baseVersion, isBeta);
 
   // 2. --notes-only 模式：仅输出 notes 到 stdout，用于 release body
   if (args['notes-only']) {
-    console.log(`[main] mode: --notes-only, writing notes to stdout (${notes.length} chars)`);
+    console.warn(`[main] mode: --notes-only, writing notes to stdout (${notes.length} chars)`);
     // 确保输出以换行结尾，适配 GitHub Actions body_path
     process.stdout.write(notes + '\n');
     return;
@@ -266,12 +266,12 @@ function main() {
   const baseUrl = `https://github.com/${repo}/releases/download/${tag}`;
   const assetsDir = args['assets-dir'] ? resolve(process.cwd(), args['assets-dir']) : null;
 
-  console.log(`[main] tag:            ${tag}`);
-  console.log(`[main] repo:           ${repo}`);
-  console.log(`[main] assets dir:     ${assetsDir || '(not provided)'}`);
+  console.warn(`[main] tag:            ${tag}`);
+  console.warn(`[main] repo:           ${repo}`);
+  console.warn(`[main] assets dir:     ${assetsDir || '(not provided)'}`);
 
   const platforms = scanAssets(assetsDir, baseUrl);
-  console.log(`[main] platforms found: ${Object.keys(platforms).join(', ') || '(none)'}`);
+  console.warn(`[main] platforms found: ${Object.keys(platforms).join(', ') || '(none)'}`);
 
   const pubDate = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
 
@@ -287,8 +287,8 @@ function main() {
   const outputPath = resolve(process.cwd(), args.output || 'latest.json');
   writeFileSync(outputPath, output, 'utf-8');
 
-  console.log(`[main] ✅ latest.json generated → ${outputPath}`);
-  console.log(`[main] version: ${strippedVersion}, platforms: ${Object.keys(platforms).join(', ') || '(none)'}`);
+  console.warn(`[main] ✅ latest.json generated → ${outputPath}`);
+  console.warn(`[main] version: ${strippedVersion}, platforms: ${Object.keys(platforms).join(', ') || '(none)'}`);
 }
 
 main();

@@ -2,8 +2,16 @@
 //!
 //! 通过 GitHub Releases 的 `latest.json` 检测是否有新版本，
 //! 并将结果返回给前端展示更新弹窗。
+//!
+//! 启动期由 `main.rs` 调用 [`run_update_check_and_emit`] 异步拉取一次，
+//! 无论是否有更新（或请求失败）都通过 `update-check-result` 事件推送给前端，
+//! 前端据此控制标题栏更新图标的显示与自动关闭。
 
 use std::collections::HashMap;
+use tauri::Emitter;
+
+/// 启动期检查完成后向后端推送的事件名，与前端 `BACKEND_EVENTS.UPDATE_CHECK_RESULT` 保持一致
+const UPDATE_CHECK_RESULT_EVENT: &str = "update-check-result";
 
 /// 更新检查响应（对应 GitHub Releases latest.json）
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -126,9 +134,10 @@ fn apply_global_proxy(builder: reqwest::ClientBuilder) -> reqwest::ClientBuilder
     }
 }
 
-/// 检查 GitHub Releases 是否有新版本
-#[tauri::command]
-pub async fn check_update(app: tauri::AppHandle) -> Result<CheckUpdateResult, String> {
+/// 执行一次更新检查的核心逻辑（供 Command 与启动期事件推送复用）
+///
+/// 拉取 GitHub Releases 的 `latest.json`，与当前版本比较，返回结构化结果。
+async fn check_update_internal(app: &tauri::AppHandle) -> Result<CheckUpdateResult, String> {
     let url = "https://github.com/xucux/i-code/releases/latest/download/latest.json";
     let current_version = app
         .config()
@@ -180,4 +189,49 @@ pub async fn check_update(app: tauri::AppHandle) -> Result<CheckUpdateResult, St
         pub_date: update.pub_date,
         platforms: update.platforms,
     })
+}
+
+/// 检查 GitHub Releases 是否有新版本（前端手动触发）
+#[tauri::command]
+pub async fn check_update(app: tauri::AppHandle) -> Result<CheckUpdateResult, String> {
+    check_update_internal(&app).await
+}
+
+/// 启动期异步检查更新并通过事件把结果推送给前端
+///
+/// 无论是否有更新（甚至请求失败）都会推送 `update-check-result` 事件，
+/// 前端依据 `has_update` / `is_beta` 决定是否在标题栏展示更新入口：
+/// - `has_update=true` 且 `is_beta=false`：展示更新 icon；
+/// - `has_update=false` 或 `is_beta=true`：关闭更新 icon（实现自动关闭）。
+///
+/// 请求失败时推送一个「无更新」结果，确保前端能可靠关闭更新图标。
+pub async fn run_update_check_and_emit(app: tauri::AppHandle) {
+    let current_version = app
+        .config()
+        .version
+        .clone()
+        .unwrap_or_else(|| "0.0.1".into());
+    match check_update_internal(&app).await {
+        Ok(result) => {
+            log::info!(
+                "[update_check] 推送结果：has_update={}, is_beta={}",
+                result.has_update,
+                result.is_beta
+            );
+            let _ = app.emit(UPDATE_CHECK_RESULT_EVENT, &result);
+        }
+        Err(e) => {
+            log::warn!("[update_check] 启动期检查失败：{}", e);
+            let fallback = CheckUpdateResult {
+                has_update: false,
+                is_beta: false,
+                current_version: current_version.clone(),
+                latest_version: current_version,
+                notes: String::new(),
+                pub_date: String::new(),
+                platforms: HashMap::new(),
+            };
+            let _ = app.emit(UPDATE_CHECK_RESULT_EVENT, &fallback);
+        }
+    }
 }

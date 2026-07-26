@@ -34,7 +34,7 @@ async function generateIcons() {
   } catch {
     fs.copyFileSync(path.join(outDir, '128x128@2x.png'), path.join(outDir, 'icon.ico'))
     fs.copyFileSync(path.join(outDir, '128x128@2x.png'), path.join(outDir, 'icon.icns'))
-    console.warn('Tauri icon generation failed; using PNG fallbacks')
+    console.error('Tauri icon generation failed; using PNG fallbacks')
   }
 }
 
