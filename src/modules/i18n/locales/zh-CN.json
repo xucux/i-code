@@ -553,7 +553,12 @@
       "balanceRefreshFailed": "额度刷新失败",
       "balancePercent": "剩余",
       "balanceLimit": "总额",
-      "balanceUsed": "已花费"
+      "balanceUsed": "已花费",
+      "balanceDetail": "额度详情",
+      "balanceDetailTitle": "{{name}} 额度详情",
+      "balanceDetailUpdatedAt": "更新时间",
+      "balanceDetailNoData": "暂无额度数据",
+      "balanceDetailNoSnapshot": "未获取到额度快照，请先刷新额度"
     },
     "providersPage": {
       "tabs": {

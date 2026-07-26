@@ -43,7 +43,12 @@
 
 ### 修复
 
-- 修复全屏模式下 Select 弹出层被 Radix aria-hidden 阻断的问题：改用 `document.documentElement.requestFullscreen()` 全屏整个文档而非 DialogContent，确保 portal 渲染的弹出层可见  
+- 修复全屏模式下 Select 弹出层被 Radix aria-hidden 阻断的问题：改用 `document.documentElement.requestFullscreen()` 全屏整个文档而非 DialogContent，确保 portal 渲染的弹出层可见 
+
+### 变更
+
+- 供应商额度监控支持使用自定义额度监控脚本
+- 供应商列表优化额度信息展示
 
 
 ## [0.0.2] - 2026-07-26

@@ -553,7 +553,12 @@
       "balanceRefreshFailed": "Balance refresh failed",
       "balancePercent": "Left",
       "balanceLimit": "Limit",
-      "balanceUsed": "Used"
+      "balanceUsed": "Used",
+      "balanceDetail": "Balance Details",
+      "balanceDetailTitle": "{{name}} Balance Details",
+      "balanceDetailUpdatedAt": "Updated",
+      "balanceDetailNoData": "No balance data available",
+      "balanceDetailNoSnapshot": "No balance snapshot found, please refresh balance first"
     },
     "providersPage": {
       "tabs": {

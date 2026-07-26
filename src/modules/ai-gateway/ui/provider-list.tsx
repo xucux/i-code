@@ -17,6 +17,14 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Textarea } from '@/components/ui/textarea'
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog'
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -36,6 +44,7 @@ import { toast } from 'sonner'
 import type { Provider, AuthConfig, BuiltinProvider } from '@/modules/ai-gateway/types'
 import type { IcodeError } from '@/core/errors'
 import { extractBalanceListDisplay } from '@/modules/balance/types'
+import type { BalanceMetric, BalanceSnapshot } from '@/modules/balance/types'
 
 /**
  * 从内置预设的 displayName 自动生成 slug
@@ -119,6 +128,10 @@ export function ProviderList() {
   const [importOpen, setImportOpen] = useState(false)
   const [importData, setImportData] = useState('')
   const [importLoading, setImportLoading] = useState(false)
+
+  // 额度详情对话框状态
+  const [detailOpen, setDetailOpen] = useState(false)
+  const [detailProvider, setDetailProvider] = useState<Provider | null>(null)
 
   // 额度快照与刷新状态
   const { snapshots, refetch: refetchBalance } = useBalanceSnapshots()
@@ -463,6 +476,15 @@ export function ProviderList() {
                               <i className={cn('fa-solid fa-gauge-high size-4', isRefreshing && 'animate-spin')} />
                               <span className="text-xs">{t('aiGateway.providerList.balanceRefresh')}</span>
                             </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setDetailProvider(provider)
+                                setDetailOpen(true)
+                              }}
+                            >
+                              <i className="fa-solid fa-chart-pie size-4" />
+                              <span className="text-xs">{t('aiGateway.providerList.balanceDetail')}</span>
+                            </DropdownMenuItem>
                             <DropdownMenuSeparator />
                           </>
                         )}
@@ -578,6 +600,14 @@ export function ProviderList() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* 额度详情对话框 */}
+      <BalanceDetailDialog
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        provider={detailProvider}
+        snapshot={detailProvider ? snapshots.get(detailProvider.id)?.snapshot : undefined}
+      />
     </>
   )
 }
@@ -651,6 +681,214 @@ function ProviderBuiltinDialog({
             ))}
           </div>
         </ScrollArea>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/**
+ * 格式化额度指标数值用于展示
+ */
+function formatMetricValue(item: BalanceMetric): string {
+  switch (item.type) {
+    case 'amount':
+    case 'integer': {
+      const v = item.value
+      if (v === undefined || v === null) return '-'
+      const n = typeof v === 'number' ? v : Number(v)
+      if (!Number.isFinite(n)) return String(v)
+      if (Math.abs(n) >= 1000) return n.toLocaleString(undefined, { maximumFractionDigits: 2 })
+      return Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/\.?0+$/, '')
+    }
+    case 'percent':
+      return `${item.value}%`
+    case 'token': {
+      const parts: string[] = []
+      if (item.remaining !== undefined) parts.push(`剩余: ${item.remaining}`)
+      if (item.used !== undefined) parts.push(`已用: ${item.used}`)
+      if (item.limit !== undefined) parts.push(`上限: ${item.limit}`)
+      return parts.length > 0 ? parts.join(' / ') : '-'
+    }
+    case 'time':
+      return item.value || '-'
+    case 'status':
+      return item.message || item.value || '-'
+    default:
+      return '-'
+  }
+}
+
+/**
+ * 获取指标类型的中文标签
+ */
+function getMetricTypeLabel(type: string): string {
+  const map: Record<string, string> = {
+    amount: '金额',
+    integer: '整数',
+    token: 'Token',
+    percent: '百分比',
+    time: '时间',
+    status: '状态',
+  }
+  return map[type] || type
+}
+
+/**
+ * 获取指标方向标签
+ */
+function getDirectionLabel(direction?: string): string {
+  const map: Record<string, string> = {
+    remaining: '剩余',
+    used: '已用',
+    limit: '上限',
+  }
+  return direction ? (map[direction] || direction) : '-'
+}
+
+/**
+ * 获取时间类型标签
+ */
+function getTimeKindLabel(kind?: string): string {
+  const map: Record<string, string> = {
+    expiresAt: '过期时间',
+    resetAt: '重置时间',
+  }
+  return kind ? (map[kind] || kind) : '-'
+}
+
+/**
+ * 获取状态值标签和颜色
+ */
+function getStatusInfo(value: string): { label: string; color: string } {
+  const map: Record<string, { label: string; color: string }> = {
+    ok: { label: '正常', color: 'text-green-600' },
+    unlimited: { label: '无限制', color: 'text-blue-600' },
+    exhausted: { label: '已耗尽', color: 'text-red-600' },
+    error: { label: '错误', color: 'text-red-600' },
+    unavailable: { label: '不可用', color: 'text-muted-foreground' },
+  }
+  return map[value] || { label: value, color: '' }
+}
+
+interface BalanceDetailDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  provider: Provider | null
+  snapshot?: BalanceSnapshot
+}
+
+/**
+ * 额度详情对话框
+ * 展示 BalanceSnapshot 的所有指标信息，items 以表格形式呈现
+ */
+function BalanceDetailDialog({
+  open,
+  onOpenChange,
+  provider,
+  snapshot,
+}: BalanceDetailDialogProps) {
+  const { t } = useTranslation()
+
+  const formatTime = (timestamp: number) => {
+    try {
+      return new Date(timestamp).toLocaleString()
+    } catch {
+      return String(timestamp)
+    }
+  }
+
+  const hasData = snapshot && snapshot.items && snapshot.items.length > 0
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="text-base">
+            {t('aiGateway.providerList.balanceDetailTitle', { name: provider?.displayName ?? '' })}
+          </DialogTitle>
+          <DialogDescription className="text-xs">
+            {snapshot
+              ? `${t('aiGateway.providerList.balanceDetailUpdatedAt')}: ${formatTime(snapshot.updatedAt)}`
+              : t('aiGateway.providerList.balanceDetailNoSnapshot')}
+          </DialogDescription>
+        </DialogHeader>
+        {!hasData ? (
+          <div className="flex items-center justify-center py-8">
+            <p className="text-muted-foreground text-sm">
+              {t('aiGateway.providerList.balanceDetailNoData')}
+            </p>
+          </div>
+        ) : (
+          <ScrollArea className="flex-1 min-h-0 -mx-6 px-6">
+            <Table density="compact" overflow={false}>
+              <TableHeader className="sticky top-0 z-10 bg-muted/50">
+                <TableRow>
+                  <TableHead className="text-xs">指标</TableHead>
+                  <TableHead className="text-xs">类型</TableHead>
+                  <TableHead className="text-xs">数值</TableHead>
+                  <TableHead className="text-xs">方向/基准</TableHead>
+                  <TableHead className="text-xs">周期</TableHead>
+                  <TableHead className="text-xs">作用域</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {snapshot.items.map((item, index) => (
+                  <TableRow
+                    key={`${item.id}-${index}`}
+                    className={cn(item.primary && 'bg-primary/5')}
+                  >
+                    <TableCell className="text-xs font-medium">
+                      <div className="flex items-center gap-1.5">
+                        <span>{item.label || item.id}</span>
+                        {item.primary && (
+                          <Badge variant="default" className="text-[10px] px-1 py-0">
+                            主
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      <Badge variant="outline" className="text-[10px] px-1 py-0">
+                        {getMetricTypeLabel(item.type)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs tabular-nums">
+                      {item.type === 'status' ? (
+                        <span className={getStatusInfo(item.value).color}>
+                          {getStatusInfo(item.value).label}
+                        </span>
+                      ) : (
+                        <span>
+                          {item.type === 'amount' && item.currencySymbol && (
+                            <span className="text-muted-foreground mr-0.5">{item.currencySymbol}</span>
+                          )}
+                          {formatMetricValue(item)}
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {item.type === 'status' && item.message
+                        ? item.message
+                        : (item.type === 'amount' || item.type === 'integer') && item.direction
+                          ? getDirectionLabel(item.direction)
+                          : item.type === 'time' && item.kind
+                            ? getTimeKindLabel(item.kind)
+                            : item.type === 'percent' && item.basis
+                              ? (item.basis === 'remaining' ? '剩余' : '已用')
+                              : '-'}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {item.periodLabel || item.period || '-'}
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {item.scope || '-'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </ScrollArea>
+        )}
       </DialogContent>
     </Dialog>
   )
