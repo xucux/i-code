@@ -52,7 +52,9 @@
     "title": "Settings",
     "appearance": "Appearance",
     "gateway": "Local Gateway",
-    "network": "Network",
+    "network": {
+      "title": "Network"
+    },
     "security": "Security",
     "host": "Host",
     "port": "Port",

@@ -52,7 +52,9 @@
     "title": "设置",
     "appearance": "外观",
     "gateway": "本地网关",
-    "network": "网络",
+    "network": {
+      "title": "本地网络"
+    },
     "security": "安全",
     "host": "监听地址",
     "port": "端口",

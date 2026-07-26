@@ -224,12 +224,12 @@ function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* 本地网关设置 */}
+        {/* 本地网络设置 */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">
               <i className={cn('fa-solid fa-network-wired mr-2 text-muted-foreground')} />
-              {t('settings.gateway')}
+              {t('settings.network.title')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
