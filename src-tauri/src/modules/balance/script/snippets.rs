@@ -1,6 +1,22 @@
 //! # 内置脚本 Snippet
+//!
+//! 每个常量定义在独立文件中，便于维护。
 
 use crate::modules::script_template::types::ScriptSnippet;
+
+mod balance_get_bearer;
+mod bearer_header;
+mod grok_usage;
+mod items_skeleton;
+mod mimo_balance;
+mod mimo_token_plan;
+
+use balance_get_bearer::BALANCE_GET_BEARER;
+use bearer_header::BEARER_HEADER;
+use grok_usage::GROK_USAGE;
+use items_skeleton::ITEMS_SKELETON;
+use mimo_balance::MIMO_BALANCE;
+use mimo_token_plan::MIMO_TOKEN_PLAN;
 
 /// 返回内置 snippet 列表
 pub fn list_snippets() -> Vec<ScriptSnippet> {
@@ -23,66 +39,23 @@ pub fn list_snippets() -> Vec<ScriptSnippet> {
             description: "构造 Authorization Bearer 头 map".into(),
             body: BEARER_HEADER.into(),
         },
+        ScriptSnippet {
+            id: "mimo-balance".into(),
+            name: "小米 MiMo 按量计费".into(),
+            description: "查询小米 MiMo 平台余额、现金余额、赠送余额、冻结金额、透支额度等".into(),
+            body: MIMO_BALANCE.into(),
+        },
+        ScriptSnippet {
+            id: "mimo-token-plan".into(),
+            name: "小米 MiMo TokenPlan".into(),
+            description: "查询小米 MiMo 平台套餐积分与补偿积分的已用/总量/剩余/百分比".into(),
+            body: MIMO_TOKEN_PLAN.into(),
+        },
+        ScriptSnippet {
+            id: "grok-usage".into(),
+            name: "公益Grok监控".into(),
+            description: "公益 Grok 额度监控：quota 金额 + 今日/累计 token + 账户状态".into(),
+            body: GROK_USAGE.into(),
+        },
     ]
 }
-
-const BALANCE_GET_BEARER: &str = r#"// 示例：OpenAI 兼容 /user/balance 风格
-// 引擎：Rhai（语法接近 JS，map 用 #{ }，数组用 [ ]）
-// 模块函数用 :: 调用，如 http::get / json::parse（不是 http.get）
-let base = provider.base_url;
-if base.ends_with("/") {
-    base = base.sub_string(0, base.len() - 1);
-}
-let url = base + "/v1/user/balance";
-
-let headers = #{
-    "Authorization": "Bearer " + api_key,
-    "Accept": "application/json"
-};
-
-let resp = http::get(url, headers);
-if resp.status < 200 || resp.status >= 300 {
-    error(`HTTP ${resp.status}: ${resp.body}`);
-}
-
-let data = json::parse(resp.body);
-// 按实际响应改写路径
-let total = data["balance"];
-
-#{
-    items: [
-        #{
-            id: "balance",
-            type: "amount",
-            direction: "remaining",
-            value: total,
-            currencySymbol: "$",
-            primary: true,
-            label: "余额",
-            period: "current"
-        }
-    ]
-}
-"#;
-
-const ITEMS_SKELETON: &str = r#"#{
-    items: [
-        #{
-            id: "balance",
-            type: "amount",
-            direction: "remaining",
-            value: 0,
-            currencySymbol: "$",
-            primary: true,
-            label: "余额",
-            period: "current"
-        }
-    ]
-}
-"#;
-
-const BEARER_HEADER: &str = r#"let headers = #{
-    "Authorization": "Bearer " + api_key,
-    "Accept": "application/json"
-};
-"#;

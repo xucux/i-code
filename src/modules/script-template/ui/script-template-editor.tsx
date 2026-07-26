@@ -5,7 +5,7 @@
  * 支持系统全屏（Fullscreen API）与还原。
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from '@/modules/i18n/use-translation'
 import {
   Dialog,
@@ -79,17 +79,15 @@ export function ScriptTemplateEditor({
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<ScriptTemplateTestResult | null>(null)
   const [savedId, setSavedId] = useState<string | null>(null)
-  /** 是否处于系统全屏（Fullscreen API） */
+  /** 是否处于系统全屏（Fullscreen API 或 CSS 回退） */
   const [isFullscreen, setIsFullscreen] = useState(false)
-  /** Fullscreen API 不可用时的 CSS 回退 */
-  const [cssFullscreenFallback, setCssFullscreenFallback] = useState(false)
-  const contentRef = useRef<HTMLDivElement>(null)
+  const [cssFullscreen, setCssFullscreen] = useState(false)
 
   useEffect(() => {
     const onFullscreenChange = () => {
       const active = Boolean(document.fullscreenElement)
       setIsFullscreen(active)
-      if (active) setCssFullscreenFallback(false)
+      if (!active) setCssFullscreen(false)
     }
     document.addEventListener('fullscreenchange', onFullscreenChange)
     return () => {
@@ -103,7 +101,7 @@ export function ScriptTemplateEditor({
       void document.exitFullscreen().catch(() => undefined)
     }
     setIsFullscreen(false)
-    setCssFullscreenFallback(false)
+    setCssFullscreen(false)
   }, [open])
 
   useEffect(() => {
@@ -136,7 +134,7 @@ export function ScriptTemplateEditor({
     [scriptBody, name, slug]
   )
 
-  const expanded = isFullscreen || cssFullscreenFallback
+  const expanded = isFullscreen || cssFullscreen
 
   const scriptCompletions = useMemo(() => [createScriptCompletions()], [])
 
@@ -242,33 +240,34 @@ export function ScriptTemplateEditor({
     setScriptBody((prev) => (prev ? `${prev}\n${text}` : text))
   }
 
-  /** 系统全屏切换（Fullscreen API）；失败时回退为 CSS 铺满视口 */
+  /** 系统全屏切换
+   *
+   * 全屏整个文档（document.documentElement）而非 DialogContent 本身，
+   * 避免 Radix UI 的 aria-hidden 与 Select 弹出层（portal 到 document.body）冲突。
+   * 失败时回退为 CSS 铺满视口。
+   */
   const toggleFullscreen = async () => {
     try {
       if (document.fullscreenElement) {
         await document.exitFullscreen()
-        setCssFullscreenFallback(false)
         return
       }
-      if (cssFullscreenFallback) {
-        setCssFullscreenFallback(false)
+      if (cssFullscreen) {
+        setCssFullscreen(false)
         return
       }
-      const el = contentRef.current
-      if (el && typeof el.requestFullscreen === 'function') {
-        await el.requestFullscreen()
-        return
-      }
-      setCssFullscreenFallback(true)
+      // 全屏整个文档，DialogContent 的 Select 弹出层随文档可见
+      await document.documentElement.requestFullscreen()
+      setCssFullscreen(true)
     } catch {
-      setCssFullscreenFallback((v) => !v)
+      // Fullscreen API 不可用（如非用户手势触发），回退到 CSS 铺满
+      setCssFullscreen((v) => !v)
     }
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        ref={contentRef}
         className={cn(
           'flex flex-col gap-3 overflow-hidden bg-background p-4',
           expanded
@@ -282,7 +281,7 @@ export function ScriptTemplateEditor({
           className="absolute right-11 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
           title={expanded ? t('restore') : t('expand')}
           aria-label={expanded ? t('restore') : t('expand')}
-          onClick={() => void toggleFullscreen()}
+          onClick={toggleFullscreen}
         >
           <i
             className={cn(
