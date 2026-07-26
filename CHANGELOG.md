@@ -8,6 +8,22 @@
 
 ### 变更
 
+## [0.0.4] - 2026-07-26
+
+### 新增
+
+- 全局代理现在应用于所有出站网络请求，包括供应商 API 调用、额度脚本 HTTP 请求、更新检测等
+
+### 修复
+
+- 版本号更新脚本修复正则 `g` 标志导致静态版本引用未同步的问题
+
+### 变更
+
+- **全局代理配置重构**：代理类型从 `direct / custom / system / vscode` 简化为 `direct / system / http / socks`，移除已废弃的 `authorization`、`strictSSL` 字段，HTTP/SOCKS 代理 URL 支持直接包含认证信息（如 `http://user:pass@host:port`）
+- **全局代理统一应用**：将 `apply_global_proxy` 从 `update_version` 模块提取到 `shared` 模块，供网关运行时、额度脚本 HTTP 调用、更新检测等所有出站请求复用；新增 `apply_global_proxy_blocking` 供同步阻塞客户端（Rhai 脚本）使用
+- 设置页网络卡片 i18n 键名从扁平 `settings.network` 重构为嵌套 `settings.network.title`，全局代理描述文案同步更新
+
 ## [0.0.3] - 2026-07-26
 
 ### 新增
