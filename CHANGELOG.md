@@ -8,6 +8,20 @@
 
 ### 变更
 
+## [0.0.5] - 2026-07-27
+
+### 修复
+
+- **代理策略修正**：全局代理未启用时强制 `no_proxy()` 直连，不再回落到 reqwest 默认行为（读取系统 `HTTP_PROXY` / `HTTPS_PROXY` 环境变量），修复「系统设了代理环境变量但代理不可用时，直连可达的供应商也拉取/转发失败」的问题
+- **模型拉取忽略代理配置**：`fetch_official_models` / `fetch_models_by_protocol` 改用 `build_provider_http_client`（含 `apply_provider_proxy`），修复此前使用裸 `reqwest::Client::new()` 导致供应商代理策略全部失效的问题
+- **供应商无法切回全局代理**：前端 `provider-form.tsx` 始终序列化 `proxyJson`（含 `global` 模式），修复此前 `global` 时返回 `undefined` 被 Tauri invoke 省略导致后端跳过更新、DB 保留旧代理配置的问题
+- **OAuth 代理不一致**：`oauth2.rs::new_for_provider` 改用 `apply_provider_proxy`，修复此前 `Global` 分支不应用全局代理的缺陷
+
+### 变更
+
+- **代理逻辑统一到 `shared` 层**：新增 `apply_provider_proxy`，供 `ai_gateway`（模型拉取 / OAuth）与 `gateway_runtime`（网关转发）共用，保证两条网络路径策略一致；详细设计见 [`docs/proxy.md`](docs/proxy.md)
+- **代理日志增强**：代理决策全链路增加 `tauri-plugin-log` 的 `trace` / `error` 级别日志，含策略来源、最终决策、URL（脱敏认证信息）；`error` 日志输出完整 reqwest 错误链（含网络栈），便于排障
+
 ## [0.0.4] - 2026-07-26
 
 ### 新增

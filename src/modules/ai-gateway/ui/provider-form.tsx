@@ -539,10 +539,13 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
   const handleSubmit = (values: FormValues) => {
     const auth: AuthConfig | undefined = buildAuthConfig(values, provider)
 
-    // 构建 proxyJson（供应商级代理：global 不保存，direct/socks/http 保存类型与 URL）
-    const proxyJson = proxyMode === 'global'
-      ? undefined
-      : JSON.stringify({ type: proxyMode, url: proxyMode === 'socks' || proxyMode === 'http' ? proxyUrl : undefined })
+    // 构建 proxyJson（供应商级代理：始终序列化，确保切换回 global 时能覆盖旧模式）
+    // 此前 global 返回 undefined 会被 Tauri invoke 省略，导致后端跳过更新、
+    // DB 仍保留旧的 socks/http 配置，表现为「无法切换回全局代理」。
+    const proxyJson = JSON.stringify({
+      type: proxyMode,
+      url: proxyMode === 'socks' || proxyMode === 'http' ? proxyUrl : undefined,
+    })
 
     // 构建 timeoutJson（仅非默认值时提交）
     const timeoutJson = (timeoutConnection !== 5000 || timeoutResponse !== 120000)

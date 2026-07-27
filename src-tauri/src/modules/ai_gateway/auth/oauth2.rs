@@ -20,7 +20,7 @@ use tokio::sync::oneshot;
 
 use crate::error::{IcodeError, IcodeResult};
 use crate::modules::ai_gateway::types::{OAuth2Config, Provider};
-use crate::modules::shared::{ProviderProxyConfig, ProviderProxyType, TimeoutConfig};
+use crate::modules::shared::TimeoutConfig;
 
 use super::OAuth2TokenData;
 
@@ -104,6 +104,8 @@ impl OAuth2Client {
     /// 读取供应商的 `timeout_json` / `proxy_json`，应用连接超时、响应超时与代理设置，
     /// 使 OAuth 授权请求与后续网关转发请求走一致的网络策略。
     pub fn new_for_provider(provider: &Provider) -> IcodeResult<Self> {
+        use crate::modules::shared::apply_provider_proxy;
+
         let mut builder = reqwest::Client::builder()
             .user_agent(concat!("i-code-oauth/", env!("CARGO_PKG_VERSION")));
 
@@ -114,28 +116,9 @@ impl OAuth2Client {
             builder = builder.timeout(std::time::Duration::from_millis(cfg.response));
         }
 
-        if let Some(json) = provider.proxy_json.as_deref() {
-            let cfg: ProviderProxyConfig = serde_json::from_str(json)
-                .map_err(|e| IcodeError::validation(format!("解析 proxy_json 失败: {}", e)))?;
-            match cfg.proxy_type {
-                ProviderProxyType::Global => {
-                    // 使用全局代理：沿用 reqwest 默认行为（读取系统环境变量代理）
-                }
-                ProviderProxyType::Direct => {
-                    builder = builder.no_proxy();
-                }
-                ProviderProxyType::Socks | ProviderProxyType::Http => {
-                    let url = cfg
-                        .url
-                        .as_deref()
-                        .filter(|s| !s.is_empty())
-                        .ok_or_else(|| IcodeError::validation("代理缺少 url"))?;
-                    let proxy = reqwest::Proxy::all(url)
-                        .map_err(|e| IcodeError::validation(format!("构造代理失败: {}", e)))?;
-                    builder = builder.proxy(proxy);
-                }
-            }
-        }
+        // 供应商级代理（含 global 回退到全局代理 / 直连），与网关转发策略一致
+        builder = apply_provider_proxy(builder, provider.proxy_json.as_deref())
+            .map_err(|e| IcodeError::validation(format!("构造 OAuth HTTP 客户端失败: {}", e)))?;
 
         let http = builder
             .build()

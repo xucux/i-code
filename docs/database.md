@@ -1256,27 +1256,52 @@ ollama                        # Ollama 本地
 claude-code | codex | gemini-cli | cursor-agent | custom
 ```
 
-### 5.3 `ProxyConfig` JSON
+### 5.3 代理配置 JSON
+
+i-code 的代理配置分**两层**，分别存于 `app_settings`（全局）与 `providers`（供应商级），
+由 `src-tauri/src/modules/shared/mod.rs` 中的 `ProxyConfig` / `ProviderProxyConfig` 承载。
+完整架构、决策矩阵、日志规范见 [`proxy.md`](./proxy.md)。
+
+#### 5.3.1 全局代理 `ProxyConfig`（`app_settings.global_proxy_json`）
 
 ```json
 {
-  "type": "direct | custom | system | vscode",
-  "url": "http://127.0.0.1:7890",
-  "authorization": "$SECRET:uuid$",
-  "strictSSL": true,
+  "type": "direct | system | http | socks",
+  "url": "http://user:pass@127.0.0.1:7890",
   "noProxy": ["localhost", "127.0.0.1"]
 }
 ```
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| `type` | `'direct'` / `'custom'` / `'system'` / `'vscode'` | 是 | `direct`=直连；`custom`=自定义代理；`system`=读取系统代理；`vscode`=向下层/IDE 代理设置委托（参考项目原生语义） |
-| `url` | `string` | 仅 `custom` | 代理 URL，如 `http://127.0.0.1:7890` 或 `socks5://127.0.0.1:1080` |
-| `authorization` | `string` | 否 | 代理认证凭据（`user:password` 或完整 header）或 `$SECRET:{uuid}$` 引用 |
-| `strictSSL` | `boolean` | 否 | 是否验证 TLS 证书，默认 true |
-| `noProxy` | `string[]` | 否 | 绕过代理的域名/IP 白名单 |
+| `type` | `'direct'` / `'system'` / `'http'` / `'socks'` | 是 | `direct`=直连；`system`=读取系统 `HTTP_PROXY`/`HTTPS_PROXY` 环境变量；`http`=HTTP 代理；`socks`=SOCKS5 代理 |
+| `url` | `string` | 仅 `http` / `socks` | 代理 URL，可在 URL 中携带认证 `http://user:pass@host:port` 或 `socks5://user:pass@host:port` |
+| `noProxy` | `string[]` | 否 | 绕过代理的主机白名单（`NO_PROXY` 等价物） |
 
-> i-code 桌面端通常使用 `system`（读取系统代理）；`vscode` 类型保留以兼容从参考项目导入的配置。
+> 全局代理是否生效由 `app_settings.global_proxy_enabled` 总开关控制：
+> - `enabled = false` → **强制直连**（`no_proxy()`），不读取系统环境变量；
+> - `enabled = true` → 按 `ProxyConfig.type` 应用。
+>
+> 「全局代理开关 = 应用级网络策略总开关」：供应商代理策略为 `global` 且全局开关关闭时，
+> **回退直连**而非读取系统环境变量，避免代理工具残留环境变量导致直连可达的供应商也失败。
+
+#### 5.3.2 供应商级代理 `ProviderProxyConfig`（`providers.proxy_json`）
+
+```json
+{
+  "type": "global | direct | socks | http",
+  "url": "socks5://127.0.0.1:1080"
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `type` | `'global'` / `'direct'` / `'socks'` / `'http'` | 是 | `global`=使用全局代理（开关关闭时回退直连）；`direct`=直连；`socks`=SOCKS5；`http`=HTTP |
+| `url` | `string` | 仅 `socks` / `http` | 代理 URL，可含认证信息 |
+
+> `providers.proxy_json` 字段缺失（`None`）等价于 `global`，与显式 `{"type":"global"}` 同义。
+> 前端「全局代理」模式**始终序列化** `proxyJson`（含 `{"type":"global"}`），
+> 确保从其他模式切换回 `global` 时能覆盖 DB 旧值（修复历史缺陷见 [`proxy.md`](./proxy.md) §4）。
 
 ### 5.4 `AuthConfig` JSON（完整）
 

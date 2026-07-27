@@ -32,7 +32,7 @@ use serde_json::Value;
 
 use crate::error::IcodeError;
 use crate::modules::ai_gateway::types::Provider;
-use crate::modules::shared::{ProviderProxyConfig, ProviderProxyType, TimeoutConfig};
+use crate::modules::shared::TimeoutConfig;
 // LoggerServiceHandle 已随响应转换迁移至 forwarding/response_handler，不再在此处使用
 
 pub mod anthropic_client;
@@ -388,38 +388,14 @@ fn parse_timeout(provider: &Provider) -> Result<Option<TimeoutConfig>, ClientErr
 
 /// 按 `provider.proxy_json` 配置代理
 ///
-/// 供应商级代理策略：
-/// - `global`：读取全局代理配置并应用；若全局代理未启用则沿用 reqwest 默认行为。
-/// - `direct`：显式 `no_proxy()` 禁用代理。
-/// - `socks` / `http`：构造 `reqwest::Proxy::all(url)`；reqwest 根据 URL scheme
-///   自动选择 SOCKS5 或 HTTP 代理协议。
+/// 委托给 `shared::apply_provider_proxy`，与 `ai_gateway`（模型拉取 / OAuth）共用
+/// 同一策略，保证两条网络路径行为一致。
 fn apply_proxy(
     builder: reqwest::ClientBuilder,
     provider: &Provider,
 ) -> Result<reqwest::ClientBuilder, ClientError> {
-    let Some(json) = provider.proxy_json.as_deref() else {
-        // 未配置：回退到全局代理
-        return Ok(crate::modules::shared::apply_global_proxy(builder));
-    };
-    let cfg: ProviderProxyConfig = serde_json::from_str(json)
-        .map_err(|e| ClientError::BuildRequestError(format!("解析 proxy_json 失败: {}", e)))?;
-    match cfg.proxy_type {
-        ProviderProxyType::Global => {
-            // 读取全局代理配置并应用
-            Ok(crate::modules::shared::apply_global_proxy(builder))
-        }
-        ProviderProxyType::Direct => Ok(builder.no_proxy()),
-        ProviderProxyType::Socks | ProviderProxyType::Http => {
-            let url = cfg
-                .url
-                .as_deref()
-                .filter(|s| !s.is_empty())
-                .ok_or_else(|| ClientError::BuildRequestError("socks/http 代理缺少 url".into()))?;
-            let proxy = reqwest::Proxy::all(url)
-                .map_err(|e| ClientError::BuildRequestError(format!("构造代理失败: {}", e)))?;
-            Ok(builder.proxy(proxy))
-        }
-    }
+    crate::modules::shared::apply_provider_proxy(builder, provider.proxy_json.as_deref())
+        .map_err(|e| ClientError::BuildRequestError(e))
 }
 
 // ===== 响应转换 =====

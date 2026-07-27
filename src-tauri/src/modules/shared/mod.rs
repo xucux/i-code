@@ -197,23 +197,39 @@ impl Default for RetryConfig {
 
 /// 从数据库读取全局代理配置并应用到 `reqwest::ClientBuilder`
 ///
-/// 若全局代理未启用或配置无效，返回原始 builder。
-/// 供 `update_version`、`gateway_runtime`、`balance/script` 等模块复用。
+/// 语义：
+/// - 全局代理未启用（`global_proxy_enabled = false`）：**强制直连**（`no_proxy()`），
+///   不再回落到 reqwest 默认行为（读取系统环境变量代理）。
+/// - 全局代理已启用：按 `ProxyConfig` 应用（`direct` 直连 / `system` 环境变量 /
+///   `http` / `socks`）。
+///
+/// 这样供应商代理策略为 `global` 时，若全局代理未启用，会**回退到直连**而非
+/// 读取系统环境变量代理，符合「全局代理开关 = 应用级网络策略总开关」的语义。
 pub fn apply_global_proxy(builder: reqwest::ClientBuilder) -> reqwest::ClientBuilder {
     let settings = match crate::modules::settings::repository::find() {
         Ok(s) => s,
-        Err(_) => return builder,
+        Err(e) => {
+            log::error!("[proxy] global | read app_settings failed | err={:?} → forced direct", e);
+            return builder.no_proxy();
+        }
     };
     if !settings.global_proxy_enabled {
-        return builder;
+        log::trace!("[proxy] global | enabled=false → forced direct (no_proxy)");
+        return builder.no_proxy();
     }
     let Some(json) = settings.global_proxy_json.as_deref() else {
-        return builder;
+        log::trace!("[proxy] global | enabled=true but json=null → forced direct (no_proxy)");
+        return builder.no_proxy();
     };
     let cfg: ProxyConfig = match serde_json::from_str(json) {
         Ok(c) => c,
-        Err(_) => return builder,
+        Err(e) => {
+            log::error!("[proxy] global | parse json failed | err={:?} | raw={} → forced direct", e, json);
+            return builder.no_proxy();
+        }
     };
+    log::trace!("[proxy] global | enabled=true | strategy={:?} | url={:?} | no_proxy={:?}",
+        cfg.proxy_type, cfg.url, cfg.no_proxy);
     cfg.apply_to_client_builder(builder)
 }
 
@@ -223,18 +239,28 @@ pub fn apply_global_proxy(builder: reqwest::ClientBuilder) -> reqwest::ClientBui
 pub fn apply_global_proxy_blocking(builder: reqwest::blocking::ClientBuilder) -> reqwest::blocking::ClientBuilder {
     let settings = match crate::modules::settings::repository::find() {
         Ok(s) => s,
-        Err(_) => return builder,
+        Err(e) => {
+            log::error!("[proxy] global(blocking) | read app_settings failed | err={:?} → forced direct", e);
+            return builder.no_proxy();
+        }
     };
     if !settings.global_proxy_enabled {
-        return builder;
+        log::trace!("[proxy] global(blocking) | enabled=false → forced direct (no_proxy)");
+        return builder.no_proxy();
     }
     let Some(json) = settings.global_proxy_json.as_deref() else {
-        return builder;
+        log::trace!("[proxy] global(blocking) | enabled=true but json=null → forced direct (no_proxy)");
+        return builder.no_proxy();
     };
     let cfg: ProxyConfig = match serde_json::from_str(json) {
         Ok(c) => c,
-        Err(_) => return builder,
+        Err(e) => {
+            log::error!("[proxy] global(blocking) | parse json failed | err={:?} | raw={} → forced direct", e, json);
+            return builder.no_proxy();
+        }
     };
+    log::trace!("[proxy] global(blocking) | enabled=true | strategy={:?} | url={:?} | no_proxy={:?}",
+        cfg.proxy_type, cfg.url, cfg.no_proxy);
     cfg.apply_to_blocking_client_builder(builder)
 }
 
@@ -249,6 +275,77 @@ pub fn read_global_proxy() -> Option<ProxyConfig> {
     }
     let json = settings.global_proxy_json.as_deref()?;
     serde_json::from_str(json).ok()
+}
+
+/// 将供应商级代理配置（`providers.proxy_json`）应用到 `reqwest::ClientBuilder`
+///
+/// 供应商代理策略：
+/// - `None`（未配置）或 `global`：应用全局代理；若全局代理未启用则**强制直连**
+///   （见 [`apply_global_proxy`]）。
+/// - `direct`：显式 `no_proxy()`。
+/// - `socks` / `http`：构造 `reqwest::Proxy::all(url)`。
+///
+/// 抽出到 `shared` 层，供 `ai_gateway`（模型拉取 / OAuth）与 `gateway_runtime`
+/// （网关转发）共用，保证两条网络路径策略一致。
+pub fn apply_provider_proxy(
+    builder: reqwest::ClientBuilder,
+    provider_proxy_json: Option<&str>,
+) -> Result<reqwest::ClientBuilder, String> {
+    let Some(json) = provider_proxy_json else {
+        log::trace!("[proxy] provider | json=null → delegate to global");
+        return Ok(apply_global_proxy(builder));
+    };
+    let cfg: ProviderProxyConfig = serde_json::from_str(json).map_err(|e| {
+        log::error!("[proxy] provider | parse json failed | err={:?} | raw={}", e, json);
+        format!("解析 proxy_json 失败: {}", e)
+    })?;
+    match cfg.proxy_type {
+        ProviderProxyType::Global => {
+            log::trace!("[proxy] provider | strategy=global → delegate to global");
+            Ok(apply_global_proxy(builder))
+        }
+        ProviderProxyType::Direct => {
+            log::trace!("[proxy] provider | strategy=direct → no_proxy");
+            Ok(builder.no_proxy())
+        }
+        ProviderProxyType::Socks | ProviderProxyType::Http => {
+            let url = cfg
+                .url
+                .as_deref()
+                .filter(|s| !s.is_empty())
+                .ok_or_else(|| {
+                    log::error!("[proxy] provider | strategy={:?} | missing url", cfg.proxy_type);
+                    "socks/http 代理缺少 url".to_string()
+                })?;
+            log::trace!("[proxy] provider | strategy={:?} | url={}", cfg.proxy_type, redact_proxy_url(url));
+            let proxy = reqwest::Proxy::all(url).map_err(|e| {
+                log::error!("[proxy] provider | strategy={:?} | build proxy failed | url={} | err={:?}",
+                    cfg.proxy_type, redact_proxy_url(url), e);
+                format!("构造代理失败: {}", e)
+            })?;
+            Ok(builder.proxy(proxy))
+        }
+    }
+}
+
+/// 脱敏代理 URL 中的认证信息（`user:pass@host` → `<redacted>@host`）
+///
+/// 代理 URL 常含明文凭据，写入 tauri-plugin-log 前需脱敏。
+/// 仅处理 `scheme://userinfo@host` 形态；无 userinfo 则原样返回。
+fn redact_proxy_url(url: &str) -> String {
+    // 找 scheme://
+    let Some(scheme_end) = url.find("://") else {
+        return url.to_string();
+    };
+    let after_scheme = &url[scheme_end + 3..];
+    // userinfo 在第一个 '/' 之前、且含 '@'
+    let host_start_in_after = after_scheme.find('/').unwrap_or(after_scheme.len());
+    let authority = &after_scheme[..host_start_in_after];
+    let Some(at) = authority.rfind('@') else {
+        return url.to_string();
+    };
+    let host = &authority[at + 1..];
+    format!("{}://<redacted>@{}", &url[..scheme_end], host)
 }
 
 #[cfg(test)]

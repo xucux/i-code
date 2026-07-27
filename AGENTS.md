@@ -14,7 +14,7 @@
 3. **管理 CLI 配置**：为 Claude Code、Codex、Gemini CLI 等维护配置档案，支持直连或路由到本地 Gateway。
 4. **工作区隔离**：按 Workspace 隔离 Prompts / MCP / Skill；**切换并「应用」后**才写入 CLI 实际配置文件。
 
-版本：`0.0.4`  
+版本：`0.0.5`  
 包管理：`pnpm@11`  
 数据库：本地 SQLite（`i-code.db`）  
 默认网关：`127.0.0.1:54321`
@@ -111,10 +111,16 @@ types.rs     → DTO / 领域类型
 |------|------|
 | `docs/development.md` | 完整架构、模块设计、UI 规范、Commands 清单 |
 | `docs/database.md` | Schema、JSON 字段约定、业务流程 |
+| `docs/gateway-runtime.md` | 网关运行时生命周期、路由转发、Provider 适配器 |
 | `docs/chat-module.md` | 聊天界面布局、发送/流式/错误气泡、JSONL 存储与 Command |
 | `docs/events.md` | 前后端事件总线（含 `chat:stream-*`） |
-| `docs/implementation-review.md` | 实现状态与文档差异 |
+| `docs/proxy.md` | 网络代理两层配置体系、核心函数、网络路径与日志约定 |
+| `docs/log-framework.md` | 日志框架两套机制约定、网关日志格式、级别控制 |
+| `docs/error-handling.md` | 错误处理体系、`IcodeError` 结构、前后端转换规范 |
+| `docs/cli-management.md` | CLI 档案管理、绑定、模型映射设计 |
+| `docs/proposals/balance-script-templates.md` | 额度监控脚本模板（Rhai）CRUD、运行时、编辑体验 |
 | `docs/proposals/` | 待实现/演进提案 |
+| `docs/fix-bug.md` | 已知问题与修复记录 |
 | `参考项目/vscode-unify-chat-provider-7.12.3/` | 类型与 well-known 数据参考源 |
 
 ---

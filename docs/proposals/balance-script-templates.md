@@ -182,24 +182,41 @@ BalanceConfig::Script(ScriptBalanceConfig {
 脚本最终表达式必须返回可映射为 `BalanceSnapshot` 的 map：
 
 ```js
-{
-  // updatedAt 可选；缺省由引擎填 now_ms
+#{
+  // updatedAt 可选（i64 毫秒）；缺省由引擎填 now_ms
+  updatedAt: now_ms,
   items: [
-    {
-      id: "balance",
-      type: "amount",          // amount | integer | token | percent | time | status
-      direction: "remaining",  // remaining | used | limit（amount/integer）
-      value: 12.34,
-      currencySymbol: "¥",
-      primary: true,
-      label: "余额",
-      period: "current"        // current | month | day | week | total
-    }
+    // 每个元素是一个 BalanceMetric，type 决定其余必填字段
   ]
 }
 ```
 
-校验失败 → `IcodeError::validation`，message 指向字段路径，不回传完整脚本输出中的密钥。
+`items[].type` 取值与各类型必填字段如下（映射实现见 `balance/script/snapshot_map.rs`）：
+
+| `type` | 必填字段 | 可选字段 | 说明 |
+|--------|----------|----------|------|
+| `amount` | `id` `direction` `value` | `currencySymbol` `primary` `label` `period` `scope` `periodLabel` | 金额；`direction` ∈ `remaining`/`used`/`limit`；`value` 为数字 |
+| `integer` | `id` `direction` `value` | `primary` `label` `period` `scope` `periodLabel` | 整数计数（如请求次数）；字段同 amount（无货币） |
+| `token` | `id` + `used`/`limit`/`remaining` 至少其一 | `primary` `label` `period` `scope` `periodLabel` | Token 用量；三者均缺失则校验失败 |
+| `percent` | `id` `value` | `basis` `primary` `label` `period` `scope` `periodLabel` | 百分比；`value` 须为 0–100 数字；`basis` ∈ `remaining`/`used` |
+| `time` | `id` `kind` `value` | `timestampMs` `primary` `label` `period` `scope` `periodLabel` | 时间点；`kind` ∈ `expiresAt`/`resetAt`；`value` 为字符串；`timestampMs` 为 i64 毫秒 |
+| `status` | `id` `value` | `message` `primary` `label` `period` `scope` `periodLabel` | 状态；`value` ∈ `ok`/`unlimited`/`exhausted`/`error`/`unavailable`；`message` 为描述 |
+
+公共可选字段：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `period` | string | `current` / `month` / `day` / `week` / `total` |
+| `periodLabel` | string | 自定义周期标签（覆盖 period 展示） |
+| `scope` | string | 作用域，如 `account` / `model` |
+| `primary` | bool | 是否主指标（UI 高亮）；建议每个返回至少一个 `primary: true` |
+| `label` | string | UI 展示标签 |
+
+> 字段名使用 **camelCase**（如 `currencySymbol`、`periodLabel`、`timestampMs`）；代码同时兼容 snake_case（`currency_symbol` / `period_label` / `timestamp_ms` / `updated_at`），但推荐 camelCase。
+> `value` 在 amount/integer/percent 中可为数字或数字字符串；token 的 `used`/`limit`/`remaining` 同理。
+> 缺失字段不报错（除各类型必填项）；`id` 不能为空字符串。
+
+校验失败 → `IcodeError::validation`，message 指向字段路径（如 `items[2].direction 必填`），不回传完整脚本输出中的密钥。
 
 ---
 
@@ -215,6 +232,8 @@ rhai = { version = "1", default-features = false, features = ["sync", "serde"] }
 按需评估 `metadata` / `decimal`；**不开启**文件系统相关能力。
 
 ### 4.2 系统变量（只读 Scope）
+
+> 以下变量通过 `Scope::push_constant` 注入，**脚本不可修改**。访问 map 字段用点号：`provider.base_url`、`auth.method`。
 
 | 变量 | 类型 | 说明 |
 |------|------|------|
@@ -249,44 +268,66 @@ rhai = { version = "1", default-features = false, features = ["sync", "serde"] }
 
 ### 4.3 系统函数（Host Functions）
 
+> **调用记法（重要）**：HTTP / JSON / 日志 / 字符串 / 数学均为 **Rhai 静态模块**，必须用 `::` 调用，例如 `http::get(...)`、`json::parse(...)`、`log::info(...)`、`str::trim(...)`、`math::abs(...)`。**不要**写成 `http.get(...)` / `json.parse(...)`——Rhai 会把 `.` 解析为变量属性访问并报 `Variable not found: http`。`error(msg)` 与 `url_join(base, path)` 是扁平全局函数，直接调用即可。
+
 #### HTTP
 
-| 函数 | 签名（概念） | 返回 |
-|------|----------------|------|
-| `http.get` | `(url, headers?)` | `#{ status, body, headers }` |
-| `http.post` | `(url, body, headers?)` | 同上 |
-| `http.request` | `(method, url, body?, headers?)` | 同上 |
-| `http.get_json` | `(url, headers?)` | 解析后的 Dynamic；非 2xx 抛错 |
+| 函数 | 签名 | 返回 |
+|------|------|------|
+| `http::get` | `(url)` 或 `(url, headers)` | `#{ status, body, headers }` |
+| `http::post` | `(url, body)` 或 `(url, body, headers)` | 同上 |
+| `http::request` | `(method, url)` | 同上（**仅 2 参**，不带 body/headers） |
+| `http::get_json` | `(url)` | 解析后的 Dynamic；非 2xx 抛错（**不支持 headers 参数**） |
+
+> 需要带 headers 的 GET JSON，请用 `http::get(url, headers)` + `json::parse(resp.body)` 组合。
+> 需要带 body/headers 的通用请求，请用扁平 `http_request(method, url, body, headers)`（body/headers 可传 `()` 省略）。
+> `headers` 为 Rhai map，如 `#{ "Authorization": "Bearer " + api_key }`；`status` 为 `i64`，`body` 为字符串，`headers` 为 map。
 
 约束：
 
-- 底层 `reqwest`，超时 = `min(template.default_timeout_ms, provider 覆盖, 全局上限 30s)`
+- 底层 `reqwest`（blocking，在 `spawn_blocking` 中执行），应用全局代理配置
+- 超时 = `min(timeout_ms, 全局上限 30s)`，且 `max(1000ms)`（下限 1 秒）；`timeout_ms` 取 `provider 覆盖` 或 `template.default_timeout_ms`
 - URL 必须为 `http`/`https`
-- Host 校验：`provider.base_url` host ∪ `allowedHosts` ∪ 模板 `allowed_hosts_json`
-- 请求/响应 body 写入 **tauri-plugin-log** 时截断且 redact `api_key`；自研 logger 默认只记 status + url path
+- Host 校验：`provider.base_url` host ∪ `BalanceConfig.allowed_hosts` ∪ 模板 `allowed_hosts_json`；三者任一为空仍需至少匹配 `base_url` host，否则拒绝
+- 响应 body 上限 **2 MB**
+- 请求/响应 body 写入 **tauri-plugin-log**（`log::debug!`）时 redact `api_key`；自研 logger 默认只记 status + url path
 
 #### JSON
 
 | 函数 | 说明 |
 |------|------|
-| `json.parse(text)` | 字符串 → Dynamic |
-| `json.stringify(value)` | Dynamic → 字符串 |
-| `json.stringify_pretty(value)` | 美化（调试用） |
+| `json::parse(text)` | 字符串 → Dynamic（对象→map，数组→array，数字→i64/f64） |
+| `json::stringify(value)` | Dynamic → JSON 字符串 |
+| `json::stringify_pretty(value)` | 美化（调试用） |
+
+> 取对象字段用索引：`data["balance"]`；嵌套用 `data["data"]["total"]`。字段不存在返回 `()`（unit），需判空：`if x == () { ... }`。
 
 #### 控制与日志
 
 | 函数 | 说明 |
 |------|------|
-| `error(msg)` | 中止执行，转为业务错误 |
-| `log.info/warn/error(msg)` | 自研 logger；自动脱敏 |
+| `error(msg)` | 扁平全局函数；中止执行，转为 `IcodeError::validation`（message 含 `脚本错误:` 前缀） |
+| `log::info(msg)` | 自研 logger + tauri-plugin-log；自动 redact `api_key` |
+| `log::warn(msg)` | 同上，warn 级别 |
+| `log::error(msg)` | 同上，error 级别 |
 
-#### 工具（需要）
+#### 工具
 
 | 函数 | 说明 |
 |------|------|
-| `str.contains` / `str.replace` | 基础字符串 |
-| `math.*` | Rhai 内置即可 |
-| `url.join(base, path)` | 安全拼接路径 |
+| `url_join(base, path)` | 扁平全局函数；安全拼接 URL，自动处理首尾 `/` |
+| `str::contains(text, sub)` | 是否包含子串 |
+| `str::replace(text, from, to)` | 全部替换 |
+| `str::starts_with(text, prefix)` / `str::ends_with(text, suffix)` | 前缀/后缀判断 |
+| `str::trim(text)` | 去首尾空白 |
+| `str::to_lower(text)` / `str::to_upper(text)` | 大小写转换 |
+| `str::len(text)` | 字符长度（按 char 计） |
+| `str::sub_string(text, start, end)` | 截取 `[start, end)`（按 char 索引） |
+| `math::abs(x)` / `math::min(a,b)` / `math::max(a,b)` | 绝对值 / 最小 / 最大（支持 i64 与 f64 重载） |
+| `math::floor(x)` / `math::ceil(x)` / `math::round(x)` | 取整 |
+| `math::sqrt(x)` / `math::pow(base, exp)` | 平方根 / 幂运算 |
+
+> Rhai 内置字符串方法仍可用，如 `base.ends_with("/")`、`base.sub_string(0, base.len() - 1)`、`s.len()`。
 
 ### 4.4 执行沙箱策略
 
@@ -302,25 +343,23 @@ rhai = { version = "1", default-features = false, features = ["sync", "serde"] }
 
 ```js
 // 示例：OpenAI 兼容 /user/balance 风格
-let base = provider.base_url;
-if base.ends_with("/") {
-  base = base.sub_string(0, base.len() - 1);
-}
-let url = base + "/v1/user/balance";
+// 引擎：Rhai（语法接近 JS，map 用 #{ }，数组用 [ ]）
+// 模块函数用 :: 调用，如 http::get / json::parse（不是 http.get）
+let url = url_join(provider.base_url, "/v1/user/balance");
 
 let headers = #{
   "Authorization": "Bearer " + api_key,
   "Accept": "application/json"
 };
 
-let resp = http.get(url, headers);
+let resp = http::get(url, headers);
 if resp.status < 200 || resp.status >= 300 {
   error(`HTTP ${resp.status}: ${resp.body}`);
 }
 
-let data = json.parse(resp.body);
+let data = json::parse(resp.body);
 // 按实际响应改写路径
-let total = data["balance"]; // 或 data.data.xxx
+let total = data["balance"]; // 或 data["data"]["xxx"]
 
 #{
   items: [
@@ -770,7 +809,7 @@ i18n：监控方法文案迁入 `balance` / `aiGateway` 命名空间（现状有
 
 1. [x] 删除引用检查、列表筛选  
 2. [x] `schema.rs` TABLE_NAMES 登记 `script_templates`  
-3. [ ] 内置 1～2 个官方 snippet 随安装写入（可选 seed；当前为运行时内置列表）  
+3. [x] 内置官方 snippet（运行时内置列表，当前 6 个：`balance-get-bearer` / `items-skeleton` / `bearer-header` / `mimo-balance` / `mimo-token-plan` / `grok-usage`，源码见 `balance/script/snippets/`）  
 
 ---
 
@@ -778,7 +817,7 @@ i18n：监控方法文案迁入 `balance` / `aiGateway` 命名空间（现状有
 
 | 类型 | 用例 |
 |------|------|
-| 单元 | Rhai `json.parse/stringify`；snapshot 映射合法/非法 |
+| 单元 | Rhai `json::parse/stringify`；snapshot 映射合法/非法 |
 | 单元 | status 状态机非法迁移 |
 | 集成 | active 模板 + mock HTTP（可对本地 wiremock 或注入 http 桩） |
 | 集成 | draft 模板不可被 `balance_refresh_provider` 使用 |

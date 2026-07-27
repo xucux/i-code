@@ -1447,7 +1447,7 @@ impl AiGatewayService {
         }
 
         let auth = self.resolve_auth_for_request(&provider)?;
-        let client = reqwest::Client::new();
+        let client = build_provider_http_client(&provider)?;
 
         match provider.provider_type.as_str() {
             "openai-chat-completion" | "openai-responses" | "openai-codex" | "xai-grok-build" => {
@@ -1511,7 +1511,7 @@ impl AiGatewayService {
         }
 
         let auth = self.resolve_auth_for_request(&provider)?;
-        let client = reqwest::Client::new();
+        let client = build_provider_http_client(&provider)?;
 
         match protocol {
             "openai-compatible" => {
@@ -1556,9 +1556,10 @@ impl AiGatewayService {
         }
 
         let resp = req.send().await.map_err(|e| {
-            log::warn!(
-                "Provider API other | GET {} | error={}",
+            log::error!(
+                "Provider API other | GET {} | provider={} | send failed | err={:?}",
                 redact_url_key_param(&url),
+                provider.slug,
                 e
             );
             IcodeError::gateway(format!("请求供应商模型列表失败: {}", e))
@@ -2199,6 +2200,51 @@ fn redact_url_key_param(url: &str) -> String {
         }
     }
     result
+}
+
+/// 为模型拉取请求构造 HTTP 客户端
+///
+/// 应用供应商级 `proxy_json` / `timeout_json`，使「拉取模型」与「网关转发」
+/// 走一致的网络策略。此前直接使用 `reqwest::Client::new()` 会：
+/// - 忽略供应商代理配置（`global` / `direct` / `socks` / `http` 全部失效）；
+/// - 回落到 reqwest 默认行为（读取系统 `HTTP_PROXY` / `HTTPS_PROXY` 环境变量），
+///   当用户系统设了环境变量代理但代理不可用时，会导致直连可达的供应商也拉取失败。
+///
+/// 超时：连接超时始终生效（默认 10s）；响应总超时设为 30s（模型列表接口非流式）。
+fn build_provider_http_client(provider: &Provider) -> IcodeResult<reqwest::Client> {
+    use crate::modules::shared::{apply_provider_proxy, TimeoutConfig};
+
+    log::trace!("[proxy] fetch_models | provider={} | proxy_json={:?} | timeout_json={:?}",
+        provider.slug, provider.proxy_json, provider.timeout_json);
+
+    let mut builder = reqwest::Client::builder()
+        .user_agent(concat!("i-code-gateway/", env!("CARGO_PKG_VERSION")))
+        .connect_timeout(std::time::Duration::from_secs(10))
+        .timeout(std::time::Duration::from_secs(30));
+
+    // 供应商级超时覆盖（仅连接超时；响应总超时统一 30s）
+    if let Some(json) = provider.timeout_json.as_deref() {
+        if let Ok(cfg) = serde_json::from_str::<TimeoutConfig>(json) {
+            log::trace!("[proxy] fetch_models | provider={} | apply timeout connect={}ms", provider.slug, cfg.connection);
+            builder = builder.connect_timeout(std::time::Duration::from_millis(cfg.connection));
+        } else {
+            log::error!("[proxy] fetch_models | provider={} | parse timeout_json failed | raw={}", provider.slug, json);
+        }
+    }
+
+    // 供应商级代理（含 global 回退到全局代理 / 直连）
+    builder = apply_provider_proxy(builder, provider.proxy_json.as_deref())
+        .map_err(|e| {
+            log::error!("[proxy] fetch_models | provider={} | apply proxy failed | err={:?}", provider.slug, e);
+            IcodeError::validation(format!("构造拉取模型 HTTP 客户端失败: {}", e))
+        })?;
+
+    builder
+        .build()
+        .map_err(|e| {
+            log::error!("[proxy] fetch_models | provider={} | build client failed | err={:?}", provider.slug, e);
+            IcodeError::internal(format!("构造拉取模型 HTTP 客户端失败: {}", e))
+        })
 }
 
 #[cfg(test)]
