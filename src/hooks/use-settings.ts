@@ -23,3 +23,12 @@ export async function updateSettings(input: UpdateSettingsInput): Promise<AppSet
 export async function getLogDir(): Promise<string> {
   return invokeCommand<string>('settings_log_dir', {})
 }
+
+/**
+ * 获取应用配置目录
+ *
+ * 与数据库（`i-code.db`）同目录；提示词库（`prompt/`）、备份等均在此目录下。
+ */
+export async function getConfigDir(): Promise<string> {
+  return invokeCommand<string>('settings_config_dir', {})
+}

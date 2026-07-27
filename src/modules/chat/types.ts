@@ -30,6 +30,28 @@ export type ChatRole = 'system' | 'user' | 'assistant'
 export type ChatTransportMode = 'http' | 'sse'
 
 /**
+ * 提示词库条目（来自 `app_config_dir/prompt/*.md`）
+ *
+ * - `id`：文件名（如 `code-review.md`），读取详情的稳定键
+ * - `title`：取自首个 `# ` 行；无则用文件名 stem
+ */
+export interface ChatPrompt {
+  id: string
+  title: string
+}
+
+/**
+ * 提示词详情：正文已按 125000 字符截断
+ */
+export interface ChatPromptContent {
+  id: string
+  title: string
+  content: string
+  /** 是否因超过 125000 字符被截断 */
+  truncated: boolean
+}
+
+/**
  * 附件类型
  * - `file`：全文并入请求 content，名称写入会话
  * - `image`：base64 → OpenAI `image_url`，名称写入会话

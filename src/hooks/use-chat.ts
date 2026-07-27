@@ -28,6 +28,8 @@ import { getLocale } from '@/modules/i18n/i18n'
 import type {
   AbortChatResult,
   ChatMessage,
+  ChatPrompt,
+  ChatPromptContent,
   ChatSession,
   ChatSessionSummary,
   ChatStreamChunkEvent,
@@ -99,6 +101,18 @@ export async function sendChatMessage(input: {
 
 export async function abortChatMessage(requestId: string): Promise<AbortChatResult> {
   return invokeCommand<AbortChatResult>('chat_message_abort', { requestId })
+}
+
+// ===== 提示词库（prompt 目录下 *.md） =====
+
+/** 列出所有提示词（标题取自首个 `# ` 行） */
+export async function listChatPrompts(): Promise<ChatPrompt[]> {
+  return invokeCommand<ChatPrompt[]>('chat_prompt_list')
+}
+
+/** 读取提示词正文（超过 125000 字符自动截断） */
+export async function getChatPrompt(id: string): Promise<ChatPromptContent> {
+  return invokeCommand<ChatPromptContent>('chat_prompt_get', { id })
 }
 
 /**

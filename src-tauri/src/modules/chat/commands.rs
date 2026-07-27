@@ -16,8 +16,8 @@ use crate::error::IcodeResult;
 
 use super::service::ChatServiceHandle;
 use super::types::{
-    AbortChatResult, ChatSession, ChatSessionSummary, CreateChatSessionInput,
-    SendChatMessageInput, SendChatMessageResult, UpdateChatSessionInput,
+    AbortChatResult, ChatPrompt, ChatPromptContent, ChatSession, ChatSessionSummary,
+    CreateChatSessionInput, SendChatMessageInput, SendChatMessageResult, UpdateChatSessionInput,
 };
 
 /// 列出会话
@@ -82,4 +82,23 @@ pub async fn chat_message_abort(
     request_id: String,
 ) -> IcodeResult<AbortChatResult> {
     state.service().abort_request(&request_id)
+}
+
+// ===== 提示词库（prompt 目录下 *.md 文件） =====
+
+/// 列出所有提示词：读取 `app_config_dir/prompt/*.md`，标题取自首个 `# ` 行
+#[tauri::command]
+pub async fn chat_prompt_list(
+    state: State<'_, ChatServiceHandle>,
+) -> IcodeResult<Vec<ChatPrompt>> {
+    state.service().list_prompts()
+}
+
+/// 读取提示词正文：超过 125000 字符自动截断并标记 `truncated`
+#[tauri::command]
+pub async fn chat_prompt_get(
+    state: State<'_, ChatServiceHandle>,
+    id: String,
+) -> IcodeResult<ChatPromptContent> {
+    state.service().get_prompt(&id)
 }

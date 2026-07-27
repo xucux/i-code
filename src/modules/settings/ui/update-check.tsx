@@ -16,6 +16,7 @@ import { Separator } from '@/components/ui/separator'
 import { useTranslation } from '@/modules/i18n/use-translation'
 import { BACKEND_EVENTS } from '@/core/events'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 
 const GITHUB_REPO = 'xucux/i-code'
 const RELEASES_URL = `https://github.com/${GITHUB_REPO}/releases/latest`
@@ -417,8 +418,14 @@ export function UpdateCheck() {
       if (showDialog) {
         setDialogOpen(true)
       }
-    } catch {
+    } catch (err) {
       setHasUpdate(false)
+      if (showDialog) {
+        const msg = err instanceof Error ? err.message : String(err)
+        toast.error(t('settings.about.checkUpdateFailed'), {
+          description: msg,
+        })
+      }
     } finally {
       setChecking(false)
     }
@@ -439,7 +446,7 @@ export function UpdateCheck() {
         disabled={checking}
         title={t('settings.about.checkUpdate')}
       >
-        <i className={`fa-regular fa-circle-up ${checking ? 'fa-beat-fade' : ''}`} />
+        <i className={`fa-regular fa-circle-up ${checking ? 'fa-spin' : ''}`} />
         {hasUpdate && (
           <span className="absolute -right-0.5 -top-0.5 size-2 rounded-full bg-red-500" />
         )}

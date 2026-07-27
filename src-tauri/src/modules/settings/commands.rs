@@ -62,3 +62,22 @@ pub async fn settings_log_dir(app_handle: AppHandle) -> IcodeResult<String> {
         .into_owned();
     Ok(log_dir)
 }
+
+/// 获取应用配置/数据目录
+///
+/// 返回应用配置目录的绝对路径，与数据库（`i-code.db`）同目录，
+/// 用于在设置页展示系统配置目录（提示词库、备份等均在此目录下）。
+///
+/// - Windows: `%APPDATA%\\com.icode.app`
+/// - macOS: `~/Library/Application Support/com.icode.app`
+/// - Linux: `~/.config/com.icode.app`
+#[tauri::command]
+pub async fn settings_config_dir(app_handle: AppHandle) -> IcodeResult<String> {
+    let config_dir = app_handle
+        .path()
+        .app_config_dir()
+        .map_err(|e| IcodeError::internal(format!("无法获取应用配置目录: {e}")))?
+        .to_string_lossy()
+        .into_owned();
+    Ok(config_dir)
+}

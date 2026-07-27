@@ -32,7 +32,7 @@ use std::sync::{Arc, Mutex};
 
 use futures::StreamExt;
 use serde_json::{json, Value};
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 use tokio::sync::oneshot;
 
 use crate::error::{IcodeError, IcodeResult};
@@ -43,9 +43,10 @@ use crate::modules::secret::SecretServiceHandle;
 use super::repository::ChatRepository;
 use super::types::{
     AbortChatResult, ChatAttachment, ChatAttachmentInput, ChatAttachmentKind, ChatMessage,
-    ChatRole, ChatSession, ChatSessionSummary, ChatStreamChunkEvent, ChatStreamDoneEvent,
-    ChatStreamErrorEvent, ChatTokenUsage, ChatTransportMode, CreateChatSessionInput,
-    SendChatMessageInput, SendChatMessageResult, UpdateChatSessionInput,
+    ChatPrompt, ChatPromptContent, ChatRole, ChatSession, ChatSessionSummary,
+    ChatStreamChunkEvent, ChatStreamDoneEvent, ChatStreamErrorEvent, ChatTokenUsage,
+    ChatTransportMode, CHAT_PROMPT_MAX_CHARS, CreateChatSessionInput, SendChatMessageInput,
+    SendChatMessageResult, UpdateChatSessionInput,
 };
 
 /// 流式事件名（前端 `CHAT_EVENTS` / `listen` 与此一致）
@@ -209,6 +210,108 @@ impl ChatService {
             .lock()
             .map_err(|_| IcodeError::internal("聊天仓储锁中毒"))?
             .delete_session(id)
+    }
+
+    // ===== 提示词库（prompt 目录下 *.md 文件） =====
+
+    /// 解析提示词目录：`app_config_dir/prompt`，与数据库同目录。
+    fn prompts_dir(&self) -> IcodeResult<PathBuf> {
+        let base = self
+            .app_handle
+            .path()
+            .app_config_dir()
+            .map_err(|e| IcodeError::internal(format!("无法获取应用配置目录: {e}")))?;
+        Ok(base.join("prompt"))
+    }
+
+    /// 从文件内容首个 `# ` 行提取标题；无则用文件名 stem。
+    fn extract_title(content: &str, file_stem: &str) -> String {
+        for line in content.lines() {
+            let trimmed = line.trim_start_matches([' ', '\t', '\u{feff}']);
+            if let Some(rest) = trimmed.strip_prefix("# ") {
+                let title = rest.trim();
+                if !title.is_empty() {
+                    return title.to_string();
+                }
+            }
+            // 跳过空行继续找
+            if trimmed.is_empty() {
+                continue;
+            }
+        }
+        file_stem.to_string()
+    }
+
+    /// 列出所有提示词（标题取自首个 `# ` 行）
+    pub fn list_prompts(&self) -> IcodeResult<Vec<ChatPrompt>> {
+        let dir = self.prompts_dir()?;
+        if !dir.exists() {
+            return Ok(Vec::new());
+        }
+        let mut items: Vec<ChatPrompt> = Vec::new();
+        let read = std::fs::read_dir(&dir).map_err(|e| {
+            IcodeError::internal(format!("读取提示词目录失败: {e}"))
+        })?;
+        for entry in read.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|s| s.to_str()) != Some("md") {
+                continue;
+            }
+            let file_name = match path.file_name().and_then(|s| s.to_str()) {
+                Some(n) => n.to_string(),
+                None => continue,
+            };
+            let stem = path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or(&file_name)
+                .to_string();
+            let content = std::fs::read_to_string(&path).unwrap_or_default();
+            let title = Self::extract_title(&content, &stem);
+            items.push(ChatPrompt {
+                id: file_name,
+                title,
+            });
+        }
+        items.sort_by(|a, b| a.title.to_lowercase().cmp(&b.title.to_lowercase()));
+        Ok(items)
+    }
+
+    /// 读取提示词正文，超过 [`CHAT_PROMPT_MAX_CHARS`] 字符截断并标记
+    pub fn get_prompt(&self, id: &str) -> IcodeResult<ChatPromptContent> {
+        // id 即文件名，禁止越界访问上级目录
+        let safe_name = std::path::Path::new(id)
+            .file_name()
+            .and_then(|s| s.to_str())
+            .ok_or_else(|| IcodeError::validation("无效的提示词 id"))?;
+        let path = self.prompts_dir()?.join(safe_name);
+        if !path.exists() {
+            return Err(IcodeError::not_found("提示词", Some(id)));
+        }
+        let content = std::fs::read_to_string(&path).map_err(|e| {
+            IcodeError::internal(format!("读取提示词文件失败: {e}"))
+        })?;
+        let stem = std::path::Path::new(safe_name)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or(safe_name)
+            .to_string();
+        let title = Self::extract_title(&content, &stem);
+
+        let chars_count = content.chars().count();
+        let (content, truncated) = if chars_count > CHAT_PROMPT_MAX_CHARS {
+            let truncated_content: String = content.chars().take(CHAT_PROMPT_MAX_CHARS).collect();
+            (truncated_content, true)
+        } else {
+            (content, false)
+        };
+
+        Ok(ChatPromptContent {
+            id: id.to_string(),
+            title,
+            content,
+            truncated,
+        })
     }
 
     // ===== 发送 / 中断 =====

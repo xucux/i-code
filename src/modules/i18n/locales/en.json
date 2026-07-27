@@ -79,7 +79,7 @@
       "rpm": "RPM",
       "latency": "Latency",
       "memory": "Memory",
-      "gatewayStatus": "Gateway Status",
+      "gatewayStatus": "Gateway",
       "gatewayRunning": "Running",
       "gatewayStopped": "Stopped"
     },
@@ -120,7 +120,15 @@
       "basedOn": "Based on",
       "license": "License",
       "licenseValue": "MIT",
+      "github": "GitHub project",
+      "githubValue": "xucux/i-code",
+      "githubHint": "View the project source and docs on GitHub",
+      "configDir": "Config directory",
+      "configDirEmpty": "Not available",
+      "configDirCopy": "Copy path",
+      "configDirCopied": "Config directory path copied",
       "checkUpdate": "Check for updates",
+      "checkUpdateFailed": "Update check failed",
       "updateAvailable": "Update Available",
       "updateDescription": "i-code {{latest}} is now available (current: {{current}})",
       "downloadUpdate": "Download Update",
@@ -1129,7 +1137,17 @@
       "selectModel": "Select model",
       "noModels": "No models available",
       "attachFile": "Attach file",
-      "attachImage": "Attach image"
+      "attachImage": "Attach image",
+      "prompts": "Prompt library"
+    },
+    "prompts": {
+      "title": "Prompt library",
+      "description": "Sourced from .md files in the app config prompt/ directory",
+      "apply": "Apply",
+      "loading": "Loading…",
+      "empty": "No prompts yet. Place .md files in the prompt/ folder of the app config directory.",
+      "loadFailed": "Failed to load prompts",
+      "truncatedWarn": "Prompt too long, truncated to the first 125000 characters"
     },
     "errors": {
       "noModel": "Expose a model first",

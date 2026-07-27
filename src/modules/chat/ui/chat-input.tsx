@@ -23,7 +23,7 @@
  * - 模型/模式变更回调由父级写回当前会话（若已有 `activeId`）。
  */
 
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -37,6 +37,7 @@ import { useTranslation } from '@/modules/i18n/use-translation'
 import type { ChatTransportMode, PendingAttachment } from '@/modules/chat/types'
 import { readFileAsPendingAttachment } from '@/hooks/use-chat'
 import { cn } from '@/lib/utils'
+import { PromptPickerDialog } from './prompt-picker-dialog'
 
 /** 输入区 Props：受控文本/附件 + 模型与传输模式 + 发送/中断 */
 export interface ChatInputProps {
@@ -78,6 +79,13 @@ export function ChatInput({
   const { t } = useTranslation('chat')
   const fileRef = useRef<HTMLInputElement>(null)
   const imageRef = useRef<HTMLInputElement>(null)
+  const [promptOpen, setPromptOpen] = useState(false)
+
+  /** 应用提示词：追加到输入框（已有内容则换行分隔） */
+  const handleApplyPrompt = (content: string) => {
+    const trimmed = content
+    onChange(value.trim().length > 0 ? `${value}\n\n${trimmed}` : trimmed)
+  }
 
   /** 可否发送：有模型 + 文本或附件，且非发送中 */
   const canSend =
@@ -205,6 +213,18 @@ export function ChatInput({
           size="sm"
           className="h-7 px-2 text-xs"
           disabled={sending || disabled}
+          onClick={() => setPromptOpen(true)}
+          title={t('input.prompts')}
+        >
+          <i className="fa-solid fa-bookmark" />
+        </Button>
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-7 px-2 text-xs"
+          disabled={sending || disabled}
           onClick={() => fileRef.current?.click()}
           title={t('input.attachFile')}
         >
@@ -279,6 +299,12 @@ export function ChatInput({
           </Button>
         )}
       </div>
+
+      <PromptPickerDialog
+        open={promptOpen}
+        onOpenChange={setPromptOpen}
+        onApply={handleApplyPrompt}
+      />
     </div>
   )
 }

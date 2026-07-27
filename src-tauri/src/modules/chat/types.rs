@@ -77,6 +77,31 @@ pub struct ChatAttachment {
     pub size: Option<u64>,
 }
 
+/// 提示词库条目（来自 `app_config_dir/prompt/*.md`）
+///
+/// - `id`：文件名（如 `code-review.md`），作为读取详情的稳定键
+/// - `title`：取自首个 `# ` 行；若无则用文件名 stem
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatPrompt {
+    pub id: String,
+    pub title: String,
+}
+
+/// 提示词详情：正文（已按 125000 字符截断）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatPromptContent {
+    pub id: String,
+    pub title: String,
+    pub content: String,
+    /// 是否因超过 125000 字符被截断
+    pub truncated: bool,
+}
+
+/// 提示词正文最大字符数（超出截断并标记）
+pub const CHAT_PROMPT_MAX_CHARS: usize = 125_000;
+
 /// Token 用量
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

@@ -28,7 +28,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
-import { getSettings, getLogDir, updateSettings } from '@/hooks/use-settings'
+import { getSettings, getLogDir, getConfigDir, updateSettings } from '@/hooks/use-settings'
 import { clearCallStats } from '@/hooks/use-call-records-mutation'
 import { UniversalPasswordCard } from '@/modules/secret/ui/universal-password-card'
 import type { AppSettingsDto, GlobalProxyConfig, LogLevel, TitleBarInfoConfig } from '@/modules/settings/types'
@@ -60,6 +60,7 @@ function SettingsPage() {
   const [autoStartEnabled, setAutoStartEnabled] = useState(false)
   const [logLevel, setLogLevel] = useState<LogLevel>('info')
   const [logDir, setLogDir] = useState('')
+  const [configDir, setConfigDir] = useState('')
   const [clearDateRange, setClearDateRange] = useState<DateRange | undefined>(undefined)
 
   // 测量页面可用高度
@@ -108,6 +109,15 @@ function SettingsPage() {
     getLogDir()
       .then((dir) => {
         if (!cancelled) setLogDir(dir)
+      })
+      .catch(() => {
+        // web 预览模式下 Tauri 命令不可用，保持为空
+      })
+
+    // 单独获取应用配置目录（与数据库同目录）；web 预览模式下静默忽略
+    getConfigDir()
+      .then((dir) => {
+        if (!cancelled) setConfigDir(dir)
       })
       .catch(() => {
         // web 预览模式下 Tauri 命令不可用，保持为空
@@ -534,6 +544,46 @@ function SettingsPage() {
             <div className="flex items-center justify-between">
               <Label className="text-sm">{t('settings.about.license')}</Label>
               <span className="text-xs text-muted-foreground">{t('settings.about.licenseValue')}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <Label className="text-sm">{t('settings.about.github')}</Label>
+              <a
+                href="https://github.com/xucux/i-code"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                title={t('settings.about.githubHint')}
+              >
+                <i className="fa-brands fa-github text-sm" />
+                {t('settings.about.githubValue')}
+                <i className="fa-solid fa-arrow-up-right-from-square text-[10px]" />
+              </a>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <Label className="shrink-0 text-sm">{t('settings.about.configDir')}</Label>
+              <div className="flex min-w-0 items-center gap-1">
+                <span
+                  className="truncate text-xs text-muted-foreground tabular-nums"
+                  title={configDir || t('settings.about.configDirEmpty')}
+                >
+                  {configDir || t('settings.about.configDirEmpty')}
+                </span>
+                {configDir && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 shrink-0 px-1.5 text-[11px]"
+                    onClick={() => {
+                      navigator.clipboard?.writeText(configDir)
+                      toast.success(t('settings.about.configDirCopied'))
+                    }}
+                    title={t('settings.about.configDirCopy')}
+                  >
+                    <i className="fa-regular fa-copy" />
+                  </Button>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>

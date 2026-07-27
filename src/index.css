@@ -76,4 +76,27 @@
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: hsl(var(--muted-foreground) / 0.5);
   }
+
+  /* 提示词标题横向滚动跑马灯：内容溢出时由 JS 注入 .marquee-anim 触发 */
+  @keyframes chat-marquee {
+    0%,
+    10% {
+      transform: translateX(0);
+    }
+    45%,
+    55% {
+      transform: translateX(calc(var(--marquee-shift, 0) * -1px));
+    }
+    100% {
+      transform: translateX(0);
+    }
+  }
+  .marquee-anim {
+    animation: chat-marquee 8s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .marquee-anim {
+      animation: none;
+    }
+  }
 }

@@ -292,6 +292,7 @@ fn main() {
             modules::settings::commands::settings_get,
             modules::settings::commands::settings_update,
             modules::settings::commands::settings_log_dir,
+            modules::settings::commands::settings_config_dir,
             // ===== Balance 模块 =====
             modules::balance::commands::balance_refresh,
             modules::ai_gateway::commands::balance_refresh_provider,
@@ -456,6 +457,8 @@ fn main() {
             modules::chat::commands::chat_session_delete,
             modules::chat::commands::chat_message_send,
             modules::chat::commands::chat_message_abort,
+            modules::chat::commands::chat_prompt_list,
+            modules::chat::commands::chat_prompt_get,
             // ===== Gateway Runtime 模块 =====
             modules::gateway_runtime::commands::gateway_start,
             modules::gateway_runtime::commands::gateway_stop,
