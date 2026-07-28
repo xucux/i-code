@@ -242,6 +242,7 @@ rhai = { version = "1", default-features = false, features = ["sync", "serde"] }
 | `auth` | `map` | 已解析、脱敏后的认证摘要（**不含完整 secret 外的多余字段策略见下**） |
 | `now_ms` | `i64` | 当前 UTC 毫秒时间戳 |
 | `template` | `map` | `{ id, name, kind }` 当前模板元信息 |
+| `variables` | `map` | **v0.0.7+** 供应商扩展模板变量（key→value），见下方说明 |
 
 **`provider` 字段：**
 
@@ -263,8 +264,33 @@ rhai = { version = "1", default-features = false, features = ["sync", "serde"] }
 | `managed_project_id` | 可选 |
 | `account_id` | 可选 |
 
-> 完整 token JSON **不**注入 `auth`；脚本统一用 `api_key` 拿 Bearer。  
-> NewAPI 的 `systemToken` 若需脚本使用，作为模板级「用户配置参数」二期再做；本期脚本场景以 `api_key` + `provider.base_url` 为主。
+> 完整 token JSON **不**注入 `auth`；脚本统一用 `api_key` 拿 Bearer。
+
+**`variables` 模板变量（已实现）：**
+
+供应商「扩展模板变量」中配置的 key-value 对，解密后注入。常用于传递 Cookie、额外 Token 等场景。
+
+```text
+访问方式               示例                          说明
+variables["key"]       variables["cookie"]           通过 map 访问
+key（可选的顶层常量）    cookie                        非保留名同时扁平注入
+```
+
+**保留名列表**（以下名称不能用作变量 key，会跳过扁平注入，仅可通过 `variables["key"]` 访问）：
+
+`api_key`、`now_ms`、`provider`、`auth`、`template`、`variables`、`pi`、`e`
+
+**使用示例：**
+
+```rhai
+// 通过 variables map 访问
+let headers = #{ "Cookie": variables["cookie"] };
+
+// 非保留名变量同时可作为顶层常量（等价）
+let cookie_val = cookie;  // 与 variables["cookie"] 相同
+```
+
+> 注意：`variables` 中的 key 若与保留名冲突，仅可通过 `variables["key"]` 访问，不会创建顶层常量，避免覆盖系统注入变量。
 
 ### 4.3 系统函数（Host Functions）
 
@@ -277,9 +303,9 @@ rhai = { version = "1", default-features = false, features = ["sync", "serde"] }
 | `http::get` | `(url)` 或 `(url, headers)` | `#{ status, body, headers }` |
 | `http::post` | `(url, body)` 或 `(url, body, headers)` | 同上 |
 | `http::request` | `(method, url)` | 同上（**仅 2 参**，不带 body/headers） |
-| `http::get_json` | `(url)` | 解析后的 Dynamic；非 2xx 抛错（**不支持 headers 参数**） |
+| `http::get_json` | `(url)` | 解析后的 Dynamic；非 2xx 抛错（**模块版本仅 1 参，不支持 headers**；见下扁平别名） |
 
-> 需要带 headers 的 GET JSON，请用 `http::get(url, headers)` + `json::parse(resp.body)` 组合。
+> 需要带 headers 的 GET JSON，请用扁平 `http_get_json(url, headers)`（已注册，支持 2 参），或 `http::get(url, headers)` + `json::parse(resp.body)` 组合。
 > 需要带 body/headers 的通用请求，请用扁平 `http_request(method, url, body, headers)`（body/headers 可传 `()` 省略）。
 > `headers` 为 Rhai map，如 `#{ "Authorization": "Bearer " + api_key }`；`status` 为 `i64`，`body` 为字符串，`headers` 为 map。
 

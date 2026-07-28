@@ -71,7 +71,35 @@ Rhai 是一种嵌入 Rust 的脚本语言，语法接近 JavaScript，但有以�
 | `template.name` | String | 模板名称 |
 | `template.kind` | String | 模板类型（固定 `"balance"`） |
 
-### 2.5 使用示例
+### 2.5 `variables` 对象（模板变量）
+
+> **v0.0.7+ 已实现**
+
+供应商「扩展模板变量」中配置的 key-value 对，解密后注入。常用于传递 Cookie、额外 Token 等不能通过 `api_key` 单一字段表达的多凭证场景。
+
+| 访问方式 | 示例 | 说明 |
+|----------|------|------|
+| `variables["key"]` | `variables["cookie"]` | 通过 `variables` map 访问 |
+| `key`（顶层常量） | `cookie` | 非保留名变量同时扁平注入为顶层常量 |
+
+**保留名列表**（以下名称不能用作变量 key，会跳过扁平注入，仅可通过 `variables["key"]` 访问）：
+
+`api_key`、`now_ms`、`provider`、`auth`、`template`、`variables`、`pi`、`e`
+
+**使用示例**（Cookie 鉴权场景）：
+
+```rhai
+// 通过 variables map 访问（推荐，清晰无歧义）
+let headers = #{
+    "Cookie": variables["cookie"],
+    "Accept": "application/json"
+};
+
+// 扁平注入的顶层变量也等价可用（但需注意不与保留名冲突）
+let c = cookie;  // 与 variables["cookie"] 相同
+```
+
+### 2.6 使用示例
 
 ```rhai
 let base = provider.base_url;
@@ -96,11 +124,10 @@ log::info(`供应商: ${provider.name}`);
 | `http::get(url, headers)` | `(String, Map) → Map` | GET 请求，带自定义头 |
 | `http::post(url, body)` | `(String, String) → Map` | POST 请求，无自定义头 |
 | `http::post(url, body, headers)` | `(String, String, Map) → Map` | POST 请求，带自定义头 |
-| `http::request(method, url, body, headers)` | `(String, String, Dynamic, Dynamic) → Map` | 任意 HTTP 方法 |
+| `http::request(method, url)` | `(String, String) → Map` | 任意 HTTP 方法（**仅 2 参**，不带 body/headers，见下扁平别名） |
 | `http::get_json(url)` | `(String) → Dynamic` | GET 后自动解析 JSON，非 2xx 抛错 |
-| `http::get_json(url, headers)` | `(String, Map) → Dynamic` | GET + JSON 自动解析 |
 
-**扁平别名**（等价的函数名，可用作普通函数调用）：
+**扁平别名**（等价的函数名，可用作普通函数调用；支持更多参数重载）：
 
 | 别名 | 等价模块调用 |
 |------|-------------|
@@ -108,9 +135,9 @@ log::info(`供应商: ${provider.name}`);
 | `http_get(url, headers)` | `http::get(url, headers)` |
 | `http_post(url, body)` | `http::post(url, body)` |
 | `http_post(url, body, headers)` | `http::post(url, body, headers)` |
-| `http_request(method, url, body, headers)` | `http::request(method, url, body, headers)` |
+| `http_request(method, url, body, headers)` | 比 `http::request` 多 body/headers 参数 |
 | `http_get_json(url)` | `http::get_json(url)` |
-| `http_get_json(url, headers)` | `http::get_json(url, headers)` |
+| `http_get_json(url, headers)` | `http::get_json` + 自定义头（**模块版本无此重载，仅扁平版本有**） |
 
 **HTTP 返回值**：所有 `http::get` / `http::post` / `http::request` 返回一个 Map：
 
@@ -377,7 +404,8 @@ log::info(`供应商: ${provider.name}`);
 | `Authorization: Bearer sk-xxx` | `let headers = #{ "Authorization": "Bearer " + api_key }` |
 | `Authorization: Bearer xxx`（api_key 就是 token） | 同上 |
 | `x-api-key: xxx` | `let headers = #{ "x-api-key": api_key }` |
-| `Cookie: session=xxx` | `let headers = #{ "Cookie": api_key }` |
+| `Cookie: session=xxx`（单 Cookie） | `let headers = #{ "Cookie": api_key }`（api_key 存完整 Cookie 字符串） |
+| `Cookie: ...`（多凭证/复杂 Cookie） | 供应商「扩展模板变量」添加 `key="cookie"`，脚本用 `variables["cookie"]` |
 | Basic Auth | `let headers = #{ "Authorization": "Basic " + api_key }` |
 | 无认证（公开接口） | `let headers = #{}` 或省略 |
 
@@ -753,11 +781,13 @@ if str::contains(base, "/v1") { }
 | `curl -H "Authorization: Bearer $KEY" $URL` | `headers = #{ "Authorization": "Bearer " + api_key }` |
 | `curl -H "x-api-key: $KEY" $URL` | `headers = #{ "x-api-key": api_key }` |
 | `curl -b "session=$COOKIE" $URL` | `headers = #{ "Cookie": api_key }`（api_key 存完整 Cookie） |
+| `curl -b "复杂多 Cookie"` | 供应商「扩展模板变量」存 Cookie，脚本用 `variables["cookie"]` |
 | `POST` + JSON body | `http::post(url, json::stringify(body_map), headers)` |
 | Python `requests.get(url, headers=headers)` | `http::get(url, headers)` |
 | 响应嵌套 `data.balance.remaining` | `json["data"]["balance"]["remaining"]` |
 | 响应是数组 `[{...}]` | `let arr = json::parse(resp.body); let first = arr[0];` |
 | 需要拼接 base URL | `url_join(provider.base_url, "/v1/balance")` |
+| 需要额外凭证（Cookie/Token 等） | 在供应商「扩展模板变量」中添加，脚本用 `variables["key"]` 读取 |
 
 ---
 
