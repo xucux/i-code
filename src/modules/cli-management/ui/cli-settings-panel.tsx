@@ -345,7 +345,8 @@ export function CliSettingsPanel({ profiles, height, onProfilesChange }: CliSett
                 editingFile && setEditingFile({ ...editingFile, content: value })
               }
               language={editingFile?.format}
-              className="min-h-[360px]"
+              autoHeight
+              className="max-h-[360px] overflow-auto"
             />
           )}
           <DialogFooter>

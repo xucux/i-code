@@ -338,7 +338,7 @@ export function ScriptTemplateMarketplaceDialog({
               {selected ? ` — ${selected.name}` : ''}
             </DialogTitle>
           </DialogHeader>
-          <div className="min-h-0 flex-1 overflow-hidden rounded-md border">
+          <div className="min-h-0 overflow-hidden rounded-md border">
             {previewLoading ? (
               <div className="text-muted-foreground flex h-[320px] items-center justify-center text-xs">
                 <i className="fa-solid fa-spinner fa-spin mr-2" />
@@ -350,7 +350,8 @@ export function ScriptTemplateMarketplaceDialog({
                 onChange={() => undefined}
                 language="javascript"
                 readOnly
-                className="h-[320px] text-xs"
+                autoHeight
+                className="max-h-[320px] overflow-auto text-xs"
               />
             )}
           </div>

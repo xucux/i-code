@@ -61,6 +61,8 @@ export interface CodeEditorProps {
   placeholder?: string
   /** 最小高度 */
   minHeight?: string
+  /** 是否根据内容自动调整高度（内容少时紧凑，超出容器最大高度时滚动） */
+  autoHeight?: boolean
   /** 额外 CodeMirror 扩展（如脚本补全） */
   extensions?: Extension[]
 }
@@ -68,7 +70,7 @@ export interface CodeEditorProps {
 /**
  * 代码编辑器（CodeMirror）
  *
- * 用于 CLI 配置预览与脚本模板编辑；高度由 minHeight / style 控制。
+ * 用于 CLI 配置预览与脚本模板编辑；高度由 minHeight / autoHeight / style 控制。
  */
 export function CodeEditor({
   value,
@@ -79,6 +81,7 @@ export function CodeEditor({
   style,
   placeholder,
   minHeight = '200px',
+  autoHeight = false,
   extensions: extraExtensions,
 }: CodeEditorProps) {
   const extensions = useMemo(() => {
@@ -99,7 +102,7 @@ export function CodeEditor({
     >
       <CodeMirror
         value={value}
-        height={minHeight}
+        height={autoHeight ? 'auto' : minHeight}
         extensions={extensions}
         theme={icodeTheme}
         placeholder={placeholder}

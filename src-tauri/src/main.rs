@@ -151,6 +151,27 @@ fn format_balance_summary(snapshot: &modules::balance::types::BalanceSnapshot) -
     }
 }
 
+/// 根据最新快照刷新托盘额度子菜单项文字
+///
+/// 由定时线程与 `balance:snapshot-updated` 事件监听器共用，
+/// 确保前端手动刷新额度后托盘即时同步。
+fn update_tray_balance_items(
+    items: &[MenuItem<tauri::Wry>],
+    rows: &[modules::balance::repository::ProviderBalanceSnapshotRow],
+) {
+    for item in items.iter() {
+        let item_id: String = item.id().as_ref().to_string();
+        if let Some(provider_id) = item_id.strip_prefix("balance:") {
+            if let Some(row) = rows.iter().find(|r| r.provider_id == provider_id) {
+                let summary = format_balance_summary(&row.snapshot);
+                let _ = item.set_text(&format!("{}: {}", row.display_name, summary));
+            }
+        } else if item_id == "balance-empty" {
+            let _ = item.set_text(if rows.is_empty() { "暂无额度数据" } else { "—" });
+        }
+    }
+}
+
 /// 打开迷你面板窗口；若已存在则显示并聚焦
 #[tauri::command]
 async fn open_mini_panel(app: tauri::AppHandle) -> Result<(), String> {
@@ -871,6 +892,16 @@ fn main() {
                 }
             });
 
+            // 3) 监听 balance:snapshot-updated：手动刷新额度成功后即时刷新托盘额度子菜单
+            let balance_items_handle_for_snapshot = balance_items_handle.clone();
+            app.listen("balance:snapshot-updated", move |_| {
+                if let Ok(rows) = modules::balance::repository::list_balance_snapshots() {
+                    if let Ok(lock) = balance_items_handle_for_snapshot.lock() {
+                        update_tray_balance_items(&lock, &rows);
+                    }
+                }
+            });
+
             // ===== 开机自启时恢复网关 & 隐藏主窗口 =====
             // 如果启动参数含 --autostart（由 tauri-plugin-autostart 注入），说明本次为开机自启调用：
             //   1. 隐藏主窗口到托盘（开机自启时不需要显示窗口）
@@ -942,18 +973,7 @@ fn main() {
                 // 注意：此处仅刷新展示文字，不发起网络请求；网络刷新由前端触发 balance_refresh_provider
                 if let Ok(rows) = modules::balance::repository::list_balance_snapshots() {
                     if let Ok(lock) = balance_items_handle_for_timer.lock() {
-                        for item in lock.iter() {
-                            // 通过 item id 匹配 provider_id（id 格式：balance:{provider_id} 或 balance-empty）
-                            let item_id: String = item.id().as_ref().to_string();
-                            if let Some(provider_id) = item_id.strip_prefix("balance:") {
-                                if let Some(row) = rows.iter().find(|r| r.provider_id == provider_id) {
-                                    let summary = format_balance_summary(&row.snapshot);
-                                    let _ = item.set_text(&format!("{}: {}", row.display_name, summary));
-                                }
-                            } else if item_id == "balance-empty" {
-                                let _ = item.set_text(if rows.is_empty() { "暂无额度数据" } else { "—" });
-                            }
-                        }
+                        update_tray_balance_items(&lock, &rows);
                     }
                 }
             });
