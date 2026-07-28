@@ -27,6 +27,8 @@ pub enum SecretKind {
     /// 保持与数据库 `as_str()` 及前端 `SecretKind` 字符串一致。
     #[serde(rename = "webdav-password")]
     WebDavPassword,
+    /// 供应商扩展模板变量
+    ScriptVariable,
 }
 
 impl SecretKind {
@@ -38,6 +40,7 @@ impl SecretKind {
             "proxy-auth" => Some(Self::ProxyAuth),
             "gateway-key" => Some(Self::GatewayKey),
             "webdav-password" => Some(Self::WebDavPassword),
+            "script-variable" => Some(Self::ScriptVariable),
             _ => None,
         }
     }
@@ -50,6 +53,7 @@ impl SecretKind {
             Self::ProxyAuth => "proxy-auth",
             Self::GatewayKey => "gateway-key",
             Self::WebDavPassword => "webdav-password",
+            Self::ScriptVariable => "script-variable",
         }
     }
 }

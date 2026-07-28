@@ -52,7 +52,11 @@ fn now() -> String {
 ///
 /// `auth_json` 应为已序列化的 AuthConfig JSON 字符串，可为 None。
 /// 返回新插入记录的 ID。
-pub fn insert_provider(input: &CreateProviderInput, auth_json: Option<&str>) -> IcodeResult<Provider> {
+pub fn insert_provider(
+    input: &CreateProviderInput,
+    auth_json: Option<&str>,
+    script_variables_json: Option<&str>,
+) -> IcodeResult<Provider> {
     let conn = get_conn()?;
     let id = new_id();
     let now = now();
@@ -65,9 +69,10 @@ pub fn insert_provider(input: &CreateProviderInput, auth_json: Option<&str>) -> 
             (id, slug, display_name, provider_type, base_url, use_raw_base_url,
              transport, service_tier, auth_json, balance_provider_json, timeout_json,
              retry_json, proxy_json, auto_fetch_official_models, context_cache_json,
-             well_known_template_id, is_enabled, sort_order, created_at, updated_at)
+             well_known_template_id, is_enabled, sort_order, created_at, updated_at,
+             script_variables_json)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, NULL, NULL, ?7, ?8, ?9, ?10, ?11,
-                 ?12, NULL, NULL, ?13, ?14, ?15, ?16)",
+                 ?12, NULL, NULL, ?13, ?14, ?15, ?16, ?17)",
         rusqlite::params![
             id,
             input.slug,
@@ -85,6 +90,7 @@ pub fn insert_provider(input: &CreateProviderInput, auth_json: Option<&str>) -> 
             sort_order,
             now,
             now,
+            script_variables_json,
         ],
     )?;
 
@@ -153,6 +159,7 @@ pub fn update_provider(
     id: &str,
     input: &UpdateProviderInput,
     auth_json: Option<Option<&str>>,
+    script_variables_json: Option<Option<&str>>,
 ) -> IcodeResult<Provider> {
     let conn = get_conn()?;
     let now = now();
@@ -220,6 +227,12 @@ pub fn update_provider(
     if let Some(ref v) = input.proxy_json {
         sets.push(format!("proxy_json = ?{idx}"));
         params.push(Box::new(v.clone()));
+        idx += 1;
+    }
+    // script_variables_json: Option<Option<&str>> —— 外层 Some 表示需要更新，内层 None 表示置空
+    if let Some(v) = script_variables_json {
+        sets.push(format!("script_variables_json = ?{idx}"));
+        params.push(Box::new(v.map(|s| s.to_string())));
         idx += 1;
     }
 
@@ -706,7 +719,8 @@ const PROVIDER_SELECT_SQL: &str = "SELECT p.id, p.slug, p.display_name, p.provid
     p.base_url, p.use_raw_base_url, p.transport, p.service_tier, p.auth_json,
     p.balance_provider_json, p.timeout_json, p.retry_json, p.proxy_json,
     p.auto_fetch_official_models, p.context_cache_json, p.well_known_template_id,
-    p.is_enabled, p.sort_order, p.created_at, p.updated_at
+    p.is_enabled, p.sort_order, p.created_at, p.updated_at,
+    p.script_variables_json
     FROM providers p";
 
 /// providers 表行映射器：将数据库行转换为 Provider DTO
@@ -735,6 +749,7 @@ fn provider_row_mapper(row: &rusqlite::Row<'_>) -> rusqlite::Result<Provider> {
         sort_order: row.get(17)?,
         created_at: row.get(18)?,
         updated_at: row.get(19)?,
+        script_variables_json: row.get(20)?,
     })
 }
 

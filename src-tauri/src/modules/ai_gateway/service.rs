@@ -116,7 +116,12 @@ impl AiGatewayService {
             None => None,
         };
 
-        repository::insert_provider(&input, auth_json.as_deref())
+        // 处理 script_variables_json：加密敏感变量值后转为引用
+        let script_variables_json = self.process_script_variables_json_for_save(
+            input.script_variables_json.as_deref(),
+        )?;
+
+        repository::insert_provider(&input, auth_json.as_deref(), script_variables_json.as_deref())
     }
 
     /// 获取供应商详情
@@ -137,6 +142,7 @@ impl AiGatewayService {
     /// 更新供应商
     ///
     /// 若传入新的 `auth` 配置，会先加密其中的明文敏感字段。
+    /// 若传入新的 `script_variables_json`，会先加密其中的敏感变量值。
     pub fn update_provider(&self, id: &str, input: UpdateProviderInput) -> IcodeResult<Provider> {
         // 校验供应商存在
         let _existing = repository::find_provider_by_id(id)?;
@@ -150,7 +156,27 @@ impl AiGatewayService {
             None => None,
         };
 
-        repository::update_provider(id, &input, auth_json.as_ref().map(|o| o.as_deref()))
+        // 处理 script_variables_json：
+        // Option<Option<String>>：外层 Some → 需更新，内层 None → 置空，内层 Some(json) → 更新值
+        let script_variables_json: Option<Option<String>> = match &input.script_variables_json {
+            Some(inner) => {
+                match inner {
+                    Some(json) => {
+                        let processed = self.process_script_variables_json_for_save(Some(json.as_str()))?;
+                        Some(processed)
+                    }
+                    None => Some(None), // 置空
+                }
+            }
+            None => None,
+        };
+
+        repository::update_provider(
+            id,
+            &input,
+            auth_json.as_ref().map(|o| o.as_deref()),
+            script_variables_json.as_ref().map(|o| o.as_deref()),
+        )
     }
 
     /// 删除供应商
@@ -325,6 +351,7 @@ impl AiGatewayService {
             timeout_json: exported.provider.timeout_json,
             retry_json: exported.provider.retry_json,
             proxy_json: exported.provider.proxy_json,
+            script_variables_json: None,
         };
 
         let provider = self.create_provider(provider_input)?;
@@ -881,6 +908,91 @@ impl AiGatewayService {
         }
     }
 
+    /// 处理 script_variables_json：加密敏感变量值
+    ///
+    /// 解析 ProviderScriptVariables JSON，对 `isSecret=true` 且明文的变量调用加密，
+    /// 返回处理后的 JSON 字符串。若输入为 None/空则返回 None。
+    fn process_script_variables_json_for_save(
+        &self,
+        json: Option<&str>,
+    ) -> IcodeResult<Option<String>> {
+        match json {
+            Some(s) if !s.is_empty() => {
+                let vars: super::types::ProviderScriptVariables = serde_json::from_str(s)?;
+
+                // 校验 key 合法性
+                for item in &vars.items {
+                    // key 格式：^[a-zA-Z_][a-zA-Z0-9_]*$
+                    let valid_key = item.key.len() <= 64
+                        && !item.key.is_empty()
+                        && item.key.chars().next().map_or(false, |c| c.is_alphabetic() || c == '_')
+                        && item.key.chars().all(|c| c.is_alphanumeric() || c == '_');
+                    if !valid_key {
+                        return Err(IcodeError::validation(format!(
+                            "变量名 '{}' 格式非法：只能含字母/数字/下划线，不以数字开头，最长 64 字符",
+                            item.key
+                        )));
+                    }
+                    // 保留名检查
+                    if super::types::SCRIPT_VARIABLE_RESERVED_NAMES.contains(&item.key.as_str()) {
+                        return Err(IcodeError::validation(format!(
+                            "变量名 '{}' 为系统保留名",
+                            item.key
+                        )));
+                    }
+                }
+
+                // 数量上限
+                if vars.items.len() > 32 {
+                    return Err(IcodeError::validation(
+                        "模板变量数量上限为 32 项",
+                    ));
+                }
+
+                // 重复名检查（不区分大小写）
+                let mut seen = std::collections::HashSet::new();
+                for item in &vars.items {
+                    let lower = item.key.to_lowercase();
+                    if seen.contains(&lower) {
+                        return Err(IcodeError::validation(format!(
+                            "变量名 '{}' 重复",
+                            item.key
+                        )));
+                    }
+                    seen.insert(lower);
+                }
+
+                // 加密敏感值
+                let processed_items: Vec<super::types::ProviderScriptVariable> = vars
+                    .items
+                    .into_iter()
+                    .map(|item| {
+                        let new_value = if item.is_secret {
+                            self.maybe_encrypt_secret(&Some(item.value), SecretKind::ScriptVariable)
+                                .map(|v| v.unwrap_or_default())
+                        } else {
+                            Ok(item.value)
+                        }?;
+                        Ok(super::types::ProviderScriptVariable {
+                            key: item.key,
+                            value: new_value,
+                            is_secret: item.is_secret,
+                            label: item.label,
+                            allowed_hosts: item.allowed_hosts,
+                        })
+                    })
+                    .collect::<IcodeResult<Vec<super::types::ProviderScriptVariable>>>()?;
+
+                let processed = super::types::ProviderScriptVariables {
+                    version: vars.version,
+                    items: processed_items,
+                };
+                Ok(Some(serde_json::to_string(&processed)?))
+            }
+            _ => Ok(None),
+        }
+    }
+
     /// 解析供应商的 AuthConfig，返回明文版本
     ///
     /// **仅用于 gateway_runtime 转发请求前**，禁止返回前端。
@@ -919,6 +1031,7 @@ impl AiGatewayService {
         resolved.retry_json = self.resolve_json_field(&provider.retry_json)?;
         resolved.proxy_json = self.resolve_json_field(&provider.proxy_json)?;
         resolved.context_cache_json = self.resolve_json_field(&provider.context_cache_json)?;
+        resolved.script_variables_json = self.resolve_json_field(&provider.script_variables_json)?;
         Ok(resolved)
     }
 
@@ -1028,7 +1141,40 @@ impl AiGatewayService {
             _ => {}
         }
 
+        // 5. 解析 script_variables_json：对 isSecret=true 的变量解密为明文
+        input.script_variables = self.resolve_script_variables(provider)?;
+
         Ok(Some((config, input)))
+    }
+
+    /// 解析供应商的模板变量，返回已解密的 (key, plaintext_value) 列表
+    ///
+    /// 对 `isSecret=true` 的变量值调用 `$SECRET` 引用解析为明文；
+    /// 对 `isSecret=false` 的变量值直接使用原值。
+    fn resolve_script_variables(
+        &self,
+        provider: &Provider,
+    ) -> IcodeResult<Vec<(String, String)>> {
+        match &provider.script_variables_json {
+            Some(json) if !json.is_empty() => {
+                let vars: super::types::ProviderScriptVariables = serde_json::from_str(json)?;
+                let mut result = Vec::with_capacity(vars.items.len());
+                for item in &vars.items {
+                    let plaintext = if item.is_secret && is_secret_ref(&item.value) {
+                        // 解密 $SECRET 引用为明文
+                        self.secret_handle
+                            .service()
+                            .resolve_ref(&item.value)?
+                    } else {
+                        // 明文或空值直接使用
+                        item.value.clone()
+                    };
+                    result.push((item.key.clone(), plaintext));
+                }
+                Ok(result)
+            }
+            _ => Ok(Vec::new()),
+        }
     }
 
     // ===== OAuth 授权辅助方法 =====

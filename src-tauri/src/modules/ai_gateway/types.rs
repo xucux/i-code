@@ -623,6 +623,9 @@ pub struct Provider {
     pub retry_json: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proxy_json: Option<String>,
+    /// 供应商扩展模板变量 JSON（ProviderScriptVariables 序列化）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub script_variables_json: Option<String>,
     pub auto_fetch_official_models: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub context_cache_json: Option<String>,
@@ -633,6 +636,46 @@ pub struct Provider {
     pub created_at: String,
     pub updated_at: String,
 }
+
+/// 供应商扩展模板变量容器
+///
+/// 对应 `providers.script_variables_json` 列的 JSON 结构。
+/// 敏感值以 `$SECRET:{id}$` 引用存储，运行时由后端解密后注入脚本 Scope。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderScriptVariables {
+    pub version: i32,
+    pub items: Vec<ProviderScriptVariable>,
+}
+
+/// 单个供应商扩展模板变量
+///
+/// key 为脚本中取用键（`variables["cookie"]` 或顶层别名 `cookie`），
+/// value 为实际值（明文或 `$SECRET` 引用）。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderScriptVariable {
+    pub key: String,
+    pub value: String,
+    #[serde(default)]
+    pub is_secret: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub allowed_hosts: Vec<String>,
+}
+
+/// 保留名列表（禁止作为模板变量 key，避免与系统注入常量冲突）
+pub const SCRIPT_VARIABLE_RESERVED_NAMES: &[&str] = &[
+    "api_key",
+    "now_ms",
+    "provider",
+    "auth",
+    "template",
+    "variables",
+    "pi",
+    "e",
+];
 
 /// 网关暴露的模型 DTO
 ///
@@ -765,9 +808,10 @@ pub struct CreateProviderInput {
     /// 供应商级代理配置 JSON
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proxy_json: Option<String>,
+    /// 供应商扩展模板变量 JSON（ProviderScriptVariables 序列化）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub script_variables_json: Option<String>,
 }
-
-/// 更新供应商的输入参数
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateProviderInput {
@@ -797,6 +841,10 @@ pub struct UpdateProviderInput {
     /// 供应商级代理配置 JSON
     #[serde(skip_serializing_if = "Option::is_none")]
     pub proxy_json: Option<String>,
+    /// 供应商扩展模板变量 JSON
+    /// Option<Option<String>>：外层 Some 表示需要更新，内层 None 表示置空
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub script_variables_json: Option<Option<String>>,
 }
 
 /// 创建模型配置的输入参数

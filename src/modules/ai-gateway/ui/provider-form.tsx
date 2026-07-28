@@ -32,7 +32,8 @@ import { invokeCommand } from '@/hooks/use-command'
 import { open } from '@tauri-apps/plugin-shell'
 import { listen } from '@tauri-apps/api/event'
 import { BalanceConfigForm } from '@/modules/balance/ui/balance-config-form'
-import type { Provider, ProviderType, AuthConfig, AuthMethod, BuiltinModel, GatewayModel, ModelConfig, ModelCapabilities, ModelThinkingConfig, ModelEditTool, DeviceCodeInfo, DeviceCodePollResult, OAuthStartResult, OAuthCallbackEvent } from '@/modules/ai-gateway/types'
+import { ScriptVariablesEditor } from '@/modules/ai-gateway/ui/script-variables-editor'
+import type { Provider, ProviderType, AuthConfig, AuthMethod, BuiltinModel, GatewayModel, ModelConfig, ModelCapabilities, ModelThinkingConfig, ModelEditTool, DeviceCodeInfo, DeviceCodePollResult, OAuthStartResult, OAuthCallbackEvent, ProviderScriptVariable } from '@/modules/ai-gateway/types'
 import { parseAuthConfig } from '@/modules/ai-gateway/types'
 import { toast } from 'sonner'
 import { toIcodeError } from '@/core/errors'
@@ -192,6 +193,7 @@ interface ProviderFormProps {
     proxyJson?: string
     timeoutJson?: string
     retryJson?: string
+    scriptVariablesJson?: string
   }) => void
   /** OAuth 授权成功后回传更新后的供应商对象 */
   onProviderUpdated?: (provider: Provider) => void
@@ -370,6 +372,39 @@ function parseThinkingForm(thinkingJson?: string): Pick<ModelEditFormValues, 'th
 }
 
 /**
+ * 构建 script_variables_json 提交数据
+ *
+ * 编辑时：isSecret=true 且 value 为空或仍为 $SECRET:...$ 占位 → 保留原引用（未改）
+ * isSecret=true 且 value 为新明文 → 原样发给后端加密
+ * isSecret=false → 明文原样
+ * 过滤掉 key 为空或重复的项；items 为空 → 返回 undefined（不传该字段）
+ */
+function buildScriptVariablesJson(
+  variables: ProviderScriptVariable[],
+  isEdit: boolean,
+): string | undefined {
+  const filtered = variables.filter((v) => v.key.trim() !== '')
+  if (filtered.length === 0) return isEdit ? JSON.stringify({ version: 1, items: [] }) : undefined
+
+  // 重复名去重（保留最后一个）
+  const seen = new Map<string, ProviderScriptVariable>()
+  for (const v of filtered) {
+    seen.set(v.key.toLowerCase(), v)
+  }
+  const items = Array.from(seen.values())
+
+  // 对 secret 变量：编辑模式下，空值或仍是引用的 → 保留原引用
+  const processedItems = items.map((v) => ({
+    ...v,
+    value: v.isSecret && isEdit && (!v.value || v.value.startsWith('$SECRET:'))
+      ? v.value // 保留原引用或空
+      : v.value, // 新明文或非 secret → 原样
+  }))
+
+  return JSON.stringify({ version: 1, items: processedItems })
+}
+
+/**
  * 供应商新增/编辑表单
  *
  * 包含基本信息与模型管理两部分：
@@ -387,6 +422,9 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
   const [timeoutConnection, setTimeoutConnection] = useState(5000)
   const [timeoutResponse, setTimeoutResponse] = useState(120000)
   const [maxRetries, setMaxRetries] = useState(3)
+
+  // 扩展模板变量
+  const [scriptVariables, setScriptVariables] = useState<ProviderScriptVariable[]>([])
 
   // OAuth 授权状态
   const [oauthAuthorizing, setOauthAuthorizing] = useState(false)
@@ -492,6 +530,18 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
       } catch {
         setMaxRetries(3)
       }
+      // 解析 scriptVariablesJson
+      try {
+        const svJson = provider.scriptVariablesJson
+        if (svJson) {
+          const sv = JSON.parse(svJson) as { version: number; items: ProviderScriptVariable[] }
+          setScriptVariables(sv.items ?? [])
+        } else {
+          setScriptVariables([])
+        }
+      } catch {
+        setScriptVariables([])
+      }
     } else {
       form.reset({
         slug: '',
@@ -521,6 +571,7 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
       setTimeoutConnection(5000)
       setTimeoutResponse(120000)
       setMaxRetries(3)
+      setScriptVariables([])
       // 应用内置预设预填充值（延迟 setValue 避免与 reset 冲突）
       if (initialValues) {
         window.setTimeout(() => {
@@ -570,6 +621,7 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
       proxyJson,
       timeoutJson,
       retryJson,
+      scriptVariablesJson: buildScriptVariablesJson(scriptVariables, isEdit),
     })
   }
 
@@ -820,6 +872,7 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
             <TabsTrigger value="basic" className="text-xs">{t('aiGateway.providerForm.tabs.basic')}</TabsTrigger>
             <TabsTrigger value="models" className="text-xs">{t('aiGateway.providerForm.tabs.models')}</TabsTrigger>
             <TabsTrigger value="advanced" className="text-xs">{t('aiGateway.providerForm.tabs.advanced')}</TabsTrigger>
+            <TabsTrigger value="extension" className="text-xs">{t('aiGateway.providerForm.tabs.extension')}</TabsTrigger>
           </TabsList>
 
           <form onSubmit={form.handleSubmit(handleSubmit)} id="provider-form" className="contents">
@@ -1200,6 +1253,14 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
                 />
               </div>
             </div>
+          </TabsContent>
+
+          <TabsContent value="extension" className="space-y-4">
+            <ScriptVariablesEditor
+              variables={scriptVariables}
+              onChange={setScriptVariables}
+              isEdit={isEdit}
+            />
           </TabsContent>
           </form>
         </Tabs>

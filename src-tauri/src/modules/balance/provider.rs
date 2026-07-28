@@ -39,6 +39,8 @@ pub struct BalanceRefreshInput {
     pub provider_is_enabled: Option<bool>,
     /// 认证方法摘要（脚本 auth.method）
     pub auth_method: Option<String>,
+    /// 已解密的模板变量（key → 明文 value）
+    pub script_variables: Vec<(String, String)>,
 }
 
 /// 异步查询结果类型（boxed future，支持 dyn trait）

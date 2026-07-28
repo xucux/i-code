@@ -176,8 +176,10 @@ log::info(`供应商: ${provider.name}`);
 | `str::to_upper(text)` | `(String) → String` | 转大写 |
 | `str::len(text)` | `(String) → Integer` | 字符长度 |
 | `str::sub_string(text, start, end)` | `(String, Integer, Integer) → String` | 子串（按字符索引） |
+| `str::to_float(text)` | `(String) → Float` | 字符串转浮点，失败抛错（如 `"80138.77"` → `80138.77`） |
+| `str::to_int(text)` | `(String) → Integer` | 字符串转整数，失败抛错 |
 
-**扁平别名**：`str_contains`、`str_replace`、`str_starts_with`、`str_ends_with`、`str_trim`、`str_to_lower`、`str_to_upper`、`str_len`、`str_sub_string`。
+**扁平别名**：`str_contains`、`str_replace`、`str_starts_with`、`str_ends_with`、`str_trim`、`str_to_lower`、`str_to_upper`、`str_len`、`str_sub_string`、`str_to_float`、`str_to_int`。
 
 ### 3.5 数学函数
 

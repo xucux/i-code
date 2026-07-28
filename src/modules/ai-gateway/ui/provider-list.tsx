@@ -271,6 +271,7 @@ export function ProviderList() {
     proxyJson?: string
     timeoutJson?: string
     retryJson?: string
+    scriptVariablesJson?: string
   }) => {
     try {
       if (editingProvider) {
@@ -285,6 +286,7 @@ export function ProviderList() {
           proxyJson: values.proxyJson,
           timeoutJson: values.timeoutJson,
           retryJson: values.retryJson,
+          scriptVariablesJson: values.scriptVariablesJson,
         })
         if (result) {
           toast.success(t('aiGateway.providerList.updateSuccess'))
@@ -307,6 +309,7 @@ export function ProviderList() {
           proxyJson: values.proxyJson,
           timeoutJson: values.timeoutJson,
           retryJson: values.retryJson,
+          scriptVariablesJson: values.scriptVariablesJson,
         })
         if (result) {
           toast.success(t('aiGateway.providerList.createSuccess'))

@@ -283,7 +283,8 @@
       "tabs": {
         "basic": "基础",
         "models": "模型",
-        "advanced": "高级"
+        "advanced": "高级",
+        "extension": "扩展"
       },
       "validation": {
         "slugRequired": "请输入 slug",
@@ -367,6 +368,20 @@
       "timeoutConnection": "连接超时（毫秒）",
       "timeoutResponse": "响应超时（毫秒）",
       "maxRetries": "最大重试次数",
+      "scriptVariables": {
+        "title": "模板变量",
+        "description": "这些变量将作为只读常量注入额度监控脚本，脚本可通过 variables[\"key\"] 或顶层别名 key 取用",
+        "keyPlaceholder": "变量名",
+        "valuePlaceholder": "变量值",
+        "secretPlaceholderEdit": "重新输入以替换",
+        "secretTooltipEdit": "留空表示不修改已有密钥值",
+        "labelPlaceholder": "备注",
+        "add": "添加变量",
+        "isSecret": "敏感（加密）",
+        "keyInvalid": "变量名只能含字母/数字/下划线，且不以数字开头",
+        "keyReserved": "该名称为系统保留",
+        "keyDuplicate": "变量名重复"
+      },
       "modelManagement": {
         "saveFirst": "请先保存供应商，再管理模型",
         "addedModels": "已添加 {{count}} 个模型",

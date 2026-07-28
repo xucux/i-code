@@ -26,8 +26,7 @@
 //! ## 内置迁移
 //!
 //! 当前所有迁移通过 `include_str!` 宏在编译时嵌入二进制，
-//! 避免依赖运行时文件系统路径。新增迁移时在 [`BUILTIN_MIGRATIONS`] 中追加。
-
+//! 避免依赖运行时文件系统路径。新增迁移时在 [`BUILTIN_MIGRATIONS`] 中追加。/// 当存在 V002+ 迁移时，自动退出基线重置模式，转为增量迁移。
 use crate::error::{IcodeError, IcodeResult};
 
 use super::connection::{get_db_pool, DbConn};
@@ -39,12 +38,17 @@ use super::schema::table;
 /// 所有 `CREATE TABLE` 使用 `IF NOT EXISTS`，便于在已有数据库上重跑。
 const V001__INIT: &str = include_str!("./migrations/V001__init.sql");
 
+/// 供应商扩展模板变量：providers 表新增 script_variables_json 列
+const V002__PROVIDER_SCRIPT_VARIABLES: &str =
+    include_str!("./migrations/V002__provider_script_variables.sql");
+
 /// 内置迁移列表：(版本号, 描述, SQL 内容)
 ///
-/// 当前仅保留基线版本 V001。后续表结构变更请直接修改 V001__init.sql，
-/// 不再追加 V002+ 迁移；如需恢复增量迁移模式，可在此数组中追加新版本。
+/// 增量迁移模式：V001 为基线，V002+ 为增量变更。
+/// 新增迁移在此数组中追加，并同步更新 `SCHEMA_VERSION`。
 const BUILTIN_MIGRATIONS: &[(u32, &str, &str)] = &[
     (1, "init", V001__INIT),
+    (2, "provider_script_variables", V002__PROVIDER_SCRIPT_VARIABLES),
 ];
 
 /// 执行所有未应用的迁移
@@ -195,6 +199,7 @@ mod tests {
         check_column("model_configs", "price_per_1m_tokens");
         check_column("model_call_logs", "api_key_secret_id");
         check_column("webdav_configs", "password");
+        check_column("providers", "script_variables_json");
 
         // 二次执行迁移应为 no-op，不报错
         run_migrations_with_conn(&mut conn).expect("二次迁移应为 no-op");

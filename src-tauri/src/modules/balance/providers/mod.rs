@@ -123,6 +123,7 @@ async fn refresh_with_script(
         timeout_json: None,
         retry_json: None,
         proxy_json: None,
+        script_variables_json: None,
         auto_fetch_official_models: false,
         context_cache_json: None,
         well_known_template_id: None,

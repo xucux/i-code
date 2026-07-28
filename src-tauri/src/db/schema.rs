@@ -7,10 +7,9 @@
 
 /// 当前 schema 版本号
 ///
-/// 当前采用基线重置模式：仅保留 V001 基线版本，所有表结构变更直接修改 V001__init.sql。
-/// 因此 SCHEMA_VERSION 固定为 1，直至恢复增量迁移模式。
 /// 与 `src-tauri/src/db/migrations/V{n}__*.sql` 文件名中的 `{n}` 对应。
-pub const SCHEMA_VERSION: u32 = 1;
+/// 每次新增增量迁移时同步更新。
+pub const SCHEMA_VERSION: u32 = 2;
 
 /// 所有业务表名常量
 ///

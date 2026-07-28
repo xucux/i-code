@@ -27,6 +27,8 @@ pub struct ScriptContext {
     pub template_id: String,
     pub template_name: String,
     pub template_kind: String,
+    /// 已解密的模板变量列表
+    pub script_variables: Vec<(String, String)>,
 }
 
 impl ScriptContext {
@@ -59,6 +61,7 @@ impl ScriptContext {
             template_id: template.id.clone(),
             template_name: template.name.clone(),
             template_kind: template.kind.clone(),
+            script_variables: input.script_variables.clone(),
         }
     }
 
@@ -97,7 +100,30 @@ impl ScriptContext {
         template.insert("name".into(), Dynamic::from(self.template_name.clone()));
         template.insert("kind".into(), Dynamic::from(self.template_kind.clone()));
         scope.push_constant("template", Dynamic::from_map(template));
+
+        // 注入 variables map（key → 明文 value）
+        let mut vars = Map::new();
+        for (k, v) in &self.script_variables {
+            vars.insert(k.clone().into(), Dynamic::from(v.clone()));
+        }
+        scope.push_constant("variables", Dynamic::from_map(vars));
+
+        // 注入扁平别名（每个 key 直接作为顶层常量，便于脚本直接写 cookie）
+        // 保留名冲突时跳过扁平注入，仅 variables[...] 可用
+        for (k, v) in &self.script_variables {
+            if !is_reserved_name(k) {
+                scope.push_constant(k.clone(), v.clone());
+            }
+        }
     }
+}
+
+/// 保留名列表（与 SCRIPT_VARIABLE_RESERVED_NAMES 对齐，运行时二次保险）
+fn is_reserved_name(name: &str) -> bool {
+    matches!(
+        name,
+        "api_key" | "now_ms" | "provider" | "auth" | "template" | "variables" | "pi" | "e"
+    )
 }
 
 fn now_ms() -> i64 {

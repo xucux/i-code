@@ -33,6 +33,8 @@ export const SCRIPT_VARIABLES: ScriptCatalogItem[] = [
   { label: 'auth.project_id', insert: 'auth.project_id', detail: '可选 project id', type: 'variable', group: 'variable' },
   { label: 'auth.managed_project_id', insert: 'auth.managed_project_id', detail: '可选 managed project id', type: 'variable', group: 'variable' },
   { label: 'auth.account_id', insert: 'auth.account_id', detail: '可选 account id', type: 'variable', group: 'variable' },
+  { label: 'variables', insert: 'variables', detail: '供应商扩展模板变量 map（按 key 取值）', type: 'variable', group: 'variable' },
+  { label: 'variables["key"]', insert: 'variables["key"]', detail: '按 key 取模板变量值（如 variables["cookie"]）', type: 'variable', group: 'variable' },
   { label: 'template', insert: 'template', detail: '当前模板元信息 map', type: 'variable', group: 'variable' },
   { label: 'template.id', insert: 'template.id', detail: '当前模板 ID', type: 'variable', group: 'variable' },
   { label: 'template.name', insert: 'template.name', detail: '当前模板名称', type: 'variable', group: 'variable' },

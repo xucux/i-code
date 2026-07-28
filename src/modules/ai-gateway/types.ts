@@ -78,6 +78,8 @@ export interface Provider {
   timeoutJson?: string
   retryJson?: string
   proxyJson?: string
+  /** 供应商扩展模板变量 JSON（ProviderScriptVariables 序列化） */
+  scriptVariablesJson?: string
   autoFetchOfficialModels: boolean
   contextCacheJson?: string
   wellKnownTemplateId?: string
@@ -671,12 +673,10 @@ export interface CreateProviderInput {
   retryJson?: string
   /** 供应商级代理配置 JSON */
   proxyJson?: string
+  /** 供应商扩展模板变量 JSON */
+  scriptVariablesJson?: string
 }
 
-/**
- * 更新供应商的输入参数
- * 对应后端 `UpdateProviderInput`
- */
 export interface UpdateProviderInput {
   slug?: string
   displayName?: string
@@ -694,6 +694,8 @@ export interface UpdateProviderInput {
   retryJson?: string
   /** 供应商级代理配置 JSON */
   proxyJson?: string
+  /** 供应商扩展模板变量 JSON */
+  scriptVariablesJson?: string | null
 }
 
 /**
@@ -776,6 +778,36 @@ export interface UpdateGatewayModelInput {
   displayName?: string
   family?: string
   isExposed?: boolean
+}
+
+// ===== 扩展模板变量类型 =====
+
+/**
+ * 保留名列表（禁止作为模板变量 key，避免与系统注入常量冲突）
+ */
+export const SCRIPT_VARIABLE_RESERVED_NAMES = [
+  'api_key', 'now_ms', 'provider', 'auth', 'template', 'variables', 'pi', 'e',
+]
+
+/**
+ * 供应商扩展模板变量容器
+ * 对应 `providers.script_variables_json` 列的 JSON 结构
+ */
+export interface ProviderScriptVariables {
+  version: number
+  items: ProviderScriptVariable[]
+}
+
+/**
+ * 单个供应商扩展模板变量
+ * key 为脚本中取用键（`variables["cookie"]` 或顶层别名 `cookie`）
+ */
+export interface ProviderScriptVariable {
+  key: string
+  value: string
+  isSecret?: boolean
+  label?: string
+  allowedHosts?: string[]
 }
 
 /**

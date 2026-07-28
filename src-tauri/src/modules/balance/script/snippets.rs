@@ -8,6 +8,7 @@ mod balance_get_bearer;
 mod bearer_header;
 mod grok_usage;
 mod items_skeleton;
+mod joyagent_balance;
 mod mimo_balance;
 mod mimo_token_plan;
 
@@ -15,6 +16,7 @@ use balance_get_bearer::BALANCE_GET_BEARER;
 use bearer_header::BEARER_HEADER;
 use grok_usage::GROK_USAGE;
 use items_skeleton::ITEMS_SKELETON;
+use joyagent_balance::JOYAGENT_BALANCE;
 use mimo_balance::MIMO_BALANCE;
 use mimo_token_plan::MIMO_TOKEN_PLAN;
 
@@ -56,6 +58,12 @@ pub fn list_snippets() -> Vec<ScriptSnippet> {
             name: "公益Grok监控".into(),
             description: "公益 Grok 额度监控：quota 金额 + 今日/累计 token + 账户状态".into(),
             body: GROK_USAGE.into(),
+        },
+        ScriptSnippet {
+            id: "joyagent-balance".into(),
+            name: "京东 JoyAgent 积分".into(),
+            description: "Cookie 鉴权查询 JoyAgent 积分：剩余积分 / 上限 / 已用 / 百分比 / 钱包金额 / 状态".into(),
+            body: JOYAGENT_BALANCE.into(),
         },
     ]
 }

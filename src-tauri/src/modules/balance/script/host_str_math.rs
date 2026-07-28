@@ -46,6 +46,25 @@ pub fn register(engine: &mut Engine) {
             }
         },
     );
+    // 字符串 → 浮点：解析失败自动抛错（额度脚本中常见，如 "80138.77"）
+    engine.register_fn(
+        "str_to_float",
+        |text: &str| -> Result<f64, Box<rhai::EvalAltResult>> {
+            text.trim().parse::<f64>().map_err(|e| {
+                format!("str_to_float: 无法解析 '{text}' 为浮点数: {e}")
+                    .into()
+            })
+        },
+    );
+    // 字符串 → 整数：解析失败自动抛错
+    engine.register_fn(
+        "str_to_int",
+        |text: &str| -> Result<i64, Box<rhai::EvalAltResult>> {
+            text.trim().parse::<i64>().map_err(|e| {
+                format!("str_to_int: 无法解析 '{text}' 为整数: {e}").into()
+            })
+        },
+    );
 
     engine.register_fn("math_abs", |x: f64| -> f64 { x.abs() });
     engine.register_fn("math_min", |a: f64, b: f64| -> f64 { a.min(b) });
@@ -93,6 +112,16 @@ pub fn register(engine: &mut Engine) {
         } else {
             Ok(chars[s..e].iter().collect())
         }
+    });
+    str_mod.set_native_fn("to_float", |text: &str| -> Result<f64, Box<rhai::EvalAltResult>> {
+        text.trim().parse::<f64>().map_err(|e| {
+            format!("str::to_float: 无法解析 '{text}' 为浮点数: {e}").into()
+        })
+    });
+    str_mod.set_native_fn("to_int", |text: &str| -> Result<i64, Box<rhai::EvalAltResult>> {
+        text.trim().parse::<i64>().map_err(|e| {
+            format!("str::to_int: 无法解析 '{text}' 为整数: {e}").into()
+        })
     });
     engine.register_static_module("str", str_mod.into());
 

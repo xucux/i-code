@@ -283,7 +283,8 @@
       "tabs": {
         "basic": "Basic",
         "models": "Models",
-        "advanced": "Advanced"
+        "advanced": "Advanced",
+        "extension": "Extension"
       },
       "validation": {
         "slugRequired": "Please enter slug",
@@ -367,6 +368,20 @@
       "timeoutConnection": "Connection timeout (ms)",
       "timeoutResponse": "Response timeout (ms)",
       "maxRetries": "Max retries",
+      "scriptVariables": {
+        "title": "Template Variables",
+        "description": "These variables are injected as read-only constants into balance scripts, accessible via variables[\\\"key\\\"] or top-level alias key",
+        "keyPlaceholder": "Variable name",
+        "valuePlaceholder": "Value",
+        "secretPlaceholderEdit": "Re-enter to replace",
+        "secretTooltipEdit": "Leave empty to keep existing secret value",
+        "labelPlaceholder": "Label",
+        "add": "Add variable",
+        "isSecret": "Secret",
+        "keyInvalid": "Name must match ^[a-zA-Z_][a-zA-Z0-9_]*$",
+        "keyReserved": "Reserved system name",
+        "keyDuplicate": "Duplicate name"
+      },
       "modelManagement": {
         "saveFirst": "Please save the provider first, then manage models",
         "addedModels": "{{count}} models added",
