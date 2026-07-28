@@ -8,6 +8,26 @@
 
 ### 变更
 
+## [0.0.7] - 2026-07-28
+
+### 新增
+
+- **供应商扩展模板变量**：供应商表单新增「扩展」Tab，支持管理 `key/value/isSecret/label` 的变量列表，运行时以 `variables["key"]` 注入额度脚本
+  - 后端新增 `script_variables_json` 字段及迁移 `V002__provider_script_variables.sql`
+  - 敏感变量值由 Secret 模块加密后存储为 `$SECRET:{uuid}$` 引用
+  - 余额脚本上下文注入 `variables` map，可在脚本中读取扩展变量
+  - 前端新增 `ScriptVariablesEditor` 组件，支持增删改、敏感开关、key 格式校验与重复校验
+- **京东 JoyAgent 余额脚本 Snippet**：新增 `joyagent-balance` 内置脚本，查询可用积分、积分上限、已用积分、剩余百分比、优惠券/钱包/欠款金额及账户状态
+- **字符串转换 Host Functions**：Rhai 脚本运行时新增 `str::to_float` / `str::to_int`（同时提供扁平别名 `str_to_float` / `str_to_int`），用于将接口返回的字符串数值转为数值类型
+
+### 修复
+
+- **供应商表单误提交**：`ScriptVariablesEditor` 中「添加变量」与「删除」按钮未声明 `type="button"`，默认触发表单提交导致弹窗意外关闭并保存；已显式指定 `type="button"`
+
+### 变更
+
+- **余额脚本鉴权方式调整**：内置 JoyAgent / 小米 MiMo 余额查询脚本从直接读取 `api_key` 改为通过 `variables["cookie"]` 读取扩展变量，Cookie 等动态凭证不再占用 API Key 字段，注释同步指引用户在扩展模板变量中配置 `cookie`
+
 ## [0.0.6] - 2026-07-27
 
 ### 新增

@@ -14,7 +14,7 @@
 3. **管理 CLI 配置**：为 Claude Code、Codex、Gemini CLI 等维护配置档案，支持直连或路由到本地 Gateway。
 4. **工作区隔离**：按 Workspace 隔离 Prompts / MCP / Skill；**切换并「应用」后**才写入 CLI 实际配置文件。
 
-版本：`0.0.6`  
+版本：`0.0.7`  
 包管理：`pnpm@11`  
 数据库：本地 SQLite（`i-code.db`）  
 默认网关：`127.0.0.1:54321`
