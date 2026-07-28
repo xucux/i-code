@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dialog'
 
 /** 应用版本号，与 package.json / tauri.conf.json 保持同步 */
-const APP_VERSION = '0.0.7'
+const APP_VERSION = '0.0.8'
 
 interface TitleBarProps {
   /** 标题栏中间展示的可选信息内容（如 MemoryInfo 胶囊） */

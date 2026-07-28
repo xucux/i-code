@@ -2,11 +2,32 @@
 
 ## [Unreleased]
 
+## [0.0.8] - 2026-07-28
+
 ### 新增
+
+- **脚本模板市场**：新增脚本模板市场模块，支持从公共 GitHub 仓库拉取模板列表、预览和一键应用为本地草稿
+  - 后端新增 `script_template_marketplace_list` / `get_detail` / `apply` 三个 Command，包含缓存、校验与冲突处理
+  - 前端新增 `ScriptTemplateMarketplaceDialog` 组件，支持筛选、搜索、预览和一键应用
+  - 新增 `useScriptTemplateMarketplace` Hook，封装市场列表拉取与详情查询
+  - 新增市场提案文档 `docs/proposals/script-template-marketplace.md`
+- **Claude CLI 配置一键应用**：新增 `cli_apply_claude_config` 命令与服务实现，支持一键将当前供应商配置写入 Claude Code 的 `settings.json`
+  - 支持自动同步网关/直连模式的 Base URL 与认证信息
+  - 支持配置开关、模型映射、兜底模型等完整 CLI 选项
+  - 保留原有保存功能的同时新增独立的应用配置入口
+  - 新增 `ApplyClaudeConfigInput` / `ApplyClaudeConfigResult` DTO
+- **Codex 模型映射**：Codex CLI 面板支持模型映射配置，UI 与后端逻辑调整对齐 Claude CLI 模式
 
 ### 修复
 
+- **供应商表单 API Key 显示**：优化 API Key 显示与编辑体验，支持留空不修改原有密钥
+- **额度监控展示**：修复额度监控展示逻辑，仅在非 `none` 模式下展示相关 UI
+
 ### 变更
+
+- **模型映射编辑器重构**：将通用模型映射编辑能力抽离为公共组件 `ClaudeModelMapping`，供 Claude CLI 和 Codex 复用
+- **代码编辑器自适应高度**：为 `CodeEditor` 组件新增 `autoHeight` 属性，实现基于内容的自适应高度；CLI 设置面板和脚本模板预览面板的编辑器高度样式同步调整
+- **托盘额度菜单更新逻辑**：重构托盘额度菜单更新逻辑，提取公共函数 `update_tray_balance_items` 复用代码
 
 ## [0.0.7] - 2026-07-28
 
