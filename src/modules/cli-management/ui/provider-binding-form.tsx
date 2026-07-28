@@ -107,6 +107,17 @@ export function ProviderBindingForm({
   }, [binding, form])
 
   const routeMode = form.watch('routeMode')
+  const providerId = form.watch('providerId')
+
+  /**
+   * 当选择直连模式且已选供应商时，直连 Base URL 跟随所选 Gateway 供应商的 baseUrl 同步调整。
+   */
+  useEffect(() => {
+    if (routeMode !== 0 || !providerId) return
+    const provider = providers.find((p) => p.id === providerId)
+    if (!provider?.baseUrl) return
+    form.setValue('directBaseUrl', provider.baseUrl)
+  }, [routeMode, providerId, providers, form])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

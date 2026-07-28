@@ -102,15 +102,21 @@ fn map_metric(value: Dynamic, idx: usize) -> IcodeResult<BalanceMetric> {
         }
         BalanceMetricType::Percent => {
             let v = require_value(&map, idx)?;
-            let num = v.as_f64().ok_or_else(|| {
+            let mut num = v.as_f64().ok_or_else(|| {
                 IcodeError::validation(format!("items[{idx}].value 须为数字 (percent)"))
             })?;
-            if !(0.0..=100.0).contains(&num) {
+            // 负数置为 0（超支场景）
+            if num < 0.0 {
+                num = 0.0;
+            }
+            if num > 100.0 {
                 return Err(IcodeError::validation(format!(
-                    "items[{idx}].value 须在 0–100（当前 {num}）"
+                    "items[{idx}].value 不能超过 100（当前 {num}）"
                 )));
             }
-            metric.value = Some(v);
+            // 保留 2 位小数精度
+            let rounded = (num * 100.0).round() / 100.0;
+            metric.value = Some(serde_json::json!(rounded));
             if let Some(basis) = get_string(&map, "basis") {
                 metric.basis = match basis.as_str() {
                     "remaining" => Some(BalanceDirection::Remaining),

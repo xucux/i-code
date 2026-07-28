@@ -4,6 +4,16 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { CodeEditor } from '@/components/ui/code-editor'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   Dialog,
   DialogContent,
@@ -25,14 +35,19 @@ import {
 } from '@/components/ui/model-mapping-editor'
 import { useCliModelMappings, useCliProviders } from '@/hooks/use-cli-profiles'
 import {
+  createCliModelMapping,
   createCliProvider,
   deleteCliModelMapping,
   deleteCliProvider,
+  updateCliModelMapping,
   updateCliProvider,
 } from '@/hooks/use-cli-mutation'
 import { useProviderList } from '@/hooks/use-provider-list'
 import { useExposedModels } from '@/hooks/use-virtual-provider'
 import { useTranslation } from '@/modules/i18n/use-translation'
+import { invokeCommand } from '@/hooks/use-command'
+import { parseAuthConfig } from '@/modules/ai-gateway/types'
+import { toIcodeError } from '@/core/errors'
 import type { CliModelMapping, CliProfile, CliProvider } from '@/modules/cli-management/types'
 import { ProviderBindingForm } from './provider-binding-form'
 
@@ -40,6 +55,9 @@ import { ProviderBindingForm } from './provider-binding-form'
 type DeleteTarget =
   | { type: 'provider'; item: CliProvider }
   | { type: 'mapping'; item: CliModelMapping }
+
+/** Codex wire API 类型 */
+type CodexWireApi = 'chat' | 'responses'
 
 export interface CodexPanelProps {
   profile?: CliProfile
@@ -50,7 +68,12 @@ export interface CodexPanelProps {
  * Codex CLI 专属面板
  *
  * 左侧：供应商列表（带"已应用"标识）
- * 右侧：模型映射编辑器 + 预览 config.toml / 应用操作
+ * 右侧：模型映射编辑器 + API Key + wire_api 选择 + 预览 config.toml / 应用操作
+ *
+ * 参考 cc switch 项目的 Codex config.toml 结构：
+ * - [model] name / model_provider
+ * - [model_providers.{provider_id}] name / base_url / api_key / wire_api
+ * - [profiles.{alias}] model / model_provider
  */
 export function CodexPanel({ profile, height }: CodexPanelProps) {
   const { t } = useTranslation()
@@ -80,6 +103,15 @@ export function CodexPanel({ profile, height }: CodexPanelProps) {
   const [localMappings, setLocalMappings] = useState<ModelMappingItem[]>([])
   const [localFallbackModel, setLocalFallbackModel] = useState('')
 
+  // 记录每个模型别名对应的后端 mapping id，用于应用时判断是创建还是更新
+  const [mappingIdByRole, setMappingIdByRole] = useState<Record<string, string | undefined>>({})
+
+  // ── Codex API Key（按供应商明文存储在 authJson 中） ──
+  const [apiKey, setApiKey] = useState('')
+
+  // ── Codex wire_api（默认 chat，本地网关走 /v1/chat/completions） ──
+  const [wireApi, setWireApi] = useState<CodexWireApi>('chat')
+
   // 切换 profile 时重置选中
   useEffect(() => {
     setSelectedProviderId(null)
@@ -99,6 +131,7 @@ export function CodexPanel({ profile, height }: CodexPanelProps) {
   }, [providers, selectedProviderId])
 
   const selectedProvider = providers.find((p) => p.id === selectedProviderId)
+  const selectedGatewayProvider = gatewayProviders.find((p) => p.id === selectedProvider?.providerId)
   const enabledGatewayProviders = gatewayProviders.filter((p) => p.isEnabled)
 
   // 可用模型列表（网关路由模式下按供应商筛选）
@@ -111,62 +144,106 @@ export function CodexPanel({ profile, height }: CodexPanelProps) {
       .map((m) => `${m.providerSlug}/${m.modelId}`)
   }, [exposedModels, gatewayProviders, selectedProvider])
 
-  // 将 CliModelMapping[] 转换为 ModelMappingItem[]
-  const editorMappings = useMemo<ModelMappingItem[]>(() => {
-    return mappings.map((m) => ({
-      id: m.id,
-      role: m.cliModelAlias,
-      displayName: m.cliModelAlias,
-      actualModel: m.gatewayModelId ?? m.rawModelId ?? '',
-      supports1M: false,
-    }))
+  // mappings 加载完成后转换为编辑器所需格式，并记录后端 mapping id
+  useEffect(() => {
+    const ids: Record<string, string | undefined> = {}
+    const items: ModelMappingItem[] = mappings.map((m) => {
+      if (m.cliModelAlias) {
+        ids[m.cliModelAlias] = m.id
+      }
+      return {
+        id: m.id,
+        role: m.cliModelAlias,
+        displayName: m.cliModelAlias,
+        actualModel: m.gatewayModelId ?? m.rawModelId ?? '',
+        supports1M: false,
+      }
+    })
+    setLocalMappings(items)
+    setMappingIdByRole(ids)
   }, [mappings])
 
-  // mappings 加载完成后同步到本地编辑态
+  // 选中供应商变化时重置 API Key、fallback 和 wire_api
   useEffect(() => {
-    setLocalMappings(editorMappings)
-  }, [editorMappings])
-
-  // 选中供应商变化时重置 fallback
-  useEffect(() => {
+    setApiKey('')
     setLocalFallbackModel('')
+    setWireApi('chat')
   }, [selectedProviderId])
+
+  // 从供应商 authJson 解析 API Key
+  useEffect(() => {
+    if (!selectedProvider?.authJson) {
+      setApiKey('')
+      return
+    }
+    try {
+      const parsed = JSON.parse(selectedProvider.authJson) as { apiKey?: string; wireApi?: CodexWireApi }
+      setApiKey(parsed.apiKey ?? '')
+      setWireApi(parsed.wireApi === 'responses' ? 'responses' : 'chat')
+    } catch {
+      setApiKey('')
+      setWireApi('chat')
+    }
+  }, [selectedProvider?.authJson])
 
   // ── 高度计算 ──
   const listHeight = Math.max(0, height - 76)
 
-  // ── 生成 config.toml 预览 ──
+  /**
+   * 生成 Codex config.toml 预览
+   *
+   * 结构参考 cc switch 项目解析逻辑：
+   * - [model]：默认模型与默认 provider
+   * - [model_providers.custom]：自定义 provider 配置
+   * - [profiles.{alias}]：每个模型映射对应一个 profile，可用 `codex --profile {alias}` 切换
+   */
   const generateConfigToml = useCallback(() => {
     if (!selectedProvider) return ''
 
-    // 基础 URL：网关模式用 gatewayBaseUrl，直连模式用 directBaseUrl
+    // 基础 URL
     const baseUrl =
       selectedProvider.routeMode === 1
         ? (selectedProvider.gatewayBaseUrl || 'http://127.0.0.1:54321')
         : (selectedProvider.directBaseUrl || '')
 
-    // 优先使用 fallback，其次取第一个映射的实际模型
-    const modelName = localFallbackModel.trim() || localMappings[0]?.actualModel || ''
+    // 默认模型：fallback > 第一个映射的实际模型
+    const defaultModel = localFallbackModel.trim() || localMappings[0]?.actualModel || ''
 
     const lines: string[] = []
 
     // [model] 段
-    if (modelName) {
+    if (defaultModel) {
       lines.push('[model]')
-      lines.push(`name = "${modelName}"`)
+      lines.push(`name = "${escapeTomlValue(defaultModel)}"`)
+      lines.push('model_provider = "custom"')
       lines.push('')
     }
 
-    // [providers.custom] 段
-    lines.push('[providers.custom]')
-    lines.push(`name = "${selectedProvider.displayName}"`)
-    lines.push(`base_url = "${baseUrl}"`)
-    // API Key 占位（安全原因不在前端暴露真实 key）
-    lines.push('api_key = ""')
+    // [model_providers.custom] 段
+    lines.push('[model_providers.custom]')
+    lines.push(`name = "${escapeTomlValue(selectedProvider.displayName)}"`)
+    if (baseUrl) {
+      lines.push(`base_url = "${escapeTomlValue(baseUrl)}"`)
+    }
+    // API Key 明文写入预览（用户明确操作后才会真正应用）
+    lines.push(`api_key = "${escapeTomlValue(apiKey)}"`)
+    lines.push(`wire_api = "${wireApi}"`)
     lines.push('')
 
+    // [profiles.{alias}] 段：每个映射对应一个可切换 profile
+    for (const item of localMappings) {
+      if (!item.role || !item.actualModel) continue
+      const sectionKey = item.role.includes('.') || item.role.includes(' ')
+        ? `"${escapeTomlValue(item.role)}"`
+        : escapeTomlValue(item.role)
+      lines.push(`[profiles.${sectionKey}]`)
+      lines.push(`model = "${escapeTomlValue(item.actualModel)}"`)
+      lines.push('model_provider = "custom"')
+      lines.push('')
+    }
+
     return lines.join('\n')
-  }, [selectedProvider, localMappings, localFallbackModel])
+  }, [selectedProvider, localMappings, localFallbackModel, apiKey, wireApi])
 
   // ── 操作处理 ──
 
@@ -219,7 +296,6 @@ export function CodexPanel({ profile, height }: CodexPanelProps) {
       return
     }
     if (deleteTarget.type === 'provider') {
-      // 若删除的是已应用的供应商，清除应用状态
       if (appliedProviderId === deleteTarget.item.id) {
         setAppliedProviderId(null)
       }
@@ -242,11 +318,83 @@ export function CodexPanel({ profile, height }: CodexPanelProps) {
     setLocalFallbackModel(value)
   }
 
-  /** 应用当前供应商配置 */
-  const handleApply = () => {
+  /** 新增一条空映射 */
+  const handleAddMapping = () => {
+    const index = localMappings.length + 1
+    const next: ModelMappingItem[] = [
+      ...localMappings,
+      {
+        id: `new-${Date.now()}`,
+        role: `model-${index}`,
+        displayName: `model-${index}`,
+        actualModel: '',
+        supports1M: false,
+      },
+    ]
+    setLocalMappings(next)
+  }
+
+  /** 从 Gateway 供应商 authJson 中导入 API Key 并解密为明文 */
+  const handleImportApiKey = useCallback(async () => {
+    if (!selectedGatewayProvider) {
+      toast.error(t('cli.claude.modelMapping.noProvider'))
+      return
+    }
+    const auth = parseAuthConfig(selectedGatewayProvider)
+    if (auth?.method !== 'api-key' || !auth.apiKey) {
+      toast.error(t('cli.claude.modelMapping.noApiKeyInProvider'))
+      return
+    }
+    try {
+      const plaintext = await invokeCommand<string>('secret_decrypt_text', { value: auth.apiKey })
+      setApiKey(plaintext)
+      toast.success(t('cli.claude.modelMapping.apiKeyImported'))
+    } catch (err) {
+      toast.error(toIcodeError(err).message)
+    }
+  }, [selectedGatewayProvider, t])
+
+  /** 应用当前供应商配置：保存映射列表、API Key 和 wire_api */
+  const handleApply = async () => {
     if (!selectedProviderId || !selectedProvider) return
-    setAppliedProviderId(selectedProviderId)
-    toast.success(`已应用供应商「${selectedProvider.displayName}」的配置`)
+
+    const inputMode: 'select' | 'manual' = selectedProvider.routeMode === 1 ? 'select' : 'manual'
+    const saveResults: Promise<unknown>[] = []
+
+    for (const item of localMappings) {
+      const mappingId = mappingIdByRole[item.role]
+      const values = {
+        cliModelAlias: item.role,
+        gatewayModelId: inputMode === 'select' ? item.actualModel : undefined,
+        rawModelId: inputMode === 'manual' ? item.actualModel : undefined,
+        inputMode,
+      }
+
+      if (mappingId) {
+        saveResults.push(updateCliModelMapping(mappingId, values))
+      } else {
+        saveResults.push(
+          createCliModelMapping({ cliProviderId: selectedProviderId, ...values })
+        )
+      }
+    }
+
+    // 同时把 API Key 与 wire_api 明文保存到供应商 authJson
+    saveResults.push(
+      updateCliProvider(selectedProviderId, {
+        authJson: JSON.stringify({ apiKey, wireApi }),
+      })
+    )
+
+    try {
+      await Promise.all(saveResults)
+      setAppliedProviderId(selectedProviderId)
+      toast.success(t('cli.codex.applyProvider'))
+      void refetchMappings()
+      void refetchProviders()
+    } catch {
+      toast.error(t('cli.messages.saveFailed'))
+    }
   }
 
   // ── 未加载 profile 的占位 ──
@@ -396,7 +544,7 @@ export function CodexPanel({ profile, height }: CodexPanelProps) {
             </CardContent>
           </Card>
 
-          {/* ── 右侧：模型映射 + 操作按钮 ── */}
+          {/* ── 右侧：模型映射 + API Key + 操作 ── */}
           <Card className="min-h-0 overflow-hidden">
             <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2.5">
               <div className="min-w-0">
@@ -425,15 +573,95 @@ export function CodexPanel({ profile, height }: CodexPanelProps) {
                   scrollbarVisible="auto"
                 >
                   <div className="space-y-3 px-6 py-3">
-                    {/* 模型映射编辑器 */}
+                    {/* 模型映射编辑器（Codex 不需要 1M 开关） */}
                     <ModelMappingEditor
                       mappings={localMappings}
                       fallbackModel={localFallbackModel}
                       availableModels={availableModels}
                       onMappingsChange={handleMappingsChange}
                       onFallbackChange={handleFallbackChange}
+                      showSupports1M={false}
+                      onDeleteMapping={(id) => {
+                        const target = mappings.find((m) => m.id === id)
+                        if (target) {
+                          setDeleteTarget({ type: 'mapping', item: target })
+                        } else {
+                          // 本地新增的映射未入库，直接移除
+                          setLocalMappings((prev) => prev.filter((item) => item.id !== id))
+                        }
+                      }}
                       className="border-0 shadow-none"
                     />
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 gap-1 px-2 text-xs"
+                      onClick={handleAddMapping}
+                    >
+                      <i className="fa-solid fa-plus text-[10px]" />
+                      {t('cli.mappings.add')}
+                    </Button>
+
+                    {/* Codex API Key */}
+                    <div className="space-y-1.5 rounded-md border bg-background/50 px-3 py-2.5">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="codex-api-key" className="text-xs font-medium text-muted-foreground">
+                          {t('cli.codex.apiKeyLabel')}
+                        </Label>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 gap-1 px-2 text-[11px]"
+                          onClick={() => void handleImportApiKey()}
+                          disabled={!selectedGatewayProvider}
+                        >
+                          <i className="fa-solid fa-key text-[10px]" />
+                          {t('cli.claude.modelMapping.importApiKey')}
+                        </Button>
+                      </div>
+                      <Input
+                        id="codex-api-key"
+                        type="password"
+                        value={apiKey}
+                        onChange={(e) => setApiKey(e.target.value)}
+                        placeholder={t('cli.codex.apiKeyPlaceholder')}
+                        className="h-8 text-xs"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        {t('cli.codex.apiKeyDesc')}
+                      </p>
+                    </div>
+
+                    {/* Codex wire_api */}
+                    <div className="space-y-1.5 rounded-md border bg-background/50 px-3 py-2.5">
+                      <Label className="text-xs font-medium text-muted-foreground">
+                        {t('cli.codex.wireApiLabel')}
+                      </Label>
+                      <Select
+                        value={wireApi}
+                        onValueChange={(value) => setWireApi(value as CodexWireApi)}
+                      >
+                        <SelectTrigger className="h-8 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            <SelectItem value="chat" className="text-xs">
+                              {t('cli.codex.wireApiChat')}
+                            </SelectItem>
+                            <SelectItem value="responses" className="text-xs">
+                              {t('cli.codex.wireApiResponses')}
+                            </SelectItem>
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        {t('cli.codex.wireApiHint')}
+                      </p>
+                    </div>
 
                     {/* 底部操作按钮 */}
                     <div className="flex items-center justify-end gap-2 pt-1">
@@ -445,16 +673,16 @@ export function CodexPanel({ profile, height }: CodexPanelProps) {
                         onClick={() => setPreviewOpen(true)}
                       >
                         <i className="fa-solid fa-eye text-[10px]" />
-                        预览 config.toml
+                        {t('cli.codex.previewConfig')}
                       </Button>
                       <Button
                         type="button"
                         size="sm"
                         className="h-7 gap-1.5 px-3 text-xs"
-                        onClick={handleApply}
+                        onClick={() => void handleApply()}
                       >
                         <i className="fa-solid fa-check text-[10px]" />
-                        应用
+                        {t('common.apply')}
                       </Button>
                     </div>
                   </div>
@@ -503,7 +731,7 @@ export function CodexPanel({ profile, height }: CodexPanelProps) {
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-base">预览 config.toml</DialogTitle>
+            <DialogTitle className="text-base">{t('cli.codex.previewTitle')}</DialogTitle>
           </DialogHeader>
           <CodeEditor
             value={generateConfigToml()}
@@ -519,7 +747,7 @@ export function CodexPanel({ profile, height }: CodexPanelProps) {
               className="h-8 text-xs"
               onClick={() => setPreviewOpen(false)}
             >
-              关闭
+              {t('common.close')}
             </Button>
             <Button
               type="button"
@@ -527,15 +755,20 @@ export function CodexPanel({ profile, height }: CodexPanelProps) {
               className="h-8 gap-1.5 text-xs"
               onClick={() => {
                 navigator.clipboard.writeText(generateConfigToml())
-                toast.success('已复制到剪贴板')
+                toast.success(t('cli.opencode.exportCopied'))
               }}
             >
               <i className="fa-solid fa-copy text-[10px]" />
-              复制
+              {t('common.copy')}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
   )
+}
+
+/** 转义 TOML 字符串值中的特殊字符 */
+function escapeTomlValue(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n')
 }

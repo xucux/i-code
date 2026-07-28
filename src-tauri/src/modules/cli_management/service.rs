@@ -19,15 +19,18 @@ use std::sync::Arc;
 
 use chrono::Utc;
 
+use std::collections::HashMap;
+
 use crate::core::id::generate_id;
 use crate::error::{IcodeError, IcodeResult};
 use crate::modules::ai_gateway::AiGatewayServiceHandle;
 
 use super::repository::CliManagementRepository;
 use super::types::{
-    CliConfigFileInspection, CliConfigFileContent, CliModelMapping, CliProfile, CliProvider, CliType,
-    CreateCliModelMappingInput, CreateCliProfileInput, CreateCliProviderInput,
-    UpdateCliModelMappingInput, UpdateCliProfileInput, UpdateCliProviderInput,
+    ApplyClaudeConfigInput, ApplyClaudeConfigResult, CliConfigFileContent, CliConfigFileInspection,
+    CliModelMapping, CliProfile, CliProvider, CliType, CreateCliModelMappingInput,
+    CreateCliProfileInput, CreateCliProviderInput, UpdateCliModelMappingInput, UpdateCliProfileInput,
+    UpdateCliProviderInput,
 };
 
 const MANAGED_CLI_PROFILES: [(&str, &str, &str); 3] = [
@@ -445,6 +448,33 @@ impl CliManagementService {
         let _ = self.get_model_mapping(id)?;
         self.repo.delete_model_mapping(id)
     }
+
+    /// 应用 Claude CLI 配置到实际配置文件
+    ///
+    /// 根据传入的映射、开关、API Key 生成 Claude Code settings.json，
+    /// 写入 cli_profiles.config_file_path 或默认候选路径。
+    pub fn apply_claude_config(&self, input: ApplyClaudeConfigInput) -> IcodeResult<ApplyClaudeConfigResult> {
+        let provider = self.get_provider(&input.cli_provider_id)?;
+        let profile = self.get_profile(&provider.cli_profile_id)?;
+
+        let cli_type = CliType::from_str(&profile.cli_type)
+            .ok_or_else(|| IcodeError::validation(format!("未知的 CLI 类型: {}", profile.cli_type)))?;
+        if cli_type != CliType::ClaudeCode {
+            return Err(IcodeError::validation("该命令仅支持 Claude Code CLI"));
+        }
+
+        let resolved_path = resolve_config_path(cli_type, profile.config_file_path.as_deref())?;
+        let content = generate_claude_settings_json(&provider, &input)?;
+
+        std::fs::write(&resolved_path, &content)
+            .map_err(|e| IcodeError::internal(format!("无法写入 Claude 配置文件: {e}")))?;
+
+        Ok(ApplyClaudeConfigResult {
+            cli_provider_id: provider.id,
+            resolved_path: path_to_string(&resolved_path),
+            content,
+        })
+    }
 }
 
 // ===== 私有辅助函数 =====
@@ -478,6 +508,107 @@ fn validate_mapping_input(input: &CreateCliModelMappingInput) -> IcodeResult<()>
         ));
     }
     Ok(())
+}
+
+/// 生成 Claude Code settings.json 内容
+///
+/// 角色环境变量映射与前端 `claude-cli-panel.tsx` 的 `generateSettingsJson` 保持一致。
+fn generate_claude_settings_json(
+    provider: &CliProvider,
+    input: &ApplyClaudeConfigInput,
+) -> IcodeResult<String> {
+    let mut env: HashMap<String, String> = HashMap::new();
+
+    // 基础 URL：网关模式用网关地址，直连模式用 direct_base_url
+    let base_url = if provider.route_mode == 1 {
+        provider
+            .gateway_base_url
+            .clone()
+            .unwrap_or_else(|| "http://127.0.0.1:54321".to_string())
+    } else {
+        provider.direct_base_url.clone().unwrap_or_default()
+    };
+    env.insert("ANTHROPIC_BASE_URL".to_string(), base_url);
+
+    // 角色 → 环境变量键映射
+    let role_env_map: HashMap<&str, (&str, &str)> = [
+        ("Sonnet", ("ANTHROPIC_DEFAULT_SONNET_MODEL", "ANTHROPIC_DEFAULT_SONNET_MODEL_NAME")),
+        ("Opus", ("ANTHROPIC_DEFAULT_OPUS_MODEL", "ANTHROPIC_DEFAULT_OPUS_MODEL_NAME")),
+        ("Fable", ("ANTHROPIC_DEFAULT_FABLE_MODEL", "ANTHROPIC_DEFAULT_FABLE_MODEL_NAME")),
+        ("Haiku", ("ANTHROPIC_DEFAULT_HAIKU_MODEL", "ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME")),
+    ]
+    .into_iter()
+    .collect();
+
+    // 遍历映射生成模型环境变量
+    for item in &input.mappings {
+        let Some((model_key, name_key)) = role_env_map.get(item.role.as_str()).copied() else {
+            continue;
+        };
+        if item.actual_model.is_empty() {
+            continue;
+        }
+
+        let model_name = item.actual_model.replace("[1M]", "");
+        let model_value = if item.supports_1m {
+            format!("{}[1M]", model_name)
+        } else {
+            model_name.clone()
+        };
+
+        env.insert(model_key.to_string(), model_value);
+        env.insert(name_key.to_string(), model_name);
+    }
+
+    // 兜底模型：显式 fallback > 第一个映射的实际模型
+    let fallback = {
+        let trimmed = input.fallback_model.trim().replace("[1M]", "");
+        if trimmed.is_empty() {
+            input
+                .mappings
+                .first()
+                .map(|m| m.actual_model.replace("[1M]", ""))
+                .unwrap_or_default()
+        } else {
+            trimmed
+        }
+    };
+    if !fallback.is_empty() {
+        env.insert("ANTHROPIC_MODEL".to_string(), fallback);
+    }
+
+    // Auth Token
+    env.insert(
+        "ANTHROPIC_AUTH_TOKEN".to_string(),
+        if input.api_key.trim().is_empty() {
+            "sk-daeafweeeeeeeeeeeeeeee".to_string()
+        } else {
+            input.api_key.trim().to_string()
+        },
+    );
+
+    // 开关联动
+    if input.switches.agent_teams {
+        env.insert("CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS".to_string(), "1".to_string());
+    }
+    if input.switches.tool_search {
+        env.insert("ENABLE_TOOL_SEARCH".to_string(), "true".to_string());
+    }
+    if input.switches.max_effort {
+        env.insert("CLAUDE_CODE_EFFORT_LEVEL".to_string(), "max".to_string());
+    }
+    if input.switches.disable_autoupdater {
+        env.insert("DISABLE_AUTOUPDATER".to_string(), "1".to_string());
+    }
+
+    let settings = serde_json::json!({
+        "env": env,
+        "includeCoAuthoredBy": input.switches.hide_co_author,
+        "model": "haiku",
+    });
+
+    serde_json::to_string_pretty(&settings)
+        .map_err(|e| IcodeError::internal(format!("生成 Claude 配置 JSON 失败: {e}")))
 }
 
 fn config_candidates(cli_type: CliType) -> IcodeResult<Vec<PathBuf>> {

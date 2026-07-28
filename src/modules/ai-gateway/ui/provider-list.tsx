@@ -383,7 +383,16 @@ export function ProviderList() {
               )}
               {filteredProviders.map((provider) => {
                 const snapshotRow = snapshots.get(provider.id)
-                const hasBalanceConfig = !!provider.balanceProviderJson
+                // 仅当额度监控方法非 none 时才展示刷新/详情 UI
+                const hasBalanceConfig = (() => {
+                  if (!provider.balanceProviderJson) return false
+                  try {
+                    const config = JSON.parse(provider.balanceProviderJson) as { method?: string }
+                    return config.method !== 'none'
+                  } catch {
+                    return false
+                  }
+                })()
                 const balanceDisplay = extractBalanceListDisplay(snapshotRow?.snapshot)
                 const isRefreshing = refreshingId === provider.id
                 const currency = balanceDisplay?.currencySymbol ?? ''

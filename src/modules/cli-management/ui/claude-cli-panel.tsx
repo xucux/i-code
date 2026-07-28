@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/tooltip'
 import { useCliModelMappings, useCliProviders } from '@/hooks/use-cli-profiles'
 import {
+  applyClaudeConfig,
   createCliModelMapping,
   createCliProvider,
   deleteCliModelMapping,
@@ -34,10 +35,10 @@ import { useExposedModels } from '@/hooks/use-virtual-provider'
 import { useTranslation } from '@/modules/i18n/use-translation'
 import type { CliModelMapping, CliProfile, CliProvider } from '@/modules/cli-management/types'
 import {
-  ClaudeModelMappingEditor,
+  ClaudeModelMapping,
   DEFAULT_FALLBACK_MODEL,
   type ClaudeModelMappingItem,
-} from './claude-model-mapping-editor'
+} from './claude-model-mapping'
 import { ProviderBindingForm } from './provider-binding-form'
 
 /** 删除目标类型 */
@@ -201,10 +202,10 @@ export function ClaudeCliPanel({ profile, height }: ClaudeCliPanelProps) {
 
     const env: Record<string, string> = {}
 
-    // 基础 URL
+    // 基础 URL：网关模式直接用网关根地址，Anthropic SDK 会自行追加 /v1/messages
     const baseUrl =
       selectedProvider.routeMode === 1
-        ? (selectedProvider.gatewayBaseUrl || 'http://127.0.0.1:54321') + '/claude'
+        ? (selectedProvider.gatewayBaseUrl || 'http://127.0.0.1:54321')
         : (selectedProvider.directBaseUrl || '')
     env.ANTHROPIC_BASE_URL = baseUrl
 
@@ -333,8 +334,8 @@ export function ClaudeCliPanel({ profile, height }: ClaudeCliPanelProps) {
     setSwitches((prev) => ({ ...prev, [key]: !prev[key] }))
   }
 
-  /** 应用当前供应商配置（保存 4 个固定角色映射并标记已应用） */
-  const handleApply = async () => {
+  /** 保存当前供应商配置（持久化 4 个固定角色映射与 API Key） */
+  const handleSave = async () => {
     if (!selectedProviderId || !selectedProvider) return
 
     const inputMode: 'select' | 'manual' = selectedProvider.routeMode === 1 ? 'select' : 'manual'
@@ -368,11 +369,36 @@ export function ClaudeCliPanel({ profile, height }: ClaudeCliPanelProps) {
     try {
       await Promise.all(saveResults)
       setAppliedProviderId(selectedProviderId)
-      toast.success(`已应用供应商「${selectedProvider.displayName}」的配置`)
+      toast.success(t('cli.claude.saveProviderSuccess', { name: selectedProvider.displayName }))
       void refetchMappings()
       void refetchProviders()
     } catch {
       toast.error(t('cli.messages.saveFailed'))
+    }
+  }
+
+  /** 应用当前供应商配置（生成并写入 Claude Code settings.json） */
+  const handleApply = async () => {
+    if (!selectedProviderId || !selectedProvider) return
+
+    const result = await applyClaudeConfig({
+      cliProviderId: selectedProviderId,
+      mappings: localMappings.map((item) => ({
+        role: item.role,
+        displayName: item.displayName,
+        actualModel: item.actualModel,
+        supports1M: item.supports1M,
+      })),
+      fallbackModel: localFallbackModel,
+      apiKey,
+      switches,
+    })
+
+    if (result) {
+      setAppliedProviderId(selectedProviderId)
+      toast.success(t('cli.claude.applyProviderSuccess', { name: selectedProvider.displayName }))
+    } else {
+      toast.error(t('cli.claude.applyProviderFailed', { name: selectedProvider.displayName }))
     }
   }
 
@@ -554,7 +580,7 @@ export function ClaudeCliPanel({ profile, height }: ClaudeCliPanelProps) {
                 >
                   <div className="space-y-3 px-6 py-3 ">
                     {/* Claude CLI 模型映射编辑器（已包含 API Key 输入） */}
-                    <ClaudeModelMappingEditor
+                    <ClaudeModelMapping
                       mappings={localMappings}
                       fallbackModel={localFallbackModel}
                       availableModels={availableModels}
@@ -569,7 +595,7 @@ export function ClaudeCliPanel({ profile, height }: ClaudeCliPanelProps) {
 
                     {/* Claude CLI 开关区域 */}
                     <div className="rounded-md border bg-background/50 px-3 py-2.5">
-                      <p className="mb-2 text-xs font-medium text-muted-foreground">Claude CLI 选项</p>
+                      <p className="mb-2 text-xs font-medium text-muted-foreground">{t('cli.claude.optionsTitle')}</p>
                       <div className="grid grid-cols-2 gap-x-4 gap-y-2">
                         {/* 隐藏 AI 署名 */}
                         <label className="flex items-center gap-2">
@@ -578,7 +604,7 @@ export function ClaudeCliPanel({ profile, height }: ClaudeCliPanelProps) {
                             onCheckedChange={() => handleSwitchToggle('hideCoAuthor')}
                             className="data-[state=checked]:bg-primary"
                           />
-                          <span className="text-xs">隐藏 AI 署名</span>
+                          <span className="text-xs">{t('cli.claude.hideCoAuthor')}</span>
                         </label>
 
                         {/* Teammates 模式 */}
@@ -588,7 +614,7 @@ export function ClaudeCliPanel({ profile, height }: ClaudeCliPanelProps) {
                             onCheckedChange={() => handleSwitchToggle('agentTeams')}
                             className="data-[state=checked]:bg-primary"
                           />
-                          <span className="text-xs">Teammates 模式</span>
+                          <span className="text-xs">{t('cli.claude.agentTeams')}</span>
                         </label>
 
                         {/* 启用 Tool Search */}
@@ -598,7 +624,7 @@ export function ClaudeCliPanel({ profile, height }: ClaudeCliPanelProps) {
                             onCheckedChange={() => handleSwitchToggle('toolSearch')}
                             className="data-[state=checked]:bg-primary"
                           />
-                          <span className="text-xs">启用 Tool Search</span>
+                          <span className="text-xs">{t('cli.claude.toolSearch')}</span>
                         </label>
 
                         {/* 最大强度思考 */}
@@ -608,7 +634,7 @@ export function ClaudeCliPanel({ profile, height }: ClaudeCliPanelProps) {
                             onCheckedChange={() => handleSwitchToggle('maxEffort')}
                             className="data-[state=checked]:bg-primary"
                           />
-                          <span className="text-xs">最大强度思考</span>
+                          <span className="text-xs">{t('cli.claude.effortMax')}</span>
                         </label>
 
                         {/* 禁用自动升级 */}
@@ -618,7 +644,7 @@ export function ClaudeCliPanel({ profile, height }: ClaudeCliPanelProps) {
                             onCheckedChange={() => handleSwitchToggle('disableAutoupdater')}
                             className="data-[state=checked]:bg-primary"
                           />
-                          <span className="text-xs">禁用自动升级</span>
+                          <span className="text-xs">{t('cli.claude.disableAutoupdater')}</span>
                         </label>
                       </div>
                     </div>
@@ -633,16 +659,26 @@ export function ClaudeCliPanel({ profile, height }: ClaudeCliPanelProps) {
                         onClick={() => setPreviewOpen(true)}
                       >
                         <i className="fa-solid fa-eye text-[10px]" />
-                        预览 settings.json
+                        {t('cli.claude.previewSettings')}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 gap-1.5 px-3 text-xs"
+                        onClick={() => void handleSave()}
+                      >
+                        <i className="fa-solid fa-floppy-disk text-[10px]" />
+                        {t('common.save')}
                       </Button>
                       <Button
                         type="button"
                         size="sm"
                         className="h-7 gap-1.5 px-3 text-xs"
-                        onClick={handleApply}
+                        onClick={() => void handleApply()}
                       >
                         <i className="fa-solid fa-check text-[10px]" />
-                        应用
+                        {t('common.apply')}
                       </Button>
                     </div>
                   </div>
@@ -691,7 +727,7 @@ export function ClaudeCliPanel({ profile, height }: ClaudeCliPanelProps) {
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle className="text-base">预览 settings.json</DialogTitle>
+            <DialogTitle className="text-base">{t('cli.claude.previewTitle')}</DialogTitle>
           </DialogHeader>
           <CodeEditor
             value={generateSettingsJson()}
@@ -707,7 +743,7 @@ export function ClaudeCliPanel({ profile, height }: ClaudeCliPanelProps) {
               className="h-8 text-xs"
               onClick={() => setPreviewOpen(false)}
             >
-              关闭
+              {t('common.close')}
             </Button>
             <Button
               type="button"
@@ -715,11 +751,11 @@ export function ClaudeCliPanel({ profile, height }: ClaudeCliPanelProps) {
               className="h-8 gap-1.5 text-xs"
               onClick={() => {
                 navigator.clipboard.writeText(generateSettingsJson())
-                toast.success('已复制到剪贴板')
+                toast.success(t('common.copied'))
               }}
             >
               <i className="fa-solid fa-copy text-[10px]" />
-              复制
+              {t('common.copy')}
             </Button>
           </DialogFooter>
         </DialogContent>

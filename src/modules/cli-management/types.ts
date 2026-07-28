@@ -261,3 +261,36 @@ export interface CliConfigFileContent {
   format: CliConfigFormat
   content: string
 }
+
+/** Claude CLI 应用时的单条角色映射输入 */
+export interface ApplyClaudeConfigMappingItem {
+  role: string
+  displayName: string
+  actualModel: string
+  supports1M: boolean
+}
+
+/** Claude CLI 应用时的开关配置输入 */
+export interface ApplyClaudeConfigSwitches {
+  hideCoAuthor: boolean
+  agentTeams: boolean
+  toolSearch: boolean
+  maxEffort: boolean
+  disableAutoupdater: boolean
+}
+
+/** Claude CLI 应用配置输入 */
+export interface ApplyClaudeConfigInput {
+  cliProviderId: string
+  mappings: ApplyClaudeConfigMappingItem[]
+  fallbackModel: string
+  apiKey: string
+  switches: ApplyClaudeConfigSwitches
+}
+
+/** Claude CLI 应用配置结果 */
+export interface ApplyClaudeConfigResult {
+  cliProviderId: string
+  resolvedPath: string
+  content: string
+}

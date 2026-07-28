@@ -9,9 +9,9 @@ use crate::error::IcodeResult;
 
 use super::service::CliManagementServiceHandle;
 use super::types::{
-    CliConfigFileContent, CliConfigFileInspection, CliModelMapping, CliProfile, CliProvider,
-    CreateCliModelMappingInput, CreateCliProfileInput, CreateCliProviderInput,
-    UpdateCliModelMappingInput, UpdateCliProfileInput, UpdateCliProviderInput,
+    ApplyClaudeConfigInput, ApplyClaudeConfigResult, CliConfigFileContent, CliConfigFileInspection,
+    CliModelMapping, CliProfile, CliProvider, CreateCliModelMappingInput, CreateCliProfileInput,
+    CreateCliProviderInput, UpdateCliModelMappingInput, UpdateCliProfileInput, UpdateCliProviderInput,
 };
 
 // ===== CLI 档案 Commands =====
@@ -195,4 +195,16 @@ pub fn cli_model_mapping_delete(
     handle: State<CliManagementServiceHandle>,
 ) -> IcodeResult<()> {
     handle.service().delete_model_mapping(&id)
+}
+
+/// 应用 Claude CLI 配置到实际配置文件
+///
+/// 根据传入的映射、开关、API Key 生成 Claude Code settings.json，
+/// 写入 cli_profiles.config_file_path 或默认候选路径。
+#[tauri::command]
+pub fn cli_apply_claude_config(
+    input: ApplyClaudeConfigInput,
+    handle: State<CliManagementServiceHandle>,
+) -> IcodeResult<ApplyClaudeConfigResult> {
+    handle.service().apply_claude_config(input)
 }

@@ -211,12 +211,19 @@ interface ProviderFormProps {
 function buildAuthConfig(
   values: FormValues,
   provider: Provider | null | undefined,
+  existingApiKeyRef?: string,
+  existingVertexApiKeyRef?: string,
 ): AuthConfig | undefined {
   const { authMethod, apiKey } = values
+  const isEdit = Boolean(provider)
 
   switch (authMethod) {
     case 'api-key':
-      return { method: 'api-key', apiKey }
+      return {
+        method: 'api-key',
+        // 编辑时：用户未输入新值则保留原始引用，输入新值则提交明文由后端加密
+        apiKey: isEdit && !apiKey ? (existingApiKeyRef || undefined) : apiKey || undefined,
+      }
 
     case 'none':
       return { method: 'none' }
@@ -231,7 +238,10 @@ function buildAuthConfig(
         projectId: values.googleVertexProjectId || existing?.projectId,
         location: values.googleVertexLocation || existing?.location,
         keyFilePath: values.googleVertexKeyFilePath || existing?.keyFilePath,
-        apiKey: values.apiKey || existing?.apiKey,
+        // 编辑时：用户未输入新值则保留原始引用，输入新值则提交明文由后端加密
+        apiKey: isEdit && !values.apiKey
+          ? (existingVertexApiKeyRef || existing?.apiKey)
+          : (values.apiKey || existing?.apiKey),
       }
     }
 
@@ -439,6 +449,17 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
   const [manualExchanging, setManualExchanging] = useState(false)
   const [showManualInput, setShowManualInput] = useState(false)
 
+  // API Key 明文显示与解密状态
+  const [showApiKey, setShowApiKey] = useState(false)
+  const [showVertexApiKey, setShowVertexApiKey] = useState(false)
+  const [decryptingApiKey, setDecryptingApiKey] = useState(false)
+  const [decryptedApiKeyValue, setDecryptedApiKeyValue] = useState<string | null>(null)
+  const [decryptedVertexApiKeyValue, setDecryptedVertexApiKeyValue] = useState<string | null>(null)
+
+  // 编辑模式下保留原始 Secret 引用，用于「留空不修改」场景
+  const existingApiKeyRef = useRef<string>('')
+  const existingVertexApiKeyRef = useRef<string>('')
+
   // 用于忽略超时前已发起但尚未返回的授权结果
   const oauthAttemptIdRef = useRef(0)
   const oauthAuthMethodRef = useRef<AuthMethod | null>(null)
@@ -467,9 +488,15 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
       const isVertexMethod = authMethod === 'google-vertex-ai-auth'
       const isGenericOAuth = authMethod === 'oauth2'
 
-      const apiKey = isApiKeyMethod || isVertexMethod ? (authConfig as Extract<AuthConfig, { method: 'api-key' | 'google-vertex-ai-auth' }>).apiKey ?? '' : ''
+      const rawApiKey = isApiKeyMethod || isVertexMethod ? (authConfig as Extract<AuthConfig, { method: 'api-key' | 'google-vertex-ai-auth' }>).apiKey ?? '' : ''
+      // 编辑时保留原始 Secret 引用，表单字段留空表示「不修改」
+      const isApiKeySecretRef = rawApiKey.startsWith('$SECRET:') && rawApiKey.endsWith('$')
+      existingApiKeyRef.current = isApiKeyMethod && isApiKeySecretRef ? rawApiKey : ''
 
       const vertexAuth = isVertexMethod ? authConfig as Extract<AuthConfig, { method: 'google-vertex-ai-auth' }> : undefined
+      const rawVertexApiKey = vertexAuth?.apiKey ?? ''
+      const isVertexApiKeySecretRef = rawVertexApiKey.startsWith('$SECRET:') && rawVertexApiKey.endsWith('$')
+      existingVertexApiKeyRef.current = isVertexMethod && isVertexApiKeySecretRef ? rawVertexApiKey : ''
       const oauthAuth = isGenericOAuth ? authConfig as Extract<AuthConfig, { method: 'oauth2' }> : undefined
 
       form.reset({
@@ -479,7 +506,7 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
         baseUrl: provider.baseUrl,
         useRawBaseUrl: provider.useRawBaseUrl,
         authMethod: authMethod as AuthMethod,
-        apiKey,
+        apiKey: isApiKeyMethod || isVertexMethod ? '' : '',
         // Google Vertex AI
         googleVertexSubType: vertexAuth?.subType ?? 'adc',
         googleVertexProjectId: vertexAuth?.projectId ?? '',
@@ -542,7 +569,19 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
       } catch {
         setScriptVariables([])
       }
+      // 重置 API Key 解密/显示状态
+      setShowApiKey(false)
+      setShowVertexApiKey(false)
+      setDecryptedApiKeyValue(null)
+      setDecryptedVertexApiKeyValue(null)
     } else {
+      // 新建模式：清除 Secret 引用与解密状态
+      existingApiKeyRef.current = ''
+      existingVertexApiKeyRef.current = ''
+      setShowApiKey(false)
+      setShowVertexApiKey(false)
+      setDecryptedApiKeyValue(null)
+      setDecryptedVertexApiKeyValue(null)
       form.reset({
         slug: '',
         displayName: '',
@@ -587,8 +626,38 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
     }
   }, [provider, initialValues, form])
 
+  /**
+   * 解密 API Key 引用为明文
+   *
+   * 点击小眼睛时调用后端 `secret_decrypt_text` 命令解密 `$SECRET:{id}$` 引用。
+   * 仅在编辑模式且存在 Secret 引用时有效。
+   */
+  const handleDecryptApiKey = async (target: 'api-key' | 'vertex-api-key') => {
+    const ref = target === 'api-key' ? existingApiKeyRef.current : existingVertexApiKeyRef.current
+    if (!ref) return
+    setDecryptingApiKey(true)
+    try {
+      const plaintext = await invokeCommand<string>('secret_decrypt_text', { value: ref })
+      if (target === 'api-key') {
+        setDecryptedApiKeyValue(plaintext)
+      } else {
+        setDecryptedVertexApiKeyValue(plaintext)
+      }
+    } catch (err) {
+      const error = toIcodeError(err)
+      toast.error(error.message)
+    } finally {
+      setDecryptingApiKey(false)
+    }
+  }
+
   const handleSubmit = (values: FormValues) => {
-    const auth: AuthConfig | undefined = buildAuthConfig(values, provider)
+    const auth: AuthConfig | undefined = buildAuthConfig(
+      values,
+      provider,
+      existingApiKeyRef.current,
+      existingVertexApiKeyRef.current,
+    )
 
     // 构建 proxyJson（供应商级代理：始终序列化，确保切换回 global 时能覆盖旧模式）
     // 此前 global 返回 undefined 会被 Tauri invoke 省略，导致后端跳过更新、
@@ -995,13 +1064,43 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
               {form.watch('authMethod') === 'api-key' && (
                 <div className="mt-4 space-y-1.5">
                   <Label className="text-xs" htmlFor="apiKey">{t('aiGateway.providerForm.apiKey')}</Label>
-                  <Input
-                    id="apiKey"
-                    type="password"
-                    {...form.register('apiKey')}
-                    className="h-8 text-xs"
-                    placeholder={t('aiGateway.providerForm.apiKeyPlaceholder')}
-                  />
+                  <div className="relative">
+                    <Input
+                      id="apiKey"
+                      type={showApiKey ? 'text' : 'password'}
+                      {...form.register('apiKey')}
+                      className="h-8 text-xs pr-8"
+                      placeholder={isEdit
+                        ? (existingApiKeyRef.current
+                          ? t('aiGateway.providerForm.apiKeyEditPlaceholder')
+                          : t('aiGateway.providerForm.apiKeyPlaceholder'))
+                        : t('aiGateway.providerForm.apiKeyPlaceholder')
+                      }
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      title={showApiKey ? t('aiGateway.providerForm.apiKeyHide') : t('aiGateway.providerForm.apiKeyShow')}
+                      onClick={async () => {
+                        if (!showApiKey && isEdit && existingApiKeyRef.current && decryptedApiKeyValue === null) {
+                          await handleDecryptApiKey('api-key')
+                        }
+                        setShowApiKey(!showApiKey)
+                      }}
+                      disabled={decryptingApiKey}
+                    >
+                      <i className={cn(
+                        decryptingApiKey ? 'fa-solid fa-spinner fa-spin' : showApiKey ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye',
+                        'text-xs',
+                      )} />
+                    </button>
+                  </div>
+                  {/* 解密后的明文预览 */}
+                  {showApiKey && isEdit && decryptedApiKeyValue !== null && !form.watch('apiKey') && (
+                    <p className="text-muted-foreground text-[10px] font-mono break-all">
+                      {t('aiGateway.providerForm.apiKeyCurrentValue')}: {decryptedApiKeyValue}
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -1063,13 +1162,43 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
                   {form.watch('googleVertexSubType') === 'api-key' && (
                     <div className="space-y-1.5">
                       <Label className="text-xs" htmlFor="apiKey">{t('aiGateway.providerForm.apiKey')}</Label>
-                      <Input
-                        id="apiKey"
-                        type="password"
-                        {...form.register('apiKey')}
-                        className="h-8 text-xs"
-                        placeholder={t('aiGateway.providerForm.apiKeyPlaceholder')}
-                      />
+                      <div className="relative">
+                        <Input
+                          id="apiKey"
+                          type={showVertexApiKey ? 'text' : 'password'}
+                          {...form.register('apiKey')}
+                          className="h-8 text-xs pr-8"
+                          placeholder={isEdit
+                            ? (existingVertexApiKeyRef.current
+                              ? t('aiGateway.providerForm.apiKeyEditPlaceholder')
+                              : t('aiGateway.providerForm.apiKeyPlaceholder'))
+                            : t('aiGateway.providerForm.apiKeyPlaceholder')
+                          }
+                        />
+                        <button
+                          type="button"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                          title={showVertexApiKey ? t('aiGateway.providerForm.apiKeyHide') : t('aiGateway.providerForm.apiKeyShow')}
+                          onClick={async () => {
+                            if (!showVertexApiKey && isEdit && existingVertexApiKeyRef.current && decryptedVertexApiKeyValue === null) {
+                              await handleDecryptApiKey('vertex-api-key')
+                            }
+                            setShowVertexApiKey(!showVertexApiKey)
+                          }}
+                          disabled={decryptingApiKey}
+                        >
+                          <i className={cn(
+                            decryptingApiKey ? 'fa-solid fa-spinner fa-spin' : showVertexApiKey ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye',
+                            'text-xs',
+                          )} />
+                        </button>
+                      </div>
+                      {/* 解密后的明文预览 */}
+                      {showVertexApiKey && isEdit && decryptedVertexApiKeyValue !== null && !form.watch('apiKey') && (
+                        <p className="text-muted-foreground text-[10px] font-mono break-all">
+                          {t('aiGateway.providerForm.apiKeyCurrentValue')}: {decryptedVertexApiKeyValue}
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>

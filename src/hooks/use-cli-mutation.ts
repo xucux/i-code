@@ -11,6 +11,8 @@ import type {
   UpdateCliProviderInput,
   CreateCliModelMappingInput,
   UpdateCliModelMappingInput,
+  ApplyClaudeConfigInput,
+  ApplyClaudeConfigResult,
 } from '@/modules/cli-management/types'
 
 /**
@@ -138,6 +140,17 @@ export async function saveCliConfigFile(
       configuredPath: configuredPath?.trim() || null,
       content,
     })
+  } catch {
+    return null
+  }
+}
+
+/** 应用 Claude CLI 配置到实际配置文件 */
+export async function applyClaudeConfig(
+  input: ApplyClaudeConfigInput
+): Promise<ApplyClaudeConfigResult | null> {
+  try {
+    return await invokeCommand<ApplyClaudeConfigResult>('cli_apply_claude_config', { input })
   } catch {
     return null
   }

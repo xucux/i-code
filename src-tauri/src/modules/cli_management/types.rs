@@ -264,6 +264,49 @@ pub struct CliConfigFileContent {
     pub content: String,
 }
 
+/// Claude CLI 应用时的单条角色映射输入
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApplyClaudeConfigMappingItem {
+    pub role: String,
+    pub display_name: String,
+    pub actual_model: String,
+    /// 前端字段名为 `supports1M`，单独指定以避免 `1m` 与 `1M` 大小写不匹配
+    #[serde(rename = "supports1M")]
+    pub supports_1m: bool,
+}
+
+/// Claude CLI 应用时的开关配置输入
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApplyClaudeConfigSwitches {
+    pub hide_co_author: bool,
+    pub agent_teams: bool,
+    pub tool_search: bool,
+    pub max_effort: bool,
+    pub disable_autoupdater: bool,
+}
+
+/// Claude CLI 应用配置输入
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApplyClaudeConfigInput {
+    pub cli_provider_id: String,
+    pub mappings: Vec<ApplyClaudeConfigMappingItem>,
+    pub fallback_model: String,
+    pub api_key: String,
+    pub switches: ApplyClaudeConfigSwitches,
+}
+
+/// Claude CLI 应用配置结果
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApplyClaudeConfigResult {
+    pub cli_provider_id: String,
+    pub resolved_path: String,
+    pub content: String,
+}
+
 fn default_true() -> bool {
     true
 }

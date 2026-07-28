@@ -402,6 +402,7 @@ fn main() {
             modules::cli_management::commands::cli_config_read,
             modules::cli_management::commands::cli_config_save,
             modules::cli_management::commands::cli_client_check,
+            modules::cli_management::commands::cli_apply_claude_config,
             // ===== Workspace 模块 =====
             modules::workspace::commands::workspace_list,
             modules::workspace::commands::workspace_get,

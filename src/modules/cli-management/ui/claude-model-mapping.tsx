@@ -1,6 +1,7 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,7 +17,6 @@ import {
 import { invokeCommand } from '@/hooks/use-command'
 import { useTranslation } from '@/modules/i18n/use-translation'
 import { parseAuthConfig, type Provider } from '@/modules/ai-gateway/types'
-import { toast } from 'sonner'
 import { toIcodeError } from '@/core/errors'
 
 /**
@@ -38,7 +38,7 @@ export interface ClaudeModelMappingItem {
 /** Claude CLI 固定模型角色 */
 export type ClaudeModelRole = 'Sonnet' | 'Opus' | 'Fable' | 'Haiku'
 
-interface ClaudeModelMappingEditorProps {
+interface ClaudeModelMappingProps {
   /** 后端已保存的映射列表（组件会合并为固定 4 角色） */
   mappings: ClaudeModelMappingItem[]
   /** 默认兜底模型 */
@@ -73,18 +73,18 @@ const DEFAULT_ROLES: Omit<ClaudeModelMappingItem, 'id'>[] = [
 export const DEFAULT_FALLBACK_MODEL = 'claude-opus-4-8'
 
 /**
- * Claude CLI 专属模型映射编辑器
+ * Claude CLI 专属模型映射组件
  *
- * 固定展示 Sonnet / Opus / Fable / Haiku 四个角色，支持：
- * - 显示名称编辑
- * - 实际请求模型编辑或下拉选择
+ * 基于通用 ModelMappingEditor 深度适配 Claude 业务：
+ * - 固定展示 Sonnet / Opus / Fable / Haiku 四个角色
+ * - 显示名称与实际请求模型联动编辑
  * - 1M 上下文声明开关
  * - 默认兜底模型输入
  * - 一键恢复默认映射
- *
- * 风格贴合 CLI 管理界面：紧凑、使用 shadcn 组件与 Font Awesome 图标。
+ * - 按协议拉取网关模型列表并自动匹配角色
+ * - 从 Gateway 供应商导入 API Key
  */
-export function ClaudeModelMappingEditor({
+export function ClaudeModelMapping({
   mappings,
   fallbackModel,
   availableModels = [],
@@ -95,37 +95,47 @@ export function ClaudeModelMappingEditor({
   apiKey = '',
   onApiKeyChange,
   className,
-}: ClaudeModelMappingEditorProps) {
+}: ClaudeModelMappingProps) {
   const { t } = useTranslation()
-  // 使用 ref 避免 callback 引用变化导致初始同步 effect 重复执行
-  const onMappingsChangeRef = useRef(onMappingsChange)
-  useEffect(() => {
-    onMappingsChangeRef.current = onMappingsChange
-  }, [onMappingsChange])
 
-  /** 将传入映射与固定角色合并，确保四行始终可见；显示名称与 1M 声明使用默认值 */
+  /** 将传入映射与固定角色合并，确保四行始终可见 */
   const mergedMappings = useMemo<ClaudeModelMappingItem[]>(() => {
     return DEFAULT_ROLES.map((defaultRole) => {
       const backend = mappings.find((m) => m.role === defaultRole.role)
       return {
         id: backend?.id ?? `role-${defaultRole.role.toLowerCase()}`,
         role: defaultRole.role,
-        displayName: defaultRole.displayName,
+        displayName: backend?.displayName ?? defaultRole.displayName,
         actualModel: backend?.actualModel ?? defaultRole.actualModel,
-        supports1M: defaultRole.supports1M,
+        supports1M: backend?.supports1M ?? defaultRole.supports1M,
       }
     })
   }, [mappings])
 
-  /** 本地编辑态：组件卸载或传入变化时同步 */
+  /** 比较两组映射内容是否完全一致，用于避免无意义的 setState */
+  const mappingsEqual = useCallback(
+    (a: ClaudeModelMappingItem[], b: ClaudeModelMappingItem[]) => {
+      if (a.length !== b.length) return false
+      return a.every(
+        (item, i) =>
+          item.id === b[i].id &&
+          item.role === b[i].role &&
+          item.displayName === b[i].displayName &&
+          item.actualModel === b[i].actualModel &&
+          item.supports1M === b[i].supports1M
+      )
+    },
+    []
+  )
+
+  /** 本地编辑态 */
   const [localMappings, setLocalMappings] = useState<ClaudeModelMappingItem[]>(mergedMappings)
   const [localFallbackModel, setLocalFallbackModel] = useState(fallbackModel)
 
   useEffect(() => {
-    setLocalMappings(mergedMappings)
-    // 初始加载或外部 mappings 变化时，把合并后的完整 4 角色映射回传父级
-    onMappingsChangeRef.current?.(mergedMappings)
-  }, [mergedMappings])
+    // 仅当传入的 mappings 内容真正变化时才同步本地状态，防止父组件频繁渲染导致循环更新
+    setLocalMappings((prev) => (mappingsEqual(prev, mergedMappings) ? prev : mergedMappings))
+  }, [mergedMappings, mappingsEqual])
 
   useEffect(() => {
     setLocalFallbackModel(fallbackModel)
@@ -170,17 +180,31 @@ export function ClaudeModelMappingEditor({
   }, [availableModels, fetchedModels])
 
   /** 为固定角色从模型列表中挑选最佳匹配 */
-  const findBestModelForRole = useCallback(
-    (role: ClaudeModelRole, models: string[]) => {
-      if (models.length === 0) return undefined
-      const token = role.toLowerCase()
-      const match = models.find((m) => m.toLowerCase().includes(token))
-      if (match) return match
-      // Fable 没有对应官方模型时回退到第一个可用模型
-      if (role === 'Fable') return models[0]
-      return undefined
+  const findBestModelForRole = useCallback((role: ClaudeModelRole, models: string[]) => {
+    if (models.length === 0) return undefined
+    const token = role.toLowerCase()
+    const match = models.find((m) => m.toLowerCase().includes(token))
+    if (match) return match
+    // Fable 没有对应官方模型时回退到第一个可用模型
+    if (role === 'Fable') return models[0]
+    return undefined
+  }, [])
+
+  /**
+   * 更新单条映射字段
+   *
+   * 支持同时更新多个字段，避免连续 setState 因闭包读取旧状态而相互覆盖
+   *（如下拉选择模型时需要同时设置 actualModel 与 displayName）。
+   */
+  const updateMapping = useCallback(
+    (id: string, patch: Partial<Pick<ClaudeModelMappingItem, 'displayName' | 'actualModel' | 'supports1M'>>) => {
+      const next = localMappings.map((item) =>
+        item.id === id ? { ...item, ...patch } : item
+      )
+      setLocalMappings(next)
+      onMappingsChange?.(next)
     },
-    []
+    [localMappings, onMappingsChange]
   )
 
   /** 应用拉取到的模型列表：自动映射到固定角色并扩展下拉选项 */
@@ -249,18 +273,6 @@ export function ClaudeModelMappingEditor({
     }
   }, [gatewayProvider, onApiKeyChange, t])
 
-  /** 更新单条映射字段并触发回调 */
-  const updateMapping = useCallback(
-    (id: string, field: keyof ClaudeModelMappingItem, value: string | boolean) => {
-      const next = localMappings.map((item) =>
-        item.id === id ? { ...item, [field]: value } : item
-      )
-      setLocalMappings(next)
-      onMappingsChange?.(next)
-    },
-    [localMappings, onMappingsChange]
-  )
-
   /** 更新兜底模型 */
   const updateFallback = useCallback(
     (value: string) => {
@@ -286,9 +298,8 @@ export function ClaudeModelMappingEditor({
 
   return (
     <Card className={cn('w-full', className)}>
-      <CardHeader className="flex flex-row items-start justify-between items-center gap-4 p-0 pb-3">
+      <CardHeader className="flex flex-row items-center justify-between gap-4 p-0 pb-3">
         <div className="space-y-1">
-          {/* <CardTitle className="text-sm">模型映射</CardTitle> */}
           <CardDescription className="text-xs">
             {t('cli.claude.modelMapping.description')}
           </CardDescription>
@@ -359,7 +370,7 @@ export function ClaudeModelMappingEditor({
               <div className="col-span-3">
                 <Input
                   value={item.displayName}
-                  onChange={(e) => updateMapping(item.id, 'displayName', e.target.value)}
+                  onChange={(e) => updateMapping(item.id, { displayName: e.target.value })}
                   className="h-7 text-xs"
                   placeholder={t('cli.claude.modelMapping.displayNamePlaceholder')}
                 />
@@ -370,7 +381,7 @@ export function ClaudeModelMappingEditor({
                 <div className="relative flex items-center">
                   <Input
                     value={item.actualModel}
-                    onChange={(e) => updateMapping(item.id, 'actualModel', e.target.value)}
+                    onChange={(e) => updateMapping(item.id, { actualModel: e.target.value })}
                     className={cn('h-7 text-xs', hasModelOptions && 'pr-7')}
                     placeholder={t('cli.claude.modelMapping.actualModelPlaceholder')}
                   />
@@ -390,7 +401,12 @@ export function ClaudeModelMappingEditor({
                         {allModelOptions.map((model) => (
                           <DropdownMenuItem
                             key={`${item.id}-${model}`}
-                            onClick={() => updateMapping(item.id, 'actualModel', model)}
+                            onClick={() =>
+                              updateMapping(item.id, {
+                                actualModel: model,
+                                displayName: model.replace(/^[^/]+\//, ''),
+                              })
+                            }
                           >
                             {model}
                           </DropdownMenuItem>
@@ -406,7 +422,7 @@ export function ClaudeModelMappingEditor({
                 <Switch
                   id={`${item.id}-supports-1m`}
                   checked={item.supports1M}
-                  onCheckedChange={(checked) => updateMapping(item.id, 'supports1M', checked)}
+                  onCheckedChange={(checked) => updateMapping(item.id, { supports1M: checked })}
                   className="data-[state=checked]:bg-primary"
                 />
                 <Label
@@ -438,7 +454,7 @@ export function ClaudeModelMappingEditor({
               variant="ghost"
               size="sm"
               className="h-6 gap-1 px-2 text-[11px]"
-              onClick={handleImportApiKey}
+              onClick={() => void handleImportApiKey()}
               disabled={!gatewayProvider}
             >
               <i className="fa-solid fa-key text-[10px]" />
@@ -463,13 +479,36 @@ export function ClaudeModelMappingEditor({
           <Label htmlFor="claude-fallback-model" className="text-xs font-medium">
             {t('cli.claude.modelMapping.fallbackModel')}
           </Label>
-          <Input
-            id="claude-fallback-model"
-            value={localFallbackModel}
-            onChange={(e) => updateFallback(e.target.value)}
-            className="h-8 text-xs"
-            placeholder={t('cli.claude.modelMapping.fallbackPlaceholder')}
-          />
+          <div className="relative flex items-center">
+            <Input
+              id="claude-fallback-model"
+              value={localFallbackModel}
+              onChange={(e) => updateFallback(e.target.value)}
+              className={cn('h-8 text-xs', hasModelOptions && 'pr-7')}
+              placeholder={t('cli.claude.modelMapping.fallbackPlaceholder')}
+            />
+            {hasModelOptions && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="absolute right-1 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                    aria-label={t('cli.claude.modelMapping.selectModel')}
+                    title={t('cli.claude.modelMapping.selectModel')}
+                  >
+                    <i className="fa-solid fa-chevron-down text-[10px]" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="max-h-60 overflow-y-auto">
+                  {allModelOptions.map((model) => (
+                    <DropdownMenuItem key={`fallback-${model}`} onClick={() => updateFallback(model)}>
+                      {model}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
           <p className="text-xs text-muted-foreground">
             {t('cli.claude.modelMapping.fallbackHint')}
           </p>
