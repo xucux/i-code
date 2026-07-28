@@ -34,6 +34,7 @@ import { toIcodeError } from '@/core/errors'
 import type { ScriptTemplate } from '@/modules/script-template/types'
 import { ScriptTemplateStatusBadge } from './script-template-status-badge'
 import { ScriptTemplateEditor } from './script-template-editor'
+import { ScriptTemplateMarketplaceDialog } from './script-template-marketplace-dialog'
 
 function formatTime(iso?: string): string {
   if (!iso) return '—'
@@ -68,6 +69,7 @@ export function ScriptTemplateList() {
   const [editing, setEditing] = useState<ScriptTemplate | null>(null)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<ScriptTemplate | null>(null)
+  const [marketplaceOpen, setMarketplaceOpen] = useState(false)
 
   const contentHeight = Math.max(0, pageHeight - toolbarHeight - 8)
 
@@ -137,6 +139,15 @@ export function ScriptTemplateList() {
           <Button size="sm" className="h-7 text-xs" onClick={openCreate}>
             <i className="fa-solid fa-plus mr-1.5" />
             {t('create')}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs"
+            onClick={() => setMarketplaceOpen(true)}
+          >
+            <i className="fa-solid fa-store mr-1.5" />
+            {t('marketplace')}
           </Button>
         </div>
       </div>
@@ -255,6 +266,15 @@ export function ScriptTemplateList() {
             )}
           </TableBody>
         </Table>
+      <ScriptTemplateMarketplaceDialog
+        open={marketplaceOpen}
+        onOpenChange={setMarketplaceOpen}
+        onApplied={(created) => {
+          openEdit(created)
+          refetch()
+        }}
+      />
+
       </ScrollableTable>
 
       <ScriptTemplateEditor

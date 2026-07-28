@@ -5,6 +5,7 @@
 import { invokeCommand } from '@/hooks/use-command'
 import type {
   CreateScriptTemplateInput,
+  MarketplaceApplyInput,
   ScriptTemplate,
   ScriptTemplateRef,
   ScriptTemplateStatusAction,
@@ -49,4 +50,11 @@ export async function listScriptTemplateRefs(id: string): Promise<ScriptTemplate
 
 export async function getScriptTemplate(id: string): Promise<ScriptTemplate> {
   return invokeCommand<ScriptTemplate>('script_template_get', { id })
+}
+
+/** 从公共仓市场应用为本地模板（默认 draft） */
+export async function applyMarketplaceTemplate(
+  input: MarketplaceApplyInput
+): Promise<ScriptTemplate> {
+  return invokeCommand<ScriptTemplate>('script_template_marketplace_apply', { input })
 }

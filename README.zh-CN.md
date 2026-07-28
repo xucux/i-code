@@ -191,6 +191,7 @@ CLI / 外部客户端
 
 ## 致谢
 
+- [i-code-script-templates](https://github.com/xucux/i-code-script-templates) — 可复用 Rhai 脚本模板公共仓库，用于额度监控等场景。
 - 感谢 [vscode-unify-chat-provider](https://github.com/smallmain/vscode-unify-chat-provider) 在供应商/模型统一方面提供的宝贵参考数据与设计灵感。
 
 ## 开源协议

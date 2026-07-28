@@ -1282,6 +1282,36 @@
       "activeOnly": "Only active templates appear in this list"
     },
     "expand": "Expand",
-    "restore": "Restore"
+    "restore": "Restore",
+    "marketplace": "Marketplace",
+    "marketplaceTitle": "Script Template Marketplace",
+    "marketplaceSourceHint": "Source:",
+    "marketplaceCached": "cached",
+    "marketplaceRefresh": "Refresh",
+    "marketplaceClose": "Close",
+    "marketplaceApply": "Apply",
+    "marketplaceApplying": "Applying…",
+    "marketplaceApplySuccess": "\"{{name}}\" created as draft",
+    "marketplaceApplyHint": "Creates a local draft. Review and test before enabling.",
+    "marketplacePreview": "Preview script",
+    "marketplaceLoading": "Loading…",
+    "marketplaceEmpty": "No templates in the marketplace.",
+    "marketplaceLoadFailed": "Failed to load marketplace",
+    "marketplaceFilter": {
+      "allKinds": "All types",
+      "search": "Search name/slug/author"
+    },
+    "marketplaceColumns": {
+      "name": "Name",
+      "author": "Author",
+      "kind": "Type",
+      "version": "Version",
+      "createdAt": "Created",
+      "updatedAt": "Updated",
+      "actions": "Actions"
+    },
+    "kind": {
+      "balance": "Balance Monitor"
+    }
   }
 }

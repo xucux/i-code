@@ -103,3 +103,66 @@ export interface ScriptTemplateSelectItem {
   name: string
   slug: string
 }
+
+// ===== 公共仓市场 =====
+
+/** 市场列表项（不含脚本正文） */
+export interface MarketplaceItemSummary {
+  id: string
+  slug: string
+  name: string
+  kind: string
+  engine: string
+  author: string
+  description?: string
+  tags?: string[]
+  version?: string
+  createdAt: string
+  updatedAt: string
+  minAppVersion?: string
+  defaultTimeoutMs?: number
+  allowedHosts?: string[]
+}
+
+/** 市场列表结果 */
+export interface MarketplaceListResult {
+  source: string
+  generatedAt?: string
+  items: MarketplaceItemSummary[]
+  fetchedAt: string
+  fromCache: boolean
+}
+
+/** 市场列表筛选 */
+export interface MarketplaceListFilter {
+  kind?: string
+  keyword?: string
+  forceRefresh?: boolean
+}
+
+/** 市场条目详情 */
+export interface MarketplaceItemDetail extends MarketplaceItemSummary {
+  scriptBody?: string
+  scriptPath?: string
+  homepage?: string
+}
+
+/** 脚本只读预览 */
+export interface MarketplaceScriptPreview {
+  id: string
+  slug: string
+  name: string
+  version?: string
+  scriptBody: string
+}
+
+/** 从市场应用 */
+export interface MarketplaceApplyInput {
+  id: string
+  slugOverride?: string
+  nameOverride?: string
+  /** 默认 rename */
+  conflictStrategy?: 'rename' | 'fail'
+  /** 默认 false → draft */
+  publishAfterCreate?: boolean
+}

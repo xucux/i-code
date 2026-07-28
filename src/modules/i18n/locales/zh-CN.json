@@ -1282,6 +1282,36 @@
       "activeOnly": "仅启用中的模板会出现在此列表"
     },
     "expand": "全屏",
-    "restore": "还原"
+    "restore": "还原",
+    "marketplace": "市场",
+    "marketplaceTitle": "脚本模板市场",
+    "marketplaceSourceHint": "来源：",
+    "marketplaceCached": "缓存",
+    "marketplaceRefresh": "刷新",
+    "marketplaceClose": "关闭",
+    "marketplaceApply": "应用",
+    "marketplaceApplying": "应用中…",
+    "marketplaceApplySuccess": "已创建「{{name}}」草稿",
+    "marketplaceApplyHint": "将创建本地草稿，请先审阅再试运行启用。",
+    "marketplacePreview": "预览脚本",
+    "marketplaceLoading": "加载中…",
+    "marketplaceEmpty": "市场中暂无模板。",
+    "marketplaceLoadFailed": "加载市场失败",
+    "marketplaceFilter": {
+      "allKinds": "全部类型",
+      "search": "搜索名称/slug/作者"
+    },
+    "marketplaceColumns": {
+      "name": "名称",
+      "author": "作者",
+      "kind": "类型",
+      "version": "版本",
+      "createdAt": "创建时间",
+      "updatedAt": "更新时间",
+      "actions": "操作"
+    },
+    "kind": {
+      "balance": "额度监控"
+    }
   }
 }

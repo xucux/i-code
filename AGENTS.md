@@ -294,6 +294,7 @@ Rust 侧在 `src-tauri/` 下用 `cargo check` / `cargo test`（按需）。
 | 网关运行时（health/models/chat/messages） | 部分（`/v1/responses` 等可能缺失） |
 | 虚拟供应商 | 部分（策略枚举可能与文档不一致，改前查代码） |
 | 额度脚本模板（Rhai） | 已实现 CRUD / 试运行 / 刷新分发；编辑器高亮用 JS 近似 |
+| 脚本模板市场（公共仓浏览 / 一键应用） | 已实现 Phase 1 MVP（列表/筛选/预览/应用/draft） |
 | CLI / Workspace 业务 | 类型与骨架为主，完整流程待迭代 |
 | 系统密钥链 Secret | 未实现（仅 AES 本地） |
 | 内置 seed 数据 | 以 `data/builtin-*.json` 与迁移为准 |

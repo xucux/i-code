@@ -420,6 +420,10 @@ fn main() {
             modules::script_template::commands::script_template_list_active_for_select,
             modules::script_template::commands::script_template_list_snippets,
             modules::script_template::commands::script_template_list_refs,
+            modules::script_template::commands::script_template_marketplace_list,
+            modules::script_template::commands::script_template_marketplace_get,
+            modules::script_template::commands::script_template_marketplace_preview_script,
+            modules::script_template::commands::script_template_marketplace_apply,
             // ===== Virtual Provider 模块 =====
             modules::virtual_provider::commands::virtual_provider_list,
             modules::virtual_provider::commands::virtual_provider_get,

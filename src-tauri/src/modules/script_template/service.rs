@@ -10,6 +10,10 @@ use crate::modules::ai_gateway::AiGatewayServiceHandle;
 use crate::modules::balance::script;
 use crate::modules::balance::types::{BalanceConfig, ScriptBalanceConfig};
 
+use super::marketplace::{
+    self, MarketplaceApplyInput, MarketplaceItemDetail, MarketplaceListFilter,
+    MarketplaceListResult, MarketplaceScriptPreview,
+};
 use super::repository;
 use super::types::{
     CreateScriptTemplateInput, ScriptSnippet, ScriptTemplate, ScriptTemplateKind,
@@ -201,6 +205,55 @@ impl ScriptTemplateService {
     /// 内置 snippet
     pub fn list_snippets(&self) -> Vec<ScriptSnippet> {
         script::snippets::list_snippets()
+    }
+
+    // ===== 公共仓市场 =====
+
+    /// 浏览市场 catalog
+    pub async fn marketplace_list(
+        &self,
+        filter: MarketplaceListFilter,
+    ) -> IcodeResult<MarketplaceListResult> {
+        marketplace::list_marketplace(filter).await
+    }
+
+    /// 市场条目详情
+    pub async fn marketplace_get(
+        &self,
+        id: &str,
+        include_script: bool,
+    ) -> IcodeResult<MarketplaceItemDetail> {
+        if id.trim().is_empty() {
+            return Err(IcodeError::validation("市场模板 id 不能为空"));
+        }
+        marketplace::get_marketplace_item(id, include_script).await
+    }
+
+    /// 只读预览脚本正文
+    pub async fn marketplace_preview_script(
+        &self,
+        id: &str,
+    ) -> IcodeResult<MarketplaceScriptPreview> {
+        if id.trim().is_empty() {
+            return Err(IcodeError::validation("市场模板 id 不能为空"));
+        }
+        marketplace::preview_marketplace_script(id).await
+    }
+
+    /// 从市场应用为本地模板（默认 draft）
+    pub async fn marketplace_apply(
+        &self,
+        input: MarketplaceApplyInput,
+    ) -> IcodeResult<ScriptTemplate> {
+        if input.id.trim().is_empty() {
+            return Err(IcodeError::validation("市场模板 id 不能为空"));
+        }
+        marketplace::apply_marketplace_item(
+            input,
+            |create_input| self.create(create_input),
+            |id| self.set_status(id, "publish"),
+        )
+        .await
     }
 
     /// 试运行：不要求 active，不写 snapshot 表

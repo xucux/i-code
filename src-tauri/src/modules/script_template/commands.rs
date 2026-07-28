@@ -6,6 +6,10 @@ use tauri::State;
 
 use crate::error::IcodeResult;
 
+use super::marketplace::{
+    MarketplaceApplyInput, MarketplaceItemDetail, MarketplaceListFilter, MarketplaceListResult,
+    MarketplaceScriptPreview,
+};
 use super::service::ScriptTemplateHandle;
 use super::types::{
     CreateScriptTemplateInput, ScriptSnippet, ScriptTemplate, ScriptTemplateListFilter,
@@ -107,4 +111,53 @@ pub async fn script_template_list_refs(
     id: String,
 ) -> IcodeResult<Vec<ScriptTemplateRef>> {
     state.service().list_refs(&id)
+}
+
+/// 脚本模板市场：列出 catalog（公共仓）
+#[tauri::command]
+pub async fn script_template_marketplace_list(
+    state: State<'_, ScriptTemplateHandle>,
+    kind: Option<String>,
+    keyword: Option<String>,
+    force_refresh: Option<bool>,
+) -> IcodeResult<MarketplaceListResult> {
+    state
+        .service()
+        .marketplace_list(MarketplaceListFilter {
+            kind,
+            keyword,
+            force_refresh: force_refresh.unwrap_or(false),
+        })
+        .await
+}
+
+/// 脚本模板市场：条目详情
+#[tauri::command]
+pub async fn script_template_marketplace_get(
+    state: State<'_, ScriptTemplateHandle>,
+    id: String,
+    include_script: Option<bool>,
+) -> IcodeResult<MarketplaceItemDetail> {
+    state
+        .service()
+        .marketplace_get(&id, include_script.unwrap_or(false))
+        .await
+}
+
+/// 脚本模板市场：只读预览脚本
+#[tauri::command]
+pub async fn script_template_marketplace_preview_script(
+    state: State<'_, ScriptTemplateHandle>,
+    id: String,
+) -> IcodeResult<MarketplaceScriptPreview> {
+    state.service().marketplace_preview_script(&id).await
+}
+
+/// 脚本模板市场：应用为本地模板（默认 draft）
+#[tauri::command]
+pub async fn script_template_marketplace_apply(
+    state: State<'_, ScriptTemplateHandle>,
+    input: MarketplaceApplyInput,
+) -> IcodeResult<ScriptTemplate> {
+    state.service().marketplace_apply(input).await
 }

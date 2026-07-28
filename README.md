@@ -195,6 +195,7 @@ Interceptors log to logger + call-records
 
 ## Acknowledgments
 
+- [i-code-script-templates](https://github.com/xucux/i-code-script-templates) — Public repository of reusable Rhai script templates for balance monitoring and more.
 - Thanks to [vscode-unify-chat-provider](https://github.com/smallmain/vscode-unify-chat-provider) for providing valuable reference data and design inspiration for provider/model unification.
 
 ## License

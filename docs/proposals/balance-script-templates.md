@@ -36,7 +36,7 @@
 ### 1.3 非目标（本期不做）
 
 - 脚本类型扩展为通用插件（仅 `balance` 一类）
-- 在线社区/云端模板市场同步
+- ~~在线社区/云端模板市场同步~~ → **已拆出独立提案**：[script-template-marketplace.md](./script-template-marketplace.md)（公共 GitHub 仓 + 应用内市场浏览/一键应用；本文件 G2 仅指本地「脚本模板」Tab 管理）
 - 脚本调试断点、单步执行
 - Python / Lua / JS 多引擎并存
 
