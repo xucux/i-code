@@ -1,8 +1,8 @@
 pub const JOYAGENT_BALANCE: &str = r#"// 京东 JoyAgent 积分额度查询
 // 引擎：Rhai（语法接近 JS，map 用 #{ }，数组用 [ ]）
-// 鉴权：Cookie（请将完整 Cookie 字符串填入供应商的 API Key 字段，
-//   系统会以 api_key 变量注入脚本，作为 Cookie 头发送）。
-// 有效期较短（含 joyya/thor 等 session），过期需重新抓取后更新 API Key。
+// 鉴权：Cookie（请在供应商的「扩展模板变量」中添加 key 为 `cookie` 的变量，
+//   将完整 Cookie 字符串填入 value，脚本通过 variables["cookie"] 读取后作为 Cookie 头发送）。
+// 有效期较短（含 joyya/thor 等 session），过期需重新抓取后更新变量值。
 //
 // 端点：GET https://agentrs.jd.com/api/saas/coupon/v1/getUserAmount
 // host 与 provider.base_url（agentrs.jd.com）一致，host 白名单可过。
@@ -13,9 +13,9 @@ pub const JOYAGENT_BALANCE: &str = r#"// 京东 JoyAgent 积分额度查询
 // 1) 构造 URL（固定端点，与 base_url 的路径无关但同 host）
 let url = "https://agentrs.jd.com/api/saas/coupon/v1/getUserAmount";
 
-// 2) 请求头：Cookie 用 api_key 注入；Referer / UA 必填，否则会被风控
+// 2) 请求头：Cookie 用扩展变量注入；Referer / UA 必填，否则会被风控
 let headers = #{
-    "Cookie": api_key,
+    "Cookie": variables["cookie"],
     "Accept": "application/json, text/plain, */*",
     "Referer": "https://joyagent.jd.com/",
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150.0.0.0"

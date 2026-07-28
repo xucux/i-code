@@ -184,6 +184,7 @@ export function ScriptVariablesEditor({ variables, onChange, isEdit }: ScriptVar
 
               {/* Delete */}
               <Button
+                type="button"
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7 shrink-0"
@@ -198,6 +199,7 @@ export function ScriptVariablesEditor({ variables, onChange, isEdit }: ScriptVar
 
       {variables.length < 32 && (
         <Button
+          type="button"
           variant="outline"
           size="sm"
           className="h-7 text-xs"

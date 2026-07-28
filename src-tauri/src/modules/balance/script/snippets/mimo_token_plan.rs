@@ -1,6 +1,6 @@
 pub const MIMO_TOKEN_PLAN: &str = r#"// 小米 MiMo 套餐积分查询
 // 引擎：Rhai（语法接近 JS，map 用 #{ }，数组用 [ ]）
-// Cookie 请填入供应商的 API Key 字段，参考格式：
+// Cookie 请在供应商的「扩展模板变量」中添加 key 为 `cookie` 的变量，参考格式：
 //   serviceToken="..."; xiaomichatbot_ph="..."; userId=...; ...
 // 有效期约 24 小时，过期需重新获取。
 // 积分值单位：百M（1000000 原始积分 = 1 百M）
@@ -9,7 +9,7 @@ let base = "https://platform.xiaomimimo.com";
 let url = url_join(base, "/api/v1/tokenPlan/usage");
 
 let headers = #{
-    "Cookie": api_key,
+    "Cookie": variables["cookie"],
     "Accept": "application/json",
     "User-Agent": "i-code/1.0"
 };
