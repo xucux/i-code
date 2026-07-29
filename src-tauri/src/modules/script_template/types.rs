@@ -90,6 +90,9 @@ impl ScriptTemplateStatusAction {
     }
 }
 
+/// 公共仓市场脚本在 snippet_id 中使用的前缀
+pub const MARKETPLACE_SNIPPET_PREFIX: &str = "market:";
+
 /// 脚本模板 DTO
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -117,6 +120,18 @@ pub struct ScriptTemplate {
     pub sort_order: i64,
     pub created_at: String,
     pub updated_at: String,
+}
+
+impl ScriptTemplate {
+    /// 是否来自公共仓市场。
+    ///
+    /// 市场脚本通过 `snippet_id` 前缀 `marketplace:` 标识，运行时需强制执行 host 白名单；
+    /// 本地新建或手动编辑的脚本不强制校验白名单。
+    pub fn is_marketplace(&self) -> bool {
+        self.snippet_id
+            .as_ref()
+            .map_or(false, |s| s.starts_with(MARKETPLACE_SNIPPET_PREFIX))
+    }
 }
 
 /// 列表筛选参数

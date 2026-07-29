@@ -17,7 +17,10 @@ use crate::error::{IcodeError, IcodeResult};
 use crate::modules::shared;
 
 use super::repository;
-use super::types::{CreateScriptTemplateInput, ScriptTemplate, ScriptTemplateKind};
+use super::types::{
+    CreateScriptTemplateInput, ScriptTemplate, ScriptTemplateKind,
+    MARKETPLACE_SNIPPET_PREFIX,
+};
 
 /// 进程内 catalog 缓存
 struct CatalogCache {
@@ -383,7 +386,7 @@ pub async fn apply_marketplace_item(
         script_body,
         default_timeout_ms: timeout,
         allowed_hosts_json,
-        snippet_id: Some(format!("marketplace:{}", item.id)),
+        snippet_id: Some(format!("{}{}", MARKETPLACE_SNIPPET_PREFIX, item.id)),
         sort_order: 0,
     };
 

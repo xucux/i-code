@@ -318,6 +318,9 @@ impl ScriptTemplateService {
             }
         }
 
+        // 本地新建/手动编辑的脚本不强制 host 白名单，仅公共仓市场脚本强制校验
+        let enforce_host_whitelist = template.is_marketplace();
+
         let start = Instant::now();
         let run = script::execute_balance_script(
             script_body,
@@ -326,6 +329,7 @@ impl ScriptTemplateService {
             &refresh_input,
             timeout_ms,
             &allowed_hosts,
+            enforce_host_whitelist,
         )
         .await;
         let duration_ms = start.elapsed().as_millis() as u64;

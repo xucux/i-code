@@ -19,6 +19,11 @@ pub struct HttpHostState {
     timeout: Duration,
     allowed_hosts: HashSet<String>,
     api_key_redact: Option<String>,
+    /// 是否强制执行 host 白名单。
+    ///
+    /// 市场脚本（`snippet_id` 以 `marketplace:` 开头）强制校验，防止 SSRF；
+    /// 本地新建/手动编辑的脚本由用户自己负责，跳过白名单限制。
+    enforce_whitelist: bool,
 }
 
 impl HttpHostState {
@@ -27,6 +32,7 @@ impl HttpHostState {
         provider_base_url: String,
         extra_hosts: Vec<String>,
         api_key: Option<String>,
+        enforce_whitelist: bool,
     ) -> Self {
         let mut allowed_hosts = HashSet::new();
         if let Some(host) = host_from_url(&provider_base_url) {
@@ -43,6 +49,7 @@ impl HttpHostState {
             timeout: Duration::from_millis(timeout_ms),
             allowed_hosts,
             api_key_redact: api_key.filter(|s| !s.is_empty()),
+            enforce_whitelist,
         }
     }
 
@@ -56,20 +63,22 @@ impl HttpHostState {
             .host_str()
             .ok_or_else(|| "URL 缺少 host".to_string())?
             .to_lowercase();
-        if self.allowed_hosts.is_empty() {
-            // 无 base_url 时放行会不安全；至少要求配置了某个 host
-            return Err("未配置允许的 host（provider.base_url 为空）".into());
-        }
-        if !self.allowed_hosts.contains(&host) {
-            return Err(format!(
-                "host '{host}' 不在白名单内（允许: {}）",
-                self.allowed_hosts
-                    .iter()
-                    .cloned()
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            )
-            .into());
+        if self.enforce_whitelist {
+            if self.allowed_hosts.is_empty() {
+                // 无 base_url 时放行会不安全；至少要求配置了某个 host
+                return Err("未配置允许的 host（provider.base_url 为空）".into());
+            }
+            if !self.allowed_hosts.contains(&host) {
+                return Err(format!(
+                    "host '{host}' 不在白名单内（允许: {}）",
+                    self.allowed_hosts
+                        .iter()
+                        .cloned()
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+                .into());
+            }
         }
         Ok(())
     }

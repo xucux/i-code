@@ -35,7 +35,7 @@ pub struct ScriptRunResult {
 /// 执行额度监控脚本
 ///
 /// - 每次新建 Engine + Scope，避免状态泄漏
-/// - HTTP 受 host 白名单与超时约束
+/// - HTTP 受 host 白名单与超时约束（仅对市场脚本强制执行）
 /// - 返回 map 校验为 BalanceSnapshot
 pub async fn execute_balance_script(
     script_body: &str,
@@ -44,6 +44,7 @@ pub async fn execute_balance_script(
     input: &BalanceRefreshInput,
     timeout_ms: u64,
     extra_allowed_hosts: &[String],
+    enforce_host_whitelist: bool,
 ) -> IcodeResult<ScriptRunResult> {
     if script_body.len() > 64 * 1024 {
         return Err(IcodeError::validation("脚本正文不能超过 64 KiB"));
@@ -59,6 +60,7 @@ pub async fn execute_balance_script(
         provider.base_url.clone(),
         extra_allowed_hosts.to_vec(),
         input.api_key.clone(),
+        enforce_host_whitelist,
     ));
 
     // Rhai Engine 本身非 async；HTTP host 在内部用 reqwest blocking 风格
