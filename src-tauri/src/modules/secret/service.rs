@@ -470,7 +470,6 @@ impl SecretService {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand::RngCore;
     use serde_json::json;
 
     /// 不依赖数据库的引用解析测试
