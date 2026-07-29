@@ -95,7 +95,13 @@ impl ForwardPipeline {
         shared: &GatewaySharedState,
         req: ForwardRequest,
     ) -> IcodeResult<Response> {
-        let request_id = uuid::Uuid::new_v4().to_string();
+        // 复用 TraceIdSpan 注入的 trace_id 作为 request_id，
+        // 使转发日志、调用记录的 request_id 与 tracing 日志的 [tid=...] 前缀一致，
+        // 便于全链路关联（终端/文件日志 ↔ 日志页面 ↔ 调用记录页面）。
+        // TraceLayer 已在最外层为每个请求创建 span 并设置 thread-local，
+        // 此处读取即可；fallback 仅防御性兜底（理论上不会触发）。
+        let request_id = crate::core::trace_id_layer::current_trace_id()
+            .unwrap_or_else(crate::core::trace_id::next_trace_id);
         let ForwardRequest {
             protocol,
             body,
