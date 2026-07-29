@@ -89,6 +89,8 @@ impl ProxyConfig {
     /// 将全局代理配置应用到 `reqwest::blocking::ClientBuilder`
     ///
     /// 与 `apply_to_client_builder` 相同逻辑，用于同步阻塞客户端。
+    /// 当前仅由脚本运行时的代理解析间接使用；保留供未来阻塞式客户端场景使用。
+    #[allow(dead_code)]
     pub fn apply_to_blocking_client_builder(
         &self,
         mut builder: reqwest::blocking::ClientBuilder,
@@ -236,6 +238,9 @@ pub fn apply_global_proxy(builder: reqwest::ClientBuilder) -> reqwest::ClientBui
 /// 从数据库读取全局代理配置并应用到 `reqwest::blocking::ClientBuilder`
 ///
 /// 与 `apply_global_proxy` 相同逻辑，用于同步阻塞客户端（如 Rhai 脚本 HTTP 调用）。
+/// 当前不再被脚本运行时直接调用（脚本改用 `proxied_http` 模块或 `http::set_proxy`），
+/// 保留供未来阻塞式客户端场景使用。
+#[allow(dead_code)]
 pub fn apply_global_proxy_blocking(builder: reqwest::blocking::ClientBuilder) -> reqwest::blocking::ClientBuilder {
     let settings = match crate::modules::settings::repository::find() {
         Ok(s) => s,
@@ -332,7 +337,7 @@ pub fn apply_provider_proxy(
 ///
 /// 代理 URL 常含明文凭据，写入 tauri-plugin-log 前需脱敏。
 /// 仅处理 `scheme://userinfo@host` 形态；无 userinfo 则原样返回。
-fn redact_proxy_url(url: &str) -> String {
+pub fn redact_proxy_url(url: &str) -> String {
     // 找 scheme://
     let Some(scheme_end) = url.find("://") else {
         return url.to_string();

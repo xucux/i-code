@@ -7,6 +7,7 @@ pub mod context;
 pub mod host_http;
 pub mod host_json;
 pub mod host_log;
+pub mod host_proxied_http;
 pub mod host_str_math;
 pub mod snapshot_map;
 pub mod snippets;
@@ -62,6 +63,8 @@ pub async fn execute_balance_script(
         input.api_key.clone(),
         enforce_host_whitelist,
     ));
+    // 提取供应商代理配置供 proxied_http 模块使用
+    let provider_proxy_json = provider.proxy_json.clone();
 
     // Rhai Engine 本身非 async；HTTP host 在内部用 reqwest blocking 风格
     // 为不阻塞 tokio，放到 spawn_blocking
@@ -71,7 +74,7 @@ pub async fn execute_balance_script(
     let ctx_owned = ctx;
 
     let dynamic = tokio::task::spawn_blocking(move || {
-        run_rhai(&script_body, &ctx_owned, http_clone, logs_clone)
+        run_rhai(&script_body, &ctx_owned, http_clone, logs_clone, provider_proxy_json)
     })
     .await
     .map_err(|e| IcodeError::internal(format!("脚本执行任务失败: {e}")))??;
@@ -104,6 +107,7 @@ fn run_rhai(
     ctx: &ScriptContext,
     http_state: Arc<HttpHostState>,
     logs: Arc<Mutex<ScriptLogBuffer>>,
+    provider_proxy_json: Option<String>,
 ) -> IcodeResult<Dynamic> {
     let mut engine = Engine::new();
     // 限制最大操作数，防止死循环
@@ -114,7 +118,8 @@ fn run_rhai(
     // 注册 host functions
     host_json::register(&mut engine);
     host_log::register(&mut engine, logs.clone());
-    host_http::register(&mut engine, http_state);
+    host_http::register(&mut engine, http_state.clone());
+    host_proxied_http::register(&mut engine, http_state, provider_proxy_json);
     host_str_math::register(&mut engine);
 
     // error(msg) → 抛业务错误

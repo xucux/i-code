@@ -11,6 +11,7 @@ mod items_skeleton;
 mod joyagent_balance;
 mod mimo_balance;
 mod mimo_token_plan;
+mod proxy_usage;
 
 use balance_get_bearer::BALANCE_GET_BEARER;
 use bearer_header::BEARER_HEADER;
@@ -19,6 +20,7 @@ use items_skeleton::ITEMS_SKELETON;
 use joyagent_balance::JOYAGENT_BALANCE;
 use mimo_balance::MIMO_BALANCE;
 use mimo_token_plan::MIMO_TOKEN_PLAN;
+use proxy_usage::{HTTP_SET_PROXY_FROM_VARS, HTTP_SET_PROXY_MANUAL, PROXIED_HTTP_AUTO};
 
 /// 返回内置 snippet 列表
 pub fn list_snippets() -> Vec<ScriptSnippet> {
@@ -64,6 +66,24 @@ pub fn list_snippets() -> Vec<ScriptSnippet> {
             name: "京东 JoyAgent 积分".into(),
             description: "Cookie 鉴权查询 JoyAgent 积分：剩余积分 / 上限 / 已用 / 百分比 / 钱包金额 / 状态".into(),
             body: JOYAGENT_BALANCE.into(),
+        },
+        ScriptSnippet {
+            id: "http-set-proxy-manual".into(),
+            name: "手动设置代理".into(),
+            description: "使用 http::set_proxy 固定代理 URL 发送请求".into(),
+            body: HTTP_SET_PROXY_MANUAL.into(),
+        },
+        ScriptSnippet {
+            id: "http-set-proxy-from-vars".into(),
+            name: "按应用代理配置设置代理".into(),
+            description: "根据 proxy 变量读取供应商/全局代理，并通过 http::set_proxy 应用".into(),
+            body: HTTP_SET_PROXY_FROM_VARS.into(),
+        },
+        ScriptSnippet {
+            id: "proxied-http-auto".into(),
+            name: "自动走应用代理".into(),
+            description: "使用 proxied_http 模块自动应用供应商或全局代理配置".into(),
+            body: PROXIED_HTTP_AUTO.into(),
         },
     ]
 }

@@ -39,6 +39,13 @@ export const SCRIPT_VARIABLES: ScriptCatalogItem[] = [
   { label: 'template.id', insert: 'template.id', detail: '当前模板 ID', type: 'variable', group: 'variable' },
   { label: 'template.name', insert: 'template.name', detail: '当前模板名称', type: 'variable', group: 'variable' },
   { label: 'template.kind', insert: 'template.kind', detail: '模板类型', type: 'variable', group: 'variable' },
+  // proxy
+  { label: 'proxy', insert: 'proxy', detail: '代理配置 map：provider_type/provider_url/global_enabled/global_type/global_url', type: 'variable', group: 'variable' },
+  { label: 'proxy.provider_type', insert: 'proxy.provider_type', detail: '供应商代理策略："global"/"direct"/"socks"/"http"，未配置时不存在', type: 'variable', group: 'variable' },
+  { label: 'proxy.provider_url', insert: 'proxy.provider_url', detail: '供应商代理 URL（仅 socks/http 时存在）', type: 'variable', group: 'variable' },
+  { label: 'proxy.global_enabled', insert: 'proxy.global_enabled', detail: '全局代理开关是否启用', type: 'variable', group: 'variable' },
+  { label: 'proxy.global_type', insert: 'proxy.global_type', detail: '全局代理策略："direct"/"system"/"http"/"socks"', type: 'variable', group: 'variable' },
+  { label: 'proxy.global_url', insert: 'proxy.global_url', detail: '全局代理 URL（仅 http/socks 时存在）', type: 'variable', group: 'variable' },
 ]
 
 /** 系统函数（含字符串 / 数学） */
@@ -69,6 +76,42 @@ export const SCRIPT_FUNCTIONS: ScriptCatalogItem[] = [
     label: 'http::get_json',
     insert: 'http::get_json(${url})',
     detail: 'GET 并解析 JSON；非 2xx 抛错',
+    type: 'function',
+    group: 'http',
+  },
+  {
+    label: 'http::set_proxy',
+    insert: 'http::set_proxy(${proxy_url})',
+    detail: '设置代理 URL，后续 http 请求都走该代理（如 "socks5://127.0.0.1:1080"）',
+    type: 'function',
+    group: 'http',
+  },
+  // Proxied HTTP
+  {
+    label: 'proxied_http::get',
+    insert: 'proxied_http::get(${url}, ${headers})',
+    detail: '自动走应用代理的 GET 请求（供应商代理 > 全局代理 > 直连）',
+    type: 'function',
+    group: 'http',
+  },
+  {
+    label: 'proxied_http::post',
+    insert: 'proxied_http::post(${url}, ${body}, ${headers})',
+    detail: '自动走应用代理的 POST 请求',
+    type: 'function',
+    group: 'http',
+  },
+  {
+    label: 'proxied_http::request',
+    insert: 'proxied_http::request(${method}, ${url})',
+    detail: '自动走应用代理的通用 HTTP 请求',
+    type: 'function',
+    group: 'http',
+  },
+  {
+    label: 'proxied_http::get_json',
+    insert: 'proxied_http::get_json(${url})',
+    detail: '自动走应用代理的 GET 并解析 JSON；非 2xx 抛错',
     type: 'function',
     group: 'http',
   },
@@ -282,15 +325,23 @@ export const DOC_FUNCTIONS = SCRIPT_FUNCTIONS.map((f) => ({
         ? 'let resp = http::post(url, body, headers);\n'
         : f.group === 'http' && f.label === 'http::get_json'
           ? 'let data = http::get_json(url);\n'
-          : f.group === 'json' && f.label === 'json::parse'
-            ? 'let data = json::parse(resp.body);\n'
-            : f.group === 'json' && f.label === 'json::stringify'
-              ? 'let s = json::stringify(value);\n'
-              : f.group === 'log'
-                ? `${f.label}("debug");\n`
-                : f.label === 'error'
-                  ? 'error("失败原因");\n'
-                  : f.label === 'url_join'
-                    ? 'let url = url_join(provider.base_url, "/v1/user/balance");\n'
-                    : `${f.insert.replace(/\$\{(\w+)\}/g, '$1')};\n`,
+          : f.group === 'http' && f.label === 'http::set_proxy'
+            ? 'http::set_proxy("socks5://127.0.0.1:1080");\n'
+            : f.group === 'http' && f.label === 'proxied_http::get'
+              ? 'let resp = proxied_http::get(url, headers);\n'
+              : f.group === 'http' && f.label === 'proxied_http::post'
+                ? 'let resp = proxied_http::post(url, body, headers);\n'
+                : f.group === 'http' && f.label === 'proxied_http::get_json'
+                  ? 'let data = proxied_http::get_json(url);\n'
+                  : f.group === 'json' && f.label === 'json::parse'
+                    ? 'let data = json::parse(resp.body);\n'
+                    : f.group === 'json' && f.label === 'json::stringify'
+                      ? 'let s = json::stringify(value);\n'
+                      : f.group === 'log'
+                        ? `${f.label}("debug");\n`
+                        : f.label === 'error'
+                          ? 'error("失败原因");\n'
+                          : f.label === 'url_join'
+                            ? 'let url = url_join(provider.base_url, "/v1/user/balance");\n'
+                            : `${f.insert.replace(/\$\{(\w+)\}/g, '$1')};\n`,
 }))

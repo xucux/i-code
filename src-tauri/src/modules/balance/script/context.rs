@@ -1,6 +1,15 @@
 //! # 脚本系统变量注入
 //!
-//! 向 Rhai Scope 注入只读系统变量：api_key / provider / auth / now_ms / template。
+//! 向 Rhai Scope 注入只读系统变量：api_key / provider / auth / now_ms / template / proxy。
+//!
+//! ## 代理变量
+//!
+//! 脚本中可通过以下变量获取代理配置：
+//! - `proxy.provider_url`：供应商级代理 URL（若供应商配置了 socks/http 代理）
+//! - `proxy.provider_type`：供应商代理策略（`"global"` / `"direct"` / `"socks"` / `"http"`）
+//! - `proxy.global_url`：应用全局代理 URL（若全局代理已启用且配置了 socks/http 代理）
+//! - `proxy.global_type`：全局代理策略（`"direct"` / `"system"` / `"http"` / `"socks"`）
+//! - `proxy.global_enabled`：全局代理开关是否启用
 
 use rhai::{Dynamic, Map, Scope};
 
@@ -29,6 +38,13 @@ pub struct ScriptContext {
     pub template_kind: String,
     /// 已解密的模板变量列表
     pub script_variables: Vec<(String, String)>,
+    /// 供应商代理配置（解析后的 ProviderProxyConfig）
+    pub provider_proxy_type: Option<String>,
+    pub provider_proxy_url: Option<String>,
+    /// 全局代理配置
+    pub global_proxy_enabled: bool,
+    pub global_proxy_type: Option<String>,
+    pub global_proxy_url: Option<String>,
 }
 
 impl ScriptContext {
@@ -44,6 +60,51 @@ impl ScriptContext {
             .and_then(|j| serde_json::from_str::<serde_json::Value>(j).ok())
             .and_then(|v| v.get("method").and_then(|m| m.as_str().map(|s| s.to_string())))
             .unwrap_or_else(|| "none".to_string());
+
+        // 解析供应商代理配置
+        let (provider_proxy_type, provider_proxy_url) = provider
+            .proxy_json
+            .as_deref()
+            .and_then(|j| serde_json::from_str::<crate::modules::shared::ProviderProxyConfig>(j).ok())
+            .map(|cfg| {
+                let t = match cfg.proxy_type {
+                    crate::modules::shared::ProviderProxyType::Global => "global",
+                    crate::modules::shared::ProviderProxyType::Direct => "direct",
+                    crate::modules::shared::ProviderProxyType::Socks => "socks",
+                    crate::modules::shared::ProviderProxyType::Http => "http",
+                };
+                (Some(t.to_string()), cfg.url.filter(|s| !s.is_empty()))
+            })
+            .unwrap_or((None, None));
+
+        // 解析全局代理配置
+        let (global_proxy_enabled, global_proxy_type, global_proxy_url) = {
+            let settings = crate::modules::settings::repository::find();
+            match settings {
+                Ok(s) => {
+                    if s.global_proxy_enabled {
+                        let (gt, gu) = s
+                            .global_proxy_json
+                            .as_deref()
+                            .and_then(|j| serde_json::from_str::<crate::modules::shared::ProxyConfig>(j).ok())
+                            .map(|cfg| {
+                                let t = match cfg.proxy_type {
+                                    crate::modules::shared::ProxyType::Direct => "direct",
+                                    crate::modules::shared::ProxyType::System => "system",
+                                    crate::modules::shared::ProxyType::Http => "http",
+                                    crate::modules::shared::ProxyType::Socks => "socks",
+                                };
+                                (Some(t.to_string()), cfg.url.filter(|s| !s.is_empty()))
+                            })
+                            .unwrap_or((None, None));
+                        (true, gt, gu)
+                    } else {
+                        (false, None, None)
+                    }
+                }
+                Err(_) => (false, None, None),
+            }
+        };
 
         Self {
             api_key: input.api_key.clone().unwrap_or_default(),
@@ -62,6 +123,11 @@ impl ScriptContext {
             template_name: template.name.clone(),
             template_kind: template.kind.clone(),
             script_variables: input.script_variables.clone(),
+            provider_proxy_type,
+            provider_proxy_url,
+            global_proxy_enabled,
+            global_proxy_type,
+            global_proxy_url,
         }
     }
 
@@ -101,6 +167,25 @@ impl ScriptContext {
         template.insert("kind".into(), Dynamic::from(self.template_kind.clone()));
         scope.push_constant("template", Dynamic::from_map(template));
 
+        // 注入 proxy 变量：供应商代理与全局代理配置
+        let mut proxy = Map::new();
+        // 供应商代理
+        if let Some(pt) = &self.provider_proxy_type {
+            proxy.insert("provider_type".into(), Dynamic::from(pt.clone()));
+        }
+        if let Some(pu) = &self.provider_proxy_url {
+            proxy.insert("provider_url".into(), Dynamic::from(pu.clone()));
+        }
+        // 全局代理
+        proxy.insert("global_enabled".into(), Dynamic::from(self.global_proxy_enabled));
+        if let Some(gt) = &self.global_proxy_type {
+            proxy.insert("global_type".into(), Dynamic::from(gt.clone()));
+        }
+        if let Some(gu) = &self.global_proxy_url {
+            proxy.insert("global_url".into(), Dynamic::from(gu.clone()));
+        }
+        scope.push_constant("proxy", Dynamic::from_map(proxy));
+
         // 注入 variables map（key → 明文 value）
         let mut vars = Map::new();
         for (k, v) in &self.script_variables {
@@ -122,7 +207,7 @@ impl ScriptContext {
 fn is_reserved_name(name: &str) -> bool {
     matches!(
         name,
-        "api_key" | "now_ms" | "provider" | "auth" | "template" | "variables" | "pi" | "e"
+        "api_key" | "now_ms" | "provider" | "auth" | "template" | "variables" | "proxy" | "pi" | "e"
     )
 }
 

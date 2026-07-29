@@ -4,7 +4,7 @@
 //! 约束：超时、host 白名单、仅 http(s)、响应体积上限。
 
 use std::collections::HashSet;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use rhai::{Dynamic, Engine, Map};
@@ -24,6 +24,11 @@ pub struct HttpHostState {
     /// 市场脚本（`snippet_id` 以 `marketplace:` 开头）强制校验，防止 SSRF；
     /// 本地新建/手动编辑的脚本由用户自己负责，跳过白名单限制。
     enforce_whitelist: bool,
+    /// 脚本通过 `http::set_proxy()` 设置的代理 URL。
+    ///
+    /// 默认 HTTP 客户端**不走应用代理设置**；脚本可调用 `http::set_proxy("socks5://...")`
+    /// 主动指定代理。设置后，后续所有 HTTP 请求都将通过该代理。
+    custom_proxy: Arc<Mutex<Option<String>>>,
 }
 
 impl HttpHostState {
@@ -50,7 +55,23 @@ impl HttpHostState {
             allowed_hosts,
             api_key_redact: api_key.filter(|s| !s.is_empty()),
             enforce_whitelist,
+            custom_proxy: Arc::new(Mutex::new(None)),
         }
+    }
+
+    /// 设置自定义代理 URL（由 `http::set_proxy()` 调用）
+    fn set_custom_proxy(&self, proxy_url: &str) -> Result<(), Box<rhai::EvalAltResult>> {
+        let url = proxy_url.trim();
+        if url.is_empty() {
+            return Err("代理 URL 不能为空".into());
+        }
+        // 验证 URL 格式
+        if let Err(e) = url::Url::parse(url) {
+            return Err(format!("代理 URL 格式无效: {e}").into());
+        }
+        let mut guard = self.custom_proxy.lock().map_err(|e| format!("锁错误: {e}"))?;
+        *guard = Some(url.to_string());
+        Ok(())
     }
 
     fn ensure_url_allowed(&self, url: &str) -> Result<(), Box<rhai::EvalAltResult>> {
@@ -94,8 +115,19 @@ impl HttpHostState {
 
         let builder = reqwest::blocking::Client::builder()
             .timeout(self.timeout);
-        // 应用全局代理配置
-        let builder = crate::modules::shared::apply_global_proxy_blocking(builder);
+        // 默认不走应用代理；仅当脚本通过 http::set_proxy() 主动设置时才走代理
+        let custom_proxy = self.custom_proxy.lock().ok().and_then(|g| g.clone());
+        let builder = if let Some(proxy_url) = custom_proxy {
+            match reqwest::Proxy::all(&proxy_url) {
+                Ok(proxy) => builder.proxy(proxy),
+                Err(e) => {
+                    return Err(format!("代理配置失败: {e}").into());
+                }
+            }
+        } else {
+            // 无自定义代理时强制直连，不读取系统环境变量代理
+            builder.no_proxy()
+        };
         let client = builder
             .build()
             .map_err(|e| format!("HTTP 客户端创建失败: {e}"))?;
@@ -149,6 +181,108 @@ impl HttpHostState {
 
         log::debug!(
             "[balance-script] HTTP {} {} → {} ({} bytes)",
+            method,
+            path,
+            status,
+            body_str.len()
+        );
+
+        let mut result = Map::new();
+        result.insert("status".into(), Dynamic::from(status));
+        result.insert("body".into(), Dynamic::from(body_str));
+        result.insert("headers".into(), Dynamic::from_map(resp_headers));
+        Ok(result)
+    }
+
+    /// 带指定代理的 HTTP 请求（供 `proxied_http` 模块使用）
+    ///
+    /// 与 `do_request` 逻辑一致，但使用 `proxy_url` 参数指定的代理，
+    /// 而非 `custom_proxy` 字段。`proxy_url` 为 `None` 时强制直连；
+    /// 为 `Some("system")` 时沿用 reqwest 默认行为（读取系统环境变量代理）。
+    pub fn do_request_with_proxy(
+        &self,
+        method: &str,
+        url: &str,
+        body: Option<&str>,
+        headers: Option<Map>,
+        proxy_url: Option<&str>,
+    ) -> Result<Map, Box<rhai::EvalAltResult>> {
+        self.ensure_url_allowed(url)?;
+
+        let builder = reqwest::blocking::Client::builder()
+            .timeout(self.timeout);
+        // 根据 proxy_url 应用代理
+        let builder = match proxy_url {
+            Some("system") => {
+                // 系统代理模式：沿用 reqwest 默认行为（读取 HTTP_PROXY / HTTPS_PROXY 环境变量）
+                builder
+            }
+            Some(pu) => {
+                match reqwest::Proxy::all(pu) {
+                    Ok(proxy) => builder.proxy(proxy),
+                    Err(e) => {
+                        return Err(format!("代理配置失败: {e}").into());
+                    }
+                }
+            }
+            None => {
+                // 强制直连
+                builder.no_proxy()
+            }
+        };
+        let client = builder
+            .build()
+            .map_err(|e| format!("HTTP 客户端创建失败: {e}"))?;
+
+        let method = method.to_uppercase();
+        let m = method
+            .parse::<reqwest::Method>()
+            .map_err(|_| format!("不支持的 HTTP 方法: {method}"))?;
+
+        let mut req = client.request(m, url);
+        if let Some(hmap) = headers {
+            for (k, v) in hmap.iter() {
+                let val = v.clone().into_string().unwrap_or_else(|_| v.to_string());
+                req = req.header(k.as_str(), val);
+            }
+        }
+        if let Some(b) = body {
+            req = req.body(b.to_string());
+        }
+
+        // 开发日志：脱敏 URL path + method
+        let path = url::Url::parse(url)
+            .map(|u| u.path().to_string())
+            .unwrap_or_else(|_| url.to_string());
+        log::debug!("[balance-script] PROXIED_HTTP {} {} (proxy={:?})", method, path, proxy_url);
+
+        let response = req
+            .send()
+            .map_err(|e| format!("HTTP 请求失败: {}", redact(&e.to_string(), &self.api_key_redact)))?;
+
+        let status = response.status().as_u16() as i64;
+        let mut resp_headers = Map::new();
+        for (k, v) in response.headers().iter() {
+            if let Ok(s) = v.to_str() {
+                resp_headers.insert(k.as_str().into(), Dynamic::from(s.to_string()));
+            }
+        }
+
+        let bytes = response
+            .bytes()
+            .map_err(|e| format!("读取响应失败: {e}"))?;
+        if bytes.len() > MAX_BODY_BYTES {
+            return Err(format!(
+                "响应体过大（{} bytes，上限 {}）",
+                bytes.len(),
+                MAX_BODY_BYTES
+            )
+            .into());
+        }
+        let body_str = String::from_utf8_lossy(&bytes).to_string();
+
+        log::debug!(
+            "[balance-script] PROXIED_HTTP {} {} → {} ({} bytes)",
             method,
             path,
             status,
@@ -291,8 +425,24 @@ pub fn register(engine: &mut Engine, state: Arc<HttpHostState>) {
         },
     );
 
+    // http_set_proxy(url) — 扁平风格，等价于 http::set_proxy
+    let s_sp_flat = state.clone();
+    engine.register_fn(
+        "http_set_proxy",
+        move |url: &str| -> Result<(), Box<rhai::EvalAltResult>> {
+            s_sp_flat.set_custom_proxy(url)
+        },
+    );
+
     // 兼容提案中的 http.get 命名：注册模块
     let mut module = rhai::Module::new();
+
+    // http::set_proxy(url) — 设置代理 URL，后续请求走该代理
+    let s_sp = state.clone();
+    module.set_native_fn("set_proxy", move |url: &str| {
+        s_sp.set_custom_proxy(url)
+    });
+
     let s_get = state.clone();
     module.set_native_fn("get", move |url: &str| {
         s_get.do_request("GET", url, None, None).map(Dynamic::from_map)
@@ -348,12 +498,12 @@ fn dynamic_to_map(d: Dynamic) -> Option<Map> {
     d.try_cast::<Map>()
 }
 
-fn dynamic_to_json_string(d: &Dynamic) -> Result<String, Box<rhai::EvalAltResult>> {
+pub fn dynamic_to_json_string(d: &Dynamic) -> Result<String, Box<rhai::EvalAltResult>> {
     let v = dynamic_to_serde(d)?;
     serde_json::to_string(&v).map_err(|e| format!("JSON 序列化失败: {e}").into())
 }
 
-fn json_parse_dynamic(text: &str) -> Result<Dynamic, Box<rhai::EvalAltResult>> {
+pub fn json_parse_dynamic(text: &str) -> Result<Dynamic, Box<rhai::EvalAltResult>> {
     let v: serde_json::Value =
         serde_json::from_str(text).map_err(|e| format!("JSON 解析失败: {e}"))?;
     Ok(serde_to_dynamic(&v))
