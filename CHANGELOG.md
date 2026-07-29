@@ -2,6 +2,35 @@
 
 ## [Unreleased]
 
+## [0.0.9] - 2026-07-29
+
+### 新增
+
+- **日志框架迁移至 tracing**：从 `tauri-plugin-log` 迁移到 `tracing` 生态，统一日志基础设施，支持全链路追踪
+  - 新增 `trace_id` 模块：生成与传播唯一追踪 ID（base32 编码），用于跨日志/调用记录关联
+  - 新增 `TraceIdLayer`：将 trace_id 注入线程上下文，供转发器、调用记录等复用
+  - 新增 `size_aware_appender`：大小感知的日志文件追加器，按文件大小滚动切分
+  - 新增 `atomic_filter`：原子级别过滤器，支持运行时动态调整日志级别
+  - 新增 `tracing_webview` 模块：将日志事件通过 `CONSOLE_LOG` 事件转发到 WebView 控制台
+  - 集成 `tower-http` 的 `TraceLayer`：为 HTTP 网关请求自动注入 trace_id，实现请求级追踪
+  - 前端新增 `registerConsoleLogForwarder` 监听器，在 `App` 组件中注册
+  - 新增迁移方案文档 `docs/plan/log-migration-tracing.md`
+- **额度脚本代理支持**：Rhai 脚本运行时新增代理配置能力，与全局/供应商代理策略对齐
+  - 新增 `proxied_http` 模块：自动应用供应商与全局代理配置，支持 GET/POST/通用请求/JSON 解析
+  - 新增 `http::set_proxy` host function：支持手动配置脚本代理 URL
+  - 向脚本注入 `proxy` 系统变量，提供供应商与全局代理配置信息
+  - 新增 3 个内置脚本 snippet 演示代理使用方式
+  - 新增脱敏 URL 工具函数，避免代理 URL 中的认证信息泄露
+
+### 变更
+
+- **转发请求 ID 复用 trace_id**：网关 forwarder 复用 `TraceIdSpan` 注入的 trace_id 作为 `request_id`，使转发日志、调用记录与 tracing 日志的 tid 保持一致，便于全链路关联；兜底使用自动生成的 trace id 作为 fallback
+- **脚本 host 白名单校验逻辑优化**：区分市场脚本与本地脚本，仅对公共市场脚本强制执行 host 白名单校验，本地脚本不做强制限制
+  - 新增 `is_marketplace` 方法判断脚本来源
+  - 新增 `enforce_host_whitelist` 参数控制是否强制校验
+  - 统一市场脚本 `snippet_id` 前缀常量使用
+  - 标记废弃的旧阻塞代理函数
+
 ## [0.0.8] - 2026-07-28
 
 ### 新增
