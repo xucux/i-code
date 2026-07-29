@@ -38,6 +38,7 @@ pub mod secret;
 pub mod settings;
 pub mod shared;
 pub mod tokenizer;
+pub mod tracing_webview;
 pub mod update_version;
 pub mod virtual_provider;
 pub mod workspace;

@@ -122,6 +122,9 @@ impl LogLevel {
     }
 
     /// 转换为 log crate 的 LevelFilter
+    ///
+    /// 保留供其他场景使用（如直接调用 `log::set_max_level`）；
+    /// 本项目主要使用 [`Self::to_tracing_level`] 配合 `AtomicLevelFilter`。
     pub fn to_level_filter(&self) -> log::LevelFilter {
         match self {
             Self::Trace => log::LevelFilter::Trace,
@@ -129,6 +132,20 @@ impl LogLevel {
             Self::Info => log::LevelFilter::Info,
             Self::Warn => log::LevelFilter::Warn,
             Self::Error => log::LevelFilter::Error,
+        }
+    }
+
+    /// 转换为 `tracing::Level`，供 `AtomicLevelFilter::set_level` 使用
+    ///
+    /// `tracing` 的 `log` feature 会将 `log::` 宏桥接为 tracing event，
+    /// 实际过滤级别由 `AtomicLevelFilter` 控制。
+    pub fn to_tracing_level(&self) -> tracing::Level {
+        match self {
+            Self::Trace => tracing::Level::TRACE,
+            Self::Debug => tracing::Level::DEBUG,
+            Self::Info => tracing::Level::INFO,
+            Self::Warn => tracing::Level::WARN,
+            Self::Error => tracing::Level::ERROR,
         }
     }
 }

@@ -72,10 +72,17 @@ async-trait = "0.1"
 # 错误链
 thiserror = "1.0"
 anyhow = "1.0"
-# 日志门面（tauri-plugin-log 依赖 log crate 作为后端日志接口）
+# 日志门面（tracing 的 log feature 依赖 log crate 桥接现有 log:: 宏调用）
 log = "0.4"
-# Tauri 官方日志插件：统一输出到终端、WebView 控制台、日志文件
-tauri-plugin-log = "2.8.0"
+# tracing 生态：替代 tauri-plugin-log，获得请求级 span 上下文、结构化日志
+# - tracing 的 log feature：tracing 事件 → log 记录（tracing→log 方向）
+# - tracing-log 的 LogTracer：log:: 宏 → tracing 事件（log→tracing 方向）
+#   桥接现有 180 处 log::info! 等宏调用，零改动继续工作
+tracing = { version = "0.1", features = ["log"] }
+tracing-subscriber = { version = "0.3", features = ["registry", "env-filter"] }
+tracing-log = "0.2"
+# 文件按天滚动 appender（配合自定义 SizeAwareFileAppender 实现按大小分片）
+tracing-appender = "0.2"
 # 正则（用于内置模型别名匹配、Secret 引用扫描）
 regex = "1"
 # once_cell 用于全局静态初始化
@@ -94,6 +101,10 @@ quick-xml = "0.36"
 tiktoken = "3"
 # Rhai 脚本引擎：额度监控自定义脚本（禁文件系统相关能力）
 rhai = { version = "1", default-features = false, features = ["sync", "serde"] }
+
+[dev-dependencies]
+# 测试用临时目录（SizeAwareFileAppender 单元测试用）
+tempfile = "3"
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]

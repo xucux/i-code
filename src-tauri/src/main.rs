@@ -12,7 +12,135 @@ use tauri::menu::{IsMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::TrayIconBuilder;
 use tauri::{Emitter, Listener, Manager};
 use tauri_plugin_autostart::ManagerExt;
-use tauri_plugin_log::{Target, TargetKind};
+
+/// 保活 `tracing_appender::non_blocking` 的 `WorkerGuard`
+///
+/// `non_blocking` 返回的 `WorkerGuard` 一旦 drop，后台写入线程立即终止，
+/// 后续文件日志全部丢失。将其注册为 Tauri State，存活到应用退出。
+pub struct WorkerGuardState(pub tracing_appender::non_blocking::WorkerGuard);
+
+/// 初始化 tracing-subscriber，替代 tauri-plugin-log
+///
+/// # 执行顺序要点
+///
+/// - 必须在 `.setup()` 中执行（依赖 `app.path()` 获取日志目录）
+/// - 必须在 DB 初始化之前调用，否则 `log::info!("数据库初始化完成")` 会被丢弃
+/// - 注册到 Tauri State 的资源：
+///   - `WorkerGuardState`：保活文件写入线程
+///   - `Arc<AtomicLevelFilter>`：供 settings 模块运行时调整级别
+///   - `WebViewLayer`：供 setup 完成后注入 AppHandle
+fn init_tracing(app: &tauri::App) {
+    use tracing_subscriber::prelude::*;
+
+    // 1. 日志目录
+    let log_dir = app.path().app_log_dir().expect("无法获取日志目录");
+    std::fs::create_dir_all(&log_dir).ok();
+
+    // 2. 文件滚动：按天 + 按大小（20MB）双维度滚动
+    //    tracing-appender 原生仅支持按时间滚动，自定义 SizeAwareFileAppender 实现：
+    //    - 按天创建文件：i-code-2026-07-29.log
+    //    - 超过 20MB 分片：i-code-2026-07-29.1.log、i-code-2026-07-29.2.log
+    //    - 保留最近 30 天文件，超期自动清理
+    let file_appender = crate::core::size_aware_appender::SizeAwareFileAppender::new(
+        &log_dir,
+        "i-code",
+        "log",
+        20 * 1024 * 1024, // 20MB
+        30,               // 保留 30 天
+    )
+    .expect("构建日志文件 appender 失败");
+
+    // 3. non_blocking 包装：返回的 guard 必须 Send + 'static 保活，
+    //    否则后台写入线程在 setup 返回时立即终止，文件日志全部丢失。
+    //    将 guard 注册为 Tauri State 以保活到应用退出。
+    let (file_writer, guard) = tracing_appender::non_blocking(file_appender);
+    app.manage(WorkerGuardState(guard));
+
+    // 4. 全局级别过滤：运行时可通过 AtomicLevelFilter::set_level 调整
+    //    用 Arc 包装以便同时注册到 subscriber（per-layer filter）与 Tauri State。
+    //    开发时可用 RUST_LOG=debug 临时覆盖默认 INFO 级别。
+    let initial_level = match std::env::var("RUST_LOG") {
+        Ok(v) => match v.to_ascii_lowercase().as_str() {
+            "trace" => tracing::Level::TRACE,
+            "debug" => tracing::Level::DEBUG,
+            "warn" => tracing::Level::WARN,
+            "error" => tracing::Level::ERROR,
+            _ => tracing::Level::INFO,
+        },
+        Err(_) => tracing::Level::INFO,
+    };
+    let atomic_filter = Arc::new(crate::core::atomic_filter::AtomicLevelFilter::new(initial_level));
+
+    // SharedLevelFilter 是 AtomicLevelFilter 的 newtype，实现 Filter trait，
+    // 用于作为 per-layer filter 传给 .with_filter()。
+    // 直接为 Arc<AtomicLevelFilter> 实现 Filter 会触发孤儿规则，故用 newtype 包装。
+    let shared_filter = crate::core::atomic_filter::SharedLevelFilter(atomic_filter.clone());
+
+    // 5. fmt layer（stdout）：使用自定义 FormatEvent（TraceIdFormat），
+    //    在每行日志前注入当前请求的 trace_id（若处于请求 span 内）。
+    //    SharedLevelFilter 作为 per-layer filter 应用于每个输出层。
+    let fmt_stdout = tracing_subscriber::fmt::layer()
+        .with_target(true)
+        .with_level(true)
+        .with_thread_ids(false)
+        .with_file(true)
+        .with_line_number(true)
+        .compact()
+        .event_format(crate::core::trace_id_layer::TraceIdFormat)
+        .with_writer(std::io::stdout)
+        .with_filter(shared_filter.clone());
+
+    // 6. fmt layer（文件）：与 stdout 相同格式，但禁用 ANSI 颜色
+    let fmt_file = tracing_subscriber::fmt::layer()
+        .with_target(true)
+        .with_level(true)
+        .with_thread_ids(false)
+        .with_file(true)
+        .with_line_number(true)
+        .compact()
+        .event_format(crate::core::trace_id_layer::TraceIdFormat)
+        .with_writer(file_writer)
+        .with_ansi(false)
+        .with_filter(shared_filter.clone());
+
+    // 7. WebViewLayer：转发到前端 DevTools 控制台（Phase 2）
+    //    AppHandle 在 setup 后续注入（set_app_handle）
+    //    WebViewLayer 内部持有 Arc<AtomicLevelFilter> 在 on_event 中做级别过滤，
+    //    不使用 .with_filter()（避免与 filter 组合的类型限制）。
+    //    WebViewLayer 实现了 Clone（内部用 Arc 共享状态），一份注册到 subscriber，
+    //    一份注册到 Tauri State 供 setup 后调用 set_app_handle 注入 AppHandle。
+    let webview_layer = crate::modules::tracing_webview::WebViewLayer::new(atomic_filter.clone());
+
+    // 8. 组合所有 layer
+    //    TraceIdLayer 不需要 filter（仅用于 span 进入/退出时维护 thread-local）
+    let subscriber = tracing_subscriber::registry()
+        .with(crate::core::trace_id_layer::TraceIdLayer)
+        .with(fmt_stdout)
+        .with(fmt_file)
+        .with(webview_layer.clone());
+
+    tracing::subscriber::set_global_default(subscriber)
+        .expect("设置全局 tracing subscriber 失败");
+
+    // 关键：安装 log → tracing 桥接器（LogTracer）并设置 log crate 全局 max level 为 Trace。
+    //
+    // tracing::subscriber::set_global_default（原始函数）不会安装 LogTracer，
+    // 也不调用 log::set_max_level（默认 Off）。这导致：
+    // 1. log::info! 等宏没有 log::Log 实现接收，全部丢弃
+    // 2. 即使有接收者，log::set_max_level 默认 Off 也会短路丢弃
+    //
+    // LogTracer 实现了 log::Log trait，将 log::Record 转为 tracing::Event，
+    // 使现有 180 处 log:: 宏调用经 tracing subscriber 的 per-layer filter 输出。
+    // 循环防护：LogTracer 内部检测事件是否源自 tracing，避免 tracing→log→tracing 无限循环。
+    tracing_log::LogTracer::init().expect("Failed to install LogTracer");
+    log::set_max_level(log::LevelFilter::Trace);
+
+    // 9. 注册到 Tauri State
+    //    - atomic_filter：供 settings 模块运行时调整级别
+    //    - webview_layer：供 setup 完成后注入 AppHandle
+    app.manage(atomic_filter);
+    app.manage(webview_layer);
+}
 
 /// 在系统默认浏览器中打开指定 URL
 #[tauri::command]
@@ -277,22 +405,6 @@ fn main() {
         .plugin(tauri_plugin_autostart::Builder::new()
             .args(["--autostart"])
             .build())
-        // 日志插件：统一输出到终端、WebView 控制台、应用日志目录
-        // level 设为 Trace，允许运行时通过 log::set_max_level 动态限制；
-        // 实际过滤级别由 app_settings.log_level 决定，默认 Info。
-        .plugin(
-            tauri_plugin_log::Builder::new()
-                .targets([
-                    Target::new(TargetKind::Stdout),
-                    Target::new(TargetKind::LogDir { file_name: None }),
-                    Target::new(TargetKind::Webview),
-                ])
-                .level(log::LevelFilter::Trace)
-                .max_file_size(1024 * 1024 * 20)
-                .timezone_strategy(tauri_plugin_log::TimezoneStrategy::UseLocal)
-                .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepAll)
-                .build(),
-        )
         .invoke_handler(tauri::generate_handler![
             modules::update_version::check_update,
             modules::update_version::download_and_install_update,
@@ -510,6 +622,19 @@ fn main() {
                 window.open_devtools();
             }
 
+            // ===== 0. 先初始化 tracing-subscriber =====
+            // 必须在 DB 初始化之前，否则 log::info!("数据库初始化完成") 会被丢弃。
+            // 注册 WorkerGuardState、Arc<AtomicLevelFilter>、WebViewLayer 到 Tauri State。
+            init_tracing(app);
+
+            // 0.1 进入 startup 操作 span，所有启动日志带同一 trace_id
+            let _startup_guard = crate::core::trace_id_layer::enter_operation("startup");
+
+            // 0.2 注入 AppHandle 到 WebViewLayer，启动前端 DevTools 日志转发
+            if let Some(webview_layer) = app.try_state::<crate::modules::tracing_webview::WebViewLayer>() {
+                webview_layer.set_app_handle(app.handle().clone());
+            }
+
             // ===== 初始化数据库 =====
             // 1. 解析数据库路径：使用 Tauri 应用配置目录（如 Windows %APPDATA%/com.icode.app）
             // 2. 在该目录下创建 i-code.db 文件
@@ -528,15 +653,16 @@ fn main() {
             // Settings 无需启动期加载缓存，每次调用直接查库。
             // 必须在 Secret 模块之前初始化，因为 Secret 需要从中读取通用密码派生 AES 密钥。
             let settings_handle = modules::settings::SettingsServiceHandle::new();
-            // 应用用户设置的全局日志级别（默认 Info）到 tauri-plugin-log
+            // 应用用户设置的全局日志级别（默认 Info）到 AtomicLevelFilter
+            // 覆盖 init_tracing 中设置的 INFO 默认值
             match settings_handle.service().get_settings() {
                 Ok(settings) => {
-                    let level_filter = settings.log_level.to_level_filter();
-                    log::set_max_level(level_filter);
+                    if let Some(atomic_filter) = app.try_state::<std::sync::Arc<crate::core::atomic_filter::AtomicLevelFilter>>() {
+                        atomic_filter.set_level(settings.log_level.to_tracing_level());
+                    }
                     log::info!("Settings 模块初始化完成，日志级别：{}", settings.log_level.as_str());
                 }
                 Err(e) => {
-                    log::set_max_level(log::LevelFilter::Info);
                     log::warn!("读取设置失败，使用默认日志级别 Info：{}", e.message);
                 }
             }
@@ -779,6 +905,7 @@ fn main() {
                         }
                         "auto-start" => {
                             // 切换开机自启开关
+                            let _guard = crate::core::trace_id_layer::enter_operation("tray:auto_start");
                             let settings_handle = app.state::<modules::settings::service::SettingsServiceHandle>();
                             let current = settings_handle.service().get_settings().map(|s| s.auto_start_enabled).unwrap_or(false);
                             let new_val = !current;
@@ -859,24 +986,27 @@ fn main() {
                 let gateway_inner = gateway_inner_for_toggle.clone();
                 let settings_inner = settings_inner_for_toggle.clone();
                 let current_running = gateway_inner.status().unwrap_or_default().is_running;
-                tauri::async_runtime::spawn(async move {
-                    if current_running {
-                        // 关闭网关
-                        let _ = gateway_inner.stop().await;
-                        let _ = settings_inner.update_settings(modules::settings::types::UpdateSettingsInput {
-                            gateway_last_running: Some(false),
-                            ..Default::default()
-                        });
-                    } else {
-                        // 启动网关
-                        let _ = gateway_inner.start(modules::gateway_runtime::types::StartGatewayInput::default()).await;
-                        let _ = settings_inner.update_settings(modules::settings::types::UpdateSettingsInput {
-                            gateway_last_running: Some(true),
-                            ..Default::default()
-                        });
-                    }
-                    // 注意：菜单文字由 gateway:status-changed 监听器更新，这里不再手动设置
-                });
+                tauri::async_runtime::spawn(crate::core::trace_id_layer::enter_operation_async(
+                    "gateway:toggle",
+                    async move {
+                        if current_running {
+                            // 关闭网关
+                            let _ = gateway_inner.stop().await;
+                            let _ = settings_inner.update_settings(modules::settings::types::UpdateSettingsInput {
+                                gateway_last_running: Some(false),
+                                ..Default::default()
+                            });
+                        } else {
+                            // 启动网关
+                            let _ = gateway_inner.start(modules::gateway_runtime::types::StartGatewayInput::default()).await;
+                            let _ = settings_inner.update_settings(modules::settings::types::UpdateSettingsInput {
+                                gateway_last_running: Some(true),
+                                ..Default::default()
+                            });
+                        }
+                        // 注意：菜单文字由 gateway:status-changed 监听器更新，这里不再手动设置
+                    },
+                ));
             });
 
             // 2) 监听 gateway:status-changed：更新托盘菜单文字（同步前端与托盘状态）
@@ -984,10 +1114,13 @@ fn main() {
             // 都通过 `update-check-result` 事件推送给前端；前端据此决定是否在标题栏
             // 展示更新入口。延迟 3 秒发起，确保前端已完成事件监听注册。
             let app_handle_for_update = app.handle().clone();
-            tauri::async_runtime::spawn(async move {
-                tokio::time::sleep(std::time::Duration::from_secs(3)).await;
-                modules::update_version::run_update_check_and_emit(app_handle_for_update).await;
-            });
+            tauri::async_runtime::spawn(crate::core::trace_id_layer::enter_operation_async(
+                "update:check",
+                async move {
+                    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+                    modules::update_version::run_update_check_and_emit(app_handle_for_update).await;
+                },
+            ));
 
             Ok(())
         })

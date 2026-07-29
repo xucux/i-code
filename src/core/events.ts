@@ -12,6 +12,7 @@
  * - `BACKEND_EVENTS`：后端通过 `app_handle.emit()` 推送的事件名常量，前端通过 `listen()` 接收。
  */
 
+import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import mitt from 'mitt'
 
 /**
@@ -89,4 +90,57 @@ export const BACKEND_EVENTS = {
   CHAT_STREAM_ERROR: 'chat:stream-error',
   /** 更新下载进度 */
   UPDATE_DOWNLOAD_PROGRESS: 'update-download-progress',
+  /** 后端 tracing 日志转发到前端 DevTools 控制台（替代 tauri-plugin-log Webview 目标） */
+  CONSOLE_LOG: 'console:log',
 } as const
+
+/**
+ * 后端 `WebViewLayer` 通过 `app.emit("console:log", payload)` 推送的日志条目结构。
+ *
+ * 与 `src-tauri/src/modules/tracing_webview.rs` 中 `on_event` 构造的 payload 字段保持一致。
+ */
+interface ConsoleLogPayload {
+  level: string
+  target: string
+  file: string
+  line: number
+  message: string
+  /** 操作链路 trace_id；非请求路径日志为 null */
+  traceId: string | null
+}
+
+/**
+ * 注册 Rust 后端日志转发到 DevTools 控制台的监听器。
+ *
+ * 后端 `WebViewLayer` 将 `tracing` 事件（含 `log::` 桥接事件）通过 Tauri Event
+ * `console:log` 推送到前端，此函数监听该事件并按级别调用 `console.log/error/warn/...`
+ * 输出到浏览器 DevTools 控制台，替代 `tauri-plugin-log` 的 Webview 目标。
+ *
+ * 级别过滤已在后端 `AtomicLevelFilter` 中完成，前端无需重复过滤。
+ *
+ * @returns 卸载函数（`UnlistenFn`），调用后停止监听
+ */
+export async function registerConsoleLogForwarder(): Promise<UnlistenFn> {
+  return listen<ConsoleLogPayload>(BACKEND_EVENTS.CONSOLE_LOG, (event) => {
+    const { level, target, file, line, message, traceId } = event.payload
+    // 网关请求路径日志带 traceId，非请求路径为 null
+    const ridPrefix = traceId ? `[tid=${traceId}] ` : ''
+    const prefix = `${ridPrefix}[${target}] ${file}:${line}`
+    switch (level) {
+      case 'ERROR':
+        console.error(prefix, message)
+        break
+      case 'WARN':
+        console.warn(prefix, message)
+        break
+      case 'DEBUG':
+        console.debug(prefix, message)
+        break
+      case 'TRACE':
+        console.trace(prefix, message)
+        break
+      default:
+        console.log(prefix, message)
+    }
+  })
+}

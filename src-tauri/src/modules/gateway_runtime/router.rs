@@ -23,7 +23,10 @@ use axum::response::{IntoResponse, Json, Response};
 use axum::routing::{get, post};
 use axum::Router;
 use serde_json::{json, Value};
+use tower_http::trace::{MakeSpan, TraceLayer};
+use tracing::Span;
 
+use crate::core::trace_id::next_trace_id;
 use crate::modules::gateway_runtime::forwarding::context::GatewayProtocol;
 use crate::modules::gateway_runtime::forwarding::{
     parse_usage_from_response_body, upstream_error_response, ForwardPipeline, ForwardRequest,
@@ -38,6 +41,15 @@ use super::service::GatewaySharedState;
 /// 构建网关路由
 ///
 /// 将共享状态注入 axum State，注册认证中间件与各路径 handler。
+///
+/// # Layer 顺序（后加的在外层）
+///
+/// 1. `auth_middleware`（内层）：认证逻辑在请求 span 内执行
+/// 2. `TraceLayer`（外层）：即使认证失败也会创建 span，不丢失观测
+///
+/// `TraceLayer` 使用自定义 [`TraceIdSpan`] 为每个 HTTP 请求生成 `trace_id`，
+/// 配合 `TraceIdLayer`（在 `init_tracing` 中注册）让请求路径内所有 `log::info!`
+/// 自动带 `[tid=...]` 前缀，实现全链路日志关联。
 pub fn build_router(shared: GatewaySharedState) -> Router {
     let auth_state = AuthState::new(
         shared.ai_gateway_handle.clone(),
@@ -57,6 +69,36 @@ pub fn build_router(shared: GatewaySharedState) -> Router {
             auth_state,
             super::auth::auth_middleware,
         ))
+        // TraceLayer（最外层）：为每个 HTTP 请求创建 tracing span 并注入 trace_id
+        .layer(
+            TraceLayer::new_for_http()
+                .make_span_with(TraceIdSpan),
+        )
+}
+
+/// 自定义 `MakeSpan`：为每个 HTTP 请求生成 `trace_id` 并注入 span 字段
+///
+/// 生成的 span 名为 `http.request`，包含字段：
+/// - `trace_id`：雪花 ID 转 32 进制（13 字符），关键字段名必须为 `trace_id`
+///   以便 `TraceIdLayer::on_new_span` 提取并存入 span extensions
+/// - `method`：HTTP 方法
+/// - `uri`：请求 URI
+///
+/// span 进入时 `TraceIdLayer::on_enter` 将 `trace_id` 写入 thread-local，
+/// 请求路径内所有 `log::info!` 经 `log` feature 桥接后自动带 `[tid=...]` 前缀。
+#[derive(Clone)]
+struct TraceIdSpan;
+
+impl<B> MakeSpan<B> for TraceIdSpan {
+    fn make_span(&mut self, request: &axum::http::Request<B>) -> Span {
+        let trace_id = next_trace_id();
+        tracing::info_span!(
+            "http.request",
+            trace_id = %trace_id,
+            method = %request.method(),
+            uri = %request.uri(),
+        )
+    }
 }
 
 // ===== Handlers =====
@@ -93,7 +135,12 @@ async fn list_models(
     State(state): State<GatewaySharedState>,
 ) -> Response {
     let start = std::time::Instant::now();
-    let request_id = uuid::Uuid::new_v4().to_string();
+    // 复用 TraceIdSpan 注入的 trace_id 作为 request_id，
+    // 使自研 logger 的 request_id 与 tracing 日志的 [tid=...] 前缀一致，便于全链路关联。
+    // TraceLayer 已在最外层为每个请求创建 span 并设置 thread-local，
+    // 此处读取即可；fallback 仅防御性兜底（理论上不会触发）。
+    let request_id = crate::core::trace_id_layer::current_trace_id()
+        .unwrap_or_else(crate::core::trace_id::next_trace_id);
 
     let result = build_exposed_models_response(&state);
 
@@ -164,7 +211,12 @@ async fn chat_completions(
     Json(body): Json<Value>,
 ) -> Response {
     let start = std::time::Instant::now();
-    let request_id = uuid::Uuid::new_v4().to_string();
+    // 复用 TraceIdSpan 注入的 trace_id 作为 request_id，
+    // 使自研 logger 的 request_id 与 tracing 日志的 [tid=...] 前缀一致，便于全链路关联。
+    // TraceLayer 已在最外层为每个请求创建 span 并设置 thread-local，
+    // 此处读取即可；fallback 仅防御性兜底（理论上不会触发）。
+    let request_id = crate::core::trace_id_layer::current_trace_id()
+        .unwrap_or_else(crate::core::trace_id::next_trace_id);
     let gateway_model_id = body
         .get("model")
         .and_then(|v| v.as_str())
@@ -208,7 +260,12 @@ async fn anthropic_messages(
     Json(body): Json<Value>,
 ) -> Response {
     let start = std::time::Instant::now();
-    let request_id = uuid::Uuid::new_v4().to_string();
+    // 复用 TraceIdSpan 注入的 trace_id 作为 request_id，
+    // 使自研 logger 的 request_id 与 tracing 日志的 [tid=...] 前缀一致，便于全链路关联。
+    // TraceLayer 已在最外层为每个请求创建 span 并设置 thread-local，
+    // 此处读取即可；fallback 仅防御性兜底（理论上不会触发）。
+    let request_id = crate::core::trace_id_layer::current_trace_id()
+        .unwrap_or_else(crate::core::trace_id::next_trace_id);
     let gateway_model_id = body
         .get("model")
         .and_then(|v| v.as_str())
