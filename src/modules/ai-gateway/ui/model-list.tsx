@@ -226,14 +226,14 @@ export function ModelList() {
                 <ToggleGroupItem
                   value="compact"
                   className="h-7 px-2 text-xs"
-                  title={t('aiGateway.modelStats.viewModeCompact')}
+                  title={t('modelStats.viewModeCompact')}
                 >
                   <i className="fa-solid fa-table-cells" />
                 </ToggleGroupItem>
                 <ToggleGroupItem
                   value="scroll"
                   className="h-7 px-2 text-xs"
-                  title={t('aiGateway.modelStats.viewModeScroll')}
+                  title={t('modelStats.viewModeScroll')}
                 >
                   <i className="fa-solid fa-table-columns" />
                 </ToggleGroupItem>

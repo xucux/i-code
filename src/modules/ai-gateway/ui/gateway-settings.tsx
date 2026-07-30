@@ -72,6 +72,7 @@ function maskApiKey(key: string | undefined): string {
  */
 export function GatewayBasicSettings() {
   const { t } = useTranslation('aiGateway')
+  const { t: tc } = useTranslation()
   const [settings, setSettings] = useState<GatewaySettings | null>(null)
   const [showDefaultKey, setShowDefaultKey] = useState(false)
 
@@ -187,7 +188,7 @@ export function GatewayBasicSettings() {
               className="size-8 shrink-0"
               onClick={handleCopyDefaultKey}
               disabled={!settings.defaultApiKeySecretId}
-              title={t('common.copy')}
+              title={tc('common.copy')}
             >
               <i className="fa-solid fa-copy text-xs" />
             </Button>
@@ -205,6 +206,7 @@ export function GatewayBasicSettings() {
  */
 export function GatewayAuthKeyManager() {
   const { t } = useTranslation('aiGateway')
+  const { t: tc } = useTranslation()
   const [authKeys, setAuthKeys] = useState<GatewayAuthKey[]>([])
 
   // API Key 表单状态
@@ -366,7 +368,7 @@ export function GatewayAuthKeyManager() {
                       className="size-6"
                       onClick={() => handleCopyAuthKey(key)}
                       disabled={!key.apiKeySecretId}
-                      title={t('common.copy')}
+                      title={tc('common.copy')}
                     >
                       <i className="fa-solid fa-copy text-[10px]" />
                     </Button>

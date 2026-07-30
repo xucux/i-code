@@ -41,6 +41,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  OpenCodeAgentDialog,
+  type OpenCodeAgent,
+  type OpenCodeAgents,
+} from '@/modules/cli-management/ui/opencode-agent-dialog'
 
 // ── OpenCode Provider 与 Model 类型定义 ──
 
@@ -74,11 +79,13 @@ interface OpenCodeProvider {
 /** opencode.json 顶层结构
  *
  * 实际文件中 `providers` 是一个数组，数组每项是 `{ providerId: providerInfo }` 的单键对象。
+ * `agent` 字段为 Agent 配置映射，键名为 Agent ID，值为 Agent 配置对象。
  */
 interface OpenCodeConfig {
   model?: string,
   plugins?: string[],
   provider?: Record<string, OpenCodeProvider>[] | Record<string, OpenCodeProvider>
+  agent?: OpenCodeAgents
 }
 
 /** Provider 编辑表单数据 */
@@ -157,6 +164,10 @@ export function OpenCodePanel({ profile, height }: OpenCodePanelProps) {
   // 是否有未保存的本地改动
   const isDirtyRef = useRef(false)
 
+  // ── Agent 配置（本地状态，从 opencode.json 的 agent 字段解析） ──
+  const [agents, setAgents] = useState<OpenCodeAgents>({})
+  const [agentDialogOpen, setAgentDialogOpen] = useState(false)
+
   // ── Oh-My-OpenAgent 配置（本地状态，初始为空）── 当前版本暂不展示 ──
   // const [agentConfigs, setAgentConfigs] = useState<OpenAgentConfig[]>([])
   // const [appliedConfigId, setAppliedConfigId] = useState<string | null>(null)
@@ -190,6 +201,16 @@ export function OpenCodePanel({ profile, height }: OpenCodePanelProps) {
         setFileExists(true)
         setProviders(normalizedProviders)
         setPrimaryModel(parsed.model ?? '')
+        // 解析 agent 字段：若文件中没有则为空对象
+        const parsedAgents: OpenCodeAgents = {}
+        if (parsed.agent && typeof parsed.agent === 'object' && !Array.isArray(parsed.agent)) {
+          for (const [agentKey, agentVal] of Object.entries(parsed.agent)) {
+            if (agentVal && typeof agentVal === 'object') {
+              parsedAgents[agentKey] = agentVal as OpenCodeAgent
+            }
+          }
+        }
+        setAgents(parsedAgents)
         // 默认展开第一个 Provider
         const firstProviderId = Object.keys(normalizedProviders)[0]
         setExpandedProviders(firstProviderId ? { [firstProviderId]: true } : {})
@@ -204,6 +225,7 @@ export function OpenCodePanel({ profile, height }: OpenCodePanelProps) {
           setInitDialogOpen(true)
           setProviders({})
           setPrimaryModel('')
+          setAgents({})
           setExpandedProviders({})
           isDirtyRef.current = false
         } else {
@@ -221,14 +243,21 @@ export function OpenCodePanel({ profile, height }: OpenCodePanelProps) {
 
   /** 根据当前本地状态构造待写入的 opencode.json 对象 */
   const buildOpenCodeConfig = useCallback(
-    (currentProviders: Record<string, OpenCodeProvider>, currentPrimaryModel: string): OpenCodeConfig => {
+    (
+      currentProviders: Record<string, OpenCodeProvider>,
+      currentPrimaryModel: string,
+      currentAgents?: OpenCodeAgents
+    ): OpenCodeConfig => {
       const providerValue = providerIsArray
         ? Object.entries(currentProviders).map(([id, p]) => ({ [id]: p }))
         : currentProviders
+      // agent 字段：传入则覆盖，否则保留 baseConfig 中的原值
+      const agentValue = currentAgents !== undefined ? currentAgents : baseConfig?.agent
       return {
         ...baseConfig,
         model: currentPrimaryModel || baseConfig?.model,
         provider: providerValue,
+        ...(agentValue && Object.keys(agentValue).length > 0 ? { agent: agentValue } : {}),
       } as OpenCodeConfig
     },
     [baseConfig, providerIsArray]
@@ -238,7 +267,7 @@ export function OpenCodePanel({ profile, height }: OpenCodePanelProps) {
   const saveConfig = useCallback(async () => {
     if (!profile?.id || configLoading || !isDirtyRef.current) return
     try {
-      const nextConfig = buildOpenCodeConfig(providers, primaryModel)
+      const nextConfig = buildOpenCodeConfig(providers, primaryModel, agents)
       const content = JSON.stringify(nextConfig, null, 2)
       await invokeCommand<CliConfigFileContent>('cli_config_save', {
         cliType: 'opencode',
@@ -251,7 +280,7 @@ export function OpenCodePanel({ profile, height }: OpenCodePanelProps) {
       const error = toIcodeError(err)
       toast.error(t('cli.opencode.saveConfigFailed', { message: error.message }))
     }
-  }, [profile, configLoading, providers, primaryModel, buildOpenCodeConfig, t])
+  }, [profile, configLoading, providers, primaryModel, agents, buildOpenCodeConfig, t])
 
   /** 有未保存改动时自动写回文件 */
   useEffect(() => {
@@ -261,13 +290,13 @@ export function OpenCodePanel({ profile, height }: OpenCodePanelProps) {
       void saveConfig()
     }, 300)
     return () => clearTimeout(timer)
-  }, [profile?.id, configLoading, fileExists, providers, primaryModel, saveConfig])
+  }, [profile?.id, configLoading, fileExists, providers, primaryModel, agents, saveConfig])
 
   /** 配置文件不存在时，初始化创建 opencode.json */
   const handleInitConfirm = useCallback(async () => {
     if (!profile?.id) return
     try {
-      const nextConfig = buildOpenCodeConfig(providers, primaryModel)
+      const nextConfig = buildOpenCodeConfig(providers, primaryModel, agents)
       const content = JSON.stringify(nextConfig, null, 2)
       await invokeCommand<CliConfigFileContent>('cli_config_save', {
         cliType: 'opencode',
@@ -283,7 +312,7 @@ export function OpenCodePanel({ profile, height }: OpenCodePanelProps) {
       const error = toIcodeError(err)
       toast.error(t('cli.opencode.saveConfigFailed', { message: error.message }))
     }
-  }, [profile, providers, primaryModel, buildOpenCodeConfig, t])
+  }, [profile, providers, primaryModel, agents, buildOpenCodeConfig, t])
 
   // ── 弹窗状态 ──
   const [providerDialogOpen, setProviderDialogOpen] = useState(false)
@@ -736,6 +765,25 @@ export function OpenCodePanel({ profile, height }: OpenCodePanelProps) {
     toast.success(`主模型已设为 ${providerId}/${modelId}`)
   }, [])
 
+  // ── Agent 配置操作 ──
+
+  /** 计算当前所有可用模型（`providerId/modelId` 格式），供 Agent 模型选择使用 */
+  const availableModelsForAgents = useMemo(() => {
+    const list: string[] = []
+    for (const [providerId, provider] of Object.entries(providers)) {
+      for (const modelId of Object.keys(provider.models)) {
+        list.push(`${providerId}/${modelId}`)
+      }
+    }
+    return list
+  }, [providers])
+
+  /** Agent 弹窗保存回调：更新本地 agents 状态并标记 dirty 触发自动保存 */
+  const handleAgentsSave = useCallback((nextAgents: OpenCodeAgents) => {
+    setAgents(nextAgents)
+    isDirtyRef.current = true
+  }, [])
+
   // ── Oh-My-OpenAgent 操作 ── 当前版本暂不展示 ──
   //
   // /** 打开添加配置弹窗 */
@@ -906,6 +954,29 @@ export function OpenCodePanel({ profile, height }: OpenCodePanelProps) {
                 <i className="fa-solid fa-plus" />
                 <span className="sr-only">添加 Provider</span>
               </Button>
+              <Separator orientation="vertical" className="mx-0.5 h-5" />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 gap-1.5 px-2 text-xs"
+                    onClick={() => setAgentDialogOpen(true)}
+                  >
+                    <i className="fa-solid fa-user-gear text-[10px]" />
+                    {t('cli.opencode.agent.openDialog')}
+                    {Object.keys(agents).length > 0 && (
+                      <Badge variant="secondary" className="ml-0.5 px-1 py-0 text-[9px]">
+                        {Object.keys(agents).length}
+                      </Badge>
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-[11px]">
+                  {t('cli.opencode.agent.openDialogTooltip')}
+                </TooltipContent>
+              </Tooltip>
             </div>
           </CardHeader>
           <CardContent className="min-h-0 p-0">
@@ -1570,6 +1641,15 @@ export function OpenCodePanel({ profile, height }: OpenCodePanelProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Agent 配置弹窗（全屏） ── */}
+      <OpenCodeAgentDialog
+        open={agentDialogOpen}
+        onOpenChange={setAgentDialogOpen}
+        agents={agents}
+        availableModels={availableModelsForAgents}
+        onSave={handleAgentsSave}
+      />
     </TooltipProvider>
   )
 }

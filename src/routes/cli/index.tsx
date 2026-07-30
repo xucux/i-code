@@ -1,12 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+import { HelpIcon } from '@/components/ui/help-icon'
 import { useAvailableHeight } from '@/hooks/use-available-height'
 import { useCliProfiles } from '@/hooks/use-cli-profiles'
 import { useTranslation } from '@/modules/i18n/use-translation'
@@ -36,46 +31,40 @@ function CliIndexPage() {
 
   return (
     <div ref={pageRef} className="h-full overflow-hidden p-4">
-      <TooltipProvider delayDuration={200}>
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <div ref={headerRef} className="flex items-center justify-between gap-3">
-            <TabsList className="h-8 shrink-0">
-              <TabsTrigger value="claude-code" className="h-7 gap-1.5 px-2.5 text-xs">
-                <i className="fa-solid fa-terminal" />
-                {t('cli.tabs.claude')}
-              </TabsTrigger>
-              <TabsTrigger value="codex" className="h-7 gap-1.5 px-2.5 text-xs">
-                <i className="fa-solid fa-code" />
-                {t('cli.tabs.codex')}
-              </TabsTrigger>
-              <TabsTrigger value="opencode" className="h-7 gap-1.5 px-2.5 text-xs">
-                <i className="fa-solid fa-code-branch" />
-                {t('cli.tabs.opencode')}
-              </TabsTrigger>
-              <TabsTrigger value="settings" className="h-7 gap-1.5 px-2.5 text-xs">
-                <i className="fa-solid fa-gear" />
-                {t('cli.tabs.settings')}
-              </TabsTrigger>
-            </TabsList>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <div ref={headerRef} className="flex items-center justify-between gap-3">
+          <TabsList className="h-8 shrink-0">
+            <TabsTrigger value="claude-code" className="h-7 gap-1.5 px-2.5 text-xs">
+              <i className="fa-solid fa-terminal" />
+              {t('cli.tabs.claude')}
+            </TabsTrigger>
+            <TabsTrigger value="codex" className="h-7 gap-1.5 px-2.5 text-xs">
+              <i className="fa-solid fa-code" />
+              {t('cli.tabs.codex')}
+            </TabsTrigger>
+            <TabsTrigger value="opencode" className="h-7 gap-1.5 px-2.5 text-xs">
+              <i className="fa-solid fa-code-branch" />
+              {t('cli.tabs.opencode')}
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="h-7 gap-1.5 px-2.5 text-xs">
+              <i className="fa-solid fa-gear" />
+              {t('cli.tabs.settings')}
+            </TabsTrigger>
+          </TabsList>
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                  aria-label={t('cli.help.title')}
-                >
-                  <i className="fa-solid fa-circle-question text-sm" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" align="end" className="max-w-xs text-xs">
-                <p className="font-medium">{t('cli.help.title')}</p>
-                <p className="mt-1 whitespace-pre-line text-muted-foreground">
-                  {t('cli.help.content')}
-                </p>
-              </TooltipContent>
-            </Tooltip>
-          </div>
+          <HelpIcon
+            trigger="click"
+            ariaLabel={t('cli.help.title')}
+            side="bottom"
+            align="end"
+            contentClassName="max-w-xs text-xs"
+          >
+            <p className="font-medium">{t('cli.help.title')}</p>
+            <p className="mt-1 whitespace-pre-line text-muted-foreground">
+              {t('cli.help.content')}
+            </p>
+          </HelpIcon>
+        </div>
 
         <TabsContent value="claude-code" className="overflow-hidden">
           <ClaudeCliPanel profile={profileBySlug('claude-code')} height={contentHeight} />
@@ -93,8 +82,7 @@ function CliIndexPage() {
             onProfilesChange={refetch}
           />
         </TabsContent>
-        </Tabs>
-      </TooltipProvider>
+      </Tabs>
     </div>
   )
 }

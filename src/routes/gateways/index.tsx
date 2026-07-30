@@ -31,6 +31,7 @@ import { toast } from 'sonner'
  */
 function GatewaysIndexPage() {
   const { t } = useTranslation('aiGateway')
+  const { t: tc } = useTranslation()
   const { status, loading, start, stop } = useGatewayStatus()
 
   /** 切换网关启动/停止 */
@@ -136,15 +137,15 @@ function GatewaysIndexPage() {
                         variant="ghost"
                         size="icon"
                         className="size-6"
-                        title={t('common.copy')}
+                        title={tc('common.copy')}
                         onClick={async () => {
                           try {
                             await navigator.clipboard.writeText(
                               `http://${status.boundHost}:${status.boundPort}`
                             )
-                            toast.success(t('common.copied'))
+                            toast.success(tc('common.copied'))
                           } catch {
-                            toast.error(t('common.copyFailed'))
+                            toast.error(tc('common.copyFailed'))
                           }
                         }}
                       >
