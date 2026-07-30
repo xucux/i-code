@@ -148,7 +148,7 @@ export function VirtualProviderDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="text-base">
             {isEdit ? t('editProvider') : t('newProvider')}

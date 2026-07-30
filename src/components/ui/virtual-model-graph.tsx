@@ -301,7 +301,6 @@ const ParentNode = React.forwardRef<HTMLElement, ParentNodeProps>(
         {/* 供应商 + 模型 */}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1">
-            <i className="fa-solid fa-circle-nodes size-2.5 text-muted-foreground" />
             <span className="truncate text-[10px] text-muted-foreground">{target.provider}</span>
           </div>
           <div className="truncate text-xs font-semibold">{target.model}</div>

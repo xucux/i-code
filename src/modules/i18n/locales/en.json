@@ -154,6 +154,7 @@
     "proxyTypeHttp": "HTTP proxy",
     "proxyTypeSocks": "SOCKS proxy",
     "proxyUrl": "Proxy URL",
+    "proxySaveSuccess": "Proxy configuration saved",
     "autoStartEnableFailed": "Failed to enable auto-start: {{error}}",
     "autoStartDisableFailed": "Failed to disable auto-start: {{error}}"
   },
@@ -440,6 +441,7 @@
       "enabled": "Enabled",
       "disabled": "Disabled",
       "expiresAt": "Expires: {{value}}",
+      "expiresAtLabel": "Expiration",
       "lastUsedAt": "Last used: {{value}}",
       "show": "Show",
       "hide": "Hide",
@@ -593,7 +595,17 @@
       "balanceDetailTitle": "{{name}} Balance Details",
       "balanceDetailUpdatedAt": "Updated",
       "balanceDetailNoData": "No balance data available",
-      "balanceDetailNoSnapshot": "No balance snapshot found, please refresh balance first"
+      "balanceDetailNoSnapshot": "No balance snapshot found, please refresh balance first",
+      "networkCheck": "Check",
+      "networkCheckDirect": "Direct Network Check",
+      "networkCheckProxy": "Proxy Network Check",
+      "networkCheckSuccess": "Check complete: {{success}} succeeded, {{failed}} failed",
+      "networkCheckEmpty": "No providers to check",
+      "pingResultTitle": "Provider Network Check Results",
+      "pingResultSummary": "{{success}} ok / {{failed}} failed / {{total}} total",
+      "pingInProgress": "Checking ({{done}}/?)...",
+      "pingOk": "Reachable",
+      "pingFail": "Unreachable"
     },
     "providersPage": {
       "tabs": {
@@ -665,10 +677,13 @@
     "strategy": "Failover Strategy",
     "noProvider": "Please select or create a virtual provider",
     "noModels": "No virtual models yet",
+    "modelList": "Model List",
     "childrenTitle": "Child Real Models",
     "childrenDescription": "Use the transfer list to add or remove real provider models mapped to this virtual model",
     "createDescription": "Fill in the parent info and select real models aggregated by this virtual provider",
     "editDescription": "Modify the parent info and adjust child real model mappings for the first virtual model",
+    "createModelDescription": "Fill in the parent virtual model info and select its mapped child real models via the transfer list",
+    "editModelDescription": "Modify the parent virtual model info and adjust its mapped child real models",
     "parentInfo": "Parent Info",
     "name": "Name",
     "alias": "Alias (for routing)",
@@ -702,7 +717,8 @@
     "priority": "Priority",
     "healthy": "Healthy",
     "unhealthy": "Unhealthy",
-    "routeSettings": "Route Settings"
+    "routeSettings": "Route Settings",
+    "modelAssociation": "Model Association"
   },
   "cli": {
     "title": "CLI Management",

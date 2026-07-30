@@ -111,6 +111,29 @@ impl ProxyConfig {
             }
         }
     }
+
+    /// 返回脱敏后的日志描述字符串，供业务 logger 记录代理配置变更
+    ///
+    /// 脱敏规则：代理 URL 中的 `user:pass@` 部分替换为 `***@`，
+    /// 避免将代理认证信息写入日志（符合 AGENTS.md §9.5 安全约束）。
+    /// 脱敏由模块级 `redact_proxy_url` 完成（与 `host_proxied_http` 共用）。
+    ///
+    /// # 示例
+    /// - `http://user:pass@127.0.0.1:7890` → `type=http, url=http://***@127.0.0.1:7890`
+    /// - `socks5://127.0.0.1:1080` → `type=socks, url=socks5://127.0.0.1:1080`
+    /// - `direct` → `type=direct`
+    pub fn to_log_string(&self) -> String {
+        let type_str = match self.proxy_type {
+            ProxyType::Direct => "direct",
+            ProxyType::System => "system",
+            ProxyType::Http => "http",
+            ProxyType::Socks => "socks",
+        };
+        match self.url.as_deref().filter(|s| !s.is_empty()) {
+            Some(url) => format!("type={}, url={}", type_str, redact_proxy_url(url)),
+            None => format!("type={}", type_str),
+        }
+    }
 }
 
 /// 供应商级代理配置

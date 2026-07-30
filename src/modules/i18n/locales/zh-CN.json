@@ -154,6 +154,7 @@
     "proxyTypeHttp": "HTTP 代理",
     "proxyTypeSocks": "SOCKS 代理",
     "proxyUrl": "代理地址",
+    "proxySaveSuccess": "代理配置已保存",
     "autoStartEnableFailed": "开机自启启用失败: {{error}}",
     "autoStartDisableFailed": "开机自启关闭失败: {{error}}"
   },
@@ -440,6 +441,7 @@
       "enabled": "启用",
       "disabled": "已禁用",
       "expiresAt": "过期：{{value}}",
+      "expiresAtLabel": "过期时间",
       "lastUsedAt": "最近使用：{{value}}",
       "show": "显示",
       "hide": "隐藏",
@@ -593,7 +595,17 @@
       "balanceDetailTitle": "{{name}} 额度详情",
       "balanceDetailUpdatedAt": "更新时间",
       "balanceDetailNoData": "暂无额度数据",
-      "balanceDetailNoSnapshot": "未获取到额度快照，请先刷新额度"
+      "balanceDetailNoSnapshot": "未获取到额度快照，请先刷新额度",
+      "networkCheck": "检测",
+      "networkCheckDirect": "直连网络检测",
+      "networkCheckProxy": "代理网络检测",
+      "networkCheckSuccess": "检测完成：成功 {{success}} 个，失败 {{failed}} 个",
+      "networkCheckEmpty": "没有可检测的供应商",
+      "pingResultTitle": "供应商网络检测结果",
+      "pingResultSummary": "成功 {{success}} / 失败 {{failed}} / 共 {{total}}",
+      "pingInProgress": "检测中 ({{done}}/?)...",
+      "pingOk": "可达",
+      "pingFail": "不可达"
     },
     "providersPage": {
       "tabs": {
@@ -665,10 +677,13 @@
     "strategy": "故障转移策略",
     "noProvider": "请选择或新建虚拟供应商",
     "noModels": "暂无虚拟模型",
+    "modelList": "模型列表",
     "childrenTitle": "子级真实模型",
     "childrenDescription": "通过穿梭框添加或移除该虚拟模型映射的真实供应商模型",
     "createDescription": "填写父级信息并选择该虚拟供应商聚合的真实模型",
     "editDescription": "修改父级信息并调整第一个虚拟模型的子级真实模型映射",
+    "createModelDescription": "填写父级虚拟模型信息，并通过穿梭框选择其映射的子级真实模型",
+    "editModelDescription": "修改父级虚拟模型信息，并调整其映射的子级真实模型",
     "parentInfo": "父级信息",
     "name": "名称",
     "alias": "别名（路由用）",
@@ -702,7 +717,8 @@
     "priority": "优先级",
     "healthy": "健康",
     "unhealthy": "不健康",
-    "routeSettings": "路由属性设置"
+    "routeSettings": "路由属性设置",
+    "modelAssociation": "模型关联"
   },
   "cli": {
     "title": "CLI 管理",

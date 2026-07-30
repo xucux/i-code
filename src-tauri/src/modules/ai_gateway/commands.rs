@@ -66,33 +66,109 @@ pub async fn gateway_provider_get(
 /// 创建供应商
 ///
 /// 若 `auth` 中的敏感字段（如 api_key）为明文，Service 层会自动加密并替换为引用。
+/// 成功后广播 `provider:changed` 事件（payload: `{ action, providerId }`），
+/// 供托盘菜单、供应商列表等监听方自动刷新。
+///
+/// 业务日志：若 `input.proxy_json` 非空，写入 system 级业务 logger（脱敏后）。
 #[tauri::command]
 pub async fn gateway_provider_create(
+    app_handle: tauri::AppHandle,
     state: State<'_, AiGatewayServiceHandle>,
     input: CreateProviderInput,
 ) -> IcodeResult<Provider> {
-    state.service().create_provider(input)
+    // 提取代理配置信息用于业务日志（在 input 被消费前）
+    let proxy_log = input.proxy_json.as_deref().and_then(parse_proxy_log);
+    let provider = state.service().create_provider(input)?;
+    // 业务日志：供应商代理配置已设置（脱敏，不含认证信息）
+    if let Some(log_str) = proxy_log {
+        let msg = format!(
+            "供应商代理配置已设置 | provider={} slug={} | {}",
+            provider.display_name, provider.slug, log_str
+        );
+        log::info!("{}", msg);
+        crate::modules::logger::Log::info(&msg);
+    }
+    let _ = app_handle.emit(
+        "provider:changed",
+        ProviderChangedPayload { action: "create", provider_id: provider.id.clone() },
+    );
+    Ok(provider)
 }
 
 /// 更新供应商
+///
+/// 成功后广播 `provider:changed` 事件。
+/// 注意：若 `balance_provider_json` 被清空（关闭额度监控），托盘额度子菜单会
+/// 通过 `list_balance_snapshots()` 的过滤逻辑自动移除对应项。
+///
+/// 业务日志：若 `input.proxy_json` 非空，写入 system 级业务 logger（脱敏后）。
 #[tauri::command]
 pub async fn gateway_provider_update(
+    app_handle: tauri::AppHandle,
     state: State<'_, AiGatewayServiceHandle>,
     id: String,
     input: UpdateProviderInput,
 ) -> IcodeResult<Provider> {
-    state.service().update_provider(&id, input)
+    // 提取代理配置信息用于业务日志（在 input 被消费前）
+    let proxy_log = input.proxy_json.as_deref().and_then(parse_proxy_log);
+    let provider = state.service().update_provider(&id, input)?;
+    // 业务日志：供应商代理配置已更新（脱敏，不含认证信息）
+    if let Some(log_str) = proxy_log {
+        let msg = format!(
+            "供应商代理配置已更新 | provider={} slug={} | {}",
+            provider.display_name, provider.slug, log_str
+        );
+        log::info!("{}", msg);
+        crate::modules::logger::Log::info(&msg);
+    }
+    let _ = app_handle.emit(
+        "provider:changed",
+        ProviderChangedPayload { action: "update", provider_id: provider.id.clone() },
+    );
+    Ok(provider)
 }
 
 /// 删除供应商
 ///
 /// 关联的 gateway_models 会通过外键级联删除。
+/// 成功后广播 `provider:changed` 事件（action: "delete"），托盘额度子菜单会
+/// 自动移除该供应商的菜单项（快照表也会通过外键级联清理）。
 #[tauri::command]
 pub async fn gateway_provider_delete(
+    app_handle: tauri::AppHandle,
     state: State<'_, AiGatewayServiceHandle>,
     id: String,
 ) -> IcodeResult<()> {
-    state.service().delete_provider(&id)
+    state.service().delete_provider(&id)?;
+    let _ = app_handle.emit(
+        "provider:changed",
+        ProviderChangedPayload { action: "delete", provider_id: id },
+    );
+    Ok(())
+}
+
+/// `provider:changed` 事件 payload
+///
+/// 字段使用 camelCase 序列化，与前端 `FrontendEvents.PROVIDER_CHANGED` 类型对齐。
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProviderChangedPayload {
+    /// 变更类型：`create` / `update` / `delete`
+    action: &'static str,
+    /// 供应商 ID
+    provider_id: String,
+}
+
+/// 解析供应商代理 JSON 并返回脱敏后的日志描述
+///
+/// 用于 `gateway_provider_create/update` 在 input 被消费前提取代理信息，
+/// 持久化成功后写入业务 logger。解析失败时返回 None（不打日志，避免噪音）。
+///
+/// 脱敏由 `ProxyConfig::to_log_string` 完成，隐藏 URL 中的 `user:pass@` 部分。
+fn parse_proxy_log(json: &str) -> Option<String> {
+    serde_json::from_str::<crate::modules::shared::ProxyConfig>(json)
+        .ok()
+        .map(|p| p.to_log_string())
 }
 
 /// 导出供应商配置
@@ -354,6 +430,201 @@ pub async fn gateway_auth_key_list(
     state: State<'_, AiGatewayServiceHandle>,
 ) -> IcodeResult<Vec<GatewayAuthKey>> {
     state.service().list_gateway_auth_keys()
+}
+
+// ===== 供应商网络检测命令 =====
+
+use std::time::{Duration, Instant};
+
+/// 单个供应商网络检测结果
+///
+/// 返回给前端展示，同时写入自研 logger（source=system）。
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PingProviderResult {
+    pub provider_id: String,
+    pub display_name: String,
+    pub slug: String,
+    pub base_url: String,
+    pub success: bool,
+    pub status_code: Option<u16>,
+    pub latency_ms: Option<u64>,
+    pub error: Option<String>,
+}
+
+/// 网络检测完成事件 payload
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PingDonePayload {
+    pub mode: String,
+    pub total: usize,
+    pub success: usize,
+    pub failed: usize,
+}
+
+/// 检测所有供应商 URL 的网络连通性
+///
+/// 支持两种模式：
+/// - `direct`：直连网络检测（强制 `no_proxy`，忽略所有代理设置）
+/// - `proxy`：代理网络检测（按全局代理设置发起请求；若全局代理未启用则回退到直连）
+///
+/// 事件推送流程：
+/// 1. 前端调用后，立即返回供应商数量（前端据此打开弹窗并展示待检测列表）
+/// 2. 每个供应商检测完成后，通过 `provider:ping-result` 事件推送单条结果
+/// 3. 全部完成后，通过 `provider:ping-done` 事件推送汇总
+///
+/// 同时每个结果写入自研 logger（source=system），
+/// 便于在「日志」页面按 system 来源筛选查看。
+/// 任何 HTTP 响应（含 4xx/5xx）均视为网络可达；仅网络错误（超时、DNS 失败、连接拒绝）视为失败。
+#[tauri::command]
+pub async fn gateway_provider_ping(
+    app_handle: tauri::AppHandle,
+    state: State<'_, AiGatewayServiceHandle>,
+    mode: String,
+) -> IcodeResult<usize> {
+    use crate::modules::logger::Log;
+
+    let providers = state.service().list_providers()?;
+    let total = providers.len();
+
+    let mode_label = match mode.as_str() {
+        "direct" => "直连",
+        "proxy" => "代理",
+        other => return Err(IcodeError::validation(format!("不支持的网络检测模式: {}", other))),
+    };
+
+    Log::info(&format!(
+        "[网络检测] 开始检测 {} 个供应商连通性 | 模式: {}",
+        total, mode_label
+    ));
+
+    // 逐个检测并逐条推送事件 + 写 logger
+    let mut success = 0usize;
+    let mut failed = 0usize;
+    for provider in &providers {
+        let result = ping_single_provider(provider, &mode).await;
+
+        // 写入业务 logger（system 来源）
+        let status = if result.success {
+            format!("✓ ({}ms)", result.latency_ms.unwrap_or(0))
+        } else {
+            "✗".to_string()
+        };
+        let code = result
+            .status_code
+            .map(|c| format!(" [{}]", c))
+            .unwrap_or_default();
+        let err = result
+            .error
+            .as_deref()
+            .map(|e| format!(" | err={}", e))
+            .unwrap_or_default();
+        let msg = format!(
+            "[网络检测-{}] {} ({}) | url={} | {}{}{}",
+            mode_label, result.display_name, result.slug, result.base_url, status, code, err
+        );
+        if result.success {
+            Log::info(&msg);
+            success += 1;
+        } else {
+            Log::warn(&msg);
+            failed += 1;
+        }
+
+        // 推送单条结果事件
+        let _ = app_handle.emit("provider:ping-result", &result);
+    }
+
+    Log::info(&format!(
+        "[网络检测] 完成 | 模式: {} | 成功: {} | 失败: {}",
+        mode_label, success, failed
+    ));
+
+    // 推送完成汇总事件
+    let _ = app_handle.emit(
+        "provider:ping-done",
+        PingDonePayload {
+            mode: mode.clone(),
+            total,
+            success,
+            failed,
+        },
+    );
+
+    Ok(total)
+}
+
+/// 检测单个供应商 URL 连通性
+///
+/// 先尝试 HEAD 请求；若返回网络错误（非 HTTP 响应），降级为 GET 重试一次。
+/// 任意 HTTP 响应（含 405/404/401）均视为网络可达。
+async fn ping_single_provider(provider: &super::types::Provider, mode: &str) -> PingProviderResult {
+    use crate::modules::shared::apply_global_proxy;
+
+    let base = provider.base_url.trim();
+    let make_result = |success: bool,
+                       status_code: Option<u16>,
+                       latency_ms: Option<u64>,
+                       error: Option<String>| PingProviderResult {
+        provider_id: provider.id.clone(),
+        display_name: provider.display_name.clone(),
+        slug: provider.slug.clone(),
+        base_url: provider.base_url.clone(),
+        success,
+        status_code,
+        latency_ms,
+        error,
+    };
+
+    if base.is_empty() {
+        return make_result(false, None, None, Some("baseUrl 为空".to_string()));
+    }
+
+    // 构造 HTTP 客户端：direct 强制直连；proxy 按全局代理设置
+    let mut builder = reqwest::Client::builder()
+        .user_agent(concat!("i-code-gateway/", env!("CARGO_PKG_VERSION")))
+        .connect_timeout(Duration::from_secs(5))
+        .timeout(Duration::from_secs(10))
+        .redirect(reqwest::redirect::Policy::none());
+
+    match mode {
+        "direct" => {
+            builder = builder.no_proxy();
+        }
+        "proxy" => {
+            builder = apply_global_proxy(builder);
+        }
+        _ => {
+            builder = builder.no_proxy();
+        }
+    }
+
+    let client = match builder.build() {
+        Ok(c) => c,
+        Err(e) => {
+            return make_result(
+                false,
+                None,
+                None,
+                Some(format!("构造 HTTP 客户端失败: {}", e)),
+            );
+        }
+    };
+
+    let start = Instant::now();
+    // 先尝试 HEAD；网络错误时降级 GET 重试
+    let resp_result = client.head(base).send().await;
+    let resp_result = if resp_result.is_err() {
+        client.get(base).send().await
+    } else {
+        resp_result
+    };
+    let latency_ms = start.elapsed().as_millis() as u64;
+
+    match resp_result {
+        Ok(resp) => make_result(true, Some(resp.status().as_u16()), Some(latency_ms), None),
+        Err(e) => make_result(false, None, Some(latency_ms), Some(format!("{}", e))),
+    }
 }
 
 // ===== OAuth 授权命令 =====

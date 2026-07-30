@@ -37,6 +37,9 @@ pub async fn settings_get(
 /// `settings:changed` 事件，方便标题栏等跨组件监听方实时刷新。
 /// 若更新了 `log_level`，会实时同步到 `AtomicLevelFilter` 的全局过滤级别。
 ///
+/// 业务日志：若更新了 `global_proxy` 或 `global_proxy_enabled`，
+/// 写入 system 级业务 logger（代理 URL 脱敏，不含认证信息）。
+///
 /// # 参数
 /// - `input`：部分更新输入，字段全部可选
 #[tauri::command]
@@ -46,7 +49,25 @@ pub async fn settings_update(
     input: UpdateSettingsInput,
 ) -> IcodeResult<AppSettingsDto> {
     enter_operation_async("settings_update", async {
+        // 提取代理变更信息用于业务日志（在 input 被消费前）
+        // global_proxy 是强类型 ProxyConfig，to_log_string 已脱敏
+        let proxy_log = input.global_proxy.as_ref().map(|p| p.to_log_string());
+        let proxy_enabled_log = input.global_proxy_enabled;
+
         let dto = state.service().update_settings(input)?;
+
+        // 业务日志：全局代理配置变更（脱敏，不含认证信息）
+        if let Some(log_str) = proxy_log {
+            let msg = format!("全局代理配置已更新 | {}", log_str);
+            log::info!("{}", msg);
+            crate::modules::logger::Log::info(&msg);
+        }
+        if let Some(enabled) = proxy_enabled_log {
+            let msg = format!("全局代理开关已{}", if enabled { "开启" } else { "关闭" });
+            log::info!("{}", msg);
+            crate::modules::logger::Log::info(&msg);
+        }
+
         // 实时应用日志级别变更：通过 Arc<AtomicLevelFilter> 调整全局过滤级别
         if let Some(atomic_filter) = app_handle.try_state::<Arc<AtomicLevelFilter>>() {
             atomic_filter.set_level(dto.log_level.to_tracing_level());

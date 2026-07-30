@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useTranslation } from '@/modules/i18n/use-translation'
 import { useProviderList, useBuiltinProviders } from '@/hooks/use-provider-list'
 import { useBalanceSnapshots, refreshProviderBalance } from '@/hooks/use-balance-snapshots'
@@ -8,6 +8,7 @@ import {
   deleteProvider,
   exportProvider,
   importProvider,
+  pingProviders,
 } from '@/hooks/use-ai-gateway-mutation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -41,7 +42,8 @@ import {
 import { ProviderForm } from './provider-form'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
-import type { Provider, AuthConfig, BuiltinProvider } from '@/modules/ai-gateway/types'
+import { listen } from '@tauri-apps/api/event'
+import type { Provider, AuthConfig, BuiltinProvider, PingProviderResult, PingDonePayload } from '@/modules/ai-gateway/types'
 import type { IcodeError } from '@/core/errors'
 import { extractBalanceListDisplay } from '@/modules/balance/types'
 import type { BalanceMetric, BalanceSnapshot } from '@/modules/balance/types'
@@ -137,6 +139,13 @@ export function ProviderList() {
   const { snapshots, refetch: refetchBalance } = useBalanceSnapshots()
   const [refreshingId, setRefreshingId] = useState<string | null>(null)
 
+  // 网络检测状态
+  const [pinging, setPinging] = useState(false)
+  const [pingResultOpen, setPingResultOpen] = useState(false)
+  const [pingMode, setPingMode] = useState<'direct' | 'proxy'>('direct')
+  const [pingDone, setPingDone] = useState<PingDonePayload | null>(null)
+  const [pingResults, setPingResults] = useState<PingProviderResult[]>([])
+
   // 按名称搜索过滤
   const filteredProviders = useMemo(() => {
     if (!searchQuery.trim()) return providers
@@ -213,6 +222,42 @@ export function ProviderList() {
       setRefreshingId(null)
     }
   }
+
+  // 网络检测：立即弹窗，逐条接收事件推送结果
+  const handlePingProviders = async (mode: 'direct' | 'proxy') => {
+    if (providers.length === 0) {
+      toast.info(t('aiGateway.providerList.networkCheckEmpty'))
+      return
+    }
+    // 重置状态并立即打开弹窗
+    setPingMode(mode)
+    setPingResults([])
+    setPingDone(null)
+    setPinging(true)
+    setPingResultOpen(true)
+    try {
+      await pingProviders(mode)
+    } catch (err) {
+      toast.error(getErrorMessage(err))
+      setPinging(false)
+    }
+    // pinging 会在收到 ping-done 事件后设为 false
+  }
+
+  // 监听后端逐条推送的检测事件
+  useEffect(() => {
+    const unlistenResult = listen<PingProviderResult>('provider:ping-result', (event) => {
+      setPingResults((prev) => [...prev, event.payload])
+    })
+    const unlistenDone = listen<PingDonePayload>('provider:ping-done', (event) => {
+      setPingDone(event.payload)
+      setPinging(false)
+    })
+    return () => {
+      void unlistenResult.then((fn) => fn())
+      void unlistenDone.then((fn) => fn())
+    }
+  }, [])
 
   const handleExport = async (provider: Provider, includeSecrets: boolean) => {
     try {
@@ -355,6 +400,30 @@ export function ProviderList() {
                 <i className="fa-solid fa-file-import mr-1.5" />
                 {t('aiGateway.providerList.import')}
               </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-7 text-xs" disabled={pinging}>
+                    <i className={cn('fa-solid fa-heart-pulse mr-1.5', pinging && 'animate-pulse')} />
+                    {t('aiGateway.providerList.networkCheck')}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-44">
+                  <DropdownMenuItem
+                    disabled={pinging}
+                    onClick={() => handlePingProviders('direct')}
+                  >
+                    <i className="fa-solid fa-wifi size-4" />
+                    <span className="text-xs">{t('aiGateway.providerList.networkCheckDirect')}</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={pinging}
+                    onClick={() => handlePingProviders('proxy')}
+                  >
+                    <i className="fa-solid fa-network-wired size-4" />
+                    <span className="text-xs">{t('aiGateway.providerList.networkCheckProxy')}</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button size="sm" className="h-7 text-xs" onClick={openCreate}>
                 <i className={cn('fa-solid fa-plus', 'mr-1.5')} />
                 {t('aiGateway.addProvider')}
@@ -619,6 +688,16 @@ export function ProviderList() {
         onOpenChange={setDetailOpen}
         provider={detailProvider}
         snapshot={detailProvider ? snapshots.get(detailProvider.id)?.snapshot : undefined}
+      />
+
+      {/* 网络检测结果对话框 */}
+      <PingResultDialog
+        open={pingResultOpen}
+        onOpenChange={setPingResultOpen}
+        mode={pingMode}
+        results={pingResults}
+        done={pingDone}
+        loading={pinging}
       />
     </>
   )
@@ -901,6 +980,108 @@ function BalanceDetailDialog({
             </Table>
           </ScrollArea>
         )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+interface PingResultDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  mode: 'direct' | 'proxy'
+  results: PingProviderResult[]
+  done: PingDonePayload | null
+  loading: boolean
+}
+
+/**
+ * 网络检测结果对话框
+ *
+ * 逐条接收后端推送的检测事件，实时展示在紧凑表格中。
+ * 检测进行中时表格逐行追加，标题栏显示进度。
+ */
+function PingResultDialog({
+  open,
+  onOpenChange,
+  mode,
+  results,
+  done,
+  loading,
+}: PingResultDialogProps) {
+  const { t } = useTranslation()
+
+  const modeLabel = mode === 'direct'
+    ? t('aiGateway.providerList.networkCheckDirect')
+    : t('aiGateway.providerList.networkCheckProxy')
+
+  const summaryText = done
+    ? t('aiGateway.providerList.pingResultSummary', { success: done.success, failed: done.failed, total: done.total })
+    : loading
+      ? t('aiGateway.providerList.pingInProgress', { done: results.length })
+      : ''
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="text-base">
+            {t('aiGateway.providerList.pingResultTitle')}
+          </DialogTitle>
+          <DialogDescription className="text-xs">
+            {modeLabel} — {summaryText}
+          </DialogDescription>
+        </DialogHeader>
+        <ScrollArea className="flex-1 min-h-0 -mx-6 px-6">
+          <Table density="compact" overflow={false}>
+            <TableHeader className="sticky top-0 z-10 bg-muted/50">
+              <TableRow>
+                <TableHead className="text-xs">供应商</TableHead>
+                <TableHead className="text-xs">URL</TableHead>
+                <TableHead className="text-xs w-16">状态</TableHead>
+                <TableHead className="text-xs w-20">延迟</TableHead>
+                <TableHead className="text-xs w-14">状态码</TableHead>
+                <TableHead className="text-xs">错误</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {results.map((r) => (
+                <TableRow key={r.providerId}>
+                  <TableCell className="text-xs font-medium">
+                    {r.displayName}
+                    <span className="text-muted-foreground ml-1 text-[10px]">({r.slug})</span>
+                  </TableCell>
+                  <TableCell className="text-xs font-mono text-muted-foreground max-w-[200px] truncate">
+                    {r.baseUrl}
+                  </TableCell>
+                  <TableCell className="text-xs">
+                    {r.success ? (
+                      <span className="text-emerald-600"><i className="fa-solid fa-circle-check mr-1" />{t('aiGateway.providerList.pingOk')}</span>
+                    ) : (
+                      <span className="text-destructive"><i className="fa-solid fa-circle-xmark mr-1" />{t('aiGateway.providerList.pingFail')}</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-xs tabular-nums">
+                    {r.latencyMs != null ? `${r.latencyMs}ms` : '-'}
+                  </TableCell>
+                  <TableCell className="text-xs tabular-nums">
+                    {r.statusCode ?? '-'}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground max-w-[180px] truncate">
+                    {r.error || '-'}
+                  </TableCell>
+                </TableRow>
+              ))}
+              {loading && (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-xs text-muted-foreground py-3">
+                    <i className="fa-solid fa-circle-notch fa-spin mr-1.5" />
+                    {t('aiGateway.providerList.pingInProgress', { done: results.length })}
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   )

@@ -183,7 +183,10 @@ export function VirtualProviderList() {
         id: route.id,
         parentId: route.virtualModelId,
         provider: realProvider?.displayName ?? route.targetProviderId,
-        model: route.targetModelId,
+        // 展示模型 ID 全称：{provider_slug}/{model_id}
+        model: realProvider
+          ? `${realProvider.slug}/${route.targetModelId}`
+          : route.targetModelId,
         priority: Number(route.priority),
         enabled: route.enabled,
         healthy: route.isHealthy,

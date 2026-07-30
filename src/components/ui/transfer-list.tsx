@@ -16,8 +16,10 @@ export interface TransferListItem {
   id: string
   /** 展示文本 */
   label: string
-  /** 辅助描述 */
+  /** 辅助描述（第一行小字） */
   description?: string
+  /** 第二行辅助小字（如供应商名称） */
+  secondary?: string
   /** 是否禁用 */
   disabled?: boolean
   /** 分组键（可用于排序或视觉分组） */
@@ -173,6 +175,11 @@ export function TransferList({
             {item.description && (
               <div className="text-muted-foreground truncate text-[10px]">
                 {item.description}
+              </div>
+            )}
+            {item.secondary && (
+              <div className="text-muted-foreground/70 truncate text-[10px]">
+                {item.secondary}
               </div>
             )}
           </div>

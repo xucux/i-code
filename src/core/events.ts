@@ -76,6 +76,8 @@ export const BACKEND_EVENTS = {
   CALL_RECORD_UPDATED: 'call-record:updated',
   /** 今日 Tokens 消耗数据，由托盘后台线程每 10 秒推送 */
   TODAY_TOKENS: 'today-tokens',
+  /** 供应商增删改完成（payload: `{ action, providerId }`），托盘与列表自动刷新 */
+  PROVIDER_CHANGED: 'provider:changed',
   /** 余额快照刷新完成 */
   BALANCE_SNAPSHOT_UPDATED: 'balance:snapshot-updated',
   /** 启动期版本更新检查完成（无论是否有更新都推送），前端据此控制标题栏更新图标 */

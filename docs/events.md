@@ -37,7 +37,8 @@
 | `WORKSPACE_APPLIED` | `workspace:applied` | [`workspace/commands.rs`](file:///d:/ProjectApp/i-code/src-tauri/src/modules/workspace/commands.rs#L242-L250) `workspace_apply` | `ApplyWorkspaceResult` | 暂无 | 工作区配置已写入 CLI 配置文件 |
 | `MEMORY_USAGE` | `memory-usage` | [`main.rs`](file:///d:/ProjectApp/i-code/src-tauri/src/main.rs#L461-L473) 托盘定时线程 | `number`（KB） | [`modules/system/use-memory-usage.ts`](file:///d:/ProjectApp/i-code/src/modules/system/use-memory-usage.ts#L43-L48) | 每 5 秒广播一次进程物理内存 |
 | `CALL_RECORD_UPDATED` | `call-record:updated` | [`gateway_runtime/upstream.rs`](file:///d:/ProjectApp/i-code/src-tauri/src/modules/gateway_runtime/upstream.rs#L685-L686) `finish_call_log_full` | `ModelCallLog` | 暂无 | 网关请求完成、调用记录落库后广播 |
-| `BALANCE_SNAPSHOT_UPDATED` | `balance:snapshot-updated` | [`balance/commands.rs`](file:///d:/ProjectApp/i-code/src-tauri/src/modules/balance/commands.rs#L54-L56) `balance_refresh` | `BalanceRefreshResult` | 暂无 | 余额查询成功后广播快照 |
+| `PROVIDER_CHANGED` | `provider:changed` | [`ai_gateway/commands.rs`](file:///d:/ProjectApp/i-code/src-tauri/src/modules/ai_gateway/commands.rs#L72-L122) `gateway_provider_create` / `update` / `delete` | `{ action: 'create'\|'update'\|'delete', providerId: string }` | 暂无（托盘已监听） | 供应商增删改后广播，托盘额度子菜单据此动态增删菜单项 |
+| `BALANCE_SNAPSHOT_UPDATED` | `balance:snapshot-updated` | [`ai_gateway/commands.rs`](file:///d:/ProjectApp/i-code/src-tauri/src/modules/ai_gateway/commands.rs#L648) `balance_refresh_provider` / [`balance/commands.rs`](file:///d:/ProjectApp/i-code/src-tauri/src/modules/balance/commands.rs#L68) `balance_refresh` | `BalanceRefreshResult` | 暂无（托盘已监听） | 余额查询成功并持久化快照后广播；托盘额度子菜单据此动态新增菜单项 |
 | `SETTINGS_CHANGED` | `settings:changed` | [`settings/commands.rs`](file:///d:/ProjectApp/i-code/src-tauri/src/modules/settings/commands.rs#L42-L43) `settings_update` | `TitleBarInfoConfig` | [`components/ui/title-bar-info-container.tsx`](file:///d:/ProjectApp/i-code/src/components/ui/title-bar-info-container.tsx#L49-L55) | 设置更新后广播最新标题栏信息配置 |
 | `CHAT_STREAM_CHUNK` | `chat:stream-chunk` | [`chat/service.rs`](file:///d:/ProjectApp/i-code/src-tauri/src/modules/chat/service.rs) SSE/HTTP 增量 | `ChatStreamChunkEvent` | [`hooks/use-chat.ts`](file:///d:/ProjectApp/i-code/src/hooks/use-chat.ts) `useChatSession` | 聊天助手正文/思考过程增量；详见 [`chat-module.md`](./chat-module.md) |
 | `CHAT_STREAM_DONE` | `chat:stream-done` | [`chat/service.rs`](file:///d:/ProjectApp/i-code/src-tauri/src/modules/chat/service.rs) 请求成功结束 | `ChatStreamDoneEvent` | [`hooks/use-chat.ts`](file:///d:/ProjectApp/i-code/src/hooks/use-chat.ts) | 聊天完成：content、thinking、usage |
@@ -47,7 +48,9 @@
 
 | 事件名 | 触发位置 | payload | 说明 |
 |--------|----------|---------|------|
-| `provider-changed` | [`main.rs`](file:///d:/ProjectApp/i-code/src-tauri/src/main.rs#L452-L455) 托盘菜单供应商切换 | `String`（菜单 ID，如 `provider:openai`） | 当前为占位逻辑，前端未监听 |
+| `provider-changed` | [`main.rs`](file:///d:/ProjectApp/i-code/src-tauri/src/main.rs) 托盘菜单"选择供应商"子菜单点击 | `String`（菜单 ID，如 `provider:openai`） | 当前为占位逻辑，前端未监听 |
+
+> 注意：`provider-changed`（连字符）是托盘菜单点击占位事件，与 §3 中 `provider:changed`（冒号，供应商数据变更）是**两个不同事件**，勿混淆。
 
 ## 4. 前端内部事件清单
 

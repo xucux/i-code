@@ -279,23 +279,114 @@ fn format_balance_summary(snapshot: &modules::balance::types::BalanceSnapshot) -
     }
 }
 
-/// 根据最新快照刷新托盘额度子菜单项文字
+/// 根据最新快照刷新托盘额度子菜单（动态增删 + 更新文字）
 ///
-/// 由定时线程与 `balance:snapshot-updated` 事件监听器共用，
-/// 确保前端手动刷新额度后托盘即时同步。
+/// 由定时线程、`balance:snapshot-updated` 事件监听器、`provider:changed` 事件监听器共用。
+///
+/// # 同步逻辑
+///
+/// 以最新快照列表 `rows` 为基准，与当前菜单项对比：
+/// 1. **移除**：当前菜单项对应的 `provider_id` 不在 `rows` 中 → `submenu.remove` 并从 `items` 中删除
+///    - 覆盖用户需求1：供应商关闭额度监控后，`list_balance_snapshots()` 过滤掉它，托盘自动移除
+/// 2. **新增**：`rows` 中存在但当前菜单项没有的 `provider_id` → 创建 `MenuItem` 并 `submenu.append`
+///    - 覆盖用户需求2：供应商新绑定额度并刷新后出现快照，托盘自动增加该项
+/// 3. **更新**：两者都存在的项 → `item.set_text` 刷新摘要文字
+/// 4. **占位项**：`rows` 为空时显示 "暂无额度数据"，非空时移除占位项
+///
+/// # 参数
+/// - `app`：用于创建新 `MenuItem`
+/// - `submenu`：额度子菜单，用于 `append` / `remove`
+/// - `items`：当前额度菜单项列表（`Arc<Mutex>` 共享，按 `provider_id` 索引）
+/// - `empty_item`：占位菜单项（`Arc<Mutex<Option>>>`，有数据时为 None）
+/// - `rows`：最新快照列表
 fn update_tray_balance_items(
-    items: &[MenuItem<tauri::Wry>],
+    app: &tauri::AppHandle,
+    submenu: &Submenu<tauri::Wry>,
+    items: &Arc<Mutex<Vec<MenuItem<tauri::Wry>>>>,
+    empty_item: &Arc<Mutex<Option<MenuItem<tauri::Wry>>>>,
     rows: &[modules::balance::repository::ProviderBalanceSnapshotRow],
 ) {
-    for item in items.iter() {
-        let item_id: String = item.id().as_ref().to_string();
-        if let Some(provider_id) = item_id.strip_prefix("balance:") {
-            if let Some(row) = rows.iter().find(|r| r.provider_id == provider_id) {
+    // 1. 移除不再存在的菜单项（当前有但快照中没有）
+    //    收集需要移除的 item id，然后从 submenu 和 items 中删除
+    let mut to_remove_ids: Vec<String> = Vec::new();
+    {
+        let lock = items.lock().expect("balance items mutex poisoned");
+        for item in lock.iter() {
+            let item_id: String = item.id().as_ref().to_string();
+            if let Some(provider_id) = item_id.strip_prefix("balance:") {
+                if !rows.iter().any(|r| r.provider_id == provider_id) {
+                    to_remove_ids.push(provider_id.to_string());
+                }
+            }
+        }
+    }
+
+    if !to_remove_ids.is_empty() {
+        let mut lock = items.lock().expect("balance items mutex poisoned");
+        // 从 submenu 移除并从 items 中删除
+        let mut keep = Vec::with_capacity(lock.len());
+        for item in lock.drain(..) {
+            let item_id: String = item.id().as_ref().to_string();
+            let should_remove = item_id
+                .strip_prefix("balance:")
+                .map(|pid| to_remove_ids.iter().any(|id| id == pid))
+                .unwrap_or(false);
+            if should_remove {
+                let _ = submenu.remove(&item);
+            } else {
+                keep.push(item);
+            }
+        }
+        *lock = keep;
+    }
+
+    // 2. 更新已存在项的文字 + 3. 新增缺失的菜单项
+    {
+        let mut lock = items.lock().expect("balance items mutex poisoned");
+        for row in rows {
+            let expected_id = format!("balance:{}", row.provider_id);
+            if let Some(item) = lock.iter().find(|i| i.id().as_ref() == expected_id) {
+                // 已存在：更新文字
                 let summary = format_balance_summary(&row.snapshot);
                 let _ = item.set_text(&format!("{}: {}", row.display_name, summary));
+            } else {
+                // 新增：创建 MenuItem 并 append 到 submenu
+                let summary = format_balance_summary(&row.snapshot);
+                let text = format!("{}: {}", row.display_name, summary);
+                match MenuItem::with_id(app, &expected_id, &text, false, None::<&str>) {
+                    Ok(new_item) => {
+                        let _ = submenu.append(&new_item);
+                        lock.push(new_item);
+                    }
+                    Err(e) => {
+                        log::warn!("创建托盘额度菜单项失败 (id={}): {}", expected_id, e);
+                    }
+                }
             }
-        } else if item_id == "balance-empty" {
-            let _ = item.set_text(if rows.is_empty() { "暂无额度数据" } else { "—" });
+        }
+    }
+
+    // 4. 处理占位项 "balance-empty"
+    {
+        let mut empty_lock = empty_item.lock().expect("balance empty mutex poisoned");
+        if rows.is_empty() {
+            // 显示占位项
+            if empty_lock.is_none() {
+                match MenuItem::with_id(app, "balance-empty", "暂无额度数据", false, None::<&str>) {
+                    Ok(item) => {
+                        let _ = submenu.append(&item);
+                        *empty_lock = Some(item);
+                    }
+                    Err(e) => {
+                        log::warn!("创建托盘额度占位项失败: {}", e);
+                    }
+                }
+            }
+        } else {
+            // 移除占位项
+            if let Some(item) = empty_lock.take() {
+                let _ = submenu.remove(&item);
+            }
         }
     }
 }
@@ -494,6 +585,7 @@ fn main() {
             modules::ai_gateway::commands::gateway_auth_key_update,
             modules::ai_gateway::commands::gateway_auth_key_delete,
             modules::ai_gateway::commands::gateway_auth_key_list,
+            modules::ai_gateway::commands::gateway_provider_ping,
             // ===== CLI Management 模块 =====
             modules::cli_management::commands::cli_profile_list,
             modules::cli_management::commands::cli_profile_ensure_defaults,
@@ -811,13 +903,16 @@ fn main() {
             let provider_submenu = Submenu::with_items(app, "选择供应商", true, &provider_refs)?;
 
             // 额度子菜单：展示每个已配置额度监控的供应商的额度摘要
-            // 菜单项创建后通过 Arc<Mutex> 持有引用，由定时线程刷新文字
+            // 菜单项与占位项分别持有引用，由定时线程与事件监听器通过
+            // `update_tray_balance_items` 动态增删 + 更新文字
             let balance_rows = modules::balance::repository::list_balance_snapshots().unwrap_or_default();
-            let balance_items: Vec<MenuItem<_>> = if balance_rows.is_empty() {
-                vec![MenuItem::with_id(app, "balance-empty", "暂无额度数据", false, None::<&str>)
-                    .expect("failed to create balance-empty menu item")]
+            // 初始创建：有数据时创建各项，无数据时创建占位项 "balance-empty"
+            let (initial_balance_items, initial_balance_empty): (Vec<MenuItem<_>>, Option<MenuItem<_>>) = if balance_rows.is_empty() {
+                let placeholder = MenuItem::with_id(app, "balance-empty", "暂无额度数据", false, None::<&str>)
+                    .expect("failed to create balance-empty menu item");
+                (Vec::new(), Some(placeholder))
             } else {
-                balance_rows
+                let items = balance_rows
                     .iter()
                     .map(|row| {
                         let summary = format_balance_summary(&row.snapshot);
@@ -826,15 +921,21 @@ fn main() {
                         MenuItem::with_id(app, &item_id, &text, false, None::<&str>)
                             .expect("failed to create balance menu item")
                     })
-                    .collect()
+                    .collect();
+                (items, None)
             };
-            let balance_refs: Vec<&dyn IsMenuItem<_>> = balance_items
+            // 组装 Submenu 引用：有数据项 + 占位项（若有）
+            let mut balance_refs: Vec<&dyn IsMenuItem<_>> = initial_balance_items
                 .iter()
                 .map(|item| item as &dyn IsMenuItem<_>)
                 .collect();
+            if let Some(ref empty) = initial_balance_empty {
+                balance_refs.push(empty as &dyn IsMenuItem<_>);
+            }
             let balance_submenu = Submenu::with_items(app, "额度", true, &balance_refs)?;
-            // 持有额度菜单项引用，供定时线程刷新文字（需可变：用 Arc<Mutex<Vec>>）
-            let balance_items_handle: Arc<Mutex<Vec<MenuItem<_>>>> = Arc::new(Mutex::new(balance_items));
+            // 持有额度菜单项与占位项引用，供定时线程与事件监听器动态增删
+            let balance_items_handle: Arc<Mutex<Vec<MenuItem<_>>>> = Arc::new(Mutex::new(initial_balance_items));
+            let balance_empty_handle: Arc<Mutex<Option<MenuItem<_>>>> = Arc::new(Mutex::new(initial_balance_empty));
 
             // ===== 新增托盘菜单项 =====
             // 今日 token 消耗（只读）
@@ -869,12 +970,16 @@ fn main() {
             let memory_i = MenuItem::with_id(app, "memory", "内存: —", false, None::<&str>)?;
             let memory_item = Arc::new(Mutex::new(Some(memory_i.clone())));
 
+            // 打开官网：跳转到项目 GitHub 仓库
+            let open_website_i = MenuItem::with_id(app, "open-website", "打开官网", true, None::<&str>)?;
+
             let separator2 = PredefinedMenuItem::separator(app)?;
 
             let menu = Menu::with_items(
                 app,
                 &[
                     &show_i,
+                    &open_website_i,
                     &provider_submenu,
                     &balance_submenu,
                     &separator2,
@@ -901,6 +1006,15 @@ fn main() {
                                 let _ = window.show();
                                 let _ = window.unminimize();
                                 let _ = window.set_focus();
+                            }
+                        }
+                        "open-website" => {
+                            // 在系统默认浏览器中打开项目官网
+                            if let Err(e) = tauri_plugin_opener::open_url(
+                                "https://github.com/xucux/i-code",
+                                None::<&str>,
+                            ) {
+                                log::error!("打开官网失败：{}", e);
                             }
                         }
                         "auto-start" => {
@@ -1024,12 +1138,39 @@ fn main() {
             });
 
             // 3) 监听 balance:snapshot-updated：手动刷新额度成功后即时刷新托盘额度子菜单
+            //    覆盖用户需求2：供应商新绑定额度并刷新后出现快照，托盘自动增加该项
             let balance_items_handle_for_snapshot = balance_items_handle.clone();
+            let balance_empty_handle_for_snapshot = balance_empty_handle.clone();
+            let balance_submenu_for_snapshot = balance_submenu.clone();
+            let app_handle_for_snapshot = app.handle().clone();
             app.listen("balance:snapshot-updated", move |_| {
                 if let Ok(rows) = modules::balance::repository::list_balance_snapshots() {
-                    if let Ok(lock) = balance_items_handle_for_snapshot.lock() {
-                        update_tray_balance_items(&lock, &rows);
-                    }
+                    update_tray_balance_items(
+                        &app_handle_for_snapshot,
+                        &balance_submenu_for_snapshot,
+                        &balance_items_handle_for_snapshot,
+                        &balance_empty_handle_for_snapshot,
+                        &rows,
+                    );
+                }
+            });
+
+            // 4) 监听 provider:changed：供应商增删改后刷新托盘额度子菜单
+            //    覆盖用户需求1：供应商关闭额度更新设置后，list_balance_snapshots() 过滤掉它，
+            //    托盘自动移除对应菜单项；新建供应商并配置额度监控后，托盘也会同步
+            let balance_items_handle_for_provider = balance_items_handle.clone();
+            let balance_empty_handle_for_provider = balance_empty_handle.clone();
+            let balance_submenu_for_provider = balance_submenu.clone();
+            let app_handle_for_provider = app.handle().clone();
+            app.listen("provider:changed", move |_| {
+                if let Ok(rows) = modules::balance::repository::list_balance_snapshots() {
+                    update_tray_balance_items(
+                        &app_handle_for_provider,
+                        &balance_submenu_for_provider,
+                        &balance_items_handle_for_provider,
+                        &balance_empty_handle_for_provider,
+                        &rows,
+                    );
                 }
             });
 
@@ -1064,10 +1205,13 @@ fn main() {
 
             // 定时刷新托盘内存与今日 Tokens 显示（每 10 秒）并向前端广播事件
             // 同时刷新网关菜单文字作为兜底（事件监听已为主渠道）
-            // 同时刷新额度子菜单文字（从已持久化的快照读取，不发起网络请求）
+            // 同时刷新额度子菜单（从已持久化的快照读取，不发起网络请求）
             let app_handle = app.handle().clone();
             let gateway_toggle_item_for_timer = gateway_toggle_item.clone();
             let balance_items_handle_for_timer = balance_items_handle.clone();
+            let balance_empty_handle_for_timer = balance_empty_handle.clone();
+            let balance_submenu_for_timer = balance_submenu.clone();
+            let app_handle_for_timer_balance = app.handle().clone();
             std::thread::spawn(move || loop {
                 std::thread::sleep(std::time::Duration::from_secs(10));
                 // 内存
@@ -1100,12 +1244,17 @@ fn main() {
                     }
                 }
 
-                // 额度子菜单文字刷新：从已持久化的快照读取最新额度摘要
-                // 注意：此处仅刷新展示文字，不发起网络请求；网络刷新由前端触发 balance_refresh_provider
+                // 额度子菜单兜底刷新：从已持久化的快照读取最新额度摘要
+                // 注意：此处仅刷新展示文字与结构，不发起网络请求；
+                //       网络刷新由前端触发 balance_refresh_provider，事件驱动为主渠道
                 if let Ok(rows) = modules::balance::repository::list_balance_snapshots() {
-                    if let Ok(lock) = balance_items_handle_for_timer.lock() {
-                        update_tray_balance_items(&lock, &rows);
-                    }
+                    update_tray_balance_items(
+                        &app_handle_for_timer_balance,
+                        &balance_submenu_for_timer,
+                        &balance_items_handle_for_timer,
+                        &balance_empty_handle_for_timer,
+                        &rows,
+                    );
                 }
             });
 

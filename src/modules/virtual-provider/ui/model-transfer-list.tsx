@@ -45,10 +45,6 @@ export interface ModelTransferListProps {
    * 若提供则优先使用该值；否则从 `routes` 派生（适用于即时提交场景）。
    */
   selectedIds?: string[]
-  /** 已选模型可编辑属性变化回调 */
-  onDetailChange?: (details: SelectedModelDetail[]) => void
-  /** 已选模型可编辑属性（受控） */
-  details?: SelectedModelDetail[]
   /** 自定义类名 */
   className?: string
 }
@@ -66,8 +62,6 @@ export function ModelTransferList({
   routes,
   onChange,
   selectedIds: controlledSelectedIds,
-  onDetailChange,
-  details: controlledDetails,
   className,
 }: ModelTransferListProps) {
   const { t } = useTranslation('virtualProvider')
@@ -96,8 +90,11 @@ export function ModelTransferList({
       if (!provider) continue
       result.push({
         id: `${provider.id}/${model.modelId}`,
-        label: model.displayName || model.modelId,
-        description: provider.displayName,
+        // 主文本：模型 ID；小字行：供应商名称 · 模型名称
+        label: model.modelId,
+        description: model.displayName
+          ? `${provider.displayName} · ${model.displayName}`
+          : provider.displayName,
         group: provider.displayName,
       })
     }
@@ -119,34 +116,6 @@ export function ModelTransferList({
     }
     return result
   }, [routes, providerById, controlledSelectedIds])
-
-  // 已选模型属性（受控/非受控）
-  const details: SelectedModelDetail[] = React.useMemo(() => {
-    if (controlledDetails) {
-      return controlledDetails
-    }
-    // 从 routes 派生默认值
-    return selectedIds.map((key, index) => {
-      // 查找匹配路由
-      const route = routes.find((r) => {
-        const provider = providerById.get(r.targetProviderId)
-        return provider && `${provider.id}/${r.targetModelId}` === key
-      })
-      return {
-        key,
-        priority: route ? Number(route.priority) : index,
-        isHealthy: route ? route.isHealthy : true,
-        maxRetries: route ? Number(route.maxRetries) : 3,
-        retryIntervalMs: route ? Number(route.retryIntervalMs) : 1000,
-      }
-    })
-  }, [controlledDetails, selectedIds, routes, providerById])
-
-  const handleDetailChange = (idx: number, field: keyof SelectedModelDetail, value: number | boolean) => {
-    const newDetails = [...details]
-    newDetails[idx] = { ...newDetails[idx], [field]: value }
-    onDetailChange?.(newDetails)
-  }
 
   return (
     <div className={className}>
@@ -175,76 +144,134 @@ export function ModelTransferList({
         rightSearchPlaceholder={t('searchSelectedPlaceholder')}
         listHeight="h-48"
       />
-      {/* 已选模型属性编辑区 */}
-      {selectedIds.length > 0 && (
-        <div className="mt-3">
-          <span className="text-xs font-medium">{t('routeSettings')}</span>
-          <div className="mt-1.5 space-y-1.5">
-            {details.map((detail, idx) => {
-              const [pid, mid] = detail.key.split('/')
-              const provider = providerById.get(pid)
-              const model = providerModels.find(
-                (m) => m.providerSlug === provider?.slug && m.modelId === mid
-              )
-              const label = model?.displayName || mid
-              const providerLabel = provider?.displayName || pid
+    </div>
+  )
+}
 
-              return (
-                <div
-                  key={detail.key}
-                  className="flex items-center gap-2 rounded-md border px-2 py-1.5"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-xs font-medium">{label}</div>
-                    <div className="text-muted-foreground truncate text-[10px]">{providerLabel}</div>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Label className="text-[10px]">{t('priority')}</Label>
-                    <Input
-                      type="number"
-                      value={detail.priority}
-                      onChange={(e) => handleDetailChange(idx, 'priority', Number(e.target.value))}
-                      className="h-6 w-14 text-[10px]"
-                      min={0}
-                    />
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Switch
-                      checked={detail.isHealthy}
-                      onCheckedChange={(v) => handleDetailChange(idx, 'isHealthy', v)}
-                      className="scale-75"
-                    />
-                    <Label className="text-[10px]">
-                      {detail.isHealthy ? t('healthy') : t('unhealthy')}
-                    </Label>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Label className="text-[10px]">{t('maxRetries')}</Label>
-                    <Input
-                      type="number"
-                      value={detail.maxRetries}
-                      onChange={(e) => handleDetailChange(idx, 'maxRetries', Number(e.target.value))}
-                      className="h-6 w-14 text-[10px]"
-                      min={0}
-                    />
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Label className="text-[10px]">{t('retryInterval')}</Label>
-                    <Input
-                      type="number"
-                      value={detail.retryIntervalMs}
-                      onChange={(e) => handleDetailChange(idx, 'retryIntervalMs', Number(e.target.value))}
-                      className="h-6 w-20 text-[10px]"
-                      min={0}
-                    />
-                    <span className="text-muted-foreground text-[10px]">ms</span>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+/**
+ * 路由属性设置列表（独立组件）
+ *
+ * 展示已选模型的优先级、健康状态、重试次数、重试间隔等可编辑属性。
+ * 从 ModelTransferList 拆出，便于在 Tab 布局中独立渲染与滚动。
+ */
+export interface RouteSettingsListProps {
+  /** 已选模型可编辑属性（受控） */
+  details: SelectedModelDetail[]
+  /** 属性变化回调 */
+  onDetailChange: (details: SelectedModelDetail[]) => void
+  /** 所有对外暴露的真实供应商模型（用于显示名称映射） */
+  providerModels: ExposedModel[]
+  /** 真实供应商列表 */
+  realProviders: Provider[]
+  /** 自定义类名 */
+  className?: string
+}
+
+export function RouteSettingsList({
+  details,
+  onDetailChange,
+  providerModels,
+  realProviders,
+  className,
+}: RouteSettingsListProps) {
+  const { t } = useTranslation('virtualProvider')
+
+  const providerById = React.useMemo(() => {
+    const map = new Map<string, Provider>()
+    for (const provider of realProviders) {
+      map.set(provider.id, provider)
+    }
+    return map
+  }, [realProviders])
+
+  const handleDetailChange = (idx: number, field: keyof SelectedModelDetail, value: number | boolean) => {
+    const newDetails = [...details]
+    newDetails[idx] = { ...newDetails[idx], [field]: value }
+    onDetailChange(newDetails)
+  }
+
+  if (details.length === 0) {
+    return (
+      <div className={className}>
+        <div className="text-muted-foreground py-8 text-center text-xs">
+          {t('noModels')}
         </div>
-      )}
+      </div>
+    )
+  }
+
+  return (
+    <div className={className}>
+      <div className="space-y-1.5">
+        {details.map((detail, idx) => {
+          // key 格式为 `{providerId}/{modelId}`，modelId 可能含 '/'，用 indexOf 拆分
+          const slashIdx = detail.key.indexOf('/')
+          const pid = slashIdx >= 0 ? detail.key.slice(0, slashIdx) : detail.key
+          const mid = slashIdx >= 0 ? detail.key.slice(slashIdx + 1) : ''
+          const provider = providerById.get(pid)
+          const model = providerModels.find(
+            (m) => m.providerSlug === provider?.slug && m.modelId === mid
+          )
+          // 主文本：模型 ID；小字行：供应商名称 · 模型名称
+          const label = mid
+          const subLabel = model?.displayName
+            ? `${provider?.displayName || pid} · ${model.displayName}`
+            : (provider?.displayName || pid)
+
+          return (
+            <div
+              key={detail.key}
+              className="flex items-center gap-2 rounded-md border px-2 py-1.5"
+            >
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-xs font-medium">{label}</div>
+                <div className="text-muted-foreground truncate text-[10px]">{subLabel}</div>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Label className="text-[10px]">{t('priority')}</Label>
+                <Input
+                  type="number"
+                  value={detail.priority}
+                  onChange={(e) => handleDetailChange(idx, 'priority', Number(e.target.value))}
+                  className="h-6 w-14 text-[10px]"
+                  min={0}
+                />
+              </div>
+              <div className="flex items-center gap-1">
+                <Switch
+                  checked={detail.isHealthy}
+                  onCheckedChange={(v) => handleDetailChange(idx, 'isHealthy', v)}
+                  className="scale-75"
+                />
+                <Label className="text-[10px]">
+                  {detail.isHealthy ? t('healthy') : t('unhealthy')}
+                </Label>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Label className="text-[10px]">{t('maxRetries')}</Label>
+                <Input
+                  type="number"
+                  value={detail.maxRetries}
+                  onChange={(e) => handleDetailChange(idx, 'maxRetries', Number(e.target.value))}
+                  className="h-6 w-14 text-[10px]"
+                  min={0}
+                />
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Label className="text-[10px]">{t('retryInterval')}</Label>
+                <Input
+                  type="number"
+                  value={detail.retryIntervalMs}
+                  onChange={(e) => handleDetailChange(idx, 'retryIntervalMs', Number(e.target.value))}
+                  className="h-6 w-20 text-[10px]"
+                  min={0}
+                />
+                <span className="text-muted-foreground text-[10px]">ms</span>
+              </div>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

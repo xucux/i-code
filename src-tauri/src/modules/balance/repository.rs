@@ -85,7 +85,14 @@ pub fn get_balance_snapshot(provider_id: &str) -> IcodeResult<Option<BalanceSnap
 
 /// 列出所有供应商的额度快照（关联 providers 表获取展示信息）
 ///
-/// 仅返回已配置 `balance_provider_json` 且存在快照记录的供应商。
+/// 仅返回**已启用额度监控**（`balance_provider_json` 非空且 `method != "none"`）
+/// 且存在快照记录的供应商。
+///
+/// 过滤规则：
+/// - `balance_provider_json` 为 None：供应商未配置额度监控，跳过
+/// - `method == "none"`：供应商明确关闭额度监控，跳过（即使有历史快照也不返回）
+///
+/// 这样可保证：供应商关闭额度监控设置后，托盘与前端列表都立即不再展示其额度信息。
 pub fn list_balance_snapshots() -> IcodeResult<Vec<ProviderBalanceSnapshotRow>> {
     let conn = get_conn()?;
     let mut stmt = conn.prepare(
@@ -109,6 +116,19 @@ pub fn list_balance_snapshots() -> IcodeResult<Vec<ProviderBalanceSnapshotRow>> 
     for row in rows {
         let (provider_id, display_name, slug, balance_provider_json, snapshot_json, updated_at) = row?;
 
+        // 从 balance_provider_json 提取 method 字段
+        // 若 json 为空或解析失败，balance_method 为 None
+        let balance_method: Option<String> = balance_provider_json
+            .as_deref()
+            .and_then(|json| serde_json::from_str::<serde_json::Value>(json).ok())
+            .and_then(|v| v.get("method").and_then(|m| m.as_str()).map(String::from));
+
+        // 过滤：未配置额度监控（balance_provider_json 为 None）或 method=none 的供应商
+        // 这是用户需求1的核心实现：关闭额度更新设置后，托盘与列表都不再展示
+        if balance_provider_json.is_none() || balance_method.as_deref() == Some("none") {
+            continue;
+        }
+
         // 解析快照 JSON
         let snapshot: BalanceSnapshot = match serde_json::from_str(&snapshot_json) {
             Ok(s) => s,
@@ -117,12 +137,6 @@ pub fn list_balance_snapshots() -> IcodeResult<Vec<ProviderBalanceSnapshotRow>> 
                 continue;
             }
         };
-
-        // 从 balance_provider_json 提取 method 字段
-        let balance_method = balance_provider_json
-            .as_deref()
-            .and_then(|json| serde_json::from_str::<serde_json::Value>(json).ok())
-            .and_then(|v| v.get("method").and_then(|m| m.as_str()).map(String::from));
 
         result.push(ProviderBalanceSnapshotRow {
             provider_id,

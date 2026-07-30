@@ -55,6 +55,9 @@ function SettingsPage() {
   const [globalProxyEnabled, setGlobalProxyEnabled] = useState(false)
   const [proxyType, setProxyType] = useState<'direct' | 'system' | 'http' | 'socks'>('http')
   const [proxyUrl, setProxyUrl] = useState('')
+  // 已保存的代理配置，用于 dirty 检测（决定保存按钮是否可用）
+  const [savedProxyType, setSavedProxyType] = useState<'direct' | 'system' | 'http' | 'socks'>('http')
+  const [savedProxyUrl, setSavedProxyUrl] = useState('')
 
   const [titlebarInfo, setTitlebarInfo] = useState<TitleBarInfoConfig>(DEFAULT_TITLEBAR_INFO_CONFIG)
   const [autoStartEnabled, setAutoStartEnabled] = useState(false)
@@ -81,6 +84,8 @@ function SettingsPage() {
         setGlobalProxyEnabled(s.globalProxyEnabled ?? false)
         setProxyType(s.globalProxy?.type ?? 'http')
         setProxyUrl(s.globalProxy?.url ?? '')
+        setSavedProxyType(s.globalProxy?.type ?? 'http')
+        setSavedProxyUrl(s.globalProxy?.url ?? '')
         setTitlebarInfo(s.titlebarInfo ?? DEFAULT_TITLEBAR_INFO_CONFIG)
         setAutoStartEnabled(s.autoStartEnabled ?? false)
         setLogLevel(s.logLevel ?? 'info')
@@ -127,15 +132,29 @@ function SettingsPage() {
   }, [])
 
   // 提交部分更新（configKey 允许传 null 表示清空）
-  const patchSettings = async (patch: Omit<Partial<AppSettingsDto>, 'configKey'> & { configKey?: string | null }) => {
-    if (!settings) return
+  // 返回 boolean 表示是否成功，供调用方决定后续动作（如更新 dirty 状态）
+  const patchSettings = async (patch: Omit<Partial<AppSettingsDto>, 'configKey'> & { configKey?: string | null }): Promise<boolean> => {
+    if (!settings) return false
     try {
       const updated = await updateSettings(patch)
       setSettings(updated)
+      return true
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('更新设置失败', err)
       toast.error(String(err))
+      return false
+    }
+  }
+
+  // 保存代理配置（统一提交，避免每次输入都触发保存）
+  // 仅当本地与已保存值不一致（dirty）时才可点击
+  const handleSaveProxy = async () => {
+    const ok = await patchSettings({ globalProxy: { type: proxyType, url: proxyUrl } as GlobalProxyConfig })
+    if (ok) {
+      setSavedProxyType(proxyType)
+      setSavedProxyUrl(proxyUrl)
+      toast.success(t('settings.proxySaveSuccess'))
     }
   }
 
@@ -263,9 +282,7 @@ function SettingsPage() {
                   <div className="flex items-center gap-3">
                     <Label className="text-sm shrink-0">{t('settings.proxyType')}</Label>
                     <Select value={proxyType} onValueChange={(v) => {
-                      const next = v as 'direct' | 'system' | 'http' | 'socks'
-                      setProxyType(next)
-                      void patchSettings({ globalProxy: { type: next, url: proxyUrl } as GlobalProxyConfig })
+                      setProxyType(v as 'direct' | 'system' | 'http' | 'socks')
                     }}>
                       <SelectTrigger className="h-8 w-32 text-xs">
                         <SelectValue />
@@ -285,14 +302,22 @@ function SettingsPage() {
                         className="h-8 text-xs"
                         placeholder={proxyType === 'socks' ? 'socks5://user:pass@127.0.0.1:1080' : 'http://user:pass@127.0.0.1:7890'}
                         value={proxyUrl}
-                        onChange={(e) => {
-                          const next = e.target.value
-                          setProxyUrl(next)
-                          void patchSettings({ globalProxy: { type: proxyType, url: next } as GlobalProxyConfig })
-                        }}
+                        onChange={(e) => setProxyUrl(e.target.value)}
                       />
                     </div>
                   )}
+                  {/* 保存按钮：仅当本地配置与已保存值不一致（dirty）时可用 */}
+                  <div className="flex justify-end">
+                    <Button
+                      size="sm"
+                      className="h-7 text-xs"
+                      disabled={proxyType === savedProxyType && proxyUrl === savedProxyUrl}
+                      onClick={() => void handleSaveProxy()}
+                    >
+                      <i className="fa-solid fa-floppy-disk mr-1.5 text-xs" />
+                      {t('common.save')}
+                    </Button>
+                  </div>
                 </div>
               </>
             )}

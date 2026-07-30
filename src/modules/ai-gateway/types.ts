@@ -929,3 +929,28 @@ export interface UpdateGatewayAuthKeyInput {
   expiresAt?: string | null
   sortOrder?: number
 }
+
+// ===== 供应商网络检测 =====
+
+/** 网络检测模式 */
+export type PingMode = 'direct' | 'proxy'
+
+/** 单个供应商网络检测结果 */
+export interface PingProviderResult {
+  providerId: string
+  displayName: string
+  slug: string
+  baseUrl: string
+  success: boolean
+  statusCode?: number
+  latencyMs?: number
+  error?: string
+}
+
+/** 网络检测汇总结果（由 provider:ping-done 事件推送） */
+export interface PingDonePayload {
+  mode: string
+  total: number
+  success: number
+  failed: number
+}

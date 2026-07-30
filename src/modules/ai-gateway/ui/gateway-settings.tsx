@@ -453,7 +453,7 @@ export function GatewayAuthKeyManager() {
               </div>
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">{t('authKey.expiresAt')}</Label>
+              <Label className="text-xs">{t('authKey.expiresAtLabel')}</Label>
               <Input
                 type="datetime-local"
                 value={authFormExpires}

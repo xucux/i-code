@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { invokeCommand } from '@/hooks/use-command'
 import type { ExposedModel } from '@/modules/ai-gateway/types'
 import type {
@@ -90,7 +90,7 @@ export function useVirtualRoutes(virtualModelId: string | null): {
   const [routes, setRoutes] = useState<VirtualModelRoute[]>([])
   const [loading, setLoading] = useState(false)
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!virtualModelId) {
       setRoutes([])
       return
@@ -106,11 +106,11 @@ export function useVirtualRoutes(virtualModelId: string | null): {
     } finally {
       setLoading(false)
     }
-  }
+  }, [virtualModelId])
 
   useEffect(() => {
     void load()
-  }, [virtualModelId])
+  }, [load])
 
   return { routes, loading, refetch: load }
 }

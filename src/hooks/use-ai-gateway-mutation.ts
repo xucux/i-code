@@ -16,6 +16,7 @@ import type {
   UpdateGatewayAuthKeyInput,
   ExportProviderInput,
   ImportProviderInput,
+  PingMode,
 } from '@/modules/ai-gateway/types'
 
 /**
@@ -48,6 +49,11 @@ export async function exportProvider(input: ExportProviderInput): Promise<string
 
 export async function importProvider(input: ImportProviderInput): Promise<Provider> {
   return invokeCommand<Provider>('gateway_provider_import', { input })
+}
+
+/** 检测所有供应商 URL 的网络连通性（直连/代理），结果通过事件推送，返回供应商总数 */
+export async function pingProviders(mode: PingMode): Promise<number> {
+  return invokeCommand<number>('gateway_provider_ping', { mode })
 }
 
 // ===== 模型配置 =====
