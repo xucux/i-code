@@ -11,8 +11,12 @@
 //! - 授权完成后返回的 token 数据以 JSON 字符串形式交给 Service 层加密存储。
 //! - 浏览器授权使用临时 `127.0.0.1:0` 回调服务器，避免依赖 deep-link 插件。
 
+pub mod callback_registry;
 pub mod oauth2;
 pub mod providers;
+
+// 重导出回调服务器注册表类型，供 commands.rs 使用
+pub use callback_registry::{CallbackServerInfo, global_registry};
 
 use serde::{Deserialize, Serialize};
 

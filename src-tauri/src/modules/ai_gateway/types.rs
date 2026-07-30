@@ -415,6 +415,9 @@ pub enum AuthConfig {
         /// Enterprise domain（hostname，可选端口）
         #[serde(skip_serializing_if = "Option::is_none")]
         enterprise_url: Option<String>,
+        /// GitHub 用户名（授权后从 /user 接口获取）
+        #[serde(skip_serializing_if = "Option::is_none")]
+        github_login: Option<String>,
         /// 邮箱
         #[serde(skip_serializing_if = "Option::is_none")]
         email: Option<String>,
@@ -570,6 +573,14 @@ impl AuthConfig {
     pub fn enterprise_url(&self) -> Option<&String> {
         match self {
             Self::GithubCopilot { enterprise_url, .. } => enterprise_url.as_ref(),
+            _ => None,
+        }
+    }
+
+    /// GitHub 用户名（仅 GithubCopilot 认证）
+    pub fn github_login(&self) -> Option<&String> {
+        match self {
+            Self::GithubCopilot { github_login, .. } => github_login.as_ref(),
             _ => None,
         }
     }

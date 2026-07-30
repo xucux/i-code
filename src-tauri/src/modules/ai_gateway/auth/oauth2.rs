@@ -20,9 +20,11 @@ use tokio::sync::oneshot;
 
 use crate::error::{IcodeError, IcodeResult};
 use crate::modules::ai_gateway::types::{OAuth2Config, Provider};
+use crate::modules::logger::Log;
 use crate::modules::shared::TimeoutConfig;
 
 use super::OAuth2TokenData;
+use super::callback_registry::{global_registry, CallbackServerEntry};
 
 /// OAuth 浏览器授权回调服务器存活超时（秒）
 ///
@@ -30,6 +32,30 @@ use super::OAuth2TokenData;
 /// 避免固定 redirect_uri 的供应商（Claude Code / OpenAI Codex / xAI）
 /// 因服务器未关闭而导致再次授权时端口被占用。
 const OAUTH_CALLBACK_TIMEOUT_SECONDS: u64 = 120;
+
+/// 将 TCP 绑定错误转换为 IcodeError
+///
+/// 端口被占用时返回 `CONFLICT` 错误并在 details 中附带 `port` 与 `reason: "port_in_use"`，
+/// 前端据此弹出分平台清理进程提示；其他错误返回 `INTERNAL`。
+fn bind_error_to_icode(e: std::io::Error, port_hint: Option<u16>) -> IcodeError {
+    if e.kind() == std::io::ErrorKind::AddrInUse {
+        let port_str = port_hint
+            .map(|p| p.to_string())
+            .unwrap_or_else(|| "未知".to_string());
+        let msg = format!("OAuth 回调端口 {} 已被占用", port_str);
+        log::error!("OAuth 回调端口占用: port={:?}", port_hint);
+        Log::error(&format!(
+            "OAuth 回调端口 {} 已被占用，请清理占用进程后重试",
+            port_str
+        ));
+        IcodeError::conflict(msg)
+            .with_details(serde_json::json!({ "port": port_hint, "reason": "port_in_use" }))
+    } else {
+        log::error!("启动 OAuth 回调服务器失败: {}", e);
+        Log::error(&format!("启动 OAuth 回调服务器失败: {}", e));
+        IcodeError::internal(format!("启动 OAuth 回调服务器失败: {}", e))
+    }
+}
 
 /// OAuth2 标准 token 响应（snake_case）
 #[derive(Debug, Clone, Deserialize)]
@@ -301,6 +327,9 @@ impl OAuth2Client {
             }
         }
 
+        log::info!("请求 device code 端点: url={}, client_id={}", device_url, client_id);
+        Log::info(&format!("[OAuth] 请求 device code | url={}", device_url));
+
         let resp = self
             .http
             .post(device_url)
@@ -316,15 +345,27 @@ impl OAuth2Client {
             .map_err(|e| IcodeError::gateway(Self::format_reqwest_error("读取 device code 响应失败", &e)))?;
 
         if !status.is_success() {
+            log::error!("device code 端点返回错误 [{}]: {}", status, text);
+            Log::error(&format!("[OAuth] device code 端点返回错误 [{}]", status));
             return Err(IcodeError::gateway(format!(
                 "device code 端点返回错误 [{}]: {}",
                 status, text
             )));
         }
 
-        let device_resp: DeviceCodeResponse = serde_json::from_str(&text).map_err(|e| {
-            IcodeError::gateway(format!("解析 device code 响应失败: {}，响应: {}", e, text))
-        })?;
+        log::debug!("device code 原始响应: {}", text);
+        let device_resp = Self::parse_device_code_response(&text)?;
+
+        log::info!(
+            "device code 请求成功: verification_uri={}, expires_in={:?}, interval={:?}",
+            device_resp.verification_uri,
+            device_resp.expires_in,
+            device_resp.interval
+        );
+        Log::info(&format!(
+            "[OAuth] device code 请求成功 | verification_uri={}",
+            device_resp.verification_uri
+        ));
 
         Ok(device_resp.into_public())
     }
@@ -364,6 +405,9 @@ impl OAuth2Client {
             params.push(("client_secret", secret));
         }
 
+        log::info!("轮询 device token: url={}", token_url);
+        Log::info(&format!("[OAuth] 轮询 device token | url={}", token_url));
+
         let resp = self
             .http
             .post(token_url)
@@ -378,22 +422,31 @@ impl OAuth2Client {
             .await
             .map_err(|e| IcodeError::gateway(Self::format_reqwest_error("读取 device token 响应失败", &e)))?;
 
+        log::debug!("device token 原始响应: status={}, body={}", status, text);
+
         if !status.is_success() {
             // 设备码流程中，pending / slow_down 也可能以 400/428 返回
-            if let Ok(error_body) = serde_json::from_str::<serde_json::Value>(&text) {
-                if let Some(error) = error_body.get("error").and_then(|v| v.as_str()) {
-                    match error {
-                        "authorization_pending" | "slow_down" => return Ok(None),
-                        "expired_token" => {
-                            return Err(IcodeError::validation("设备码已过期，请重新发起授权"))
-                        }
-                        "access_denied" => {
-                            return Err(IcodeError::validation("用户拒绝授权"))
-                        }
-                        _ => {}
+            if let Some(error) = Self::extract_device_token_error(&text) {
+                match error.as_str() {
+                    "authorization_pending" | "slow_down" => {
+                        log::debug!("device token 等待用户授权: {}", error);
+                        return Ok(None);
                     }
+                    "expired_token" => {
+                        log::warn!("device token 已过期");
+                        Log::warn("[OAuth] device token 已过期，请重新发起授权");
+                        return Err(IcodeError::validation("设备码已过期，请重新发起授权"))
+                    }
+                    "access_denied" => {
+                        log::warn!("device token 用户拒绝授权");
+                        Log::warn("[OAuth] 用户拒绝授权");
+                        return Err(IcodeError::validation("用户拒绝授权"))
+                    }
+                    _ => {}
                 }
             }
+            log::error!("device token 端点返回错误 [{}]: {}", status, text);
+            Log::error(&format!("[OAuth] device token 端点返回错误 [{}]", status));
             return Err(IcodeError::gateway(format!(
                 "device token 端点返回错误 [{}]: {}",
                 status, text
@@ -401,22 +454,35 @@ impl OAuth2Client {
         }
 
         // 某些实现（如 GitHub）在 pending 时仍返回 200 且 body 含 error
-        if let Ok(error_body) = serde_json::from_str::<serde_json::Value>(&text) {
-            if let Some(error) = error_body.get("error").and_then(|v| v.as_str()) {
-                match error {
-                    "authorization_pending" | "slow_down" => return Ok(None),
-                    "expired_token" => {
-                        return Err(IcodeError::validation("设备码已过期，请重新发起授权"))
-                    }
-                    "access_denied" => return Err(IcodeError::validation("用户拒绝授权")),
-                    _ => {}
+        if let Some(error) = Self::extract_device_token_error(&text) {
+            match error.as_str() {
+                "authorization_pending" | "slow_down" => {
+                    log::debug!("device token 等待用户授权: {}", error);
+                    return Ok(None);
                 }
+                "expired_token" => {
+                    log::warn!("device token 已过期");
+                    Log::warn("[OAuth] device token 已过期，请重新发起授权");
+                    return Err(IcodeError::validation("设备码已过期，请重新发起授权"))
+                }
+                "access_denied" => {
+                    log::warn!("device token 用户拒绝授权");
+                    Log::warn("[OAuth] 用户拒绝授权");
+                    return Err(IcodeError::validation("用户拒绝授权"))
+                }
+                _ => {}
             }
         }
 
-        let token_resp: TokenResponse = serde_json::from_str(&text).map_err(|e| {
-            IcodeError::gateway(format!("解析 device token 响应失败: {}，响应: {}", e, text))
-        })?;
+        let token_resp = Self::parse_token_response(&text)?;
+
+        log::info!(
+            "device token 轮询成功: token_type={:?}, scope={:?}, expires_in={:?}",
+            token_resp.token_type,
+            token_resp.scope,
+            token_resp.expires_in
+        );
+        Log::info("[OAuth] device token 轮询成功");
 
         let now = chrono::Utc::now().timestamp();
         Ok(Some(token_resp.into_token_data(now)))
@@ -465,8 +531,10 @@ impl OAuth2Client {
         &self,
         expected_state: &str,
         redirect_uri: Option<&str>,
+        provider_id: &str,
+        provider_name: &str,
     ) -> IcodeResult<(String, oneshot::Receiver<IcodeResult<CallbackQuery>>)> {
-        let (bind_addr, redirect_path, redirect_uri) = match redirect_uri {
+        let (bind_addr, redirect_path, redirect_uri, fixed_port) = match redirect_uri {
             Some(uri) if !uri.is_empty() => {
                 let parsed = uri
                     .parse::<reqwest::Url>()
@@ -480,28 +548,47 @@ impl OAuth2Client {
                 let path = parsed.path();
                 let bind_addr = format!("{}:{}", host, port);
                 let redirect_uri = uri.to_string();
-                (bind_addr, path.to_string(), redirect_uri)
+                (bind_addr, path.to_string(), redirect_uri, Some(port))
             }
             _ => {
                 let bind_addr = "127.0.0.1:0".to_string();
                 let redirect_path = "/callback".to_string();
-                (bind_addr, redirect_path, String::new())
+                (bind_addr, redirect_path, String::new(), None)
             }
         };
 
+        log::info!(
+            "启动 OAuth 回调服务器: bind_addr={}, provider={}",
+            bind_addr,
+            provider_name
+        );
+
         let listener = tokio::net::TcpListener::bind(&bind_addr)
             .await
-            .map_err(|e| IcodeError::internal(format!("启动 OAuth 回调服务器失败: {}", e)))?;
+            .map_err(|e| bind_error_to_icode(e, fixed_port))?;
         let addr = listener
             .local_addr()
             .map_err(|e| IcodeError::internal(format!("获取回调服务器地址失败: {}", e)))?;
 
         // 动态端口时需要根据实际绑定地址拼接 redirect_uri
+        let is_fixed_port = fixed_port.is_some();
         let redirect_uri = if redirect_uri.is_empty() {
             format!("http://{}/callback", addr)
         } else {
             redirect_uri
         };
+        let port = addr.port();
+
+        log::info!(
+            "OAuth 回调服务器已启动: port={}, redirect_uri={}, provider={}",
+            port,
+            redirect_uri,
+            provider_name
+        );
+        Log::info(&format!(
+            "OAuth 回调服务器已启动 (端口 {}, 供应商 {})",
+            port, provider_name
+        ));
 
         let (tx, rx) = oneshot::channel::<IcodeResult<CallbackQuery>>();
         let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
@@ -516,6 +603,19 @@ impl OAuth2Client {
             .route(&redirect_path, get(callback_handler))
             .with_state(state);
 
+        // 注册到全局回调服务器注册表
+        let entry_id = uuid::Uuid::new_v4().to_string();
+        global_registry().register(CallbackServerEntry {
+            id: entry_id.clone(),
+            provider_id: provider_id.to_string(),
+            provider_name: provider_name.to_string(),
+            port,
+            redirect_uri: redirect_uri.clone(),
+            is_fixed_port,
+            started_at: chrono::Utc::now().timestamp(),
+            shutdown_tx: shutdown_tx.clone(),
+        });
+
         // 120 秒超时后主动关闭服务器，避免固定端口长期被占用
         let timeout_shutdown_tx = shutdown_tx.clone();
         tokio::spawn(async move {
@@ -528,10 +628,13 @@ impl OAuth2Client {
         let server = axum::serve(listener, app).with_graceful_shutdown(async move {
             let _ = shutdown_rx.await;
         });
+        let registry_id = entry_id.clone();
         tokio::spawn(async move {
             if let Err(e) = server.await {
                 log::error!("OAuth 回调服务器异常: {}", e);
             }
+            // 服务器结束后从注册表移除
+            global_registry().unregister(&registry_id);
         });
 
         Ok((redirect_uri, rx))
@@ -554,8 +657,9 @@ impl OAuth2Client {
         expected_state: &str,
         redirect_uri: Option<&str>,
         provider_id: &str,
+        provider_name: &str,
     ) -> IcodeResult<String> {
-        let (bind_addr, redirect_path, redirect_uri) = match redirect_uri {
+        let (bind_addr, redirect_path, redirect_uri, fixed_port) = match redirect_uri {
             Some(uri) if !uri.is_empty() => {
                 let parsed = uri
                     .parse::<reqwest::Url>()
@@ -569,28 +673,47 @@ impl OAuth2Client {
                 let path = parsed.path();
                 let bind_addr = format!("{}:{}", host, port);
                 let redirect_uri = uri.to_string();
-                (bind_addr, path.to_string(), redirect_uri)
+                (bind_addr, path.to_string(), redirect_uri, Some(port))
             }
             _ => {
                 let bind_addr = "127.0.0.1:0".to_string();
                 let redirect_path = "/callback".to_string();
-                (bind_addr, redirect_path, String::new())
+                (bind_addr, redirect_path, String::new(), None)
             }
         };
 
+        log::info!(
+            "启动 OAuth 回调服务器(事件模式): bind_addr={}, provider={}",
+            bind_addr,
+            provider_name
+        );
+
         let listener = tokio::net::TcpListener::bind(&bind_addr)
             .await
-            .map_err(|e| IcodeError::internal(format!("启动 OAuth 回调服务器失败: {}", e)))?;
+            .map_err(|e| bind_error_to_icode(e, fixed_port))?;
         let addr = listener
             .local_addr()
             .map_err(|e| IcodeError::internal(format!("获取回调服务器地址失败: {}", e)))?;
 
         // 动态端口时需要根据实际绑定地址拼接 redirect_uri
+        let is_fixed_port = fixed_port.is_some();
         let redirect_uri = if redirect_uri.is_empty() {
             format!("http://{}/callback", addr)
         } else {
             redirect_uri
         };
+        let port = addr.port();
+
+        log::info!(
+            "OAuth 回调服务器已启动(事件模式): port={}, redirect_uri={}, provider={}",
+            port,
+            redirect_uri,
+            provider_name
+        );
+        Log::info(&format!(
+            "OAuth 回调服务器已启动 (端口 {}, 供应商 {})",
+            port, provider_name
+        ));
 
         let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
         let shutdown_tx = std::sync::Arc::new(std::sync::Mutex::new(Some(shutdown_tx)));
@@ -605,6 +728,19 @@ impl OAuth2Client {
             .route(&redirect_path, get(event_callback_handler))
             .with_state(state);
 
+        // 注册到全局回调服务器注册表
+        let entry_id = uuid::Uuid::new_v4().to_string();
+        global_registry().register(CallbackServerEntry {
+            id: entry_id.clone(),
+            provider_id: provider_id.to_string(),
+            provider_name: provider_name.to_string(),
+            port,
+            redirect_uri: redirect_uri.clone(),
+            is_fixed_port,
+            started_at: chrono::Utc::now().timestamp(),
+            shutdown_tx: shutdown_tx.clone(),
+        });
+
         // 120 秒超时后主动关闭服务器，避免固定端口长期被占用
         let timeout_shutdown_tx = shutdown_tx.clone();
         tokio::spawn(async move {
@@ -617,13 +753,149 @@ impl OAuth2Client {
         let server = axum::serve(listener, app).with_graceful_shutdown(async move {
             let _ = shutdown_rx.await;
         });
+        let registry_id = entry_id.clone();
         tokio::spawn(async move {
             if let Err(e) = server.await {
                 log::error!("OAuth 回调服务器异常: {}", e);
             }
+            // 服务器结束后从注册表移除
+            global_registry().unregister(&registry_id);
         });
 
         Ok(redirect_uri)
+    }
+
+    /// 统一解析 device code 响应，支持 JSON 与 `application/x-www-form-urlencoded`
+    ///
+    /// GitHub 的 device code 端点按 OAuth 2.0 标准返回 form-urlencoded，
+    /// 其他供应商（Google 等）返回 JSON，因此需要同时兼容两种格式。
+    fn parse_device_code_response(text: &str) -> IcodeResult<DeviceCodeResponse> {
+        match serde_json::from_str::<DeviceCodeResponse>(text) {
+            Ok(resp) => Ok(resp),
+            Err(json_err) => {
+                log::debug!(
+                    "device code 响应不是 JSON，尝试 form-urlencoded 解析: {}",
+                    json_err
+                );
+                Self::parse_url_encoded_device_code_response(text)
+            }
+        }
+    }
+
+    /// 解析 URL 编码的 device code 响应
+    fn parse_url_encoded_device_code_response(text: &str) -> IcodeResult<DeviceCodeResponse> {
+        let mut device_code: Option<String> = None;
+        let mut user_code: Option<String> = None;
+        let mut verification_uri: Option<String> = None;
+        let mut verification_uri_complete: Option<String> = None;
+        let mut expires_in: Option<i64> = None;
+        let mut interval: Option<i64> = None;
+
+        for (key, value) in url::form_urlencoded::parse(text.as_bytes()) {
+            match key.as_ref() {
+                "device_code" => device_code = Some(value.into_owned()),
+                "user_code" => user_code = Some(value.into_owned()),
+                "verification_uri" | "verification_url" => {
+                    verification_uri = Some(value.into_owned())
+                }
+                "verification_uri_complete" | "verification_url_complete" => {
+                    verification_uri_complete = Some(value.into_owned())
+                }
+                "expires_in" => expires_in = value.parse().ok(),
+                "interval" => interval = value.parse().ok(),
+                _ => {}
+            }
+        }
+
+        let device_code = device_code.ok_or_else(|| {
+            IcodeError::gateway("解析 device code 响应失败: form-urlencoded 中缺少 device_code")
+        })?;
+        let user_code = user_code.ok_or_else(|| {
+            IcodeError::gateway("解析 device code 响应失败: form-urlencoded 中缺少 user_code")
+        })?;
+        let verification_uri = verification_uri.ok_or_else(|| {
+            IcodeError::gateway(
+                "解析 device code 响应失败: form-urlencoded 中缺少 verification_uri",
+            )
+        })?;
+
+        Ok(DeviceCodeResponse {
+            device_code,
+            user_code,
+            verification_uri,
+            verification_uri_complete,
+            expires_in,
+            interval,
+        })
+    }
+
+    /// 统一解析 token 响应，支持 JSON 与 `application/x-www-form-urlencoded`
+    ///
+    /// GitHub 的 access token 端点按 OAuth 2.0 标准返回 form-urlencoded，
+    /// 其他供应商（Google、OpenAI 等）返回 JSON，因此需要同时兼容两种格式。
+    fn parse_token_response(text: &str) -> IcodeResult<TokenResponse> {
+        match serde_json::from_str::<TokenResponse>(text) {
+            Ok(resp) => Ok(resp),
+            Err(json_err) => {
+                log::debug!(
+                    "token 响应不是 JSON，尝试 form-urlencoded 解析: {}",
+                    json_err
+                );
+                Self::parse_url_encoded_token_response(text)
+            }
+        }
+    }
+
+    /// 解析 URL 编码的 token 响应
+    fn parse_url_encoded_token_response(text: &str) -> IcodeResult<TokenResponse> {
+        let mut access_token: Option<String> = None;
+        let mut token_type: Option<String> = None;
+        let mut refresh_token: Option<String> = None;
+        let mut expires_in: Option<i64> = None;
+        let mut scope: Option<String> = None;
+
+        for (key, value) in url::form_urlencoded::parse(text.as_bytes()) {
+            match key.as_ref() {
+                "access_token" => access_token = Some(value.into_owned()),
+                "token_type" => token_type = Some(value.into_owned()),
+                "refresh_token" => refresh_token = Some(value.into_owned()),
+                "expires_in" => expires_in = value.parse().ok(),
+                "scope" => scope = Some(value.into_owned()),
+                _ => {}
+            }
+        }
+
+        let access_token = access_token.ok_or_else(|| {
+            IcodeError::gateway("解析 token 响应失败: form-urlencoded 中缺少 access_token")
+        })?;
+
+        Ok(TokenResponse {
+            access_token,
+            token_type,
+            refresh_token,
+            expires_in,
+            scope,
+        })
+    }
+
+    /// 从 device token 响应中提取 OAuth 错误码
+    ///
+    /// 兼容 JSON 与 form-urlencoded 两种格式，用于识别 `authorization_pending` /
+    /// `slow_down` / `expired_token` / `access_denied` 等设备码流程特有情境。
+    fn extract_device_token_error(text: &str) -> Option<String> {
+        // 先尝试 JSON
+        if let Ok(body) = serde_json::from_str::<serde_json::Value>(text) {
+            if let Some(error) = body.get("error").and_then(|v| v.as_str()) {
+                return Some(error.to_string());
+            }
+        }
+        // 再尝试 form-urlencoded
+        for (key, value) in url::form_urlencoded::parse(text.as_bytes()) {
+            if key == "error" {
+                return Some(value.into_owned());
+            }
+        }
+        None
     }
 
     /// 统一 POST token endpoint
@@ -673,9 +945,15 @@ impl OAuth2Client {
             )));
         }
 
-        let token_resp: TokenResponse = serde_json::from_str(&text).map_err(|e| {
-            IcodeError::gateway(format!("解析 token 响应失败: {}，响应: {}", e, text))
-        })?;
+        let token_resp = Self::parse_token_response(&text)?;
+
+        log::info!(
+            "token 换取成功: token_type={:?}, scope={:?}, expires_in={:?}",
+            token_resp.token_type,
+            token_resp.scope,
+            token_resp.expires_in
+        );
+        Log::info("[OAuth] token 换取成功");
 
         let now = chrono::Utc::now().timestamp();
         Ok(token_resp.into_token_data(now))
@@ -723,20 +1001,32 @@ async fn callback_handler(
     State(state): State<CallbackServerState>,
     Query(query): Query<CallbackQuery>,
 ) -> Html<&'static str> {
+    log::info!("收到 OAuth 回调: state={:?}", query.state);
+
     let result = if let Some(ref error) = query.error {
         let msg = query
             .error_description
             .clone()
             .unwrap_or_else(|| error.clone());
+        log::error!("OAuth 授权回调返回错误: {} ({})", error, msg);
+        Log::error(&format!("OAuth 授权失败: {} ({})", error, msg));
         Err(IcodeError::gateway(format!(
             "OAuth 授权失败: {} ({})",
             error, msg
         )))
     } else if query.state.as_deref() != Some(state.expected_state.as_str()) {
+        log::warn!(
+            "OAuth 回调 state 不匹配: 期望={}, 实际={}",
+            state.expected_state,
+            query.state.as_deref().unwrap_or("")
+        );
         Err(IcodeError::validation("OAuth state 不匹配"))
     } else if query.code.is_none() {
+        log::warn!("OAuth 回调缺少 code 参数");
         Err(IcodeError::validation("OAuth 回调缺少 code 参数"))
     } else {
+        log::info!("OAuth 回调成功，已收到授权码");
+        Log::info("OAuth 授权回调成功，已收到授权码");
         Ok(query)
     };
 
@@ -797,6 +1087,12 @@ async fn event_callback_handler(
     State(state): State<EventCallbackServerState>,
     Query(query): Query<CallbackQuery>,
 ) -> Html<&'static str> {
+    log::info!(
+        "收到 OAuth 回调(事件模式): provider_id={}, state={:?}",
+        state.provider_id,
+        query.state
+    );
+
     let event = OAuthCallbackEvent {
         provider_id: state.provider_id.clone(),
         code: query.code.clone(),
@@ -808,6 +1104,18 @@ async fn event_callback_handler(
     // 校验 state：仅当 state 匹配时才把 code 传给前端
     if query.state.as_deref() != Some(state.expected_state.as_str()) {
         log::warn!("OAuth 回调 state 不匹配: 期望={}, 实际={}", state.expected_state, query.state.as_deref().unwrap_or(""));
+    }
+
+    if let Some(ref error) = query.error {
+        let msg = query.error_description.as_deref().unwrap_or("");
+        log::error!("OAuth 授权回调返回错误: {} ({})", error, msg);
+        Log::error(&format!("OAuth 授权失败: {} ({})", error, msg));
+    } else if query.code.is_some() {
+        log::info!("OAuth 回调成功(事件模式): provider_id={}", state.provider_id);
+        Log::info(&format!(
+            "OAuth 授权回调成功 (供应商 {})",
+            state.provider_id
+        ));
     }
 
     // 发送事件到前端

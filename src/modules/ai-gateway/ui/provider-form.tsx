@@ -28,15 +28,20 @@ import {
 } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { HelpIcon } from '@/components/ui/help-icon'
+import { Checkbox } from '@/components/ui/checkbox'
 import { invokeCommand } from '@/hooks/use-command'
+import { clearOauthToken } from '@/hooks/use-ai-gateway-mutation'
 import { open } from '@tauri-apps/plugin-shell'
 import { listen } from '@tauri-apps/api/event'
 import { BalanceConfigForm } from '@/modules/balance/ui/balance-config-form'
 import { ScriptVariablesEditor } from '@/modules/ai-gateway/ui/script-variables-editor'
+import { PortInUseDialog } from '@/modules/ai-gateway/ui/port-in-use-dialog'
 import type { Provider, ProviderType, AuthConfig, AuthMethod, BuiltinModel, GatewayModel, ModelConfig, ModelCapabilities, ModelThinkingConfig, ModelEditTool, DeviceCodeInfo, DeviceCodePollResult, OAuthStartResult, OAuthCallbackEvent, ProviderScriptVariable } from '@/modules/ai-gateway/types'
 import { parseAuthConfig } from '@/modules/ai-gateway/types'
 import { toast } from 'sonner'
 import { toIcodeError } from '@/core/errors'
+import { formatDateTime } from '@/core/utils'
 
 const providerTypes: ProviderType[] = [
   'anthropic',
@@ -449,6 +454,15 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
   const [manualExchanging, setManualExchanging] = useState(false)
   const [showManualInput, setShowManualInput] = useState(false)
 
+  // 端口占用提示弹窗
+  const [portInUsePort, setPortInUsePort] = useState<number | null>(null)
+
+  // 重新授权确认弹窗
+  const [reauthorizeOpen, setReauthorizeOpen] = useState(false)
+  const [reauthorizeDeleteHistory, setReauthorizeDeleteHistory] = useState(true)
+  const [reauthorizeClearing, setReauthorizeClearing] = useState(false)
+  const reauthorizePendingMethodRef = useRef<AuthMethod | null>(null)
+
   // API Key 明文显示与解密状态
   const [showApiKey, setShowApiKey] = useState(false)
   const [showVertexApiKey, setShowVertexApiKey] = useState(false)
@@ -703,7 +717,54 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
    *   前端监听事件后自动调用 `gateway_provider_oauth_complete` 完成流程。
    * - Device Code 流程：请求设备码并开启轮询
    */
+  /**
+   * 发起 OAuth 授权
+   *
+   * 若供应商已有 token（重新授权场景），先弹窗让用户选择是否删除历史认证信息；
+   * 确认后根据勾选状态决定是否先清空旧 token，再走实际授权流程。
+   * 首次授权（无 token）直接进入授权流程。
+   */
   const startOAuthAuthorize = async (authMethod: AuthMethod) => {
+    if (!provider) return
+    const existingAuth = parseAuthConfig(provider)
+    const hasExistingToken = !!existingAuth
+      && existingAuth.method !== 'none'
+      && existingAuth.method !== 'api-key'
+      && 'token' in existingAuth
+      && Boolean(existingAuth.token)
+    if (hasExistingToken) {
+      reauthorizePendingMethodRef.current = authMethod
+      setReauthorizeDeleteHistory(true)
+      setReauthorizeOpen(true)
+      return
+    }
+    void doStartOAuthAuthorize(authMethod)
+  }
+
+  /**
+   * 重新授权确认弹窗：用户确认后根据勾选状态执行
+   */
+  const handleReauthorizeConfirm = async () => {
+    const authMethod = reauthorizePendingMethodRef.current
+    if (!authMethod || !provider) return
+    const deleteHistory = reauthorizeDeleteHistory
+    setReauthorizeOpen(false)
+    reauthorizePendingMethodRef.current = null
+    if (deleteHistory) {
+      setReauthorizeClearing(true)
+      try {
+        const updated = await clearOauthToken(provider.id)
+        onProviderUpdated?.(updated)
+      } catch (err) {
+        toast.error(toIcodeError(err).message)
+      } finally {
+        setReauthorizeClearing(false)
+      }
+    }
+    void doStartOAuthAuthorize(authMethod)
+  }
+
+  const doStartOAuthAuthorize = async (authMethod: AuthMethod) => {
     if (!provider) return
     // 新的一次授权尝试：递增 attempt id，使旧请求返回的结果被忽略
     oauthAttemptIdRef.current += 1
@@ -742,7 +803,12 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
     } catch (err) {
       if (oauthAttemptIdRef.current !== attemptId) return
       const error = toIcodeError(err)
-      toast.error(error.message)
+      // 检测端口占用错误，弹窗提示清理进程
+      if (error.details?.reason === 'port_in_use' && typeof error.details.port === 'number') {
+        setPortInUsePort(error.details.port)
+      } else {
+        toast.error(error.message)
+      }
     } finally {
       if (oauthAttemptIdRef.current === attemptId) {
         setOauthAuthorizing(false)
@@ -910,6 +976,7 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
   const errors = form.formState.errors
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto custom-scrollbar">
         <DialogHeader>
@@ -1418,6 +1485,68 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {/* 端口占用提示弹窗 */}
+    <PortInUseDialog
+      open={portInUsePort !== null}
+      port={portInUsePort}
+      onOpenChange={(v) => !v && setPortInUsePort(null)}
+    />
+
+    {/* 重新授权确认弹窗 */}
+    <Dialog open={reauthorizeOpen} onOpenChange={setReauthorizeOpen}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <i className="fa-solid fa-triangle-exclamation text-amber-500" />
+            {t('aiGateway.providerForm.reauthorizeTitle')}
+          </DialogTitle>
+          <DialogDescription className="text-xs">
+            {t('aiGateway.providerForm.reauthorizeDescription')}
+          </DialogDescription>
+        </DialogHeader>
+        <label className="flex cursor-pointer items-start gap-2 rounded-md border p-3 text-xs hover:bg-muted/50">
+          <Checkbox
+            checked={reauthorizeDeleteHistory}
+            onCheckedChange={(v) => setReauthorizeDeleteHistory(v === true)}
+            className="mt-0.5"
+          />
+          <div className="space-y-1">
+            <span className="font-medium">{t('aiGateway.providerForm.reauthorizeDeleteHistory')}</span>
+            <p className="text-muted-foreground text-[11px]">
+              {t('aiGateway.providerForm.reauthorizeDeleteHistoryHint')}
+            </p>
+          </div>
+        </label>
+        <DialogFooter>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs"
+            onClick={() => setReauthorizeOpen(false)}
+            disabled={reauthorizeClearing}
+          >
+            {t('common.cancel')}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            className="h-8 text-xs"
+            onClick={() => void handleReauthorizeConfirm()}
+            disabled={reauthorizeClearing}
+          >
+            {reauthorizeClearing ? (
+              <i className="fa-solid fa-spinner fa-spin mr-1.5" />
+            ) : (
+              <i className="fa-solid fa-check mr-1.5" />
+            )}
+            {t('aiGateway.providerForm.reauthorizeConfirm')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   )
 }
 
@@ -2343,11 +2472,19 @@ function OAuthAuthorizeSection({
   const { t } = useTranslation()
   const isDeviceCode = authMethod === 'github-copilot'
   const authConfig = useMemo(() => parseAuthConfig(provider), [provider])
-  const hasToken = useMemo(() => {
-    if (!authConfig) return false
-    if (authConfig.method === 'none' || authConfig.method === 'api-key') return false
-    if (!('token' in authConfig)) return false
-    return Boolean(authConfig.token)
+  const { hasToken, expiresAt, isExpired, hasExpiry, githubLogin, email } = useMemo(() => {
+    if (!authConfig || authConfig.method === 'none' || authConfig.method === 'api-key') {
+      return { hasToken: false, expiresAt: undefined as number | undefined, isExpired: false, hasExpiry: false, githubLogin: undefined as string | undefined, email: undefined as string | undefined }
+    }
+    if (!('token' in authConfig) || !authConfig.token) {
+      return { hasToken: false, expiresAt: undefined as number | undefined, isExpired: false, hasExpiry: false, githubLogin: undefined as string | undefined, email: undefined as string | undefined }
+    }
+    const exp = 'expiresAt' in authConfig ? authConfig.expiresAt : undefined
+    const hasExp = exp !== undefined && exp !== null && typeof exp === 'number'
+    const expired = hasExp ? exp! * 1000 < Date.now() : false
+    const gl = 'githubLogin' in authConfig ? authConfig.githubLogin : undefined
+    const em = 'email' in authConfig ? authConfig.email : undefined
+    return { hasToken: true, expiresAt: exp, isExpired: expired, hasExpiry: hasExp, githubLogin: gl, email: em }
   }, [authConfig])
 
   const verificationUrl = deviceCodeInfo?.verificationUriComplete || deviceCodeInfo?.verificationUri
@@ -2355,14 +2492,72 @@ function OAuthAuthorizeSection({
   return (
     <div className="mt-4 rounded-md border p-3 space-y-3">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium">{t('aiGateway.providerForm.oauthTitle')}</span>
+        <div className="flex items-center gap-1">
+          <span className="text-xs font-medium">{t('aiGateway.providerForm.oauthTitle')}</span>
+          <HelpIcon type="popover" side="bottom" align="start" contentClassName="max-w-sm text-xs">
+            <div className="space-y-1.5">
+              <p className="font-medium">{t('aiGateway.callbackServer.helpTitle')}</p>
+              <p className="whitespace-pre-line text-muted-foreground">{t('aiGateway.callbackServer.helpContent')}</p>
+            </div>
+          </HelpIcon>
+        </div>
         {hasToken && (
-          <Badge variant="outline" className="text-[10px] text-green-600 border-green-200 bg-green-50 dark:bg-green-950/30">
-            <i className="fa-solid fa-check mr-1" />
-            {t('aiGateway.providerForm.oauthAuthorized')}
-          </Badge>
+          isExpired ? (
+            <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-200 bg-amber-50 dark:bg-amber-950/30">
+              <i className="fa-solid fa-clock mr-1" />
+              {t('aiGateway.providerForm.oauthExpired')}
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="text-[10px] text-green-600 border-green-200 bg-green-50 dark:bg-green-950/30">
+              <i className="fa-solid fa-check mr-1" />
+              {t('aiGateway.providerForm.oauthAuthorized')}
+            </Badge>
+          )
         )}
       </div>
+
+      {/* 过期时间展示 */}
+      {hasToken && (
+        <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+          {hasExpiry ? (
+            <>
+              <i className="fa-regular fa-clock text-[10px]" />
+              <span>{t('aiGateway.providerForm.oauthExpiresAt')}:</span>
+              <span className={isExpired ? 'text-amber-600 font-medium' : 'text-foreground/80'}>
+                {formatDateTime(new Date(expiresAt! * 1000).toISOString())}
+              </span>
+              {isExpired && (
+                <span className="text-amber-600">({t('aiGateway.providerForm.oauthExpired')})</span>
+              )}
+            </>
+          ) : (
+            <>
+              <i className="fa-regular fa-clock text-[10px]" />
+              <span>{t('aiGateway.providerForm.oauthExpiryNotProvided')}</span>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* GitHub 账户信息展示 */}
+      {hasToken && isDeviceCode && (githubLogin || email) && (
+        <div className="text-[11px] text-muted-foreground flex items-center gap-1.5 flex-wrap">
+          {githubLogin && (
+            <>
+              <i className="fa-brands fa-github text-[10px]" />
+              <span>{t('aiGateway.providerForm.oauthGithubAccount')}:</span>
+              <span className="text-foreground/80 font-medium">{githubLogin}</span>
+            </>
+          )}
+          {githubLogin && email && <span className="text-muted-foreground/50">·</span>}
+          {email && (
+            <>
+              <i className="fa-regular fa-envelope text-[10px]" />
+              <span className="text-foreground/80">{email}</span>
+            </>
+          )}
+        </div>
+      )}
 
       {!isDeviceCode ? (
         <div className="space-y-2">

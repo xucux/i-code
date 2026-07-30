@@ -17,6 +17,7 @@ import type {
   ExportProviderInput,
   ImportProviderInput,
   PingMode,
+  CallbackServerInfo,
 } from '@/modules/ai-gateway/types'
 
 /**
@@ -116,4 +117,26 @@ export async function deleteGatewayAuthKey(id: string): Promise<void> {
 
 export async function listGatewayAuthKeys(): Promise<GatewayAuthKey[]> {
   return invokeCommand<GatewayAuthKey[]>('gateway_auth_key_list', {})
+}
+
+// ===== OAuth 回调服务器 =====
+
+/** 列出当前活跃的 OAuth 回调服务器（仅内存数据） */
+export async function listOauthCallbacks(): Promise<CallbackServerInfo[]> {
+  return invokeCommand<CallbackServerInfo[]>('gateway_oauth_callback_list', {})
+}
+
+/** 强制关闭指定的 OAuth 回调服务器 */
+export async function closeOauthCallback(id: string): Promise<boolean> {
+  return invokeCommand<boolean>('gateway_oauth_callback_close', { id })
+}
+
+/**
+ * 清空供应商的 OAuth token（保留端点配置等非敏感字段）
+ *
+ * 用于「重新授权」场景：用户勾选「删除历史认证信息」后，先调用此命令清空旧 token，
+ * 再发起授权流程。仅清空 token/expires_at，保留 method、OAuth 端点配置等。
+ */
+export async function clearOauthToken(providerId: string): Promise<Provider> {
+  return invokeCommand<Provider>('gateway_provider_clear_oauth_token', { providerId })
 }

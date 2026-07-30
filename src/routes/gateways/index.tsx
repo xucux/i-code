@@ -10,7 +10,7 @@ import { ProviderList } from '@/modules/ai-gateway/ui/provider-list'
 import { ModelList } from '@/modules/ai-gateway/ui/model-list'
 import { VirtualProviderList } from '@/modules/virtual-provider/ui/virtual-provider-list'
 import { ScriptTemplateList } from '@/modules/script-template/ui/script-template-list'
-import { GatewayBasicSettings, GatewayAuthKeyManager } from '@/modules/ai-gateway/ui/gateway-settings'
+import { GatewayBasicSettings, GatewayAuthKeyManager, CallbackServerManager } from '@/modules/ai-gateway/ui/gateway-settings'
 import { GatewayTrafficChart } from '@/modules/gateway-runtime/ui/gateway-traffic-chart'
 import { GatewayTrendChart } from '@/modules/gateway-runtime/ui/gateway-trend-chart'
 import { GatewayTokenChart } from '@/modules/gateway-runtime/ui/gateway-token-chart'
@@ -177,9 +177,12 @@ function GatewaysIndexPage() {
           <GatewayAuthKeyManager />
         </TabsContent>
 
-        {/* 网关配置：监听地址、端口、日志级别 */}
+        {/* 网关配置：监听地址、端口、日志级别、回调服务器 */}
         <TabsContent value="gateway-settings" className="h-screen overflow-auto">
-          <GatewayBasicSettings />
+          <div className="space-y-4">
+            <GatewayBasicSettings />
+            <CallbackServerManager />
+          </div>
         </TabsContent>
 
         {/* 对外模型：ModelList 自身已用 useAvailableHeight + ScrollableTable 做内部滚动，勿再套 ScrollPage */}

@@ -29,6 +29,7 @@ use serde_json::Value;
 
 use crate::error::{IcodeError, IcodeResult};
 use crate::modules::ai_gateway::repository::ExposedGatewayModelRow;
+use crate::modules::logger::Log;
 use crate::modules::secret::{build_secret_ref, SecretServiceHandle, SecretKind};
 
 use super::auth::oauth2::OAuth2Client;
@@ -847,6 +848,7 @@ impl AiGatewayService {
                 token,
                 expires_at,
                 enterprise_url,
+                github_login,
                 email,
             } => {
                 let new_token = self.maybe_encrypt_secret(token, SecretKind::OauthToken)?;
@@ -857,6 +859,7 @@ impl AiGatewayService {
                     token: new_token,
                     expires_at: *expires_at,
                     enterprise_url: enterprise_url.clone(),
+                    github_login: github_login.clone(),
                     email: email.clone(),
                 })
             }
@@ -1240,7 +1243,13 @@ impl AiGatewayService {
     ) -> IcodeResult<AuthorizationResult> {
         let provider = self.get_provider(provider_id)?;
         let client = OAuth2Client::new_for_provider(&provider)?;
+        log::info!("开始用授权码换取 OAuth token: provider_id={}", provider_id);
         let token = client.exchange_code(config, code, code_verifier).await?;
+        log::info!("OAuth token 换取成功: provider_id={}", provider_id);
+        Log::info(&format!(
+            "OAuth 授权码换取 token 成功 (供应商 {})",
+            provider.display_name
+        ));
         Ok(AuthorizationResult {
             token,
             account_info: None,
@@ -1272,9 +1281,16 @@ impl AiGatewayService {
         let oauth_client = OAuth2Client::new_for_provider(&provider)?;
         let oauth_state = OAuth2Client::generate_state();
 
+        log::info!(
+            "OAuth 浏览器授权流程开始(事件模式): provider_id={}, method={:?}, provider_name={}",
+            provider_id,
+            method,
+            provider.display_name
+        );
+
         // 启动回调服务器，回调成功时通过 Tauri Event 通知前端
         let redirect_uri = oauth_client
-            .start_callback_server_with_event(app, &oauth_state, oauth_config.redirect_uri.as_deref(), provider_id)
+            .start_callback_server_with_event(app, &oauth_state, oauth_config.redirect_uri.as_deref(), provider_id, &provider.display_name)
             .await?;
         oauth_config.redirect_uri = Some(redirect_uri.clone());
 
@@ -1316,7 +1332,17 @@ impl AiGatewayService {
         oauth_config.redirect_uri = Some(redirect_uri.to_string());
 
         let client = OAuth2Client::new_for_provider(&provider)?;
+        log::info!(
+            "手动完成 OAuth 授权: provider_id={}, method={:?}",
+            provider_id,
+            method
+        );
         let token = client.exchange_code(&oauth_config, code, code_verifier).await?;
+        log::info!("OAuth 手动授权码换取 token 成功: provider_id={}", provider_id);
+        Log::info(&format!(
+            "OAuth 手动授权完成 (供应商 {})",
+            provider.display_name
+        ));
 
         let new_auth =
             self.build_auth_config_with_token(method, existing_json, token)?;
@@ -1345,8 +1371,40 @@ impl AiGatewayService {
             ));
         }
 
+        log::info!(
+            "开始 Device Code 授权流程: provider_id={}, method={:?}, provider_name={}",
+            provider_id, method, provider.display_name
+        );
+        Log::info(&format!(
+            "[OAuth] 开始 Device Code 授权流程 | provider_id={} method={:?} provider={}",
+            provider_id, method, provider.display_name
+        ));
+
         let client = OAuth2Client::new_for_provider(&provider)?;
-        client.request_device_code(&oauth).await
+        let result = client.request_device_code(&oauth).await;
+        match &result {
+            Ok(info) => {
+                log::info!(
+                    "Device Code 请求成功: provider_id={}, user_code={}, verification_uri={}",
+                    provider_id, info.user_code, info.verification_uri
+                );
+                Log::info(&format!(
+                    "[OAuth] Device Code 请求成功 | provider_id={} user_code={} verification_uri={}",
+                    provider_id, info.user_code, info.verification_uri
+                ));
+            }
+            Err(e) => {
+                log::error!(
+                    "Device Code 请求失败: provider_id={}, code={}, message={}",
+                    provider_id, e.code, e.message
+                );
+                Log::error(&format!(
+                    "[OAuth] Device Code 请求失败 | provider_id={} code={} message={}",
+                    provider_id, e.code, e.message
+                ));
+            }
+        }
+        result
     }
 
     /// 单次轮询 Device Code token
@@ -1369,10 +1427,39 @@ impl AiGatewayService {
             ));
         }
 
+        log::info!(
+            "轮询 Device Code token: provider_id={}, method={:?}, provider_name={}",
+            provider_id, method, provider.display_name
+        );
+        Log::info(&format!(
+            "[OAuth] 轮询 Device Code token | provider_id={} method={:?} provider={}",
+            provider_id, method, provider.display_name
+        ));
+
         let client = OAuth2Client::new_for_provider(&provider)?;
         match client.poll_device_token(&oauth, device_code).await? {
             Some(token) => {
-                let new_auth = self.build_auth_config_with_token(method, existing_json, token)?;
+                log::info!(
+                    "Device Code 授权成功: provider_id={}, token_type={:?}, expires_at={:?}",
+                    provider_id, token.token_type, token.expires_at
+                );
+                Log::info(&format!(
+                    "[OAuth] Device Code 授权成功 | provider_id={}",
+                    provider_id
+                ));
+
+                // GitHub Copilot 授权成功后，拉取 GitHub 用户信息（login、email）
+                let token_clone = token.clone();
+                let new_auth =
+                    self.build_auth_config_with_token(method, existing_json, token)?;
+
+                let new_auth = if method == AuthMethod::GithubCopilotAuth {
+                    self.enrich_github_copilot_auth(new_auth, &provider, &token_clone)
+                        .await
+                } else {
+                    new_auth
+                };
+
                 let update_input = UpdateProviderInput {
                     auth: Some(new_auth),
                     ..Default::default()
@@ -1383,10 +1470,16 @@ impl AiGatewayService {
                     provider: Some(provider),
                 })
             }
-            None => Ok(DeviceCodePollResult {
-                status: DeviceCodePollStatus::Pending,
-                provider: None,
-            }),
+            None => {
+                log::debug!(
+                    "Device Code 授权等待中: provider_id={}",
+                    provider_id
+                );
+                Ok(DeviceCodePollResult {
+                    status: DeviceCodePollStatus::Pending,
+                    provider: None,
+                })
+            }
         }
     }
 
@@ -1530,6 +1623,7 @@ impl AiGatewayService {
                 token: Some(token_json),
                 expires_at: token.expires_at,
                 enterprise_url: existing.as_ref().and_then(|a| a.enterprise_url().cloned()),
+                github_login: existing.as_ref().and_then(|a| a.github_login().cloned()),
                 email: existing.as_ref().and_then(|a| a.email().cloned()),
             }),
             _ => Err(IcodeError::validation(format!(
@@ -1537,6 +1631,128 @@ impl AiGatewayService {
                 method
             ))),
         }
+    }
+
+    /// 清空供应商的 OAuth token（保留端点配置等非敏感字段）
+    ///
+    /// 用于「重新授权」场景：用户勾选「删除历史认证信息」时，先清空 token，
+    /// 再发起授权流程。清空后若授权失败，旧 token 已丢失（符合用户预期）。
+    ///
+    /// 仅清空 `token`、`expires_at`，保留 `identity_id`、`label`、`description`、
+    /// OAuth 端点配置（authorizationUrl/tokenUrl/clientId 等）及供应商扩展字段
+    /// （project_id、email 等），避免用户重新填写端点。
+    pub fn clear_oauth_token(&self, provider_id: &str) -> IcodeResult<Provider> {
+        let provider = self.get_provider(provider_id)?;
+        let existing_json = provider.auth_json.as_deref();
+        let existing = existing_json
+            .filter(|s| !s.is_empty())
+            .and_then(|json| serde_json::from_str::<AuthConfig>(json).ok())
+            .ok_or_else(|| IcodeError::validation("供应商当前无认证配置，无需清空"))?;
+
+        let method = existing.method();
+        if !is_oauth_method(method) {
+            return Err(IcodeError::validation(format!(
+                "认证方法 {:?} 不支持 OAuth token 清空",
+                method
+            )));
+        }
+
+        let identity_id = existing.identity_id().cloned();
+        let label = existing.label().cloned();
+        let description = existing.description().cloned();
+
+        let cleared = match method {
+            AuthMethod::Oauth2 => AuthConfig::Oauth2 {
+                label,
+                description,
+                identity_id,
+                token: None,
+                expires_at: None,
+                oauth: existing.oauth_config().cloned(),
+            },
+            AuthMethod::AntigravityOauth => AuthConfig::AntigravityOauth {
+                label,
+                description,
+                identity_id,
+                token: None,
+                expires_at: None,
+                project_id: existing.project_id().cloned(),
+                managed_project_id: existing.managed_project_id().cloned(),
+                tier: existing.tier().cloned(),
+                tier_id: existing.tier_id().cloned(),
+                email: existing.email().cloned(),
+            },
+            AuthMethod::GoogleGeminiOauth => AuthConfig::GoogleGeminiOauth {
+                label,
+                description,
+                identity_id,
+                token: None,
+                expires_at: None,
+                project_id: existing.project_id().cloned(),
+                oauth_type: existing.oauth_type().cloned(),
+                managed_project_id: existing.managed_project_id().cloned(),
+                tier: existing.tier().cloned(),
+                tier_id: existing.tier_id().cloned(),
+                email: existing.email().cloned(),
+            },
+            AuthMethod::OpenaiCodexAuth => AuthConfig::OpenaiCodexAuth {
+                label,
+                description,
+                identity_id,
+                token: None,
+                expires_at: None,
+                account_id: existing.account_id().cloned(),
+                email: existing.email().cloned(),
+            },
+            AuthMethod::ClaudeCodeAuth => AuthConfig::ClaudeCode {
+                label,
+                description,
+                identity_id,
+                token: None,
+                expires_at: None,
+                email: existing.email().cloned(),
+            },
+            AuthMethod::XaiGrokOauth => AuthConfig::XaiGrokOauth {
+                label,
+                description,
+                identity_id,
+                token: None,
+                expires_at: None,
+                email: existing.email().cloned(),
+            },
+            AuthMethod::GithubCopilotAuth => AuthConfig::GithubCopilot {
+                label,
+                description,
+                identity_id,
+                token: None,
+                expires_at: None,
+                enterprise_url: existing.enterprise_url().cloned(),
+                github_login: existing.github_login().cloned(),
+                email: existing.email().cloned(),
+            },
+            _ => {
+                return Err(IcodeError::validation(format!(
+                    "认证方法 {:?} 不支持 OAuth token 清空",
+                    method
+                )))
+            }
+        };
+
+        log::info!(
+            "清空 OAuth token: provider_id={}, method={:?}",
+            provider_id,
+            method
+        );
+        Log::info(&format!(
+            "已清空供应商 {} 的 OAuth 授权信息",
+            provider.display_name
+        ));
+
+        let update_input = UpdateProviderInput {
+            auth: Some(cleared),
+            ..Default::default()
+        };
+        self.update_provider(provider_id, update_input)
     }
 
     // ===== 内置种子数据 =====
@@ -1596,9 +1812,16 @@ impl AiGatewayService {
         let client = build_provider_http_client(&provider)?;
 
         match provider.provider_type.as_str() {
-            "openai-chat-completion" | "openai-responses" | "openai-codex" | "xai-grok-build" => {
+            "openai-chat-completion" | "openai-responses" | "openai-codex" => {
                 let api_key = extract_api_key(&auth);
                 self.fetch_openai_compatible_models(&client, &provider, api_key)
+                    .await
+            }
+            // xAI Grok Build 使用 OAuth 认证，需从 token JSON 中提取 access_token 作为 Bearer
+            "xai-grok-build" => {
+                let token = extract_oauth_token(&auth);
+                let access_token = token.and_then(|t| extract_oauth_access_token_for_balance(t));
+                self.fetch_openai_compatible_models(&client, &provider, access_token.as_deref())
                     .await
             }
             "custom" => {
@@ -2106,33 +2329,222 @@ impl AiGatewayService {
         Ok(names)
     }
 
+    /// 用 GitHub OAuth token 拉取用户信息，填充 github_login 和 email
+    ///
+    /// 授权成功后调用 `GET https://api.github.com/user` 获取 GitHub 账户的
+    /// login（用户名）和 email，写入 AuthConfig 供前端展示。
+    /// 失败时不阻断授权流程，仅记录日志。
+    ///
+    /// 使用供应商级代理配置（`build_provider_http_client`），避免在需要代理的
+    /// 网络环境下直连 GitHub 失败导致 github_login 丢失。
+    async fn enrich_github_copilot_auth(
+        &self,
+        mut auth: AuthConfig,
+        provider: &Provider,
+        token: &OAuth2TokenData,
+    ) -> AuthConfig {
+        // 仅处理 GithubCopilot 认证
+        if !matches!(auth, AuthConfig::GithubCopilot { .. }) {
+            return auth;
+        }
+
+        let github_token = &token.access_token;
+        let client = match build_provider_http_client(provider) {
+            Ok(c) => c,
+            Err(e) => {
+                log::warn!("[OAuth] 获取 GitHub 用户信息时构造 HTTP 客户端失败: {}", e);
+                Log::warn("[OAuth] 获取 GitHub 用户信息时构造 HTTP 客户端失败");
+                return auth;
+            }
+        };
+
+        let url = "https://api.github.com/user";
+        log::info!("[OAuth] 拉取 GitHub 用户信息 | url={}", url);
+        Log::info("[OAuth] 拉取 GitHub 用户信息");
+
+        let resp = match client
+            .get(url)
+            .header("Accept", "application/json")
+            .header("Authorization", format!("Bearer {}", github_token))
+            .send()
+            .await
+        {
+            Ok(r) => r,
+            Err(e) => {
+                log::warn!("[OAuth] 拉取 GitHub 用户信息失败: {}", e);
+                Log::warn(&format!("[OAuth] 拉取 GitHub 用户信息失败: {}", e));
+                return auth;
+            }
+        };
+
+        let status = resp.status();
+        if !status.is_success() {
+            log::warn!("[OAuth] 拉取 GitHub 用户信息失败 [{}]", status);
+            Log::warn(&format!("[OAuth] 拉取 GitHub 用户信息失败 [{}]", status));
+            return auth;
+        }
+
+        let body: serde_json::Value = match resp.json().await {
+            Ok(v) => v,
+            Err(e) => {
+                log::warn!("[OAuth] 解析 GitHub 用户信息失败: {}", e);
+                return auth;
+            }
+        };
+
+        let login = body.get("login").and_then(|v| v.as_str()).map(String::from);
+        let email = body
+            .get("email")
+            .and_then(|v| v.as_str())
+            .map(String::from);
+
+        log::info!(
+            "[OAuth] GitHub 用户信息: login={:?}, email={:?}",
+            login, email
+        );
+        Log::info(&format!(
+            "[OAuth] GitHub 用户信息: login={:?}, email={:?}",
+            login, email
+        ));
+
+        if let AuthConfig::GithubCopilot {
+            github_login: ref mut gl,
+            email: ref mut em,
+            ..
+        } = &mut auth
+        {
+            if let Some(l) = &login {
+                *gl = Some(l.clone());
+            }
+            if let Some(e) = &email {
+                *em = Some(e.clone());
+            }
+        }
+
+        auth
+    }
+
+    /// 用 GitHub OAuth access_token 换取 GitHub Copilot IDE token（JWT）
+    ///
+    /// GitHub Copilot 的 AI 服务不直接接受普通 GitHub OAuth token，而是需要通过
+    /// `api.github.com/copilot_internal/v2/token` 换取一个短期的 JWT token。
+    /// 该 JWT 才是真正访问 `api.githubcopilot.com` 或 `api.individual.githubcopilot.com`
+    /// 的凭证。
+    ///
+    /// 注意：`github_token` 应为纯 access_token 字符串（如 `gho_xxx`），
+    /// 而非 OAuth token JSON。调用方需先从 JSON 中解析出 access_token。
+    async fn exchange_github_copilot_token(
+        client: &reqwest::Client,
+        github_token: &str,
+    ) -> IcodeResult<String> {
+        let url = "https://api.github.com/copilot_internal/v2/token";
+
+        log::info!("[OAuth] 换取 GitHub Copilot IDE token | url={}", url);
+        Log::info(&format!("[OAuth] 换取 GitHub Copilot IDE token | url={}", url));
+
+        let resp = client
+            .get(url)
+            .header("Accept", "application/json")
+            .header("Authorization", format!("Bearer {}", github_token))
+            .header(
+                "Editor-Version",
+                "vscode/1.95.0",
+            )
+            .header("Editor-Plugin-Version", "copilot/1.0.0")
+            .header("Copilot-Integration-Id", "vscode-chat")
+            .header("User-Agent", "Visual Studio Code")
+            .send()
+            .await
+            .map_err(|e| {
+                log::error!("[OAuth] 请求 Copilot IDE token 失败: {}", e);
+                Log::error("[OAuth] 请求 Copilot IDE token 失败");
+                IcodeError::gateway(format!("请求 Copilot IDE token 失败: {}", e))
+            })?;
+
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+
+        log::debug!(
+            "[OAuth] Copilot IDE token 响应 | status={} body={}",
+            status, text
+        );
+
+        if !status.is_success() {
+            log::error!(
+                "[OAuth] 换取 Copilot IDE token 失败 [{}]: {}",
+                status, text
+            );
+            Log::error(&format!(
+                "[OAuth] 换取 Copilot IDE token 失败 [{}]",
+                status
+            ));
+            return Err(IcodeError::gateway(format!(
+                "换取 Copilot IDE token 失败 [{}]: {}",
+                status, text
+            )));
+        }
+
+        let body: serde_json::Value = serde_json::from_str(&text)
+            .map_err(|e| IcodeError::gateway(format!("解析 Copilot IDE token 响应失败: {}", e)))?;
+
+        let token = body
+            .get("token")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| IcodeError::gateway("Copilot IDE token 响应缺少 token 字段"))?;
+
+        log::info!("[OAuth] 换取 GitHub Copilot IDE token 成功");
+        Log::info("[OAuth] 换取 GitHub Copilot IDE token 成功");
+
+        Ok(token.to_string())
+    }
+
     /// 拉取 GitHub Copilot 模型列表
+    ///
+    /// GitHub Copilot 的模型列表端点为 `{base_url}/models`（不是 OpenAI 风格的 `/v1/models`），
+    /// 与参考项目 `vscode-unify-chat-provider` 保持一致。
+    /// 需要先通过 [`Self::exchange_github_copilot_token`] 把 GitHub OAuth token
+    /// 换成 Copilot IDE token（JWT），再用 JWT 访问。
     async fn fetch_github_copilot_models(
         &self,
         client: &reqwest::Client,
         provider: &Provider,
         token: Option<&str>,
     ) -> IcodeResult<Vec<String>> {
+        let token_json = token.ok_or_else(|| {
+            IcodeError::validation("GitHub Copilot 未授权，缺少 OAuth token")
+        })?;
+
+        // token 字段存储的是 OAuth token JSON（如 {"accessToken":"gho_xxx",...}），
+        // 需要先解析出纯 access_token 才能用于换取 Copilot IDE token。
+        let github_token =
+            extract_oauth_access_token_for_balance(token_json).ok_or_else(|| {
+                IcodeError::validation("GitHub Copilot OAuth token 格式无效：缺少 accessToken")
+            })?;
+
+        log::debug!(
+            "[OAuth] GitHub Copilot access_token 已解析, 长度={}",
+            github_token.len()
+        );
+
+        let copilot_token = Self::exchange_github_copilot_token(client, &github_token).await?;
+
         let url = if provider.use_raw_base_url {
             format!("{}/models", provider.base_url.trim_end_matches('/'))
         } else {
-            let base = provider.base_url.trim_end_matches('/');
-            if base.contains("/v1") {
-                format!("{}/models", base)
-            } else {
-                format!("{}/v1/models", base)
-            }
+            // Copilot base_url 通常以 /v1 结尾，需要去掉后再拼 /models
+            let base = provider.base_url.trim_end_matches('/').trim_end_matches("/v1");
+            format!("{}/models", base)
         };
 
         let start = std::time::Instant::now();
-        let mut req = client.get(&url)
+        let mut req = client
+            .get(&url)
+            .header("Accept", "application/json")
             .header("X-GitHub-Api-Version", "2026-06-01")
             .header("Editor-Version", "vscode/1.0")
             .header("Copilot-Integration-Id", "vscode-chat");
 
-        if let Some(token) = token {
-            req = req.header("Authorization", format!("Bearer {}", token));
-        }
+        req = req.header("Authorization", format!("Bearer {}", copilot_token));
 
         let resp = req.send().await.map_err(|e| {
             log::warn!(

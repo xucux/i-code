@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -6,8 +6,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { ScrollPage } from '@/components/ui/scroll-page'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog'
+import { HelpIcon } from '@/components/ui/help-icon'
 import { toast } from 'sonner'
 import { useTranslation } from '@/modules/i18n/use-translation'
 import {
@@ -17,8 +20,10 @@ import {
   createGatewayAuthKey,
   updateGatewayAuthKey,
   deleteGatewayAuthKey,
+  listOauthCallbacks,
+  closeOauthCallback,
 } from '@/hooks/use-ai-gateway-mutation'
-import type { GatewaySettings, GatewayAuthKey, CreateGatewayAuthKeyInput, UpdateGatewayAuthKeyInput } from '@/modules/ai-gateway/types'
+import type { GatewaySettings, GatewayAuthKey, CreateGatewayAuthKeyInput, UpdateGatewayAuthKeyInput, CallbackServerInfo } from '@/modules/ai-gateway/types'
 import { DEFAULT_GATEWAY_HOST, DEFAULT_GATEWAY_PORT } from '@/core/constants'
 import { formatDateTime } from '@/core/utils'
 
@@ -489,14 +494,168 @@ export function GatewayAuthKeyManager() {
 }
 
 /**
+ * 回调服务器管理卡片
+ *
+ * 直接内嵌展示当前内存中活跃的 OAuth 回调服务器列表，支持刷新与强制关闭。
+ * 列表数据仅存在于后端内存中，不持久化。使用 ScrollPage 原生滚动。
+ */
+export function CallbackServerManager() {
+  const { t } = useTranslation('aiGateway')
+  const [servers, setServers] = useState<CallbackServerInfo[]>([])
+  const [loading, setLoading] = useState(false)
+  const [closeTarget, setCloseTarget] = useState<CallbackServerInfo | null>(null)
+  // 自动刷新间隔（毫秒），0 表示关闭；默认 2s
+  const [autoRefreshInterval, setAutoRefreshInterval] = useState(2000)
+
+  // 加载回调服务器列表；silent=true 时不触发 loading 状态（用于自动刷新）
+  const loadServers = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
+    try {
+      const list = await listOauthCallbacks()
+      setServers(list)
+    } catch {
+      setServers([])
+    } finally {
+      if (!silent) setLoading(false)
+    }
+  }, [])
+
+  // 首次挂载加载
+  useEffect(() => {
+    void loadServers()
+  }, [loadServers])
+
+  // 自动刷新：按选定间隔静默拉取
+  useEffect(() => {
+    if (autoRefreshInterval <= 0) return
+    const timer = setInterval(() => {
+      void loadServers(true)
+    }, autoRefreshInterval)
+    return () => clearInterval(timer)
+  }, [autoRefreshInterval, loadServers])
+
+  const handleForceClose = async () => {
+    if (!closeTarget) return
+    try {
+      const ok = await closeOauthCallback(closeTarget.id)
+      if (ok) {
+        toast.success(t('callbackServer.closeSuccess'))
+      } else {
+        toast.error(t('callbackServer.closeFailed'))
+      }
+      setCloseTarget(null)
+      void loadServers()
+    } catch (err) {
+      toast.error(String(err))
+      setCloseTarget(null)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-base">{t('callbackServer.title')}</CardTitle>
+            <CardDescription className="text-xs">{t('callbackServer.description')}</CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            <Select value={String(autoRefreshInterval)} onValueChange={(v) => setAutoRefreshInterval(Number(v))}>
+              <SelectTrigger className="h-7 w-[110px] text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="0">{t('callbackServer.autoRefreshOff')}</SelectItem>
+                <SelectItem value="2000">2s</SelectItem>
+                <SelectItem value="5000">5s</SelectItem>
+                <SelectItem value="10000">10s</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => void loadServers()}
+              disabled={loading}
+            >
+              <i className={`fa-solid fa-rotate mr-1.5 ${loading ? 'fa-spin' : ''}`} />
+              {t('callbackServer.refresh')}
+            </Button>
+            <HelpIcon type="popover" side="bottom" align="end" contentClassName="max-w-sm text-xs">
+              <div className="space-y-1.5">
+                <p className="font-medium">{t('callbackServer.helpTitle')}</p>
+                <p className="whitespace-pre-line text-muted-foreground">{t('callbackServer.helpContent')}</p>
+              </div>
+            </HelpIcon>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="p-0">
+        {servers.length === 0 ? (
+          <p className="text-muted-foreground py-8 text-center text-xs">{t('callbackServer.empty')}</p>
+        ) : (
+          <ScrollPage variant="borderless" style={{ height: 280 }}>
+            <div className="space-y-1.5 p-4 pt-0">
+              {servers.map((srv) => (
+                <div
+                  key={srv.id}
+                  className="group flex items-center justify-between rounded-md border p-2.5 text-xs hover:bg-muted/50"
+                >
+                  <div className="min-w-0 flex-1 space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-medium tabular-nums">{srv.port}</span>
+                      <Badge variant={srv.isFixedPort ? 'default' : 'secondary'} className="text-[10px]">
+                        {srv.isFixedPort ? t('callbackServer.typeFixed') : t('callbackServer.typeDynamic')}
+                      </Badge>
+                      <Badge variant="outline" className="text-[10px] text-green-600 border-green-200 bg-green-50 dark:bg-green-950/30">
+                        <i className="fa-solid fa-circle text-[6px] mr-1 animate-pulse" />
+                        {t('callbackServer.statusListening')}
+                      </Badge>
+                    </div>
+                    <div className="text-muted-foreground truncate">{srv.providerName}</div>
+                    <div className="text-muted-foreground font-mono text-[10px] truncate">{srv.redirectUri}</div>
+                    <div className="text-muted-foreground text-[10px]">
+                      {t('callbackServer.startedAt')}: {formatDateTime(new Date(srv.startedAt * 1000).toISOString())}
+                    </div>
+                  </div>
+                  <div className="ml-2 shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-6 text-destructive hover:text-destructive opacity-0 transition-opacity group-hover:opacity-100"
+                      onClick={() => setCloseTarget(srv)}
+                      title={t('callbackServer.forceClose')}
+                    >
+                      <i className="fa-solid fa-xmark text-[10px]" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ScrollPage>
+        )}
+      </CardContent>
+      <DeleteConfirmDialog
+        open={!!closeTarget}
+        onOpenChange={(v) => !v && setCloseTarget(null)}
+        title={t('callbackServer.forceCloseTitle')}
+        description={closeTarget ? t('callbackServer.forceCloseConfirm', { port: closeTarget.port }) : ''}
+        onConfirm={handleForceClose}
+      />
+    </Card>
+  )
+}
+
+/**
  * 网关设置管理组件
  *
- * 组合网关基础设置和 API Key 管理两个区域。
+ * 组合网关基础设置、回调服务器管理和 API Key 管理区域。
  */
 export function GatewaySettingsPanel() {
   return (
     <div className="space-y-4">
       <GatewayBasicSettings />
+      <CallbackServerManager />
       <GatewayAuthKeyManager />
     </div>
   )

@@ -666,8 +666,14 @@ pub async fn gateway_provider_oauth_authorize(
     //    其他供应商使用动态端口。实际 redirect_uri 必须写回 oauth_config 供后续换 token 使用。
     let oauth_client = OAuth2Client::new();
     let oauth_state = OAuth2Client::generate_state();
+    log::info!(
+        "OAuth 授权流程开始: provider_id={}, auth_method={:?}, provider_name={}",
+        provider_id,
+        auth_method,
+        provider.display_name
+    );
     let (redirect_uri, rx) = oauth_client
-        .start_callback_server(&oauth_state, oauth_config.redirect_uri.as_deref())
+        .start_callback_server(&oauth_state, oauth_config.redirect_uri.as_deref(), &provider_id, &provider.display_name)
         .await?;
     oauth_config.redirect_uri = Some(redirect_uri);
 
@@ -705,7 +711,9 @@ pub async fn gateway_provider_oauth_authorize(
         auth: Some(new_auth),
         ..Default::default()
     };
-    state.service().update_provider(&provider_id, update_input)
+    let updated = state.service().update_provider(&provider_id, update_input)?;
+    log::info!("OAuth 授权流程完成: provider_id={}", provider_id);
+    Ok(updated)
 }
 
 /// 启动 OAuth 浏览器授权（不等待回调，立即返回授权 URL 和 PKCE 参数）
@@ -767,6 +775,53 @@ pub async fn gateway_provider_oauth_complete(
         .service()
         .complete_oauth_with_code(&provider_id, auth_method, &code, &code_verifier, &redirect_uri)
         .await
+}
+
+/// 列出当前活跃的 OAuth 回调服务器
+///
+/// 返回内存注册表中所有正在监听的回调服务器信息，包括端口、供应商、固定/动态标识等。
+/// 数据仅存在于内存中，不持久化。
+#[tauri::command]
+pub async fn gateway_oauth_callback_list() -> IcodeResult<Vec<crate::modules::ai_gateway::auth::CallbackServerInfo>> {
+    Ok(crate::modules::ai_gateway::auth::global_registry().list())
+}
+
+/// 强制关闭指定的 OAuth 回调服务器
+///
+/// 通过发送 graceful shutdown 信号关闭回调服务器并释放端口。
+/// 关闭后从注册表中移除。
+///
+/// # 参数
+/// - `id`：回调服务器条目 ID（由 `gateway_oauth_callback_list` 返回）
+///
+/// # 返回
+/// `true` 表示找到并关闭了服务器，`false` 表示未找到（可能已自动关闭）。
+#[tauri::command]
+pub async fn gateway_oauth_callback_close(id: String) -> IcodeResult<bool> {
+    let closed = crate::modules::ai_gateway::auth::global_registry().force_close(&id);
+    if closed {
+        log::info!("强制关闭 OAuth 回调服务器: id={}", id);
+    }
+    Ok(closed)
+}
+
+/// 清空供应商的 OAuth token（保留端点配置等非敏感字段）
+///
+/// 用于「重新授权」场景：用户勾选「删除历史认证信息」后，先调用此命令清空旧 token，
+/// 再发起授权流程。仅清空 token/expires_at，保留 method、OAuth 端点配置、
+/// project_id、email 等非敏感字段，避免用户重新填写端点。
+///
+/// # 参数
+/// - `provider_id`：供应商 ID
+///
+/// # 返回
+/// 更新后的供应商对象（auth_json 中 token 已清空）。
+#[tauri::command]
+pub async fn gateway_provider_clear_oauth_token(
+    state: State<'_, AiGatewayServiceHandle>,
+    provider_id: String,
+) -> IcodeResult<Provider> {
+    state.service().clear_oauth_token(&provider_id)
 }
 
 /// 请求 OAuth Device Code

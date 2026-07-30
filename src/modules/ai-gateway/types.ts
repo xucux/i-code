@@ -349,6 +349,8 @@ export interface GitHubCopilotAuth extends AuthConfigBase {
   /** OAuth token 过期时间（Unix 秒） */
   expiresAt?: number
   enterpriseUrl?: string
+  /** GitHub 用户名（授权后自动获取） */
+  githubLogin?: string
   email?: string
 }
 
@@ -386,6 +388,29 @@ export interface OAuthCallbackEvent {
   error?: string
   /** 错误描述 */
   errorDescription?: string
+}
+
+/**
+ * OAuth 回调服务器信息
+ *
+ * 由后端内存注册表返回，展示当前活跃的回调服务器实例。
+ * 数据仅存在于内存中，不持久化。
+ */
+export interface CallbackServerInfo {
+  /** 唯一标识 */
+  id: string
+  /** 供应商 ID */
+  providerId: string
+  /** 供应商名称 */
+  providerName: string
+  /** 监听端口 */
+  port: number
+  /** 完整回调 URI */
+  redirectUri: string
+  /** 是否为固定端口（供应商预设的 redirect_uri） */
+  isFixedPort: boolean
+  /** 启动时间戳（Unix 秒） */
+  startedAt: number
 }
 
 /** Device Code 轮询状态 */
