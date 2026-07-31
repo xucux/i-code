@@ -1359,6 +1359,7 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
                   onManualCodeChange={setManualCode}
                   onCompleteWithCode={() => void completeOAuthWithCode(manualCode)}
                   onCancelManualExchange={cancelManualExchange}
+                  onProviderUpdated={onProviderUpdated}
                 />
               )}
 
@@ -2473,6 +2474,8 @@ interface OAuthAuthorizeSectionProps {
   onManualCodeChange: (code: string) => void
   onCompleteWithCode: () => void
   onCancelManualExchange: () => void
+  /** 续期/授权成功后回传更新后的供应商对象 */
+  onProviderUpdated?: (provider: Provider) => void
 }
 
 /**
@@ -2498,6 +2501,7 @@ function OAuthAuthorizeSection({
   onManualCodeChange,
   onCompleteWithCode,
   onCancelManualExchange,
+  onProviderUpdated,
 }: OAuthAuthorizeSectionProps) {
   const { t } = useTranslation()
   const isDeviceCode = authMethod === 'github-copilot'
@@ -2546,10 +2550,11 @@ function OAuthAuthorizeSection({
   const handleRenew = useCallback(async () => {
     setRenewing(true)
     try {
-      await invokeCommand<Provider>('gateway_provider_oauth_refresh_token', {
+      const updated = await invokeCommand<Provider>('gateway_provider_oauth_refresh_token', {
         providerId: provider.id,
         authMethod,
       })
+      onProviderUpdated?.(updated)
       toast.success(t('aiGateway.providerForm.tokenRenewSuccess'))
     } catch (e) {
       const err = toIcodeError(e)
@@ -2557,7 +2562,7 @@ function OAuthAuthorizeSection({
     } finally {
       setRenewing(false)
     }
-  }, [provider.id, authMethod, t])
+  }, [provider.id, authMethod, onProviderUpdated, t])
 
   return (
     <div className="mt-4 rounded-md border p-3 space-y-3">
