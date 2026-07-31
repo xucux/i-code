@@ -79,7 +79,7 @@ pub fn estimate_prompt_tokens(model_id: &str, body: &Value) -> Option<i64> {
     let image_tokens = image_count * 512;
     let estimated = tokens_from_bytes + overhead + image_tokens;
 
-    log::debug!(
+    tracing::debug!(
         "tokenizer 估算: model={}, messages={}, bytes={}, estimated_tokens={}",
         model_id, message_count, total_bytes, estimated
     );

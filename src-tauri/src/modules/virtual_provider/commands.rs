@@ -148,7 +148,7 @@ pub async fn virtual_provider_route_list(
     virtual_model_id: String,
 ) -> IcodeResult<Vec<VirtualModelRoute>> {
     let result = state.service().list_routes_by_virtual_model(&virtual_model_id)?;
-    log::info!("virtual_provider_route_list({}) => {} routes", virtual_model_id, result.len());
+    tracing::info!("virtual_provider_route_list({}) => {} routes", virtual_model_id, result.len());
     Ok(result)
 }
 

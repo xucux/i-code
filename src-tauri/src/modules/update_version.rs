@@ -117,8 +117,8 @@ async fn check_update_internal(app: &tauri::AppHandle) -> Result<CheckUpdateResu
         .clone()
         .unwrap_or_else(|| "0.0.1".into());
 
-    log::info!("[check_update] current version: {}", current_version);
-    log::info!("[check_update] fetching: {}", url);
+    tracing::info!("[check_update] current version: {}", current_version);
+    tracing::info!("[check_update] fetching: {}", url);
 
     let client = crate::modules::shared::apply_global_proxy(
         reqwest::Client::builder().timeout(std::time::Duration::from_secs(15)),
@@ -144,7 +144,7 @@ async fn check_update_internal(app: &tauri::AppHandle) -> Result<CheckUpdateResu
     let has_update = is_newer_version(&update.version, &current_version);
     let is_beta = is_beta_version(&update.version);
 
-    log::info!(
+    tracing::info!(
         "[check_update] remote: {}, current: {}, has_update: {}, is_beta: {}",
         update.version,
         current_version,
@@ -188,7 +188,7 @@ pub async fn download_and_install_update(
     use futures::StreamExt;
     use tokio::io::AsyncWriteExt;
 
-    log::info!("[download_update] 开始下载: {}", url);
+    tracing::info!("[download_update] 开始下载: {}", url);
 
     let client = crate::modules::shared::apply_global_proxy(
         reqwest::Client::builder().timeout(std::time::Duration::from_secs(300)),
@@ -212,7 +212,7 @@ pub async fn download_and_install_update(
     let temp_dir = std::env::temp_dir();
     let file_path = temp_dir.join(&file_name);
 
-    log::info!("[download_update] 保存到: {:?}", file_path);
+    tracing::info!("[download_update] 保存到: {:?}", file_path);
 
     let mut file = tokio::fs::File::create(&file_path)
         .await
@@ -245,7 +245,7 @@ pub async fn download_and_install_update(
         .map_err(|e| format!("刷新文件缓冲失败: {}", e))?;
     drop(file);
 
-    log::info!("[download_update] 下载完成，触发安装: {:?}", file_path);
+    tracing::info!("[download_update] 下载完成，触发安装: {:?}", file_path);
 
     // 根据平台触发安装
     #[cfg(target_os = "windows")]
@@ -330,7 +330,7 @@ pub async fn run_update_check_and_emit(app: tauri::AppHandle) {
         .unwrap_or_else(|| "0.0.1".into());
     match check_update_internal(&app).await {
         Ok(result) => {
-            log::info!(
+            tracing::info!(
                 "[update_check] 推送结果：has_update={}, is_beta={}",
                 result.has_update,
                 result.is_beta
@@ -338,7 +338,7 @@ pub async fn run_update_check_and_emit(app: tauri::AppHandle) {
             let _ = app.emit(UPDATE_CHECK_RESULT_EVENT, &result);
         }
         Err(e) => {
-            log::warn!("[update_check] 启动期检查失败：{}", e);
+            tracing::warn!("[update_check] 启动期检查失败：{}", e);
             let fallback = CheckUpdateResult {
                 has_update: false,
                 is_beta: false,

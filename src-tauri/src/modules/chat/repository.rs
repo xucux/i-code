@@ -74,7 +74,7 @@ impl ChatRepository {
             match serde_json::from_str::<ChatSessionSummary>(line) {
                 Ok(s) => sessions.push(s),
                 Err(e) => {
-                    log::warn!("跳过损坏的会话索引行 {}: {}", idx + 1, e);
+                    tracing::warn!("跳过损坏的会话索引行 {}: {}", idx + 1, e);
                 }
             }
         }

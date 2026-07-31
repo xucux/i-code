@@ -59,12 +59,12 @@ pub async fn settings_update(
         // 业务日志：全局代理配置变更（脱敏，不含认证信息）
         if let Some(log_str) = proxy_log {
             let msg = format!("全局代理配置已更新 | {}", log_str);
-            log::info!("{}", msg);
+            tracing::info!("{}", msg);
             crate::modules::logger::Log::info(&msg);
         }
         if let Some(enabled) = proxy_enabled_log {
             let msg = format!("全局代理开关已{}", if enabled { "开启" } else { "关闭" });
-            log::info!("{}", msg);
+            tracing::info!("{}", msg);
             crate::modules::logger::Log::info(&msg);
         }
 

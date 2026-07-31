@@ -47,6 +47,7 @@ pub mod auth_resolver;
 pub mod client;
 pub mod commands;
 pub mod forwarding;
+pub mod header_variable_resolver;
 pub mod logging;
 pub mod router;
 pub mod service;

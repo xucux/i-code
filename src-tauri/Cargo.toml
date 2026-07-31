@@ -62,7 +62,7 @@ hex = "0.4"
 
 # ===== 通用工具 =====
 # UUID 生成（保留给运行时随机 token / 请求 ID 等非表主键场景）
-uuid = { version = "1", features = ["v4", "serde"] }
+uuid = { version = "1", features = ["v4", "v5", "serde"] }
 # 雪花 ID 生成（数据库表主键）
 rs-snowflake = "0.6"
 # 时间戳处理

@@ -53,7 +53,7 @@ fn build_http_client() -> IcodeResult<reqwest::Client> {
 /// 拉取文本，限制体积
 async fn fetch_text(url: &str, max_bytes: usize) -> IcodeResult<(String, Option<String>)> {
     let client = build_http_client()?;
-    log::info!("[marketplace] GET {url}");
+    tracing::info!("[marketplace] GET {url}");
     let resp = client.get(url).send().await.map_err(|e| {
         if e.is_timeout() {
             IcodeError::gateway(format!("市场请求超时：{e}"))

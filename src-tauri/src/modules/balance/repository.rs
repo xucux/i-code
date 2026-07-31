@@ -133,7 +133,7 @@ pub fn list_balance_snapshots() -> IcodeResult<Vec<ProviderBalanceSnapshotRow>> 
         let snapshot: BalanceSnapshot = match serde_json::from_str(&snapshot_json) {
             Ok(s) => s,
             Err(e) => {
-                log::warn!("解析供应商 {} 额度快照失败: {}", provider_id, e);
+                tracing::warn!("解析供应商 {} 额度快照失败: {}", provider_id, e);
                 continue;
             }
         };

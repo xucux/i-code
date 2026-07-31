@@ -152,7 +152,7 @@ impl HttpHostState {
         let path = url::Url::parse(url)
             .map(|u| u.path().to_string())
             .unwrap_or_else(|_| url.to_string());
-        log::debug!("[balance-script] HTTP {} {}", method, path);
+        tracing::debug!("[balance-script] HTTP {} {}", method, path);
 
         let response = req
             .send()

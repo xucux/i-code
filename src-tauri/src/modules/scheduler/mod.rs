@@ -36,7 +36,7 @@ impl SchedulerHandle {
     pub fn new(ai_gateway: AiGatewayServiceHandle) -> Self {
         let mut tasks: Vec<JoinHandle<()>> = Vec::new();
         tasks.push(async_runtime::spawn(oauth_refresh_loop(ai_gateway)));
-        log::info!("Scheduler 模块初始化完成（OAuth 续期任务已启动）");
+        tracing::info!("Scheduler 模块初始化完成（OAuth 续期任务已启动）");
         Self { tasks }
     }
 }
@@ -52,7 +52,7 @@ impl Drop for SchedulerHandle {
 /// OAuth token 续期循环
 async fn oauth_refresh_loop(ai_gateway: AiGatewayServiceHandle) {
     let interval = Duration::from_secs(OAUTH_REFRESH_INTERVAL_SECS);
-    log::info!(
+    tracing::info!(
         "OAuth 续期任务启动，扫描间隔 {}s，阈值 {}s",
         OAUTH_REFRESH_INTERVAL_SECS,
         OAUTH_REFRESH_THRESHOLD_SECS
@@ -61,7 +61,7 @@ async fn oauth_refresh_loop(ai_gateway: AiGatewayServiceHandle) {
         // 先等待一个周期（启动后延迟首次扫描，避免与初始化竞争）
         tokio::time::sleep(interval).await;
         if let Err(e) = scan_and_refresh(&ai_gateway, OAUTH_REFRESH_THRESHOLD_SECS).await {
-            log::error!("OAuth 续期扫描失败: {}", e);
+            tracing::error!("OAuth 续期扫描失败: {}", e);
             Log::error(&format!("[Scheduler] OAuth 续期扫描失败：{}", e));
         }
     }
@@ -99,7 +99,7 @@ async fn scan_and_refresh(
 
         // 解析过期时间；解析失败则跳过
         let Ok(expires_dt) = chrono::DateTime::parse_from_rfc3339(expires_str) else {
-            log::warn!(
+            tracing::warn!(
                 "OAuth 续期：供应商 {} 的 auth_expires_at 无法解析: {}",
                 p.display_name,
                 expires_str
@@ -113,7 +113,7 @@ async fn scan_and_refresh(
             continue;
         }
 
-        log::info!(
+        tracing::info!(
             "OAuth 续期：provider_id={}, name={}, method={}, expires_at={}",
             p.id, p.display_name, method_str, expires_str
         );
@@ -124,7 +124,7 @@ async fn scan_and_refresh(
             .await
         {
             Ok(_) => {
-                log::info!(
+                tracing::info!(
                     "OAuth 续期成功：provider_id={}, name={}",
                     p.id,
                     p.display_name
@@ -135,7 +135,7 @@ async fn scan_and_refresh(
                 ));
             }
             Err(e) => {
-                log::error!(
+                tracing::error!(
                     "OAuth 续期失败：provider_id={}, name={}, error={}",
                     p.id,
                     p.display_name,

@@ -234,26 +234,26 @@ pub fn apply_global_proxy(builder: reqwest::ClientBuilder) -> reqwest::ClientBui
     let settings = match crate::modules::settings::repository::find() {
         Ok(s) => s,
         Err(e) => {
-            log::error!("[proxy] global | read app_settings failed | err={:?} → forced direct", e);
+            tracing::error!("[proxy] global | read app_settings failed | err={:?} → forced direct", e);
             return builder.no_proxy();
         }
     };
     if !settings.global_proxy_enabled {
-        log::trace!("[proxy] global | enabled=false → forced direct (no_proxy)");
+        tracing::trace!("[proxy] global | enabled=false → forced direct (no_proxy)");
         return builder.no_proxy();
     }
     let Some(json) = settings.global_proxy_json.as_deref() else {
-        log::trace!("[proxy] global | enabled=true but json=null → forced direct (no_proxy)");
+        tracing::trace!("[proxy] global | enabled=true but json=null → forced direct (no_proxy)");
         return builder.no_proxy();
     };
     let cfg: ProxyConfig = match serde_json::from_str(json) {
         Ok(c) => c,
         Err(e) => {
-            log::error!("[proxy] global | parse json failed | err={:?} | raw={} → forced direct", e, json);
+            tracing::error!("[proxy] global | parse json failed | err={:?} | raw={} → forced direct", e, json);
             return builder.no_proxy();
         }
     };
-    log::trace!("[proxy] global | enabled=true | strategy={:?} | url={:?} | no_proxy={:?}",
+    tracing::trace!("[proxy] global | enabled=true | strategy={:?} | url={:?} | no_proxy={:?}",
         cfg.proxy_type, cfg.url, cfg.no_proxy);
     cfg.apply_to_client_builder(builder)
 }
@@ -268,26 +268,26 @@ pub fn apply_global_proxy_blocking(builder: reqwest::blocking::ClientBuilder) ->
     let settings = match crate::modules::settings::repository::find() {
         Ok(s) => s,
         Err(e) => {
-            log::error!("[proxy] global(blocking) | read app_settings failed | err={:?} → forced direct", e);
+            tracing::error!("[proxy] global(blocking) | read app_settings failed | err={:?} → forced direct", e);
             return builder.no_proxy();
         }
     };
     if !settings.global_proxy_enabled {
-        log::trace!("[proxy] global(blocking) | enabled=false → forced direct (no_proxy)");
+        tracing::trace!("[proxy] global(blocking) | enabled=false → forced direct (no_proxy)");
         return builder.no_proxy();
     }
     let Some(json) = settings.global_proxy_json.as_deref() else {
-        log::trace!("[proxy] global(blocking) | enabled=true but json=null → forced direct (no_proxy)");
+        tracing::trace!("[proxy] global(blocking) | enabled=true but json=null → forced direct (no_proxy)");
         return builder.no_proxy();
     };
     let cfg: ProxyConfig = match serde_json::from_str(json) {
         Ok(c) => c,
         Err(e) => {
-            log::error!("[proxy] global(blocking) | parse json failed | err={:?} | raw={} → forced direct", e, json);
+            tracing::error!("[proxy] global(blocking) | parse json failed | err={:?} | raw={} → forced direct", e, json);
             return builder.no_proxy();
         }
     };
-    log::trace!("[proxy] global(blocking) | enabled=true | strategy={:?} | url={:?} | no_proxy={:?}",
+    tracing::trace!("[proxy] global(blocking) | enabled=true | strategy={:?} | url={:?} | no_proxy={:?}",
         cfg.proxy_type, cfg.url, cfg.no_proxy);
     cfg.apply_to_blocking_client_builder(builder)
 }
@@ -320,20 +320,20 @@ pub fn apply_provider_proxy(
     provider_proxy_json: Option<&str>,
 ) -> Result<reqwest::ClientBuilder, String> {
     let Some(json) = provider_proxy_json else {
-        log::trace!("[proxy] provider | json=null → delegate to global");
+        tracing::trace!("[proxy] provider | json=null → delegate to global");
         return Ok(apply_global_proxy(builder));
     };
     let cfg: ProviderProxyConfig = serde_json::from_str(json).map_err(|e| {
-        log::error!("[proxy] provider | parse json failed | err={:?} | raw={}", e, json);
+        tracing::error!("[proxy] provider | parse json failed | err={:?} | raw={}", e, json);
         format!("解析 proxy_json 失败: {}", e)
     })?;
     match cfg.proxy_type {
         ProviderProxyType::Global => {
-            log::trace!("[proxy] provider | strategy=global → delegate to global");
+            tracing::trace!("[proxy] provider | strategy=global → delegate to global");
             Ok(apply_global_proxy(builder))
         }
         ProviderProxyType::Direct => {
-            log::trace!("[proxy] provider | strategy=direct → no_proxy");
+            tracing::trace!("[proxy] provider | strategy=direct → no_proxy");
             Ok(builder.no_proxy())
         }
         ProviderProxyType::Socks | ProviderProxyType::Http => {
@@ -342,12 +342,12 @@ pub fn apply_provider_proxy(
                 .as_deref()
                 .filter(|s| !s.is_empty())
                 .ok_or_else(|| {
-                    log::error!("[proxy] provider | strategy={:?} | missing url", cfg.proxy_type);
+                    tracing::error!("[proxy] provider | strategy={:?} | missing url", cfg.proxy_type);
                     "socks/http 代理缺少 url".to_string()
                 })?;
-            log::trace!("[proxy] provider | strategy={:?} | url={}", cfg.proxy_type, redact_proxy_url(url));
+            tracing::trace!("[proxy] provider | strategy={:?} | url={}", cfg.proxy_type, redact_proxy_url(url));
             let proxy = reqwest::Proxy::all(url).map_err(|e| {
-                log::error!("[proxy] provider | strategy={:?} | build proxy failed | url={} | err={:?}",
+                tracing::error!("[proxy] provider | strategy={:?} | build proxy failed | url={} | err={:?}",
                     cfg.proxy_type, redact_proxy_url(url), e);
                 format!("构造代理失败: {}", e)
             })?;

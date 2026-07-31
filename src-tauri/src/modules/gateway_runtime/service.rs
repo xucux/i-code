@@ -256,7 +256,7 @@ impl GatewayRuntimeService {
 
         let server_handle = tokio::spawn(async move {
             if let Err(e) = server.await {
-                log::error!("axum Server 运行错误: {e}");
+                tracing::error!("axum Server 运行错误: {e}");
                 // 注意：此处无法直接访问 self.shared.logger_handle，
                 // 因为 tokio::spawn 的 async move 闭包不能捕获非 Send 的 self 引用。
                 // 该错误已通过 log::error! 输出到标准输出，
@@ -295,7 +295,7 @@ impl GatewayRuntimeService {
             state.active_requests = 0;
         }
 
-        log::info!("Gateway HTTP Server 已启动: http://{bound_addr}");
+        tracing::info!("Gateway HTTP Server 已启动: http://{bound_addr}");
 
         // 写入系统日志
         self.shared.logger_handle.service().log_system(
@@ -365,7 +365,7 @@ impl GatewayRuntimeService {
         // 广播网关状态变更
         self.emit_status_changed();
 
-        log::info!("Gateway HTTP Server 已停止");
+        tracing::info!("Gateway HTTP Server 已停止");
 
         // 写入系统日志
         self.shared.logger_handle.service().log_system(

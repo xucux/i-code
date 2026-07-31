@@ -68,7 +68,7 @@ impl VirtualForwarder {
                 Err(e) => {
                     // 路由目标供应商不可用，降级并继续下一条
                     degrade_route(shared, &route.id);
-                    log::warn!("虚拟路由 {} 不可用: {}", route.id, e.message);
+                    tracing::warn!("虚拟路由 {} 不可用: {}", route.id, e.message);
                     last_err = Some(e);
                     continue;
                 }
@@ -119,7 +119,7 @@ pub(crate) fn degrade_route(shared: &GatewaySharedState, route_id: &str) {
         .service()
         .degrade_route_health(route_id)
     {
-        log::warn!(
+        tracing::warn!(
             "降级虚拟路由健康度失败: route_id={}, error={}",
             route_id,
             e.message
@@ -130,7 +130,7 @@ pub(crate) fn degrade_route(shared: &GatewaySharedState, route_id: &str) {
             Some(file!()),
         );
     } else {
-        log::info!("虚拟路由已降级: route_id={}", route_id);
+        tracing::info!("虚拟路由已降级: route_id={}", route_id);
         shared.logger_handle.service().log_system(
             LogLevel::Info,
             &format!("虚拟路由已降级: route_id={}", route_id),

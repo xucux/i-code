@@ -83,7 +83,7 @@ impl CallbackRegistry {
     /// 注册一个回调服务器条目
     pub fn register(&self, entry: CallbackServerEntry) {
         let mut entries = self.entries.lock().unwrap();
-        log::info!(
+        tracing::info!(
             "注册 OAuth 回调服务器: id={}, port={}, provider={}",
             entry.id,
             entry.port,
@@ -99,7 +99,7 @@ impl CallbackRegistry {
         entries.retain(|e| e.id != id);
         let after = entries.len();
         if before != after {
-            log::info!("注销 OAuth 回调服务器: id={}", id);
+            tracing::info!("注销 OAuth 回调服务器: id={}", id);
         }
     }
 
@@ -122,7 +122,7 @@ impl CallbackRegistry {
             if let Some(tx) = entry.shutdown_tx.lock().unwrap().take() {
                 let _ = tx.send(());
             }
-            log::info!(
+            tracing::info!(
                 "强制关闭 OAuth 回调服务器: id={}, port={}",
                 entry.id,
                 entry.port

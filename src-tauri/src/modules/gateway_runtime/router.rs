@@ -413,7 +413,7 @@ async fn log_gateway_response(
                 )
             }
             Err(e) => {
-                log::warn!("读取直连网关响应体失败: {}", e);
+                tracing::warn!("读取直连网关响应体失败: {}", e);
                 state.logger_handle.service().log_system(
                     crate::modules::logger::types::LogLevel::Warn,
                     &format!("读取直连网关响应体失败: {}", e),

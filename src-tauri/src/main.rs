@@ -359,7 +359,7 @@ fn update_tray_balance_items(
                         lock.push(new_item);
                     }
                     Err(e) => {
-                        log::warn!("创建托盘额度菜单项失败 (id={}): {}", expected_id, e);
+                        tracing::warn!("创建托盘额度菜单项失败 (id={}): {}", expected_id, e);
                     }
                 }
             }
@@ -378,7 +378,7 @@ fn update_tray_balance_items(
                         *empty_lock = Some(item);
                     }
                     Err(e) => {
-                        log::warn!("创建托盘额度占位项失败: {}", e);
+                        tracing::warn!("创建托盘额度占位项失败: {}", e);
                     }
                 }
             }
@@ -707,7 +707,7 @@ fn main() {
                 if window.label() == "main" {
                     api.prevent_close();
                     let _ = window.hide();
-                    log::info!("主窗口关闭请求 → 隐藏到系统托盘");
+                    tracing::info!("主窗口关闭请求 → 隐藏到系统托盘");
                 }
             }
         })
@@ -743,7 +743,7 @@ fn main() {
             let db_path = app_config_dir.join("i-code.db");
             db::init_db_pool(&db_path).expect("数据库连接池初始化失败");
             db::run_migrations().expect("数据库迁移执行失败");
-            log::info!("数据库初始化完成：{}", db_path.display());
+            tracing::info!("数据库初始化完成：{}", db_path.display());
 
             // ===== 初始化 Settings 模块 =====
             // Settings 无需启动期加载缓存，每次调用直接查库。
@@ -756,10 +756,10 @@ fn main() {
                     if let Some(atomic_filter) = app.try_state::<std::sync::Arc<crate::core::atomic_filter::AtomicLevelFilter>>() {
                         atomic_filter.set_level(settings.log_level.to_tracing_level());
                     }
-                    log::info!("Settings 模块初始化完成，日志级别：{}", settings.log_level.as_str());
+                    tracing::info!("Settings 模块初始化完成，日志级别：{}", settings.log_level.as_str());
                 }
                 Err(e) => {
-                    log::warn!("读取设置失败，使用默认日志级别 Info：{}", e.message);
+                    tracing::warn!("读取设置失败，使用默认日志级别 Info：{}", e.message);
                 }
             }
             app.manage(settings_handle.clone());
@@ -770,7 +770,7 @@ fn main() {
             let secret_handle =
                 modules::secret::SecretServiceHandle::new(settings_handle.clone())
                     .expect("Secret 服务初始化失败");
-            log::info!("Secret 模块初始化完成");
+            tracing::info!("Secret 模块初始化完成");
             // 克隆句柄给 backup 与 ai_gateway 模块使用（原句柄注册为 Tauri State）
             let secret_handle_for_backup = secret_handle.clone();
             let secret_handle_for_ai_gateway = secret_handle.clone();
@@ -779,7 +779,7 @@ fn main() {
             // ===== 初始化 Balance 模块 =====
             // Balance 无状态，直接构造 Handle 注册为 Tauri State。
             let balance_handle = modules::balance::BalanceServiceHandle::new();
-            log::info!("Balance 模块初始化完成");
+            tracing::info!("Balance 模块初始化完成");
             app.manage(balance_handle);
 
             // ===== 初始化 Logger 模块 =====
@@ -787,7 +787,7 @@ fn main() {
             let logger_handle = modules::logger::LoggerServiceHandle::with_default();
             // 注册到全局，供无法获取 AppHandle 的后端代码通过 Log::info 等写入自研 logger
             modules::logger::set_global_logger_handle(logger_handle.clone());
-            log::info!("Logger 模块初始化完成");
+            tracing::info!("Logger 模块初始化完成");
             // 克隆句柄给 gateway_runtime 模块使用
             let logger_handle_for_gateway = logger_handle.clone();
             app.manage(logger_handle);
@@ -810,7 +810,7 @@ fn main() {
                 db::SCHEMA_VERSION,
                 secret_handle_for_backup,
             );
-            log::info!("Backup 模块初始化完成");
+            tracing::info!("Backup 模块初始化完成");
             app.manage(backup_handle);
 
             // ===== 初始化 AI Gateway 模块 =====
@@ -819,14 +819,14 @@ fn main() {
             let secret_handle_for_gateway = secret_handle_for_ai_gateway.clone();
             let ai_gateway_handle =
                 modules::ai_gateway::AiGatewayServiceHandle::new(secret_handle_for_ai_gateway);
-            log::info!("AI Gateway 模块初始化完成");
+            tracing::info!("AI Gateway 模块初始化完成");
             app.manage(ai_gateway_handle.clone());
 
             // ===== 初始化 CLI Management 模块 =====
             // CLI Management 依赖 AI Gateway 校验 provider_id 存在性。
             let cli_management_handle =
                 modules::cli_management::CliManagementServiceHandle::new(ai_gateway_handle.clone());
-            log::info!("CLI Management 模块初始化完成");
+            tracing::info!("CLI Management 模块初始化完成");
             // 克隆句柄给 workspace 模块使用（原句柄注册为 Tauri State）
             let cli_management_handle_for_workspace = cli_management_handle.clone();
             app.manage(cli_management_handle);
@@ -836,26 +836,26 @@ fn main() {
             let workspace_handle = modules::workspace::WorkspaceServiceHandle::new(
                 cli_management_handle_for_workspace,
             );
-            log::info!("Workspace 模块初始化完成");
+            tracing::info!("Workspace 模块初始化完成");
             app.manage(workspace_handle);
 
             // ===== 初始化 Script Template 模块 =====
             // 依赖 AI Gateway 做试运行时的 Secret 解密与供应商加载。
             let script_template_handle =
                 modules::script_template::ScriptTemplateHandle::new(ai_gateway_handle.clone());
-            log::info!("Script Template 模块初始化完成");
+            tracing::info!("Script Template 模块初始化完成");
             app.manage(script_template_handle);
 
             // ===== 初始化 Virtual Provider 模块 =====
             // Virtual Provider 无启动期依赖，直接构造句柄。
             let virtual_provider_handle = modules::virtual_provider::VirtualProviderHandle::new();
-            log::info!("Virtual Provider 模块初始化完成");
+            tracing::info!("Virtual Provider 模块初始化完成");
             app.manage(virtual_provider_handle.clone());
 
             // ===== 初始化 Call Records 模块 =====
             // Call Records 直接操作数据库，无需额外依赖。
             let call_records_handle = modules::call_records::CallRecordsHandle::new();
-            log::info!("Call Records 模块初始化完成");
+            tracing::info!("Call Records 模块初始化完成");
             app.manage(call_records_handle.clone());
 
             // ===== 初始化 Gateway Runtime 模块 =====
@@ -870,7 +870,7 @@ fn main() {
                 virtual_provider_handle,
                 call_records_handle,
             );
-            log::info!("Gateway Runtime 模块初始化完成");
+            tracing::info!("Gateway Runtime 模块初始化完成");
             app.manage(gateway_runtime_handle.clone());
 
             // ===== 初始化 Chat 模块 =====
@@ -886,7 +886,7 @@ fn main() {
                 secret_handle_for_gateway,
             )
             .expect("Chat 服务初始化失败");
-            log::info!("Chat 模块初始化完成");
+            tracing::info!("Chat 模块初始化完成");
             app.manage(chat_handle);
 
             // ===== 初始化 Scheduler 模块 =====
@@ -1027,7 +1027,7 @@ fn main() {
                                 "https://github.com/xucux/i-code",
                                 None::<&str>,
                             ) {
-                                log::error!("打开官网失败：{}", e);
+                                tracing::error!("打开官网失败：{}", e);
                             }
                         }
                         "auto-start" => {
@@ -1051,14 +1051,14 @@ fn main() {
                                 let autolaunch = app.autolaunch();
                                 if new_val {
                                     if let Err(e) = autolaunch.enable() {
-                                        log::error!("开机自启启用失败：{}", e);
+                                        tracing::error!("开机自启启用失败：{}", e);
                                         app.state::<modules::logger::LoggerServiceHandle>().service().log_system(
                                             crate::modules::logger::types::LogLevel::Error,
                                             &format!("开机自启启用失败：{}", e),
                                             Some(file!()),
                                         );
                                     } else {
-                                        log::info!("开机自启已启用");
+                                        tracing::info!("开机自启已启用");
                                         app.state::<modules::logger::LoggerServiceHandle>().service().log_system(
                                             crate::modules::logger::types::LogLevel::Info,
                                             "开机自启已启用",
@@ -1067,14 +1067,14 @@ fn main() {
                                     }
                                 } else {
                                     if let Err(e) = autolaunch.disable() {
-                                        log::error!("开机自启关闭失败：{}", e);
+                                        tracing::error!("开机自启关闭失败：{}", e);
                                         app.state::<modules::logger::LoggerServiceHandle>().service().log_system(
                                             crate::modules::logger::types::LogLevel::Error,
                                             &format!("开机自启关闭失败：{}", e),
                                             Some(file!()),
                                         );
                                     } else {
-                                        log::info!("开机自启已关闭");
+                                        tracing::info!("开机自启已关闭");
                                         app.state::<modules::logger::LoggerServiceHandle>().service().log_system(
                                             crate::modules::logger::types::LogLevel::Info,
                                             "开机自启已关闭",
@@ -1194,10 +1194,10 @@ fn main() {
             let args: Vec<String> = std::env::args().collect();
             let is_autostart = args.iter().any(|a| a == "--autostart");
             if is_autostart {
-                log::info!("检测到 --autostart 参数：开机自启模式，隐藏主窗口到托盘");
+                tracing::info!("检测到 --autostart 参数：开机自启模式，隐藏主窗口到托盘");
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.hide();
-                    log::info!("主窗口已隐藏");
+                    tracing::info!("主窗口已隐藏");
                 }
             }
             if auto_start_enabled {
@@ -1211,7 +1211,7 @@ fn main() {
                     tauri::async_runtime::spawn(async move {
                         // 通过事件机制触发网关启动，与托盘菜单逻辑统一
                         let _ = app_handle_for_auto_start.emit("gateway:toggle-request", ());
-                        log::info!("开机自启：已触发网关启动");
+                        tracing::info!("开机自启：已触发网关启动");
                     });
                 }
             }

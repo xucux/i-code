@@ -192,11 +192,11 @@
       "displayCnName": "OpenCode Zen Free（免费）",
       "defaultExtraHeaders": {
         "Authorization": "Bearer public",
-        "x-opencode-project": "proj_icode",
-        "x-opencode-session": "sess_icode",
-        "x-opencode-request": "msg_icode",
+        "User-Agent": "opencode/1.18.3 ai-sdk/provider-utils/4.0.23 runtime/bun/1.3.13",
         "x-opencode-client": "cli",
-        "User-Agent": "opencode/1.18.10"
+        "x-opencode-project": "global",
+        "x-opencode-session": "ses_${uuid_by_day()}",
+        "x-opencode-request": "msg_${uuid()}"
       }
     },
     {

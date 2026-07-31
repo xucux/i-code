@@ -3,7 +3,6 @@
 //! 提供 WebDAV 备份所需的基本操作：列出目录、上传文件、下载文件、删除文件。
 //! 使用 HTTP Basic Auth 认证。
 
-use log;
 use reqwest::{Client, Method, StatusCode};
 
 use crate::error::IcodeError;
@@ -66,12 +65,12 @@ pub async fn list_directory(
   </D:prop>
 </D:propfind>"#;
 
-    log::info!(
+    tracing::info!(
         "WebDAV PROPFIND 开始: url={}, remote_path={}",
         redact_url(&url),
         remote_path
     );
-    log::debug!("WebDAV PROPFIND 请求体: {body}");
+    tracing::debug!("WebDAV PROPFIND 请求体: {body}");
     let start = std::time::Instant::now();
 
     let response = client
@@ -88,20 +87,20 @@ pub async fn list_directory(
     let duration_ms = start.elapsed().as_millis() as u64;
     let text = response.text().await.map_err(map_network_error)?;
 
-    log::info!(
+    tracing::info!(
         "WebDAV PROPFIND 响应: url={}, status={}, duration={}ms",
         redact_url(&url),
         status,
         duration_ms
     );
-    log::debug!("WebDAV PROPFIND 响应体: {text}");
+    tracing::debug!("WebDAV PROPFIND 响应体: {text}");
 
     if status == StatusCode::UNAUTHORIZED {
-        log::warn!("WebDAV PROPFIND 认证失败: url={}", redact_url(&url));
+        tracing::warn!("WebDAV PROPFIND 认证失败: url={}", redact_url(&url));
         return Err(IcodeError::unauthorized("WebDAV 认证失败，请检查用户名和密码"));
     }
     if !status.is_success() {
-        log::warn!(
+        tracing::warn!(
             "WebDAV PROPFIND 失败: url={}, status={}, body={}",
             redact_url(&url),
             status,
@@ -127,7 +126,7 @@ pub async fn upload_file(
     let url = ensure_file_url(base_url, remote_path);
     let size = data.len();
 
-    log::info!(
+    tracing::info!(
         "WebDAV PUT 开始: url={}, size={}bytes",
         redact_url(&url),
         size
@@ -146,24 +145,24 @@ pub async fn upload_file(
     let duration_ms = start.elapsed().as_millis() as u64;
     let body = response.text().await.unwrap_or_default();
 
-    log::info!(
+    tracing::info!(
         "WebDAV PUT 响应: url={}, status={}, duration={}ms",
         redact_url(&url),
         status,
         duration_ms
     );
-    log::debug!("WebDAV PUT 响应体: {body}");
+    tracing::debug!("WebDAV PUT 响应体: {body}");
 
     if status == StatusCode::UNAUTHORIZED {
-        log::warn!("WebDAV PUT 认证失败: url={}", redact_url(&url));
+        tracing::warn!("WebDAV PUT 认证失败: url={}", redact_url(&url));
         return Err(IcodeError::unauthorized("WebDAV 认证失败，请检查用户名和密码"));
     }
     if status == StatusCode::INSUFFICIENT_STORAGE {
-        log::warn!("WebDAV PUT 空间不足: url={}", redact_url(&url));
+        tracing::warn!("WebDAV PUT 空间不足: url={}", redact_url(&url));
         return Err(IcodeError::internal("WebDAV 空间不足"));
     }
     if !status.is_success() {
-        log::warn!(
+        tracing::warn!(
             "WebDAV PUT 失败: url={}, status={}, body={}",
             redact_url(&url),
             status,
@@ -174,7 +173,7 @@ pub async fn upload_file(
         )));
     }
 
-    log::info!("WebDAV PUT 成功: url={}, size={}bytes", redact_url(&url), size);
+    tracing::info!("WebDAV PUT 成功: url={}, size={}bytes", redact_url(&url), size);
     Ok(())
 }
 
@@ -188,7 +187,7 @@ pub async fn download_file(
 ) -> IcodeResult<Vec<u8>> {
     let url = ensure_file_url(base_url, remote_path);
 
-    log::info!("WebDAV GET 开始: url={}", redact_url(&url));
+    tracing::info!("WebDAV GET 开始: url={}", redact_url(&url));
     let start = std::time::Instant::now();
 
     let response = client
@@ -201,7 +200,7 @@ pub async fn download_file(
     let status = response.status();
     let duration_ms = start.elapsed().as_millis() as u64;
 
-    log::info!(
+    tracing::info!(
         "WebDAV GET 响应: url={}, status={}, duration={}ms",
         redact_url(&url),
         status,
@@ -209,16 +208,16 @@ pub async fn download_file(
     );
 
     if status == StatusCode::UNAUTHORIZED {
-        log::warn!("WebDAV GET 认证失败: url={}", redact_url(&url));
+        tracing::warn!("WebDAV GET 认证失败: url={}", redact_url(&url));
         return Err(IcodeError::unauthorized("WebDAV 认证失败，请检查用户名和密码"));
     }
     if status == StatusCode::NOT_FOUND {
-        log::warn!("WebDAV GET 文件不存在: url={}", redact_url(&url));
+        tracing::warn!("WebDAV GET 文件不存在: url={}", redact_url(&url));
         return Err(IcodeError::not_found("WebDAV 备份文件", Some(&url)));
     }
     if !status.is_success() {
         let body = response.text().await.unwrap_or_default();
-        log::warn!(
+        tracing::warn!(
             "WebDAV GET 失败: url={}, status={}, body={}",
             redact_url(&url),
             status,
@@ -242,7 +241,7 @@ pub async fn delete_file(
 ) -> IcodeResult<()> {
     let url = ensure_file_url(base_url, remote_path);
 
-    log::info!("WebDAV DELETE 开始: url={}", redact_url(&url));
+    tracing::info!("WebDAV DELETE 开始: url={}", redact_url(&url));
     let start = std::time::Instant::now();
 
     let response = client
@@ -256,20 +255,20 @@ pub async fn delete_file(
     let duration_ms = start.elapsed().as_millis() as u64;
     let body = response.text().await.unwrap_or_default();
 
-    log::info!(
+    tracing::info!(
         "WebDAV DELETE 响应: url={}, status={}, duration={}ms",
         redact_url(&url),
         status,
         duration_ms
     );
-    log::debug!("WebDAV DELETE 响应体: {body}");
+    tracing::debug!("WebDAV DELETE 响应体: {body}");
 
     if status == StatusCode::UNAUTHORIZED {
-        log::warn!("WebDAV DELETE 认证失败: url={}", redact_url(&url));
+        tracing::warn!("WebDAV DELETE 认证失败: url={}", redact_url(&url));
         return Err(IcodeError::unauthorized("WebDAV 认证失败，请检查用户名和密码"));
     }
     if !status.is_success() && status != StatusCode::NOT_FOUND {
-        log::warn!(
+        tracing::warn!(
             "WebDAV DELETE 失败: url={}, status={}, body={}",
             redact_url(&url),
             status,
@@ -280,7 +279,7 @@ pub async fn delete_file(
         )));
     }
 
-    log::info!("WebDAV DELETE 成功: url={}", redact_url(&url));
+    tracing::info!("WebDAV DELETE 成功: url={}", redact_url(&url));
     Ok(())
 }
 
@@ -294,7 +293,7 @@ pub async fn ensure_directory(
 ) -> IcodeResult<()> {
     let url = ensure_collection_url(base_url, remote_path);
 
-    log::info!("WebDAV MKCOL 开始: url={}", redact_url(&url));
+    tracing::info!("WebDAV MKCOL 开始: url={}", redact_url(&url));
     let start = std::time::Instant::now();
 
     let response = client
@@ -308,21 +307,21 @@ pub async fn ensure_directory(
     let duration_ms = start.elapsed().as_millis() as u64;
     let body = response.text().await.unwrap_or_default();
 
-    log::info!(
+    tracing::info!(
         "WebDAV MKCOL 响应: url={}, status={}, duration={}ms",
         redact_url(&url),
         status,
         duration_ms
     );
-    log::debug!("WebDAV MKCOL 响应体: {body}");
+    tracing::debug!("WebDAV MKCOL 响应体: {body}");
 
     if status == StatusCode::UNAUTHORIZED {
-        log::warn!("WebDAV MKCOL 认证失败: url={}", redact_url(&url));
+        tracing::warn!("WebDAV MKCOL 认证失败: url={}", redact_url(&url));
         return Err(IcodeError::unauthorized("WebDAV 认证失败，请检查用户名和密码"));
     }
     // 201 Created 或 405 Method Not Allowed（目录已存在）均视为成功
     if !status.is_success() && status != StatusCode::METHOD_NOT_ALLOWED {
-        log::warn!(
+        tracing::warn!(
             "WebDAV MKCOL 失败: url={}, status={}, body={}",
             redact_url(&url),
             status,
@@ -333,7 +332,7 @@ pub async fn ensure_directory(
         )));
     }
 
-    log::info!("WebDAV MKCOL 成功（或目录已存在）: url={}", redact_url(&url));
+    tracing::info!("WebDAV MKCOL 成功（或目录已存在）: url={}", redact_url(&url));
     Ok(())
 }
 

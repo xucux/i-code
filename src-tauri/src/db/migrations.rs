@@ -85,7 +85,7 @@ pub fn run_migrations_with_conn(conn: &mut DbConn) -> IcodeResult<()> {
     // 2. 基线重置模式：当仅保留基线版本 V001 时，清空 schema_migrations，
     //    使 V001 能够在已有数据库上重新应用（依赖 IF NOT EXISTS / INSERT OR IGNORE 幂等性）。
     if is_baseline_only() {
-        log::info!("检测到仅基线版本 V001，清空 schema_migrations 以触发基线重跑");
+        tracing::info!("检测到仅基线版本 V001，清空 schema_migrations 以触发基线重跑");
         conn.execute(
             &format!("DELETE FROM {table}", table = table::SCHEMA_MIGRATIONS),
             [],
@@ -107,7 +107,7 @@ pub fn run_migrations_with_conn(conn: &mut DbConn) -> IcodeResult<()> {
             continue;
         }
 
-        log::info!("应用数据库迁移 V{version}__{desc}");
+        tracing::info!("应用数据库迁移 V{version}__{desc}");
 
         // 在事务中执行，失败自动回滚
         let tx = conn.transaction()?;
@@ -128,7 +128,7 @@ pub fn run_migrations_with_conn(conn: &mut DbConn) -> IcodeResult<()> {
         )?;
 
         tx.commit()?;
-        log::info!("迁移 V{version}__{desc} 应用成功");
+        tracing::info!("迁移 V{version}__{desc} 应用成功");
     }
 
     Ok(())

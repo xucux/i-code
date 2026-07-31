@@ -91,7 +91,7 @@ fn build_sse_response(
         let bytes = match result {
             Ok(b) => b,
             Err(e) => {
-                log::warn!("上游 SSE 流读取失败: {}", e);
+                tracing::warn!("上游 SSE 流读取失败: {}", e);
                 logger.service().log_system(
                     crate::modules::logger::types::LogLevel::Warn,
                     &format!("上游 SSE 流读取失败: {}", e),
@@ -102,7 +102,7 @@ fn build_sse_response(
         };
 
         let text = String::from_utf8_lossy(&bytes);
-        log::debug!(
+        tracing::debug!(
             "SSE chunk | log_id={} | size={} bytes | text={}",
             log_id_for_map.as_deref().unwrap_or("-"),
             bytes.len(),

@@ -43,9 +43,9 @@ impl ScriptLogBuffer {
         }
         // 开发日志
         match level {
-            "warn" => log::warn!("[balance-script] {safe}"),
-            "error" => log::error!("[balance-script] {safe}"),
-            _ => log::info!("[balance-script] {safe}"),
+            "warn" => tracing::warn!("[balance-script] {safe}"),
+            "error" => tracing::error!("[balance-script] {safe}"),
+            _ => tracing::info!("[balance-script] {safe}"),
         }
     }
 }

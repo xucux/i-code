@@ -536,7 +536,7 @@ impl ChatService {
                     None,
                     None,
                 ) {
-                    log::error!("更新助手消息失败: {}", e.message);
+                    tracing::error!("更新助手消息失败: {}", e.message);
                 }
                 let _ = self.app_handle.emit(
                     EVENT_CHAT_STREAM_DONE,

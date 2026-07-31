@@ -57,7 +57,7 @@ impl UpstreamClient for WebSocketClient {
     ) -> Result<UpstreamResponse, ClientError> {
         // WebSocket 协议尚未实现，直接返回明确的协议不支持错误。
         // 不发送任何网络请求，避免误导调用方。
-        log::debug!(
+        tracing::debug!(
             "WebSocket 协议未实现 | provider_type={} | protocol={:?} | is_stream={} | body={}",
             self.provider_type,
             request.protocol,

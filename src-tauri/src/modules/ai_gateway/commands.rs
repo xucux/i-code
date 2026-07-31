@@ -85,7 +85,7 @@ pub async fn gateway_provider_create(
             "供应商代理配置已设置 | provider={} slug={} | {}",
             provider.display_name, provider.slug, log_str
         );
-        log::info!("{}", msg);
+        tracing::info!("{}", msg);
         crate::modules::logger::Log::info(&msg);
     }
     let _ = app_handle.emit(
@@ -118,7 +118,7 @@ pub async fn gateway_provider_update(
             "供应商代理配置已更新 | provider={} slug={} | {}",
             provider.display_name, provider.slug, log_str
         );
-        log::info!("{}", msg);
+        tracing::info!("{}", msg);
         crate::modules::logger::Log::info(&msg);
     }
     let _ = app_handle.emit(
@@ -666,7 +666,7 @@ pub async fn gateway_provider_oauth_authorize(
     //    其他供应商使用动态端口。实际 redirect_uri 必须写回 oauth_config 供后续换 token 使用。
     let oauth_client = OAuth2Client::new();
     let oauth_state = OAuth2Client::generate_state();
-    log::info!(
+    tracing::info!(
         "OAuth 授权流程开始: provider_id={}, auth_method={:?}, provider_name={}",
         provider_id,
         auth_method,
@@ -712,7 +712,7 @@ pub async fn gateway_provider_oauth_authorize(
         ..Default::default()
     };
     let updated = state.service().update_provider(&provider_id, update_input)?;
-    log::info!("OAuth 授权流程完成: provider_id={}", provider_id);
+    tracing::info!("OAuth 授权流程完成: provider_id={}", provider_id);
     Ok(updated)
 }
 
@@ -800,7 +800,7 @@ pub async fn gateway_oauth_callback_list() -> IcodeResult<Vec<crate::modules::ai
 pub async fn gateway_oauth_callback_close(id: String) -> IcodeResult<bool> {
     let closed = crate::modules::ai_gateway::auth::global_registry().force_close(&id);
     if closed {
-        log::info!("强制关闭 OAuth 回调服务器: id={}", id);
+        tracing::info!("强制关闭 OAuth 回调服务器: id={}", id);
     }
     Ok(closed)
 }
@@ -951,7 +951,7 @@ pub async fn balance_refresh_provider(
                 "额度刷新失败 | provider={} slug={} method={} | {}",
                 provider.display_name, provider.slug, method, e.message
             );
-            log::warn!("{}", msg);
+            tracing::warn!("{}", msg);
             crate::modules::logger::Log::warn(&msg);
             return Err(e);
         }
@@ -970,7 +970,7 @@ pub async fn balance_refresh_provider(
         result.snapshot.items.len(),
         summary
     );
-    log::info!("{}", ok_msg);
+    tracing::info!("{}", ok_msg);
     crate::modules::logger::Log::info(&ok_msg);
     if !result.warnings.is_empty() {
         let warn_msg = format!(
@@ -978,7 +978,7 @@ pub async fn balance_refresh_provider(
             provider.slug,
             result.warnings.join("; ")
         );
-        log::warn!("{}", warn_msg);
+        tracing::warn!("{}", warn_msg);
         crate::modules::logger::Log::warn(&warn_msg);
     }
 

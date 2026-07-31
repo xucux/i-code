@@ -65,6 +65,30 @@ fn derive_auth_meta(auth: &AuthConfig) -> (Option<String>, Option<String>) {
     (Some(method_str), expires_at)
 }
 
+/// 解析供应商扩展变量 JSON 为 `HashMap<String, String>`
+///
+/// 从 `providers.script_variables_json` 中提取所有变量的 key→value 映射，
+/// 供请求头模板变量解析器（`${variables["key"]}`）使用。
+/// 变量值此时仍为 `$SECRET:{uuid}$` 引用，但请求头解析流程中
+/// 会先经过 `resolve_in_json` 解密，因此此处无需额外解密。
+fn parse_script_variables_map(json: Option<&str>) -> std::collections::HashMap<String, String> {
+    use crate::modules::ai_gateway::types::ProviderScriptVariables;
+
+    let mut map = std::collections::HashMap::new();
+    let Some(json_str) = json else {
+        return map;
+    };
+    if json_str.is_empty() {
+        return map;
+    }
+    if let Ok(variables) = serde_json::from_str::<ProviderScriptVariables>(json_str) {
+        for item in variables.items {
+            map.insert(item.key, item.value);
+        }
+    }
+    map
+}
+
 /// AI Gateway Service 在 Tauri State 中的句柄
 ///
 /// 使用 `Arc` 包装以便在多线程间共享。
@@ -1087,7 +1111,8 @@ impl AiGatewayService {
         }
     }
 
-    /// 解析供应商级附加请求头，将 `$SECRET:{snowflake_id}$` 引用替换为明文
+    /// 解析供应商级附加请求头，将 `$SECRET:{snowflake_id}$` 引用替换为明文，
+    /// 并解析模板变量占位符（`${uuid()}`、`${uuid_by_day()}`、`${variables["key"]}`）。
     ///
     /// 用于网关转发时注入供应商自定义请求头。
     pub fn resolve_extra_headers_for_request(
@@ -1098,9 +1123,15 @@ impl AiGatewayService {
         if raw_headers.is_empty() {
             return Ok(vec![]);
         }
-        // 批量解析 Secret 引用：将每个 value 包装为 JSON string 再用 resolve_in_json 解析
+
+        // 加载供应商的扩展变量（script_variables_json），用于解析 ${variables["key"]} 占位符
+        let provider = repository::find_provider_by_id(provider_id)?;
+        let script_variables = parse_script_variables_map(provider.script_variables_json.as_deref());
+
+        // 批量解析 Secret 引用并解析模板变量
         let mut resolved = Vec::with_capacity(raw_headers.len());
         for (key, value) in raw_headers {
+            // 第一步：解析 $SECRET:{uuid}$ 引用
             let json_value = serde_json::Value::String(value);
             let resolved_json = self
                 .secret_handle
@@ -1110,7 +1141,15 @@ impl AiGatewayService {
                 .as_str()
                 .ok_or_else(|| IcodeError::internal("resolve_in_json 返回非字符串"))?
                 .to_string();
-            resolved.push((key, resolved_value));
+
+            // 第二步：解析模板变量占位符
+            let final_value =
+                crate::modules::gateway_runtime::header_variable_resolver::resolve_header_template_variables(
+                    &resolved_value,
+                    &script_variables,
+                );
+
+            resolved.push((key, final_value));
         }
         Ok(resolved)
     }
@@ -1363,9 +1402,9 @@ impl AiGatewayService {
     ) -> IcodeResult<AuthorizationResult> {
         let provider = self.get_provider(provider_id)?;
         let client = OAuth2Client::new_for_provider(&provider)?;
-        log::info!("开始用授权码换取 OAuth token: provider_id={}", provider_id);
+        tracing::info!("开始用授权码换取 OAuth token: provider_id={}", provider_id);
         let token = client.exchange_code(config, code, code_verifier).await?;
-        log::info!("OAuth token 换取成功: provider_id={}", provider_id);
+        tracing::info!("OAuth token 换取成功: provider_id={}", provider_id);
         Log::info(&format!(
             "OAuth 授权码换取 token 成功 (供应商 {})",
             provider.display_name
@@ -1401,7 +1440,7 @@ impl AiGatewayService {
         let oauth_client = OAuth2Client::new_for_provider(&provider)?;
         let oauth_state = OAuth2Client::generate_state();
 
-        log::info!(
+        tracing::info!(
             "OAuth 浏览器授权流程开始(事件模式): provider_id={}, method={:?}, provider_name={}",
             provider_id,
             method,
@@ -1452,13 +1491,13 @@ impl AiGatewayService {
         oauth_config.redirect_uri = Some(redirect_uri.to_string());
 
         let client = OAuth2Client::new_for_provider(&provider)?;
-        log::info!(
+        tracing::info!(
             "手动完成 OAuth 授权: provider_id={}, method={:?}",
             provider_id,
             method
         );
         let token = client.exchange_code(&oauth_config, code, code_verifier).await?;
-        log::info!("OAuth 手动授权码换取 token 成功: provider_id={}", provider_id);
+        tracing::info!("OAuth 手动授权码换取 token 成功: provider_id={}", provider_id);
         Log::info(&format!(
             "OAuth 手动授权完成 (供应商 {})",
             provider.display_name
@@ -1491,7 +1530,7 @@ impl AiGatewayService {
             ));
         }
 
-        log::info!(
+        tracing::info!(
             "开始 Device Code 授权流程: provider_id={}, method={:?}, provider_name={}",
             provider_id, method, provider.display_name
         );
@@ -1504,7 +1543,7 @@ impl AiGatewayService {
         let result = client.request_device_code(&oauth).await;
         match &result {
             Ok(info) => {
-                log::info!(
+                tracing::info!(
                     "Device Code 请求成功: provider_id={}, user_code={}, verification_uri={}",
                     provider_id, info.user_code, info.verification_uri
                 );
@@ -1514,7 +1553,7 @@ impl AiGatewayService {
                 ));
             }
             Err(e) => {
-                log::error!(
+                tracing::error!(
                     "Device Code 请求失败: provider_id={}, code={}, message={}",
                     provider_id, e.code, e.message
                 );
@@ -1547,7 +1586,7 @@ impl AiGatewayService {
             ));
         }
 
-        log::info!(
+        tracing::info!(
             "轮询 Device Code token: provider_id={}, method={:?}, provider_name={}",
             provider_id, method, provider.display_name
         );
@@ -1559,7 +1598,7 @@ impl AiGatewayService {
         let client = OAuth2Client::new_for_provider(&provider)?;
         match client.poll_device_token(&oauth, device_code).await? {
             Some(token) => {
-                log::info!(
+                tracing::info!(
                     "Device Code 授权成功: provider_id={}, token_type={:?}, expires_at={:?}",
                     provider_id, token.token_type, token.expires_at
                 );
@@ -1591,7 +1630,7 @@ impl AiGatewayService {
                 })
             }
             None => {
-                log::debug!(
+                tracing::debug!(
                     "Device Code 授权等待中: provider_id={}",
                     provider_id
                 );
@@ -1865,7 +1904,7 @@ impl AiGatewayService {
             }
         };
 
-        log::info!(
+        tracing::info!(
             "清空 OAuth token: provider_id={}, method={:?}",
             provider_id,
             method
@@ -2052,7 +2091,7 @@ impl AiGatewayService {
         }
 
         let resp = req.send().await.map_err(|e| {
-            log::error!(
+            tracing::error!(
                 "Provider API other | GET {} | provider={} | send failed | err={:?}",
                 redact_url_key_param(&url),
                 provider.slug,
@@ -2065,7 +2104,7 @@ impl AiGatewayService {
 
         if !resp.status().is_success() {
             let text = resp.text().await.unwrap_or_default();
-            log::warn!(
+            tracing::warn!(
                 "Provider API other non-200 | GET {} | status={} | duration={}ms | response_body={}",
                 redact_url_key_param(&url),
                 status,
@@ -2079,7 +2118,7 @@ impl AiGatewayService {
         }
 
         let body: serde_json::Value = resp.json().await.map_err(|e| {
-            log::warn!(
+            tracing::warn!(
                 "Provider API other | GET {} | status={} | duration={}ms | parse_error={}",
                 redact_url_key_param(&url),
                 status,
@@ -2089,13 +2128,13 @@ impl AiGatewayService {
             IcodeError::gateway(format!("解析供应商模型列表失败: {}", e))
         })?;
 
-        log::info!(
+        tracing::info!(
             "Provider API other | GET {} | status={} | duration={}ms",
             redact_url_key_param(&url),
             status,
             duration_ms
         );
-        log::debug!(
+        tracing::debug!(
             "Provider API other response body | GET {} | {}",
             redact_url_key_param(&url),
             body.to_string()
@@ -2146,7 +2185,7 @@ impl AiGatewayService {
         }
 
         let resp = req.send().await.map_err(|e| {
-            log::warn!(
+            tracing::warn!(
                 "Provider API other | GET {} | error={}",
                 redact_url_key_param(&url),
                 e
@@ -2158,7 +2197,7 @@ impl AiGatewayService {
 
         if !resp.status().is_success() {
             let text = resp.text().await.unwrap_or_default();
-            log::warn!(
+            tracing::warn!(
                 "Provider API other non-200 | GET {} | status={} | duration={}ms | response_body={}",
                 redact_url_key_param(&url),
                 status,
@@ -2172,7 +2211,7 @@ impl AiGatewayService {
         }
 
         let body: serde_json::Value = resp.json().await.map_err(|e| {
-            log::warn!(
+            tracing::warn!(
                 "Provider API other | GET {} | status={} | duration={}ms | parse_error={}",
                 redact_url_key_param(&url),
                 status,
@@ -2182,13 +2221,13 @@ impl AiGatewayService {
             IcodeError::gateway(format!("解析 Anthropic 模型列表失败: {}", e))
         })?;
 
-        log::info!(
+        tracing::info!(
             "Provider API other | GET {} | status={} | duration={}ms",
             redact_url_key_param(&url),
             status,
             duration_ms
         );
-        log::debug!(
+        tracing::debug!(
             "Provider API other response body | GET {} | {}",
             redact_url_key_param(&url),
             body.to_string()
@@ -2216,7 +2255,7 @@ impl AiGatewayService {
 
         let start = std::time::Instant::now();
         let resp = client.get(&url).send().await.map_err(|e| {
-            log::warn!(
+            tracing::warn!(
                 "Provider API other | GET {} | error={}",
                 redact_url_key_param(&url),
                 e
@@ -2228,7 +2267,7 @@ impl AiGatewayService {
 
         if !resp.status().is_success() {
             let text = resp.text().await.unwrap_or_default();
-            log::warn!(
+            tracing::warn!(
                 "Provider API other non-200 | GET {} | status={} | duration={}ms | response_body={}",
                 redact_url_key_param(&url),
                 status,
@@ -2242,7 +2281,7 @@ impl AiGatewayService {
         }
 
         let body: serde_json::Value = resp.json().await.map_err(|e| {
-            log::warn!(
+            tracing::warn!(
                 "Provider API other | GET {} | status={} | duration={}ms | parse_error={}",
                 redact_url_key_param(&url),
                 status,
@@ -2252,13 +2291,13 @@ impl AiGatewayService {
             IcodeError::gateway(format!("解析 Ollama 模型列表失败: {}", e))
         })?;
 
-        log::info!(
+        tracing::info!(
             "Provider API other | GET {} | status={} | duration={}ms",
             redact_url_key_param(&url),
             status,
             duration_ms
         );
-        log::debug!(
+        tracing::debug!(
             "Provider API other response body | GET {} | {}",
             redact_url_key_param(&url),
             body.to_string()
@@ -2292,7 +2331,7 @@ impl AiGatewayService {
 
         let start = std::time::Instant::now();
         let resp = client.get(&url).send().await.map_err(|e| {
-            log::warn!(
+            tracing::warn!(
                 "Provider API other | GET {} | error={}",
                 redact_url_key_param(&url),
                 e
@@ -2304,7 +2343,7 @@ impl AiGatewayService {
 
         if !resp.status().is_success() {
             let text = resp.text().await.unwrap_or_default();
-            log::warn!(
+            tracing::warn!(
                 "Provider API other non-200 | GET {} | status={} | duration={}ms | response_body={}",
                 redact_url_key_param(&url),
                 status,
@@ -2318,7 +2357,7 @@ impl AiGatewayService {
         }
 
         let body: serde_json::Value = resp.json().await.map_err(|e| {
-            log::warn!(
+            tracing::warn!(
                 "Provider API other | GET {} | status={} | duration={}ms | parse_error={}",
                 redact_url_key_param(&url),
                 status,
@@ -2328,13 +2367,13 @@ impl AiGatewayService {
             IcodeError::gateway(format!("解析 Gemini 模型列表失败: {}", e))
         })?;
 
-        log::info!(
+        tracing::info!(
             "Provider API other | GET {} | status={} | duration={}ms",
             redact_url_key_param(&url),
             status,
             duration_ms
         );
-        log::debug!(
+        tracing::debug!(
             "Provider API other response body | GET {} | {}",
             redact_url_key_param(&url),
             body.to_string()
@@ -2392,7 +2431,7 @@ impl AiGatewayService {
         }
 
         let resp = req.send().await.map_err(|e| {
-            log::warn!(
+            tracing::warn!(
                 "Provider API other | GET {} | error={}",
                 redact_url_key_param(&url),
                 e
@@ -2404,7 +2443,7 @@ impl AiGatewayService {
 
         if !resp.status().is_success() {
             let text = resp.text().await.unwrap_or_default();
-            log::warn!(
+            tracing::warn!(
                 "Provider API other non-200 | GET {} | status={} | duration={}ms | response_body={}",
                 redact_url_key_param(&url),
                 status,
@@ -2418,7 +2457,7 @@ impl AiGatewayService {
         }
 
         let body: serde_json::Value = resp.json().await.map_err(|e| {
-            log::warn!(
+            tracing::warn!(
                 "Provider API other | GET {} | status={} | duration={}ms | parse_error={}",
                 redact_url_key_param(&url),
                 status,
@@ -2428,13 +2467,13 @@ impl AiGatewayService {
             IcodeError::gateway(format!("解析 Vertex AI 模型列表失败: {}", e))
         })?;
 
-        log::info!(
+        tracing::info!(
             "Provider API other | GET {} | status={} | duration={}ms",
             redact_url_key_param(&url),
             status,
             duration_ms
         );
-        log::debug!(
+        tracing::debug!(
             "Provider API other response body | GET {} | {}",
             redact_url_key_param(&url),
             body.to_string()
@@ -2479,14 +2518,14 @@ impl AiGatewayService {
         let client = match build_provider_http_client(provider) {
             Ok(c) => c,
             Err(e) => {
-                log::warn!("[OAuth] 获取 GitHub 用户信息时构造 HTTP 客户端失败: {}", e);
+                tracing::warn!("[OAuth] 获取 GitHub 用户信息时构造 HTTP 客户端失败: {}", e);
                 Log::warn("[OAuth] 获取 GitHub 用户信息时构造 HTTP 客户端失败");
                 return auth;
             }
         };
 
         let url = "https://api.github.com/user";
-        log::info!("[OAuth] 拉取 GitHub 用户信息 | url={}", url);
+        tracing::info!("[OAuth] 拉取 GitHub 用户信息 | url={}", url);
         Log::info("[OAuth] 拉取 GitHub 用户信息");
 
         let resp = match client
@@ -2498,7 +2537,7 @@ impl AiGatewayService {
         {
             Ok(r) => r,
             Err(e) => {
-                log::warn!("[OAuth] 拉取 GitHub 用户信息失败: {}", e);
+                tracing::warn!("[OAuth] 拉取 GitHub 用户信息失败: {}", e);
                 Log::warn(&format!("[OAuth] 拉取 GitHub 用户信息失败: {}", e));
                 return auth;
             }
@@ -2506,7 +2545,7 @@ impl AiGatewayService {
 
         let status = resp.status();
         if !status.is_success() {
-            log::warn!("[OAuth] 拉取 GitHub 用户信息失败 [{}]", status);
+            tracing::warn!("[OAuth] 拉取 GitHub 用户信息失败 [{}]", status);
             Log::warn(&format!("[OAuth] 拉取 GitHub 用户信息失败 [{}]", status));
             return auth;
         }
@@ -2514,7 +2553,7 @@ impl AiGatewayService {
         let body: serde_json::Value = match resp.json().await {
             Ok(v) => v,
             Err(e) => {
-                log::warn!("[OAuth] 解析 GitHub 用户信息失败: {}", e);
+                tracing::warn!("[OAuth] 解析 GitHub 用户信息失败: {}", e);
                 return auth;
             }
         };
@@ -2525,7 +2564,7 @@ impl AiGatewayService {
             .and_then(|v| v.as_str())
             .map(String::from);
 
-        log::info!(
+        tracing::info!(
             "[OAuth] GitHub 用户信息: login={:?}, email={:?}",
             login, email
         );
@@ -2566,7 +2605,7 @@ impl AiGatewayService {
     ) -> IcodeResult<String> {
         let url = "https://api.github.com/copilot_internal/v2/token";
 
-        log::info!("[OAuth] 换取 GitHub Copilot IDE token | url={}", url);
+        tracing::info!("[OAuth] 换取 GitHub Copilot IDE token | url={}", url);
         Log::info(&format!("[OAuth] 换取 GitHub Copilot IDE token | url={}", url));
 
         let resp = client
@@ -2583,7 +2622,7 @@ impl AiGatewayService {
             .send()
             .await
             .map_err(|e| {
-                log::error!("[OAuth] 请求 Copilot IDE token 失败: {}", e);
+                tracing::error!("[OAuth] 请求 Copilot IDE token 失败: {}", e);
                 Log::error("[OAuth] 请求 Copilot IDE token 失败");
                 IcodeError::gateway(format!("请求 Copilot IDE token 失败: {}", e))
             })?;
@@ -2591,13 +2630,13 @@ impl AiGatewayService {
         let status = resp.status();
         let text = resp.text().await.unwrap_or_default();
 
-        log::debug!(
+        tracing::debug!(
             "[OAuth] Copilot IDE token 响应 | status={} body={}",
             status, text
         );
 
         if !status.is_success() {
-            log::error!(
+            tracing::error!(
                 "[OAuth] 换取 Copilot IDE token 失败 [{}]: {}",
                 status, text
             );
@@ -2619,7 +2658,7 @@ impl AiGatewayService {
             .and_then(|v| v.as_str())
             .ok_or_else(|| IcodeError::gateway("Copilot IDE token 响应缺少 token 字段"))?;
 
-        log::info!("[OAuth] 换取 GitHub Copilot IDE token 成功");
+        tracing::info!("[OAuth] 换取 GitHub Copilot IDE token 成功");
         Log::info("[OAuth] 换取 GitHub Copilot IDE token 成功");
 
         Ok(token.to_string())
@@ -2648,7 +2687,7 @@ impl AiGatewayService {
                 IcodeError::validation("GitHub Copilot OAuth token 格式无效：缺少 accessToken")
             })?;
 
-        log::debug!(
+        tracing::debug!(
             "[OAuth] GitHub Copilot access_token 已解析, 长度={}",
             github_token.len()
         );
@@ -2674,7 +2713,7 @@ impl AiGatewayService {
         req = req.header("Authorization", format!("Bearer {}", copilot_token));
 
         let resp = req.send().await.map_err(|e| {
-            log::warn!(
+            tracing::warn!(
                 "Provider API other | GET {} | error={}",
                 redact_url_key_param(&url),
                 e
@@ -2686,7 +2725,7 @@ impl AiGatewayService {
 
         if !resp.status().is_success() {
             let text = resp.text().await.unwrap_or_default();
-            log::warn!(
+            tracing::warn!(
                 "Provider API other non-200 | GET {} | status={} | duration={}ms | response_body={}",
                 redact_url_key_param(&url),
                 status,
@@ -2700,7 +2739,7 @@ impl AiGatewayService {
         }
 
         let body: serde_json::Value = resp.json().await.map_err(|e| {
-            log::warn!(
+            tracing::warn!(
                 "Provider API other | GET {} | status={} | duration={}ms | parse_error={}",
                 redact_url_key_param(&url),
                 status,
@@ -2710,13 +2749,13 @@ impl AiGatewayService {
             IcodeError::gateway(format!("解析 GitHub Copilot 模型列表失败: {}", e))
         })?;
 
-        log::info!(
+        tracing::info!(
             "Provider API other | GET {} | status={} | duration={}ms",
             redact_url_key_param(&url),
             status,
             duration_ms
         );
-        log::debug!(
+        tracing::debug!(
             "Provider API other response body | GET {} | {}",
             redact_url_key_param(&url),
             body.to_string()
@@ -2899,7 +2938,7 @@ fn redact_url_key_param(url: &str) -> String {
 fn build_provider_http_client(provider: &Provider) -> IcodeResult<reqwest::Client> {
     use crate::modules::shared::{apply_provider_proxy, TimeoutConfig};
 
-    log::trace!("[proxy] fetch_models | provider={} | proxy_json={:?} | timeout_json={:?}",
+    tracing::trace!("[proxy] fetch_models | provider={} | proxy_json={:?} | timeout_json={:?}",
         provider.slug, provider.proxy_json, provider.timeout_json);
 
     let mut builder = reqwest::Client::builder()
@@ -2910,24 +2949,24 @@ fn build_provider_http_client(provider: &Provider) -> IcodeResult<reqwest::Clien
     // 供应商级超时覆盖（仅连接超时；响应总超时统一 30s）
     if let Some(json) = provider.timeout_json.as_deref() {
         if let Ok(cfg) = serde_json::from_str::<TimeoutConfig>(json) {
-            log::trace!("[proxy] fetch_models | provider={} | apply timeout connect={}ms", provider.slug, cfg.connection);
+            tracing::trace!("[proxy] fetch_models | provider={} | apply timeout connect={}ms", provider.slug, cfg.connection);
             builder = builder.connect_timeout(std::time::Duration::from_millis(cfg.connection));
         } else {
-            log::error!("[proxy] fetch_models | provider={} | parse timeout_json failed | raw={}", provider.slug, json);
+            tracing::error!("[proxy] fetch_models | provider={} | parse timeout_json failed | raw={}", provider.slug, json);
         }
     }
 
     // 供应商级代理（含 global 回退到全局代理 / 直连）
     builder = apply_provider_proxy(builder, provider.proxy_json.as_deref())
         .map_err(|e| {
-            log::error!("[proxy] fetch_models | provider={} | apply proxy failed | err={:?}", provider.slug, e);
+            tracing::error!("[proxy] fetch_models | provider={} | apply proxy failed | err={:?}", provider.slug, e);
             IcodeError::validation(format!("构造拉取模型 HTTP 客户端失败: {}", e))
         })?;
 
     builder
         .build()
         .map_err(|e| {
-            log::error!("[proxy] fetch_models | provider={} | build client failed | err={:?}", provider.slug, e);
+            tracing::error!("[proxy] fetch_models | provider={} | build client failed | err={:?}", provider.slug, e);
             IcodeError::internal(format!("构造拉取模型 HTTP 客户端失败: {}", e))
         })
 }

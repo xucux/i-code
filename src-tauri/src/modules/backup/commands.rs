@@ -4,7 +4,6 @@
 
 use std::path::PathBuf;
 
-use log;
 use tauri::{AppHandle, Manager, State};
 
 use crate::error::IcodeResult;
@@ -51,7 +50,7 @@ pub async fn backup_restore(
 ) -> IcodeResult<RestoreBackupResult> {
     let result = state.service().restore_backup(&PathBuf::from(path))?;
     if result.success && result.needs_restart {
-        log::info!("本地备份恢复成功，准备重启应用");
+        tracing::info!("本地备份恢复成功，准备重启应用");
         tauri::process::restart(&app.env());
     }
     Ok(result)
@@ -80,13 +79,13 @@ pub async fn backup_push_webdav(
     state: State<'_, BackupServiceHandle>,
     input: CreateWebDavBackupInput,
 ) -> IcodeResult<BackupResult> {
-    log::info!("Command backup_push_webdav 被调用");
+    tracing::info!("Command backup_push_webdav 被调用");
     state
         .service()
         .push_to_webdav(&input)
         .await
         .map_err(|e| {
-            log::error!("Command backup_push_webdav 失败: {e}");
+            tracing::error!("Command backup_push_webdav 失败: {e}");
             e
         })
 }
@@ -97,13 +96,13 @@ pub async fn backup_list_webdav(
     state: State<'_, BackupServiceHandle>,
     config: WebDavConfig,
 ) -> IcodeResult<Vec<BackupListItem>> {
-    log::info!("Command backup_list_webdav 被调用");
+    tracing::info!("Command backup_list_webdav 被调用");
     state
         .service()
         .list_webdav_backups(&config)
         .await
         .map_err(|e| {
-            log::error!("Command backup_list_webdav 失败: {e}");
+            tracing::error!("Command backup_list_webdav 失败: {e}");
             e
         })
 }
@@ -118,17 +117,17 @@ pub async fn backup_restore_webdav(
     state: State<'_, BackupServiceHandle>,
     input: RestoreWebDavBackupInput,
 ) -> IcodeResult<RestoreBackupResult> {
-    log::info!("Command backup_restore_webdav 被调用");
+    tracing::info!("Command backup_restore_webdav 被调用");
     let result = state
         .service()
         .restore_webdav_backup(&input)
         .await
         .map_err(|e| {
-            log::error!("Command backup_restore_webdav 失败: {e}");
+            tracing::error!("Command backup_restore_webdav 失败: {e}");
             e
         })?;
     if result.success && result.needs_restart {
-        log::info!("WebDAV 备份恢复成功，准备重启应用");
+        tracing::info!("WebDAV 备份恢复成功，准备重启应用");
         tauri::process::restart(&app.env());
     }
     Ok(result)
@@ -141,13 +140,13 @@ pub async fn backup_delete_webdav(
     config: WebDavConfig,
     remote_path: String,
 ) -> IcodeResult<()> {
-    log::info!("Command backup_delete_webdav 被调用");
+    tracing::info!("Command backup_delete_webdav 被调用");
     state
         .service()
         .delete_webdav_backup(&config, &remote_path)
         .await
         .map_err(|e| {
-            log::error!("Command backup_delete_webdav 失败: {e}");
+            tracing::error!("Command backup_delete_webdav 失败: {e}");
             e
         })
 }
@@ -157,9 +156,9 @@ pub async fn backup_delete_webdav(
 pub async fn backup_webdav_config_list(
     state: State<'_, BackupServiceHandle>,
 ) -> IcodeResult<Vec<WebDavConfigRecord>> {
-    log::info!("Command backup_webdav_config_list 被调用");
+    tracing::info!("Command backup_webdav_config_list 被调用");
     state.service().list_webdav_configs().map_err(|e| {
-        log::error!("Command backup_webdav_config_list 失败: {e}");
+        tracing::error!("Command backup_webdav_config_list 失败: {e}");
         e
     })
 }
@@ -170,9 +169,9 @@ pub async fn backup_webdav_config_get(
     state: State<'_, BackupServiceHandle>,
     id: String,
 ) -> IcodeResult<Option<WebDavConfigRecord>> {
-    log::info!("Command backup_webdav_config_get 被调用");
+    tracing::info!("Command backup_webdav_config_get 被调用");
     state.service().get_webdav_config(&id).map_err(|e| {
-        log::error!("Command backup_webdav_config_get 失败: {e}");
+        tracing::error!("Command backup_webdav_config_get 失败: {e}");
         e
     })
 }
@@ -185,9 +184,9 @@ pub async fn backup_webdav_config_save(
     state: State<'_, BackupServiceHandle>,
     input: SaveWebDavConfigInput,
 ) -> IcodeResult<WebDavConfigRecord> {
-    log::info!("Command backup_webdav_config_save 被调用");
+    tracing::info!("Command backup_webdav_config_save 被调用");
     state.service().save_webdav_config(&input).map_err(|e| {
-        log::error!("Command backup_webdav_config_save 失败: {e}");
+        tracing::error!("Command backup_webdav_config_save 失败: {e}");
         e
     })
 }
@@ -198,9 +197,9 @@ pub async fn backup_webdav_config_delete(
     state: State<'_, BackupServiceHandle>,
     id: String,
 ) -> IcodeResult<()> {
-    log::info!("Command backup_webdav_config_delete 被调用");
+    tracing::info!("Command backup_webdav_config_delete 被调用");
     state.service().delete_webdav_config(&id).map_err(|e| {
-        log::error!("Command backup_webdav_config_delete 失败: {e}");
+        tracing::error!("Command backup_webdav_config_delete 失败: {e}");
         e
     })
 }

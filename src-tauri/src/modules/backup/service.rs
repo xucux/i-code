@@ -42,14 +42,14 @@ use crate::modules::secret::SecretServiceHandle;
 macro_rules! backup_info {
     ($($arg:tt)*) => {{
         let msg = format!($($arg)*);
-        log::info!("{}", msg);
+        tracing::info!("{}", msg);
         Log::info(&msg);
     }};
 }
 macro_rules! backup_warn {
     ($($arg:tt)*) => {{
         let msg = format!($($arg)*);
-        log::warn!("{}", msg);
+        tracing::warn!("{}", msg);
         Log::warn(&msg);
     }};
 }
