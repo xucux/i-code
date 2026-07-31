@@ -175,6 +175,31 @@
       "displayCnName": "Cerebras"
     },
     {
+      "id": "opencode-zen-free",
+      "displayName": "OpenCode Zen Free",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://opencode.ai/zen",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "none"
+      ],
+      "defaultAuth": {
+        "method": "none"
+      },
+      "autoFetchOfficialModels": true,
+      "sortOrder": 11,
+      "displayCnName": "OpenCode Zen Free（免费）",
+      "defaultExtraHeaders": {
+        "Authorization": "Bearer public",
+        "x-opencode-project": "proj_icode",
+        "x-opencode-session": "sess_icode",
+        "x-opencode-request": "msg_icode",
+        "x-opencode-client": "cli",
+        "User-Agent": "opencode/1.18.10"
+      }
+    },
+    {
       "id": "opencode-zen-openai-chat-completion",
       "displayName": "OpenCode Zen (OpenAI Chat Completion)",
       "category": "General",
@@ -205,7 +230,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": true,
-      "sortOrder": 11,
+      "sortOrder": 12,
       "displayCnName": "OpenCode Zen (OpenAI Responses)"
     },
     {
@@ -222,7 +247,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": true,
-      "sortOrder": 12,
+      "sortOrder": 13,
       "displayCnName": "OpenCode Zen (Anthropic)"
     },
     {
@@ -239,7 +264,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": true,
-      "sortOrder": 13,
+      "sortOrder": 14,
       "displayCnName": "OpenCode Zen (Gemini)"
     },
     {
@@ -256,7 +281,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": true,
-      "sortOrder": 14,
+      "sortOrder": 15,
       "displayCnName": "OpenCode Go (OpenAI Chat)"
     },
     {
@@ -273,7 +298,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": true,
-      "sortOrder": 15,
+      "sortOrder": 16,
       "displayCnName": "OpenCode Go (Anthropic)"
     },
     {
@@ -290,7 +315,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 16,
+      "sortOrder": 17,
       "displayCnName": "英伟达"
     },
     {
@@ -307,7 +332,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 17,
+      "sortOrder": 18,
       "displayCnName": "阿里云百炼（国内）"
     },
     {
@@ -324,7 +349,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 18,
+      "sortOrder": 19,
       "displayCnName": "阿里云百炼（团队Token版）"
     },
     {
@@ -341,7 +366,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 19,
+      "sortOrder": 20,
       "displayCnName": "阿里云百炼（国际）"
     },
     {
@@ -358,7 +383,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 20,
+      "sortOrder": 21,
       "displayCnName": "腾讯云 TokenHub（国内）"
     },
     {
@@ -375,7 +400,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 21,
+      "sortOrder": 22,
       "displayCnName": "腾讯云 TokenHub（国际）"
     },
     {
@@ -392,7 +417,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 22,
+      "sortOrder": 23,
       "displayCnName": "腾讯云 TokenHub（个人Token版）"
     },
     {
@@ -409,7 +434,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 23,
+      "sortOrder": 24,
       "displayCnName": "腾讯云 Token（企业版）"
     },
     {
@@ -426,7 +451,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 24,
+      "sortOrder": 25,
       "displayCnName": "魔搭社区（API推理）"
     },
     {
@@ -443,7 +468,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 25,
+      "sortOrder": 26,
       "displayCnName": "百度千帆"
     },
     {
@@ -460,7 +485,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 26,
+      "sortOrder": 27,
       "displayCnName": "百度千帆（编程版）"
     },
     {
@@ -477,7 +502,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 27,
+      "sortOrder": 28,
       "displayCnName": "Cline Bot"
     },
     {
@@ -494,7 +519,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 28,
+      "sortOrder": 29,
       "displayCnName": "火山引擎"
     },
     {
@@ -511,7 +536,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": true,
-      "sortOrder": 29,
+      "sortOrder": 30,
       "displayCnName": "火山引擎（Agent版）"
     },
     {
@@ -528,7 +553,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": true,
-      "sortOrder": 30,
+      "sortOrder": 31,
       "displayCnName": "火山引擎（编程版）"
     },
     {
@@ -545,7 +570,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 31,
+      "sortOrder": 32,
       "displayCnName": "BytePlus"
     },
     {
@@ -562,7 +587,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": true,
-      "sortOrder": 32,
+      "sortOrder": 33,
       "displayCnName": "BytePlus（编程版）"
     },
     {
@@ -579,7 +604,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 33,
+      "sortOrder": 34,
       "displayCnName": "深度求索"
     },
     {
@@ -596,7 +621,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 34,
+      "sortOrder": 35,
       "displayCnName": "Gitee AI"
     },
     {
@@ -613,7 +638,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 35,
+      "sortOrder": 36,
       "displayCnName": "小米 MIMO"
     },
     {
@@ -630,7 +655,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 36,
+      "sortOrder": 37,
       "displayCnName": "小米 MIMO（国内Token版）"
     },
     {
@@ -647,7 +672,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 37,
+      "sortOrder": 38,
       "displayCnName": "小米 MIMO（新加坡Token版）"
     },
     {
@@ -664,7 +689,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 38,
+      "sortOrder": 39,
       "displayCnName": "小米 MIMO（欧洲Token版）"
     },
     {
@@ -681,7 +706,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 39,
+      "sortOrder": 40,
       "displayCnName": "阶跃星辰（国内）"
     },
     {
@@ -698,7 +723,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 40,
+      "sortOrder": 41,
       "displayCnName": "阶跃星辰（国际）"
     },
     {
@@ -715,7 +740,7 @@
         "method": "none"
       },
       "autoFetchOfficialModels": true,
-      "sortOrder": 41,
+      "sortOrder": 42,
       "displayCnName": "Ollama 本地"
     },
     {
@@ -732,7 +757,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 42,
+      "sortOrder": 43,
       "displayCnName": "Ollama 云端"
     },
     {
@@ -749,7 +774,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 43,
+      "sortOrder": 44,
       "displayCnName": "智谱 AI"
     },
     {
@@ -766,7 +791,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 44,
+      "sortOrder": 45,
       "displayCnName": "智谱 AI（编程版）"
     },
     {
@@ -783,7 +808,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 45,
+      "sortOrder": 46,
       "displayCnName": "Z.AI"
     },
     {
@@ -800,7 +825,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 46,
+      "sortOrder": 47,
       "displayCnName": "Z.AI（编程版）"
     },
     {
@@ -817,7 +842,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 47,
+      "sortOrder": 48,
       "displayCnName": "MiniMax（国内）"
     },
     {
@@ -834,7 +859,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 48,
+      "sortOrder": 49,
       "displayCnName": "MiniMax（国际）"
     },
     {
@@ -851,7 +876,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 49,
+      "sortOrder": 50,
       "displayCnName": "美团 龙猫"
     },
     {
@@ -868,7 +893,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 50,
+      "sortOrder": 51,
       "displayCnName": "月之暗面（国内）"
     },
     {
@@ -885,7 +910,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 51,
+      "sortOrder": 52,
       "displayCnName": "月之暗面（国际）"
     },
     {
@@ -902,7 +927,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 52,
+      "sortOrder": 53,
       "displayCnName": "月之暗面（编程版）"
     },
     {
@@ -919,7 +944,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 53,
+      "sortOrder": 54,
       "displayCnName": "硅基流动（国内）"
     },
     {
@@ -936,7 +961,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 54,
+      "sortOrder": 55,
       "displayCnName": "硅基流动（国际）"
     },
     {
@@ -953,7 +978,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 55,
+      "sortOrder": 56,
       "displayCnName": "StreamLake 万兴（国内）"
     },
     {
@@ -970,7 +995,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 56,
+      "sortOrder": 57,
       "displayCnName": "StreamLake 万兴（国内编程版）"
     },
     {
@@ -987,7 +1012,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 57,
+      "sortOrder": 58,
       "displayCnName": "StreamLake 万兴（国际）"
     },
     {
@@ -1004,7 +1029,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 58,
+      "sortOrder": 59,
       "displayCnName": "StreamLake 万兴（国际编程版）"
     },
     {
@@ -1022,7 +1047,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": true,
-      "sortOrder": 59,
+      "sortOrder": 60,
       "displayCnName": "OpenAI Codex (ChatGPT Plus/Pro)"
     },
     {
@@ -1039,7 +1064,7 @@
         "method": "xai-grok-oauth"
       },
       "autoFetchOfficialModels": true,
-      "sortOrder": 60,
+      "sortOrder": 61,
       "displayCnName": "xAI Grok Build (SuperGrok / X Premium+)"
     },
     {
@@ -1056,7 +1081,7 @@
         "method": "github-copilot"
       },
       "autoFetchOfficialModels": true,
-      "sortOrder": 61,
+      "sortOrder": 62,
       "displayCnName": "GitHub Copilot"
     },
     {
@@ -1073,7 +1098,7 @@
         "method": "antigravity-oauth"
       },
       "autoFetchOfficialModels": true,
-      "sortOrder": 62,
+      "sortOrder": 63,
       "displayCnName": "Google Antigravity"
     },
     {
@@ -1090,7 +1115,7 @@
         "method": "google-gemini-oauth"
       },
       "autoFetchOfficialModels": true,
-      "sortOrder": 63,
+      "sortOrder": 64,
       "displayCnName": "Google Gemini CLI"
     },
     {
@@ -1108,7 +1133,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 64,
+      "sortOrder": 65,
       "displayCnName": "Claude Code"
     },
     {
@@ -1125,7 +1150,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 65,
+      "sortOrder": 66,
       "displayCnName": "Kilo Code"
     },
     {
@@ -1142,7 +1167,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 66,
+      "sortOrder": 67,
       "displayCnName": "京东 JoyAgent"
     },
     {
@@ -1159,7 +1184,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
-      "sortOrder": 67,
+      "sortOrder": 68,
       "displayCnName": "日日新 （商汤科技）"
     }
   ]

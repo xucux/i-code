@@ -75,6 +75,7 @@ impl OpenAiChatClient {
     fn build_headers(
         provider: &Provider,
         resolution: &AuthResolution,
+        extra_headers: &[(String, String)],
     ) -> Result<reqwest::header::HeaderMap, ClientError> {
         let mut headers = reqwest::header::HeaderMap::new();
         headers.insert(CONTENT_TYPE, "application/json".parse().map_err(|e| {
@@ -104,9 +105,17 @@ impl OpenAiChatClient {
             );
         }
 
-        // extra_headers 在最后注入，可覆盖默认头
-        // TODO: provider_extra_headers / model_extra_headers 需在 UpstreamContext 中
-        // 透传（当前 Provider 结构体不含该字段，仅在 ExportedProvider 中），client 层无法接入。
+        // 供应商级 extra_headers 在最后注入，可覆盖默认头
+        for (k, v) in extra_headers {
+            headers.insert(
+                reqwest::header::HeaderName::from_bytes(k.as_bytes())
+                    .map_err(|e| ClientError::BuildRequestError(format!("非法 extra header 名 {}: {}", k, e)))?,
+                v.parse().map_err(|e| {
+                    ClientError::BuildRequestError(format!("构造 extra header {} 失败: {}", k, e))
+                })?,
+            );
+        }
+
         let _ = provider;
         Ok(headers)
     }
@@ -141,7 +150,7 @@ impl UpstreamClient for OpenAiChatClient {
             upstream_url = url.to_string();
         }
 
-        let headers = Self::build_headers(&ctx.provider, &auth_resolution)?;
+        let headers = Self::build_headers(&ctx.provider, &auth_resolution, &ctx.extra_headers)?;
 
         let client = http_client_for(&ctx.provider, request.is_stream)?;
         let upstream_resp = client

@@ -75,6 +75,7 @@ impl AnthropicClient {
     fn build_headers(
         _provider: &Provider,
         resolution: &AuthResolution,
+        extra_headers: &[(String, String)],
     ) -> Result<reqwest::header::HeaderMap, ClientError> {
         let mut headers = reqwest::header::HeaderMap::new();
         headers.insert(CONTENT_TYPE, "application/json".parse().map_err(|e| {
@@ -109,7 +110,17 @@ impl AnthropicClient {
             );
         }
 
-        // TODO: provider_extra_headers / model_extra_headers 需在 UpstreamContext 中透传
+        // 供应商级 extra_headers 在最后注入，可覆盖默认头
+        for (k, v) in extra_headers {
+            headers.insert(
+                reqwest::header::HeaderName::from_bytes(k.as_bytes())
+                    .map_err(|e| ClientError::BuildRequestError(format!("非法 extra header 名 {}: {}", k, e)))?,
+                v.parse().map_err(|e| {
+                    ClientError::BuildRequestError(format!("构造 extra header {} 失败: {}", k, e))
+                })?,
+            );
+        }
+
         Ok(headers)
     }
 }
@@ -130,7 +141,7 @@ impl UpstreamClient for AnthropicClient {
 
         let upstream_url = build_upstream_url(&ctx.provider, "/v1/messages")?;
         let auth_resolution = Self::resolve_auth_credential(ctx.auth_config.clone())?;
-        let headers = Self::build_headers(&ctx.provider, &auth_resolution)?;
+        let headers = Self::build_headers(&ctx.provider, &auth_resolution, &ctx.extra_headers)?;
 
         let client = http_client_for(&ctx.provider, request.is_stream)?;
         let upstream_resp = client

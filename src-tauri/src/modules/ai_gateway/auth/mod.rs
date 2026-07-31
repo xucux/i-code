@@ -99,6 +99,12 @@ pub struct OAuth2TokenData {
     /// 授权 scope
     #[serde(skip_serializing_if = "Option::is_none")]
     pub scope: Option<String>,
+    /// 是否可续期（基于 refresh_token 是否存在）
+    ///
+    /// 显式标记字段，明文存储于 auth_json 的 token JSON 中，
+    /// 便于前端判断是否显示「续期」按钮。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_renewable: Option<bool>,
 }
 
 impl OAuth2TokenData {

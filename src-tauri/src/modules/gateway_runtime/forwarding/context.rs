@@ -77,6 +77,7 @@ impl ForwardContext {
         upstream_model_id: String,
         request_id: String,
         auth_config: Option<AuthConfig>,
+        extra_headers: Vec<(String, String)>,
         gateway_protocol: GatewayProtocol,
         gateway_model_id_str: String,
     ) -> Self {
@@ -89,6 +90,7 @@ impl ForwardContext {
             request_id,
             is_stream: false,
             auth_config,
+            extra_headers,
         };
         Self {
             upstream,
@@ -105,6 +107,7 @@ impl ForwardContext {
         upstream_model_id: String,
         request_id: String,
         auth_config: Option<AuthConfig>,
+        extra_headers: Vec<(String, String)>,
         route_index: usize,
         virtual_route_id: String,
         gateway_protocol: GatewayProtocol,
@@ -119,6 +122,7 @@ impl ForwardContext {
             request_id,
             is_stream: false,
             auth_config,
+            extra_headers,
         };
         Self {
             upstream,

@@ -73,12 +73,14 @@ struct TokenResponse {
 
 impl TokenResponse {
     fn into_token_data(self, now: i64) -> OAuth2TokenData {
+        let is_renewable = self.refresh_token.is_some();
         OAuth2TokenData {
             access_token: self.access_token,
             token_type: self.token_type,
             refresh_token: self.refresh_token,
             expires_at: self.expires_in.map(|secs| now + secs),
             scope: self.scope,
+            is_renewable: Some(is_renewable),
         }
     }
 }

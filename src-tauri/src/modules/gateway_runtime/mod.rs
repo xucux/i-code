@@ -29,7 +29,7 @@
 //! - **调用记录**：通过 [`call_records`](crate::modules::call_records) 持久化到 `model_call_logs` 表
 //!
 //! 以下功能待后续迭代：
-//! - 供应商级 / 模型级 extra_headers / extra_body
+//! - 模型级 extra_headers / extra_body（供应商级 extra_headers 已实现）
 //! - 响应体格式转换（如 Anthropic → OpenAI）
 //! - 流式响应 token 数解析
 //! - 完整的拦截器链

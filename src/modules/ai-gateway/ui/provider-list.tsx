@@ -115,6 +115,7 @@ export function ProviderList() {
     authMethod: 'none' | 'api-key'
     isEnabled: boolean
     sortOrder: number
+    extraHeaders?: Record<string, string>
   }> | undefined>(undefined)
 
   const [builtinOpen, setBuiltinOpen] = useState(false)
@@ -187,6 +188,7 @@ export function ProviderList() {
       authMethod: inferAuthMethod(builtin.defaultAuthJson),
       isEnabled: true,
       sortOrder: 0,
+      extraHeaders: builtin.defaultExtraHeaders,
     })
     setBuiltinOpen(false)
     setFormOpen(true)
@@ -317,6 +319,7 @@ export function ProviderList() {
     timeoutJson?: string
     retryJson?: string
     scriptVariablesJson?: string
+    extraHeaders?: Record<string, string>
   }) => {
     try {
       if (editingProvider) {
@@ -355,6 +358,7 @@ export function ProviderList() {
           timeoutJson: values.timeoutJson,
           retryJson: values.retryJson,
           scriptVariablesJson: values.scriptVariablesJson,
+          extraHeaders: values.extraHeaders,
         })
         if (result) {
           toast.success(t('aiGateway.providerList.createSuccess'))

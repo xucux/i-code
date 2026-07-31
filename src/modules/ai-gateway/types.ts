@@ -73,6 +73,10 @@ export interface Provider {
   /** 认证配置 JSON（多态联合类型），密钥以 `$SECRET:{snowflake_id}$` 引用
    * 后端序列化为 JSON 字符串，前端使用时需通过 parseAuthConfig() 解析 */
   authJson?: string
+  /** OAuth token 过期时间（RFC3339），由后端派生，用于前端展示与定时刷新 */
+  authExpiresAt?: string
+  /** 认证方法（与 authJson 内 method 字段同步派生），便于前端不解析 JSON 即可判断 */
+  authMethod?: string
   /** 额度监控配置 JSON */
   balanceProviderJson?: string
   timeoutJson?: string
@@ -354,6 +358,24 @@ export interface GitHubCopilotAuth extends AuthConfigBase {
   email?: string
 }
 
+/**
+ * OAuth 2.0 Token 数据
+ *
+ * 对应后端 `OAuth2TokenData`，是 `authJson` 中 `token` 字段解密后的 JSON 结构。
+ * 前端默认仅看到加密的 `$SECRET:{snowflake_id}$` 引用，需通过
+ * `gateway_provider_decrypt_token` 命令获取明文 JSON 后方可解析为此类型。
+ */
+export interface OAuth2TokenData {
+  accessToken: string
+  tokenType?: string
+  refreshToken?: string
+  /** 过期时间戳（Unix 秒） */
+  expiresAt?: number
+  scope?: string
+  /** 是否可续期（基于 refresh_token 是否存在），用于决定是否显示「续期」按钮 */
+  isRenewable?: boolean
+}
+
 /** Device Code 授权初始响应 */
 export interface DeviceCodeInfo {
   deviceCode: string
@@ -528,6 +550,8 @@ export interface BuiltinProvider {
   autoFetchOfficialModels: boolean
   sortOrder: number
   createdAt: Timestamp
+  /** 默认附加请求头（来自种子数据，创建供应商时自动填充） */
+  defaultExtraHeaders?: Record<string, string>
 }
 
 /**
@@ -700,6 +724,8 @@ export interface CreateProviderInput {
   proxyJson?: string
   /** 供应商扩展模板变量 JSON */
   scriptVariablesJson?: string
+  /** 供应商级附加请求头（创建时写入 provider_extra_headers 表） */
+  extraHeaders?: Record<string, string>
 }
 
 export interface UpdateProviderInput {

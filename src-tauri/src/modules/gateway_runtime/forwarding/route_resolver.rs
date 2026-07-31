@@ -87,12 +87,18 @@ pub fn resolve_route(
             .service()
             .resolve_auth_for_request(&provider)?;
 
+        let extra_headers = shared
+            .ai_gateway_handle
+            .service()
+            .resolve_extra_headers_for_request(&provider.id)?;
+
         let ctx = ForwardContext::direct(
             provider,
             gateway_model_id,
             upstream_model_id,
             request_id.to_string(),
             auth_config,
+            extra_headers,
             gateway_protocol,
             model_id.to_string(),
         );
@@ -164,11 +170,17 @@ pub fn build_virtual_context(
         .service()
         .resolve_auth_for_request(&provider)?;
 
+    let extra_headers = shared
+        .ai_gateway_handle
+        .service()
+        .resolve_extra_headers_for_request(&provider.id)?;
+
     Ok(ForwardContext::virtual_route(
         provider,
         route.target_model_id.clone(),
         request_id.to_string(),
         auth_config,
+        extra_headers,
         route_index,
         route.id.clone(),
         gateway_protocol,

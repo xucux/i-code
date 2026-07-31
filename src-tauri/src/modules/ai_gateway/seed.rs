@@ -82,6 +82,9 @@ pub struct BuiltinProvider {
     pub auto_fetch_official_models: bool,
     /// 排序优先级
     pub sort_order: i64,
+    /// 默认附加请求头（用户创建供应商时自动填充到 provider_extra_headers 表）
+    #[serde(default)]
+    pub default_extra_headers: Option<std::collections::HashMap<String, String>>,
 }
 
 /// 内置模型预设

@@ -86,6 +86,8 @@ pub struct UpstreamContext {
     pub is_stream: bool,
     /// 已解析的认证配置（含 Secret 明文）
     pub auth_config: Option<crate::modules::ai_gateway::types::AuthConfig>,
+    /// 供应商级附加请求头（已解析 Secret 引用为明文）
+    pub extra_headers: Vec<(String, String)>,
 }
 
 /// 上游请求封装

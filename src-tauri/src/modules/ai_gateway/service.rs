@@ -16,7 +16,7 @@
 //! - 仅支持手动添加模型（`source = "manual"`）
 //! - 内置供应商/模型种子数据导入待后续迭代
 //! - 官方模型拉取（`official_model_cache`）待后续迭代
-//! - 供应商附加请求头/请求体（`provider_extra_headers` / `provider_extra_body`）待后续迭代
+//! - 供应商附加请求头（`provider_extra_headers`）已在转发层透传；附加请求体（`provider_extra_body`）待后续迭代
 //!
 //! ## 与其他模块的关系
 //!
@@ -46,6 +46,24 @@ use super::types::{
     ProviderType, UpdateGatewayAuthKeyInput, UpdateGatewayModelInput, UpdateGatewaySettingsInput,
     UpdateModelConfigInput, UpdateProviderInput,
 };
+
+/// 将 Unix 秒时间戳转换为 ISO8601（rfc3339）字符串
+fn unix_to_rfc3339(ts: i64) -> String {
+    chrono::DateTime::from_timestamp(ts, 0)
+        .map(|dt| dt.to_rfc3339())
+        .unwrap_or_else(|| ts.to_string())
+}
+
+/// 从 AuthConfig 派生顶层冗余字段 `(auth_method, auth_expires_at)`
+///
+/// - `auth_method`：kebab-case 字符串（`AuthMethod::as_str`）
+/// - `auth_expires_at`：ISO8601 字符串，仅 OAuth 类认证且有 `expires_at` 时返回
+fn derive_auth_meta(auth: &AuthConfig) -> (Option<String>, Option<String>) {
+    let method = auth.method();
+    let method_str = method.as_str().to_string();
+    let expires_at = auth.expires_at().map(unix_to_rfc3339);
+    (Some(method_str), expires_at)
+}
 
 /// AI Gateway Service 在 Tauri State 中的句柄
 ///
@@ -117,12 +135,45 @@ impl AiGatewayService {
             None => None,
         };
 
+        // 派生顶层冗余字段 auth_method / auth_expires_at
+        let (auth_method_str, auth_expires_at) = match &input.auth {
+            Some(auth) => derive_auth_meta(auth),
+            None => (
+                input.auth_method.map(|m| m.as_str().to_string()),
+                None,
+            ),
+        };
+
         // 处理 script_variables_json：加密敏感变量值后转为引用
         let script_variables_json = self.process_script_variables_json_for_save(
             input.script_variables_json.as_deref(),
         )?;
 
-        repository::insert_provider(&input, auth_json.as_deref(), script_variables_json.as_deref())
+        let provider = repository::insert_provider(
+            &input,
+            auth_json.as_deref(),
+            auth_method_str.as_deref(),
+            auth_expires_at.as_deref(),
+            script_variables_json.as_deref(),
+        )?;
+
+        // 写入供应商级附加请求头
+        if let Some(extra_headers) = &input.extra_headers {
+            if !extra_headers.is_empty() {
+                let now = chrono::Utc::now().to_rfc3339();
+                for (i, (key, value)) in extra_headers.iter().enumerate() {
+                    repository::insert_provider_extra_header(
+                        &provider.id,
+                        key,
+                        value,
+                        i as i64,
+                        &now,
+                    )?;
+                }
+            }
+        }
+
+        Ok(provider)
     }
 
     /// 获取供应商详情
@@ -142,19 +193,39 @@ impl AiGatewayService {
 
     /// 更新供应商
     ///
-    /// 若传入新的 `auth` 配置，会先加密其中的明文敏感字段。
+    /// 若传入新的 `auth` 配置，会先加密其中的明文敏感字段，并同步派生
+    /// `auth_method` / `auth_expires_at` 顶层冗余字段。
     /// 若传入新的 `script_variables_json`，会先加密其中的敏感变量值。
     pub fn update_provider(&self, id: &str, input: UpdateProviderInput) -> IcodeResult<Provider> {
         // 校验供应商存在
         let _existing = repository::find_provider_by_id(id)?;
 
         // 处理 auth_json：Some(Some(auth)) → 更新；Some(None) → 置空；None → 不动
+        // 同时派生 auth_method / auth_expires_at 顶层冗余字段
         let auth_json: Option<Option<String>> = match input.auth.clone() {
             Some(auth) => {
                 let processed = self.process_auth_config_for_save(&auth)?;
                 Some(Some(serde_json::to_string(&processed)?))
             }
             None => None,
+        };
+
+        // 派生 auth_method / auth_expires_at：
+        // - 若 auth 提供，从 auth 派生（auth_method 必有，auth_expires_at 可能为 None）
+        // - 若 auth 未提供但 auth_method 提供，仅更新 auth_method
+        // - 若二者均未提供，保持不变
+        let (auth_method_str, auth_expires_at_str): (
+            Option<Option<String>>,
+            Option<Option<String>>,
+        ) = match &input.auth {
+            Some(auth) => {
+                let (m, exp) = derive_auth_meta(auth);
+                (Some(m), Some(exp))
+            }
+            None => match input.auth_method {
+                Some(m) => (Some(Some(m.as_str().to_string())), None),
+                None => (None, None),
+            },
         };
 
         // 处理 script_variables_json：
@@ -176,6 +247,8 @@ impl AiGatewayService {
             id,
             &input,
             auth_json.as_ref().map(|o| o.as_deref()),
+            auth_method_str.as_ref().map(|o| o.as_deref()),
+            auth_expires_at_str.as_ref().map(|o| o.as_deref()),
             script_variables_json.as_ref().map(|o| o.as_deref()),
         )
     }
@@ -345,6 +418,7 @@ impl AiGatewayService {
             base_url: exported.provider.base_url,
             use_raw_base_url: exported.provider.use_raw_base_url,
             auth,
+            auth_method: None,
             auto_fetch_official_models: exported.provider.auto_fetch_official_models,
             is_enabled: exported.provider.is_enabled,
             sort_order: Some(exported.provider.sort_order),
@@ -353,6 +427,7 @@ impl AiGatewayService {
             retry_json: exported.provider.retry_json,
             proxy_json: exported.provider.proxy_json,
             script_variables_json: None,
+            extra_headers: exported.provider.extra_headers,
         };
 
         let provider = self.create_provider(provider_input)?;
@@ -1012,6 +1087,34 @@ impl AiGatewayService {
         }
     }
 
+    /// 解析供应商级附加请求头，将 `$SECRET:{snowflake_id}$` 引用替换为明文
+    ///
+    /// 用于网关转发时注入供应商自定义请求头。
+    pub fn resolve_extra_headers_for_request(
+        &self,
+        provider_id: &str,
+    ) -> IcodeResult<Vec<(String, String)>> {
+        let raw_headers = repository::list_provider_extra_headers(provider_id)?;
+        if raw_headers.is_empty() {
+            return Ok(vec![]);
+        }
+        // 批量解析 Secret 引用：将每个 value 包装为 JSON string 再用 resolve_in_json 解析
+        let mut resolved = Vec::with_capacity(raw_headers.len());
+        for (key, value) in raw_headers {
+            let json_value = serde_json::Value::String(value);
+            let resolved_json = self
+                .secret_handle
+                .service()
+                .resolve_in_json(&json_value)?;
+            let resolved_value = resolved_json
+                .as_str()
+                .ok_or_else(|| IcodeError::internal("resolve_in_json 返回非字符串"))?
+                .to_string();
+            resolved.push((key, resolved_value));
+        }
+        Ok(resolved)
+    }
+
     /// 递归解析 AuthConfig 中的所有 `$SECRET:{snowflake_id}$` 引用为明文
     ///
     /// 将 AuthConfig 序列化为 JSON Value 后统一调用 `resolve_in_json`，
@@ -1059,6 +1162,23 @@ impl AiGatewayService {
                 .ok()
                 .map(|a| a.method())
         })
+    }
+
+    /// 解密供应商的 auth_json 并返回明文 JSON 字符串
+    ///
+    /// 用于前端「查看 token」眼睛按钮：解析所有 `$SECRET:{uuid}$` 引用为明文，
+    /// 返回格式化后的 JSON 字符串供弹窗展示。
+    /// 仅在后端完成解密，前端不缓存明文。
+    pub fn decrypt_provider_token(&self, provider_id: &str) -> IcodeResult<String> {
+        let provider = self.get_provider(provider_id)?;
+        let raw_auth: AuthConfig = match provider.auth_json.as_deref() {
+            Some(json) if !json.is_empty() => serde_json::from_str(json)?,
+            _ => return Err(IcodeError::validation("供应商缺少认证配置")),
+        };
+        let resolved = self.resolve_auth_config(&raw_auth)?;
+        let pretty = serde_json::to_string_pretty(&resolved)
+            .map_err(|e| IcodeError::internal(format!("序列化解密后的认证配置失败: {}", e)))?;
+        Ok(pretty)
     }
 
     /// 构造额度查询所需的 BalanceRefreshInput
@@ -1486,6 +1606,8 @@ impl AiGatewayService {
     /// 刷新 OAuth access_token
     ///
     /// 读取现有 token 中的 refresh_token，请求新 token 后更新供应商配置。
+    /// 注意：auth_json 中的 token 字段以 `$SECRET:{uuid}$` 引用加密存储，
+    /// 需先调用 `resolve_auth_config` 解析为明文才能反序列化为 `OAuth2TokenData`。
     pub async fn refresh_oauth_token(
         &self,
         provider_id: &str,
@@ -1493,19 +1615,21 @@ impl AiGatewayService {
     ) -> IcodeResult<Provider> {
         let provider = self.get_provider(provider_id)?;
         let existing_json = provider.auth_json.as_deref();
-        let auth: AuthConfig = match existing_json {
+        let raw_auth: AuthConfig = match existing_json {
             Some(json) if !json.is_empty() => serde_json::from_str(json)?,
             _ => return Err(IcodeError::validation("供应商缺少认证配置")),
         };
 
-        if auth.method() != method {
+        if raw_auth.method() != method {
             return Err(IcodeError::validation(format!(
                 "供应商现有认证方法为 {:?}，与请求的 {:?} 不一致",
-                auth.method(),
+                raw_auth.method(),
                 method
             )));
         }
 
+        // 解析 $SECRET$ 引用为明文，再提取 token JSON
+        let auth = self.resolve_auth_config(&raw_auth)?;
         let token_string = auth.token().filter(|s| !s.is_empty()).ok_or_else(|| {
             IcodeError::validation("OAuth 认证缺少 token")
         })?;
@@ -1540,8 +1664,11 @@ impl AiGatewayService {
         &self,
         method: AuthMethod,
         existing_json: Option<&str>,
-        token: OAuth2TokenData,
+        mut token: OAuth2TokenData,
     ) -> IcodeResult<AuthConfig> {
+        // 显式标记是否可续期（基于 refresh_token 是否存在）
+        token.is_renewable = Some(token.refresh_token.is_some());
+
         let token_json = serde_json::to_string(&token)
             .map_err(|e| IcodeError::internal(format!("序列化 OAuth token 失败: {}", e)))?;
 

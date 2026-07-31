@@ -51,10 +51,13 @@ fn now() -> String {
 /// 插入供应商
 ///
 /// `auth_json` 应为已序列化的 AuthConfig JSON 字符串，可为 None。
+/// `auth_method` / `auth_expires_at` 为顶层冗余字段，由 Service 层从 AuthConfig 派生。
 /// 返回新插入记录的 ID。
 pub fn insert_provider(
     input: &CreateProviderInput,
     auth_json: Option<&str>,
+    auth_method: Option<&str>,
+    auth_expires_at: Option<&str>,
     script_variables_json: Option<&str>,
 ) -> IcodeResult<Provider> {
     let conn = get_conn()?;
@@ -67,12 +70,12 @@ pub fn insert_provider(
     conn.execute(
         "INSERT INTO providers
             (id, slug, display_name, provider_type, base_url, use_raw_base_url,
-             transport, service_tier, auth_json, balance_provider_json, timeout_json,
-             retry_json, proxy_json, auto_fetch_official_models, context_cache_json,
-             well_known_template_id, is_enabled, sort_order, created_at, updated_at,
-             script_variables_json)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, NULL, NULL, ?7, ?8, ?9, ?10, ?11,
-                 ?12, NULL, NULL, ?13, ?14, ?15, ?16, ?17)",
+             transport, service_tier, auth_json, auth_expires_at, auth_method,
+             balance_provider_json, timeout_json, retry_json, proxy_json,
+             auto_fetch_official_models, context_cache_json, well_known_template_id,
+             is_enabled, sort_order, created_at, updated_at, script_variables_json)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, NULL, NULL, ?7, ?8, ?9,
+                 ?10, ?11, ?12, ?13, ?14, NULL, NULL, ?15, ?16, ?17, ?18, ?19)",
         rusqlite::params![
             id,
             input.slug,
@@ -81,6 +84,8 @@ pub fn insert_provider(
             input.base_url,
             input.use_raw_base_url as i64,
             auth_json,
+            auth_expires_at,
+            auth_method,
             input.balance_provider_json,
             input.timeout_json,
             input.retry_json,
@@ -155,10 +160,13 @@ pub fn list_enabled_providers() -> IcodeResult<Vec<Provider>> {
 ///
 /// 仅更新 `input` 中为 `Some` 的字段；`auth` 字段为 `Some(None)` 表示置空，
 /// `Some(Some(json))` 表示更新。
+/// `auth_method` / `auth_expires_at` 同样使用 `Option<Option<&str>>` 语义。
 pub fn update_provider(
     id: &str,
     input: &UpdateProviderInput,
     auth_json: Option<Option<&str>>,
+    auth_method: Option<Option<&str>>,
+    auth_expires_at: Option<Option<&str>>,
     script_variables_json: Option<Option<&str>>,
 ) -> IcodeResult<Provider> {
     let conn = get_conn()?;
@@ -187,6 +195,18 @@ pub fn update_provider(
     // auth_json: Option<Option<&str>> —— 外层 Some 表示需要更新，内层 None 表示置空
     if let Some(v) = auth_json {
         sets.push(format!("auth_json = ?{idx}"));
+        params.push(Box::new(v.map(|s| s.to_string())));
+        idx += 1;
+    }
+    // auth_expires_at: Option<Option<&str>>
+    if let Some(v) = auth_expires_at {
+        sets.push(format!("auth_expires_at = ?{idx}"));
+        params.push(Box::new(v.map(|s| s.to_string())));
+        idx += 1;
+    }
+    // auth_method: Option<Option<&str>>
+    if let Some(v) = auth_method {
+        sets.push(format!("auth_method = ?{idx}"));
         params.push(Box::new(v.map(|s| s.to_string())));
         idx += 1;
     }
@@ -717,6 +737,7 @@ pub fn update_gateway_model(
 /// providers 表 SELECT 字段列表
 const PROVIDER_SELECT_SQL: &str = "SELECT p.id, p.slug, p.display_name, p.provider_type,
     p.base_url, p.use_raw_base_url, p.transport, p.service_tier, p.auth_json,
+    p.auth_expires_at, p.auth_method,
     p.balance_provider_json, p.timeout_json, p.retry_json, p.proxy_json,
     p.auto_fetch_official_models, p.context_cache_json, p.well_known_template_id,
     p.is_enabled, p.sort_order, p.created_at, p.updated_at,
@@ -725,9 +746,10 @@ const PROVIDER_SELECT_SQL: &str = "SELECT p.id, p.slug, p.display_name, p.provid
 
 /// providers 表行映射器：将数据库行转换为 Provider DTO
 fn provider_row_mapper(row: &rusqlite::Row<'_>) -> rusqlite::Result<Provider> {
+    // 列顺序见 PROVIDER_SELECT_SQL
     let use_raw: i64 = row.get(5)?;
-    let auto_fetch: i64 = row.get(13)?;
-    let is_enabled: i64 = row.get(16)?;
+    let auto_fetch: i64 = row.get(15)?;
+    let is_enabled: i64 = row.get(18)?;
     Ok(Provider {
         id: row.get(0)?,
         slug: row.get(1)?,
@@ -738,18 +760,20 @@ fn provider_row_mapper(row: &rusqlite::Row<'_>) -> rusqlite::Result<Provider> {
         transport: row.get(6)?,
         service_tier: row.get(7)?,
         auth_json: row.get(8)?,
-        balance_provider_json: row.get(9)?,
-        timeout_json: row.get(10)?,
-        retry_json: row.get(11)?,
-        proxy_json: row.get(12)?,
+        auth_expires_at: row.get(9)?,
+        auth_method: row.get(10)?,
+        balance_provider_json: row.get(11)?,
+        timeout_json: row.get(12)?,
+        retry_json: row.get(13)?,
+        proxy_json: row.get(14)?,
         auto_fetch_official_models: auto_fetch != 0,
-        context_cache_json: row.get(14)?,
-        well_known_template_id: row.get(15)?,
+        context_cache_json: row.get(16)?,
+        well_known_template_id: row.get(17)?,
         is_enabled: is_enabled != 0,
-        sort_order: row.get(17)?,
-        created_at: row.get(18)?,
-        updated_at: row.get(19)?,
-        script_variables_json: row.get(20)?,
+        sort_order: row.get(19)?,
+        created_at: row.get(20)?,
+        updated_at: row.get(21)?,
+        script_variables_json: row.get(22)?,
     })
 }
 
@@ -1069,6 +1093,44 @@ pub fn delete_gateway_auth_key(id: &str) -> IcodeResult<()> {
     if affected == 0 {
         return Err(IcodeError::not_found("GatewayAuthKey", Some(id)));
     }
+    Ok(())
+}
+
+/// 查询供应商级附加请求头
+///
+/// 返回 `(key, value)` 列表，按 `sort_order` 排序。
+/// value 可能包含 `$SECRET:{snowflake_id}$` 引用，由 Service 层负责解密。
+pub fn list_provider_extra_headers(provider_id: &str) -> IcodeResult<Vec<(String, String)>> {
+    let conn = get_conn()?;
+    let mut stmt = conn.prepare(
+        "SELECT key, value FROM provider_extra_headers WHERE provider_id = ?1 ORDER BY sort_order ASC",
+    )?;
+    let rows = stmt.query_map([provider_id], |row| {
+        let key: String = row.get(0)?;
+        let value: String = row.get(1)?;
+        Ok((key, value))
+    })?;
+    let mut result = Vec::new();
+    for row in rows {
+        result.push(row?);
+    }
+    Ok(result)
+}
+
+/// 插入供应商级附加请求头
+pub fn insert_provider_extra_header(
+    provider_id: &str,
+    key: &str,
+    value: &str,
+    sort_order: i64,
+    now: &str,
+) -> IcodeResult<()> {
+    let conn = get_conn()?;
+    conn.execute(
+        "INSERT OR REPLACE INTO provider_extra_headers (provider_id, key, value, sort_order, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
+        rusqlite::params![provider_id, key, value, sort_order, now],
+    )?;
     Ok(())
 }
 

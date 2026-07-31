@@ -119,6 +119,59 @@ pub enum AuthMethod {
     GithubCopilotAuth,
 }
 
+impl AuthMethod {
+    /// 返回与 serde 序列化一致的 kebab-case 字符串
+    ///
+    /// 用于写入 `providers.auth_method` 列，供定时任务扫描过滤。
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::ApiKey => "api-key",
+            Self::Oauth2 => "oauth2",
+            Self::GoogleVertexAiAuth => "google-vertex-ai-auth",
+            Self::AntigravityOauth => "antigravity-oauth",
+            Self::GoogleGeminiOauth => "google-gemini-oauth",
+            Self::OpenaiCodexAuth => "openai-codex",
+            Self::ClaudeCodeAuth => "claude-code",
+            Self::XaiGrokOauth => "xai-grok-oauth",
+            Self::GithubCopilotAuth => "github-copilot",
+        }
+    }
+
+    /// 是否为 OAuth 类认证（用于定时任务过滤）
+    pub fn is_oauth(&self) -> bool {
+        matches!(
+            self,
+            Self::Oauth2
+                | Self::AntigravityOauth
+                | Self::GoogleGeminiOauth
+                | Self::OpenaiCodexAuth
+                | Self::ClaudeCodeAuth
+                | Self::XaiGrokOauth
+                | Self::GithubCopilotAuth
+        )
+    }
+
+    /// 从 kebab-case 字符串解析（与 `as_str` 对应）
+    ///
+    /// 用于从 `providers.auth_method` 列恢复枚举值。
+    pub fn from_kebab_str(s: &str) -> Option<Self> {
+        Some(match s {
+            "none" => Self::None,
+            "api-key" => Self::ApiKey,
+            "oauth2" => Self::Oauth2,
+            "google-vertex-ai-auth" => Self::GoogleVertexAiAuth,
+            "antigravity-oauth" => Self::AntigravityOauth,
+            "google-gemini-oauth" => Self::GoogleGeminiOauth,
+            "openai-codex" => Self::OpenaiCodexAuth,
+            "claude-code" => Self::ClaudeCodeAuth,
+            "xai-grok-oauth" => Self::XaiGrokOauth,
+            "github-copilot" => Self::GithubCopilotAuth,
+            _ => return None,
+        })
+    }
+}
+
 /// OAuth 2.0 授权类型
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -508,6 +561,22 @@ impl AuthConfig {
         }
     }
 
+    /// OAuth token 过期时间戳（Unix 秒）
+    ///
+    /// 从各 OAuth 变体提取 `expires_at` 字段，用于回填 `providers.auth_expires_at`。
+    pub fn expires_at(&self) -> Option<i64> {
+        match self {
+            Self::Oauth2 { expires_at, .. }
+            | Self::AntigravityOauth { expires_at, .. }
+            | Self::GoogleGeminiOauth { expires_at, .. }
+            | Self::OpenaiCodexAuth { expires_at, .. }
+            | Self::ClaudeCode { expires_at, .. }
+            | Self::XaiGrokOauth { expires_at, .. }
+            | Self::GithubCopilot { expires_at, .. } => *expires_at,
+            _ => None,
+        }
+    }
+
     /// OAuth 2.0 端点配置（仅 `Oauth2` 变体）
     pub fn oauth_config(&self) -> Option<&OAuth2Config> {
         match self {
@@ -625,6 +694,16 @@ pub struct Provider {
     /// 认证配置 JSON（AuthConfig 序列化），密钥以 `$SECRET:{snowflake_id}$` 引用
     #[serde(skip_serializing_if = "Option::is_none")]
     pub auth_json: Option<String>,
+    /// OAuth 授权过期时间（ISO8601 字符串，由 OAuth 成功流程回填）
+    ///
+    /// 顶层冗余字段，供定时任务扫描快过期供应商，避免解析 auth_json。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auth_expires_at: Option<String>,
+    /// 认证方式（kebab-case 字符串，对应 `AuthMethod::as_str`）
+    ///
+    /// 顶层冗余字段，供定时任务扫描 OAuth 供应商，避免解析 auth_json。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auth_method: Option<String>,
     /// 额度监控配置 JSON
     #[serde(skip_serializing_if = "Option::is_none")]
     pub balance_provider_json: Option<String>,
@@ -801,6 +880,9 @@ pub struct CreateProviderInput {
     /// 认证配置（强类型），Service 层序列化为 JSON 存储
     #[serde(skip_serializing_if = "Option::is_none")]
     pub auth: Option<AuthConfig>,
+    /// 认证方式（可选；未提供 auth 时用于回填 `auth_method` 列）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auth_method: Option<AuthMethod>,
     #[serde(default)]
     pub auto_fetch_official_models: bool,
     #[serde(default)]
@@ -822,6 +904,9 @@ pub struct CreateProviderInput {
     /// 供应商扩展模板变量 JSON（ProviderScriptVariables 序列化）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub script_variables_json: Option<String>,
+    /// 供应商级附加请求头（创建时写入 provider_extra_headers 表）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub extra_headers: Option<std::collections::HashMap<String, String>>,
 }
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -834,6 +919,9 @@ pub struct UpdateProviderInput {
     pub use_raw_base_url: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub auth: Option<AuthConfig>,
+    /// 认证方式（可选；未提供 auth 时用于回填 `auth_method` 列）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auth_method: Option<AuthMethod>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub auto_fetch_official_models: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]

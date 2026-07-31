@@ -119,6 +119,8 @@ async fn refresh_with_script(
             .auth_method
             .as_ref()
             .map(|m| format!(r#"{{"method":"{}"}}"#, m)),
+        auth_expires_at: None,
+        auth_method: input.auth_method.clone(),
         balance_provider_json: None,
         timeout_json: None,
         retry_json: None,

@@ -42,6 +42,10 @@ const V001__INIT: &str = include_str!("./migrations/V001__init.sql");
 const V002__PROVIDER_SCRIPT_VARIABLES: &str =
     include_str!("./migrations/V002__provider_script_variables.sql");
 
+/// OAuth 认证字段：providers 表新增 auth_expires_at / auth_method 列
+const V003__PROVIDER_AUTH_FIELDS: &str =
+    include_str!("./migrations/V003__provider_auth_fields.sql");
+
 /// 内置迁移列表：(版本号, 描述, SQL 内容)
 ///
 /// 增量迁移模式：V001 为基线，V002+ 为增量变更。
@@ -49,6 +53,7 @@ const V002__PROVIDER_SCRIPT_VARIABLES: &str =
 const BUILTIN_MIGRATIONS: &[(u32, &str, &str)] = &[
     (1, "init", V001__INIT),
     (2, "provider_script_variables", V002__PROVIDER_SCRIPT_VARIABLES),
+    (3, "provider_auth_fields", V003__PROVIDER_AUTH_FIELDS),
 ];
 
 /// 执行所有未应用的迁移

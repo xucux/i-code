@@ -873,6 +873,18 @@ pub async fn gateway_provider_oauth_refresh_token(
         .await
 }
 
+/// 解密供应商的认证配置并返回明文 JSON 字符串
+///
+/// 用于前端「查看 token」眼睛按钮：在后端解析所有 `$SECRET:{uuid}$` 引用，
+/// 返回格式化的 JSON 字符串供弹窗展示。明文仅在本次返回中传输，前端不缓存。
+#[tauri::command]
+pub async fn gateway_provider_decrypt_token(
+    state: State<'_, AiGatewayServiceHandle>,
+    provider_id: String,
+) -> IcodeResult<String> {
+    state.service().decrypt_provider_token(&provider_id)
+}
+
 // ===== 额度查询命令 =====
 //
 // 编排层：ai_gateway 依赖 balance 模块，在此完成「加载供应商 → 解析 Secret →

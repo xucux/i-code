@@ -559,6 +559,7 @@ fn main() {
             modules::ai_gateway::commands::gateway_provider_oauth_device_code,
             modules::ai_gateway::commands::gateway_provider_oauth_poll_device_token,
             modules::ai_gateway::commands::gateway_provider_oauth_refresh_token,
+            modules::ai_gateway::commands::gateway_provider_decrypt_token,
             modules::ai_gateway::commands::gateway_oauth_callback_list,
             modules::ai_gateway::commands::gateway_oauth_callback_close,
             modules::ai_gateway::commands::gateway_provider_clear_oauth_token,
@@ -875,6 +876,8 @@ fn main() {
             // ===== 初始化 Chat 模块 =====
             // 会话 JSONL 存放于程序运行目录下的 chat/；请求经本地网关转发。
             let chat_dir = exe_dir.join("chat");
+            // 提前克隆 ai_gateway_handle：chat 模块会 move 一份，scheduler 也需要一份
+            let ai_gateway_handle_for_scheduler = ai_gateway_handle.clone();
             let chat_handle = modules::chat::ChatServiceHandle::new(
                 chat_dir,
                 app.handle().clone(),
@@ -885,6 +888,13 @@ fn main() {
             .expect("Chat 服务初始化失败");
             log::info!("Chat 模块初始化完成");
             app.manage(chat_handle);
+
+            // ===== 初始化 Scheduler 模块 =====
+            // 定时任务调度器，当前内置 OAuth token 续期任务。
+            // 依赖 AI Gateway（refresh_oauth_token）。
+            let scheduler_handle =
+                modules::scheduler::SchedulerHandle::new(ai_gateway_handle_for_scheduler);
+            app.manage(scheduler_handle);
 
             // 创建系统托盘菜单
             let show_i = MenuItem::with_id(app, "show", "显示主界面", true, None::<&str>)?;

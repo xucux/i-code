@@ -164,6 +164,7 @@ const schema = z.object({
   oauthPkce: z.boolean().optional(),
   isEnabled: z.boolean(),
   sortOrder: z.coerce.number().int(),
+  extraHeaders: z.record(z.string(), z.string()).optional(),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -177,6 +178,7 @@ export interface ProviderFormInitialValues extends Partial<{
   authMethod: AuthMethod
   isEnabled: boolean
   sortOrder: number
+  extraHeaders?: Record<string, string>
 }> {}
 
 interface ProviderFormProps {
@@ -199,6 +201,7 @@ interface ProviderFormProps {
     timeoutJson?: string
     retryJson?: string
     scriptVariablesJson?: string
+    extraHeaders?: Record<string, string>
   }) => void
   /** OAuth 授权成功后回传更新后的供应商对象 */
   onProviderUpdated?: (provider: Provider) => void
@@ -705,6 +708,7 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
       timeoutJson,
       retryJson,
       scriptVariablesJson: buildScriptVariablesJson(scriptVariables, isEdit),
+      extraHeaders: values.extraHeaders,
     })
   }
 
@@ -1735,6 +1739,23 @@ function ModelManagementSection({ provider }: ModelManagementSectionProps) {
     }
   }
 
+  /**
+   * 复制模型路由 ID 到剪贴板
+   *
+   * 模型路由 ID = `{provider_slug}/{model_id}`，是网关对外暴露的统一模型标识。
+   * 复制成功/失败均通过 toast 反馈。
+   */
+  const handleCopyModelId = async (model: GatewayModel) => {
+    if (!provider) return
+    const routeId = `${provider.slug}/${model.modelId}`
+    try {
+      await navigator.clipboard.writeText(routeId)
+      toast.success(t('aiGateway.providerForm.copyModelIdSuccess', { id: routeId }))
+    } catch {
+      toast.error(t('aiGateway.providerForm.copyModelIdFailed'))
+    }
+  }
+
   // 切换模型公开/隐藏状态
   const handleToggleVisibility = async (model: GatewayModel) => {
     try {
@@ -2046,6 +2067,15 @@ function ModelManagementSection({ provider }: ModelManagementSectionProps) {
                       title={t('aiGateway.providerForm.editModel', '编辑参数')}
                     >
                       <i className="fa-solid fa-pen" />
+                    </button>
+                    {/* 复制模型路由 ID：{provider_slug}/{model_id} */}
+                    <button
+                      type="button"
+                      className="rounded px-1 py-0.5 text-[10px] text-primary transition-colors hover:bg-primary/10"
+                      onClick={() => void handleCopyModelId(model)}
+                      title={t('aiGateway.providerForm.copyModelId')}
+                    >
+                      <i className="fa-solid fa-copy" />
                     </button>
                     <button
                       type="button"
@@ -2472,6 +2502,12 @@ function OAuthAuthorizeSection({
   const { t } = useTranslation()
   const isDeviceCode = authMethod === 'github-copilot'
   const authConfig = useMemo(() => parseAuthConfig(provider), [provider])
+  // 查看 token 弹窗状态
+  const [tokenDialogOpen, setTokenDialogOpen] = useState(false)
+  const [tokenDialogContent, setTokenDialogContent] = useState('')
+  const [tokenDialogLoading, setTokenDialogLoading] = useState(false)
+  // 续期按钮 loading
+  const [renewing, setRenewing] = useState(false)
   const { hasToken, expiresAt, isExpired, hasExpiry, githubLogin, email } = useMemo(() => {
     if (!authConfig || authConfig.method === 'none' || authConfig.method === 'api-key') {
       return { hasToken: false, expiresAt: undefined as number | undefined, isExpired: false, hasExpiry: false, githubLogin: undefined as string | undefined, email: undefined as string | undefined }
@@ -2489,11 +2525,66 @@ function OAuthAuthorizeSection({
 
   const verificationUrl = deviceCodeInfo?.verificationUriComplete || deviceCodeInfo?.verificationUri
 
+  // 查看 token：调后端解密命令，弹窗展示明文 JSON
+  const handleViewToken = useCallback(async () => {
+    setTokenDialogLoading(true)
+    setTokenDialogOpen(true)
+    setTokenDialogContent('')
+    try {
+      const json = await invokeCommand<string>('gateway_provider_decrypt_token', { providerId: provider.id })
+      setTokenDialogContent(json)
+    } catch (e) {
+      const err = toIcodeError(e)
+      toast.error(err.message || t('aiGateway.providerForm.tokenViewFailed'))
+      setTokenDialogOpen(false)
+    } finally {
+      setTokenDialogLoading(false)
+    }
+  }, [provider.id, t])
+
+  // 续期：调后端刷新 token 命令
+  const handleRenew = useCallback(async () => {
+    setRenewing(true)
+    try {
+      await invokeCommand<Provider>('gateway_provider_oauth_refresh_token', {
+        providerId: provider.id,
+        authMethod,
+      })
+      toast.success(t('aiGateway.providerForm.tokenRenewSuccess'))
+    } catch (e) {
+      const err = toIcodeError(e)
+      toast.error(err.message || t('aiGateway.providerForm.tokenRenewFailed'))
+    } finally {
+      setRenewing(false)
+    }
+  }, [provider.id, authMethod, t])
+
   return (
     <div className="mt-4 rounded-md border p-3 space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1">
           <span className="text-xs font-medium">{t('aiGateway.providerForm.oauthTitle')}</span>
+          {hasToken && (
+            <TooltipProvider delayDuration={300}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-5 w-5"
+                    onClick={() => void handleViewToken()}
+                    disabled={tokenDialogLoading}
+                  >
+                    <i className={`fa-solid ${tokenDialogLoading ? 'fa-spinner fa-spin' : 'fa-eye'} text-[10px]`} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" align="start">
+                  {t('aiGateway.providerForm.tokenView')}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
           <HelpIcon type="popover" side="bottom" align="start" contentClassName="max-w-sm text-xs">
             <div className="space-y-1.5">
               <p className="font-medium">{t('aiGateway.callbackServer.helpTitle')}</p>
@@ -2569,25 +2660,40 @@ function OAuthAuthorizeSection({
               : t('aiGateway.providerForm.oauthAuthorizeHint')}
           </p>
           {!showManualInput && (
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              className="h-8 text-xs"
-              onClick={onStartAuthorize}
-              disabled={authorizing}
-            >
-              {authorizing ? (
-                <i className="fa-solid fa-spinner fa-spin mr-1.5" />
-              ) : (
-                <i className={`fa-solid ${hasToken || timedOut ? 'fa-rotate' : 'fa-external-link-alt'} mr-1.5`} />
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                className="h-8 text-xs"
+                onClick={onStartAuthorize}
+                disabled={authorizing}
+              >
+                {authorizing ? (
+                  <i className="fa-solid fa-spinner fa-spin mr-1.5" />
+                ) : (
+                  <i className={`fa-solid ${hasToken || timedOut ? 'fa-rotate' : 'fa-external-link-alt'} mr-1.5`} />
+                )}
+                {authorizing
+                  ? t('aiGateway.providerForm.oauthAuthorizingWithCountdown', { seconds: remainingSeconds })
+                  : hasToken || timedOut
+                    ? t('aiGateway.providerForm.oauthRetryAuthorize')
+                    : t('aiGateway.providerForm.oauthAuthorize')}
+              </Button>
+              {hasToken && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-8 text-xs"
+                  onClick={() => void handleRenew()}
+                  disabled={renewing || authorizing}
+                >
+                  <i className={`fa-solid ${renewing ? 'fa-spinner fa-spin' : 'fa-rotate-right'} mr-1.5`} />
+                  {t('aiGateway.providerForm.tokenRenew')}
+                </Button>
               )}
-              {authorizing
-                ? t('aiGateway.providerForm.oauthAuthorizingWithCountdown', { seconds: remainingSeconds })
-                : hasToken || timedOut
-                  ? t('aiGateway.providerForm.oauthRetryAuthorize')
-                  : t('aiGateway.providerForm.oauthAuthorize')}
-            </Button>
+            </div>
           )}
           {showManualInput && (
             <div className="space-y-2">
@@ -2637,6 +2743,19 @@ function OAuthAuthorizeSection({
                   <i className="fa-solid fa-rotate mr-1.5" />
                   {t('aiGateway.providerForm.oauthRetryAuthorize')}
                 </Button>
+                {hasToken && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs"
+                    onClick={() => void handleRenew()}
+                    disabled={renewing || authorizing || manualExchanging}
+                  >
+                    <i className={`fa-solid ${renewing ? 'fa-spinner fa-spin' : 'fa-rotate-right'} mr-1.5`} />
+                    {t('aiGateway.providerForm.tokenRenew')}
+                  </Button>
+                )}
               </div>
             </div>
           )}
@@ -2646,23 +2765,38 @@ function OAuthAuthorizeSection({
           {!deviceCodeInfo ? (
             <>
               <p className="text-[11px] text-muted-foreground">{t('aiGateway.providerForm.oauthDeviceCodeHint')}</p>
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                className="h-8 text-xs"
-                onClick={onStartAuthorize}
-                disabled={authorizing}
-              >
-                {authorizing ? (
-                  <i className="fa-solid fa-spinner fa-spin mr-1.5" />
-                ) : (
-                  <i className="fa-solid fa-keyboard mr-1.5" />
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  className="h-8 text-xs"
+                  onClick={onStartAuthorize}
+                  disabled={authorizing}
+                >
+                  {authorizing ? (
+                    <i className="fa-solid fa-spinner fa-spin mr-1.5" />
+                  ) : (
+                    <i className="fa-solid fa-keyboard mr-1.5" />
+                  )}
+                  {authorizing
+                    ? t('aiGateway.providerForm.oauthRequestingDeviceCode')
+                    : t('aiGateway.providerForm.oauthRequestDeviceCode')}
+                </Button>
+                {hasToken && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs"
+                    onClick={() => void handleRenew()}
+                    disabled={renewing || authorizing}
+                  >
+                    <i className={`fa-solid ${renewing ? 'fa-spinner fa-spin' : 'fa-rotate-right'} mr-1.5`} />
+                    {t('aiGateway.providerForm.tokenRenew')}
+                  </Button>
                 )}
-                {authorizing
-                  ? t('aiGateway.providerForm.oauthRequestingDeviceCode')
-                  : t('aiGateway.providerForm.oauthRequestDeviceCode')}
-              </Button>
+              </div>
             </>
           ) : (
             <div className="space-y-2">
@@ -2692,6 +2826,19 @@ function OAuthAuthorizeSection({
                 >
                   {t('aiGateway.providerForm.oauthStopPolling')}
                 </Button>
+                {hasToken && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs"
+                    onClick={() => void handleRenew()}
+                    disabled={renewing || authorizing}
+                  >
+                    <i className={`fa-solid ${renewing ? 'fa-spinner fa-spin' : 'fa-rotate-right'} mr-1.5`} />
+                    {t('aiGateway.providerForm.tokenRenew')}
+                  </Button>
+                )}
               </div>
               {deviceCodePolling && (
                 <p className="text-[11px] text-muted-foreground">
@@ -2703,6 +2850,47 @@ function OAuthAuthorizeSection({
           )}
         </div>
       )}
+
+      {/* 查看 Token 弹窗：展示后端解密后的明文 JSON */}
+      <Dialog open={tokenDialogOpen} onOpenChange={setTokenDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{t('aiGateway.providerForm.tokenDialogTitle')}</DialogTitle>
+            <DialogDescription>{t('aiGateway.providerForm.tokenDialogDescription')}</DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh] rounded-md border bg-muted/30 p-3">
+            <pre className="text-[11px] font-mono whitespace-pre-wrap break-all text-foreground/90">
+              {tokenDialogLoading
+                ? t('aiGateway.providerForm.tokenDialogLoading')
+                : tokenDialogContent || t('aiGateway.providerForm.tokenDialogEmpty')}
+            </pre>
+          </ScrollArea>
+          <DialogFooter>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              className="h-8 text-xs"
+              onClick={() => {
+                if (tokenDialogContent) void navigator.clipboard.writeText(tokenDialogContent)
+              }}
+              disabled={tokenDialogLoading || !tokenDialogContent}
+            >
+              <i className="fa-solid fa-copy mr-1.5" />
+              {t('aiGateway.providerForm.tokenDialogCopy')}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs"
+              onClick={() => setTokenDialogOpen(false)}
+            >
+              {t('aiGateway.providerForm.tokenDialogClose')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
