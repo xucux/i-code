@@ -109,7 +109,6 @@ pub fn resolve_auth(auth: &AuthConfig) -> IcodeResult<AuthResolution> {
         | AuthConfig::GoogleGeminiOauth { token, .. }
         | AuthConfig::OpenaiCodexAuth { token, .. }
         | AuthConfig::ClaudeCode { token, .. }
-        | AuthConfig::XaiGrokOauth { token, .. }
         | AuthConfig::GithubCopilot { token, .. } => {
             let token_str = token
                 .as_ref()
@@ -117,6 +116,24 @@ pub fn resolve_auth(auth: &AuthConfig) -> IcodeResult<AuthResolution> {
                 .ok_or_else(|| IcodeError::validation("OAuth 认证缺少 token"))?;
             let access_token = extract_oauth_access_token(token_str)?;
             Ok(AuthResolution::bearer(access_token))
+        }
+        // xAI Grok Build OAuth：Bearer + CLI chat-proxy 身份标识头
+        // 对齐 CLIProxyAPI applyXAIChatHeaders()（xai_executor.go）
+        AuthConfig::XaiGrokOauth { token, .. } => {
+            let token_str = token
+                .as_ref()
+                .filter(|s| !s.is_empty())
+                .ok_or_else(|| IcodeError::validation("xAI Grok OAuth 认证缺少 token"))?;
+            let access_token = extract_oauth_access_token(token_str)?;
+            Ok(AuthResolution {
+                credential: Some(AuthCredential::Bearer(access_token)),
+                extra_headers: vec![
+                    ("X-XAI-Token-Auth".to_string(), "xai-grok-cli".to_string()),
+                    ("x-grok-client-version".to_string(), "0.2.93".to_string()),
+                    ("User-Agent".to_string(), "xai-grok-workspace/0.2.93".to_string()),
+                ],
+                query_params: vec![],
+            })
         }
         AuthConfig::GoogleVertexAiAuth {
             sub_type,

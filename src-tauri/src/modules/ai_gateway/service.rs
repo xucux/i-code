@@ -1983,12 +1983,23 @@ impl AiGatewayService {
                 self.fetch_openai_compatible_models(&client, &provider, api_key)
                     .await
             }
-            // xAI Grok Build 使用 OAuth 认证，需从 token JSON 中提取 access_token 作为 Bearer
+            // xAI Grok Build：OAuth 模式走 cli-chat-proxy（需特殊请求头），
+            // API Key 模式走 api.x.ai 标准 OpenAI 兼容接口
             "xai-grok-build" => {
-                let token = extract_oauth_token(&auth);
-                let access_token = token.and_then(|t| extract_oauth_access_token_for_balance(t));
-                self.fetch_openai_compatible_models(&client, &provider, access_token.as_deref())
-                    .await
+                let is_oauth = matches!(
+                    auth.as_ref(),
+                    Some(AuthConfig::XaiGrokOauth { .. })
+                );
+                if is_oauth {
+                    let token = extract_oauth_token(&auth);
+                    let access_token = token.and_then(|t| extract_oauth_access_token_for_balance(t));
+                    self.fetch_xai_grok_build_models(&client, access_token.as_deref())
+                        .await
+                } else {
+                    let api_key = extract_api_key(&auth);
+                    self.fetch_openai_compatible_models(&client, &provider, api_key)
+                        .await
+                }
             }
             "custom" => {
                 let api_key = extract_api_key(&auth);
@@ -2142,6 +2153,104 @@ impl AiGatewayService {
 
         let data = body.get("data").and_then(|d| d.as_array()).ok_or_else(|| {
             IcodeError::gateway("供应商模型列表缺少 data 数组")
+        })?;
+
+        let ids: Vec<String> = data
+            .iter()
+            .filter_map(|item| item.get("id").and_then(|v| v.as_str()).map(String::from))
+            .collect();
+
+        Ok(ids)
+    }
+
+    /// 拉取 xAI Grok Build (SuperGrok / X Premium+) 的模型列表
+    ///
+    /// OAuth 模式下通过 Grok Build 的 CLI chat-proxy 拉取：
+    /// - URL：`https://cli-chat-proxy.grok.com/v1/models`
+    /// - 认证：`Authorization: Bearer {access_token}`
+    /// - 附加头：`X-XAI-Token-Auth`、`x-grok-client-version`、`User-Agent`（对齐 CLIProxyAPI）
+    ///
+    /// 参考项目实现见 `src/client/xai/grok-build-client.ts` 的 `resolveBaseUrl` 与 `buildHeaders`。
+    async fn fetch_xai_grok_build_models(
+        &self,
+        client: &reqwest::Client,
+        access_token: Option<&str>,
+    ) -> IcodeResult<Vec<String>> {
+        // xAI Grok Build OAuth 模式固定走 CLI chat-proxy
+        const XAI_CLI_CHAT_PROXY_BASE_URL: &str = "https://cli-chat-proxy.grok.com/v1";
+        const XAI_TOKEN_AUTH_HEADER: &str = "X-XAI-Token-Auth";
+        const XAI_TOKEN_AUTH_VALUE: &str = "xai-grok-cli";
+        const XAI_CLIENT_VERSION_HEADER: &str = "x-grok-client-version";
+        const XAI_CLIENT_VERSION_VALUE: &str = "0.2.93";
+        const XAI_USER_AGENT: &str = "xai-grok-workspace/0.2.93";
+
+        let url = format!("{}/models", XAI_CLI_CHAT_PROXY_BASE_URL);
+
+        let start = std::time::Instant::now();
+        let mut req = client.get(&url);
+
+        // Bearer 认证
+        if let Some(token) = access_token {
+            req = req.header("Authorization", format!("Bearer {}", token));
+        }
+
+        // xAI CLI chat-proxy 身份标识头（对齐 CLIProxyAPI applyXAIChatHeaders）
+        req = req
+            .header(XAI_TOKEN_AUTH_HEADER, XAI_TOKEN_AUTH_VALUE)
+            .header(XAI_CLIENT_VERSION_HEADER, XAI_CLIENT_VERSION_VALUE)
+            .header("User-Agent", XAI_USER_AGENT);
+
+        let resp = req.send().await.map_err(|e| {
+            tracing::error!(
+                "xAI Grok Build models | GET {} | send failed | err={:?}",
+                redact_url_key_param(&url),
+                e
+            );
+            IcodeError::gateway(format!("请求 xAI 模型列表失败: {}", e))
+        })?;
+        let status = resp.status().as_u16();
+        let duration_ms = start.elapsed().as_millis();
+
+        if !resp.status().is_success() {
+            let text = resp.text().await.unwrap_or_default();
+            tracing::warn!(
+                "xAI Grok Build models non-200 | GET {} | status={} | duration={}ms | response_body={}",
+                redact_url_key_param(&url),
+                status,
+                duration_ms,
+                text
+            );
+            return Err(IcodeError::gateway(format!(
+                "xAI 返回错误 {}: {}",
+                status, text
+            )));
+        }
+
+        let body: serde_json::Value = resp.json().await.map_err(|e| {
+            tracing::warn!(
+                "xAI Grok Build models | GET {} | status={} | duration={}ms | parse_error={}",
+                redact_url_key_param(&url),
+                status,
+                duration_ms,
+                e
+            );
+            IcodeError::gateway(format!("解析 xAI 模型列表失败: {}", e))
+        })?;
+
+        tracing::info!(
+            "xAI Grok Build models | GET {} | status={} | duration={}ms",
+            redact_url_key_param(&url),
+            status,
+            duration_ms
+        );
+        tracing::debug!(
+            "xAI Grok Build models response body | GET {} | {}",
+            redact_url_key_param(&url),
+            body.to_string()
+        );
+
+        let data = body.get("data").and_then(|d| d.as_array()).ok_or_else(|| {
+            IcodeError::gateway("xAI 模型列表缺少 data 数组")
         })?;
 
         let ids: Vec<String> = data
