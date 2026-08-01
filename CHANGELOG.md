@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+## [0.0.14] - 2026-08-01
+
+### 新增
+
+- **脚本公共存储（script-storage）**：所有脚本模板共享的键值存储，供额度脚本在多次执行之间读写状态与缓存
+  - 新增 Host Functions：`storage::get / set / delete / keys / has / clear / incr / set_ns / get_ns / delete_ns / keys_ns`，同时提供扁平别名（`storage_get` / `storage_set` 等），编辑器侧边文档同步补充 storage 分组与示例
+  - 存储文件位于应用数据目录 `script-storage.json`（与 `i-code.db` 同目录），文件不存在时后端自动创建；明文 JSON 存储、无需脱敏（与 Secret 体系区分，禁止写入 API Key / Token）
+  - 值类型支持任意可 JSON 序列化的 Rhai 值（字符串 / 数字 / 布尔 / map / 数组）
+  - **TTL 过期**：`storage::set(key, value, ttl_ms)` 可设置过期时间；读取时惰性清理，应用启动时批量清理过期项
+  - **命名空间**：`set_ns / get_ns / delete_ns / keys_ns` 以 `ns:key` 前缀隔离不同模板的 key，避免冲突；`__ttl__` 为系统保留键禁止写入
+  - **大小上限**：单值 ≤ 64 KiB，总量 ≤ 1 MiB，超出报错
+  - **并发安全**：进程内全局单例 `Arc<Mutex<...>>` 跨脚本共享，写入采用「临时文件 + rename」原子落盘，避免并发写互相覆盖与写一半损坏
+- **脚本存储 UI 浏览器**：脚本模板页新增「存储」入口按钮，打开 `ScriptStorageDialog` 可视化查看 / 新建 / 编辑 / 删除 / 清空全部条目，展示 key、值预览与剩余 TTL（可读化显示，支持设置过期时间）
+- **备份集成**：创建备份时若存在 `script-storage.json` 则一并打包；恢复时随数据库一并还原（旧备份无此文件时自动跳过）
+
+
 ## [0.0.13] - 2026-08-01
 
 ### 新增
