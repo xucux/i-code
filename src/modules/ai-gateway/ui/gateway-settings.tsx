@@ -93,6 +93,7 @@ export function GatewayBasicSettings() {
         gatewayHost: DEFAULT_GATEWAY_HOST,
         gatewayPort: DEFAULT_GATEWAY_PORT,
         isEnabled: true,
+        authEnabled: true,
         createdAt: '',
         updatedAt: '',
       })
@@ -109,6 +110,7 @@ export function GatewayBasicSettings() {
       if ('gatewayHost' in patch) input.gatewayHost = patch.gatewayHost
       if ('gatewayPort' in patch) input.gatewayPort = patch.gatewayPort
       if ('isEnabled' in patch) input.isEnabled = patch.isEnabled
+      if ('authEnabled' in patch) input.authEnabled = patch.authEnabled
       if ('defaultApiKeySecretId' in patch) input.defaultApiKeySecretId = patch.defaultApiKeySecretId
       const updated = await updateGatewaySettings(input as Parameters<typeof updateGatewaySettings>[0])
       setSettings(updated)
@@ -148,6 +150,28 @@ export function GatewayBasicSettings() {
               onChange={(e) => updateSettings({ gatewayHost: e.target.value })}
               className="h-8 text-xs"
             />
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-[10px] text-muted-foreground"
+                onClick={() => updateSettings({ gatewayHost: '127.0.0.1' })}
+                title={t('gatewaySettings.hostLocalHint')}
+              >
+                <i className="fa-solid fa-circle-dot mr-1 text-[9px]" />
+                {t('gatewaySettings.hostLocal')}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-[10px] text-muted-foreground"
+                onClick={() => updateSettings({ gatewayHost: '0.0.0.0' })}
+                title={t('gatewaySettings.hostLanHint')}
+              >
+                <i className="fa-solid fa-network-wired mr-1 text-[9px]" />
+                {t('gatewaySettings.hostLan')}
+              </Button>
+            </div>
           </div>
           <div className="space-y-1">
             <Label className="text-xs">{t('gatewaySettings.port')}</Label>
@@ -159,6 +183,21 @@ export function GatewayBasicSettings() {
             />
           </div>
         </div>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <Label className="text-xs">{t('gatewaySettings.authEnabled')}</Label>
+            <HelpIcon type="popover" side="top" align="start" contentClassName="max-w-sm text-xs">
+              <div className="space-y-1.5">
+                <p className="font-medium">{t('gatewaySettings.authEnabledHelpTitle')}</p>
+                <p className="whitespace-pre-line text-muted-foreground">{t('gatewaySettings.authEnabledHelpContent')}</p>
+              </div>
+            </HelpIcon>
+          </div>
+          <Switch
+            checked={settings.authEnabled}
+            onCheckedChange={(v) => updateSettings({ authEnabled: v })}
+          />
+        </div>
         <div className="space-y-1">
           <Label className="text-xs">{t('gatewaySettings.defaultApiKey')}</Label>
           <div className="flex items-center gap-2">
@@ -168,6 +207,7 @@ export function GatewayBasicSettings() {
               className="h-8 text-xs"
               placeholder={t('gatewaySettings.defaultApiKeyPlaceholder')}
               type={showDefaultKey ? 'text' : 'password'}
+              disabled={!settings.authEnabled}
             />
             <Button
               variant="outline"
@@ -175,6 +215,7 @@ export function GatewayBasicSettings() {
               className="size-8 shrink-0"
               onClick={() => setShowDefaultKey((v) => !v)}
               title={showDefaultKey ? t('authKey.hide') : t('authKey.show')}
+              disabled={!settings.authEnabled}
             >
               <i className={showDefaultKey ? 'fa-solid fa-eye-slash text-xs' : 'fa-solid fa-eye text-xs'} />
             </Button>
@@ -184,6 +225,7 @@ export function GatewayBasicSettings() {
               className="size-8 shrink-0"
               onClick={() => updateSettings({ defaultApiKeySecretId: generateDefaultGatewayApiKey() })}
               title={t('authKey.generate')}
+              disabled={!settings.authEnabled}
             >
               <i className="fa-solid fa-wand-magic-sparkles text-xs" />
             </Button>
@@ -198,6 +240,9 @@ export function GatewayBasicSettings() {
               <i className="fa-solid fa-copy text-xs" />
             </Button>
           </div>
+          {!settings.authEnabled && (
+            <p className="text-[10px] text-muted-foreground">{t('gatewaySettings.defaultApiKeyDisabledHint')}</p>
+          )}
         </div>
       </CardContent>
     </Card>

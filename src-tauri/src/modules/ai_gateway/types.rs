@@ -1105,6 +1105,15 @@ pub struct GatewaySettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_api_key_secret_id: Option<String>,
     pub is_enabled: bool,
+    /// 是否启用外部请求认证
+    ///
+    /// - `true`（默认）：外部请求需携带有效 API Key
+    /// - `false`：开放模式，外部请求无需认证
+    ///
+    /// 注意：内部 CLI 通过 `inner-cli-api` 请求头豁免，**不受此开关影响**。
+    /// `default_api_key_secret_id` 仅在此字段为 `true` 时参与校验，
+    /// 不控制认证开关。
+    pub auth_enabled: bool,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -1318,6 +1327,9 @@ pub struct UpdateGatewaySettingsInput {
     pub default_api_key_secret_id: Option<Option<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub is_enabled: Option<bool>,
+    /// 是否启用外部请求认证；`Some(false)` 关闭认证，`Some(true)` 开启认证
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auth_enabled: Option<bool>,
 }
 
 // ===== 网关认证 API Key =====

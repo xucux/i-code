@@ -4,13 +4,16 @@
 //!
 //! ## 认证流程
 //!
-//! 1. 优先检查 `inner-cli-api` 请求头：
+//! 1. 优先检查 `inner-cli-api` 请求头（始终生效，不受 `auth_enabled` 控制）：
 //!    - 值与 `GatewaySharedState.inner_cli_api_key` 一致 → 直接放行
 //!    - 头存在但值不一致 → 返回 403 Forbidden
-//! 2. 未携带 `inner-cli-api` 头时，从 `Authorization: Bearer {key}` 或 `X-API-Key: {key}` 提取 key
-//! 3. 优先在 `gateway_auth_keys` 中按明文 key 反查：
+//! 2. 检查 `gateway_settings.auth_enabled`：
+//!    - `false` → 开放模式，外部请求无需认证直接放行
+//!    - `true` → 继续后续 API Key 校验
+//! 3. 从 `Authorization: Bearer {key}` 或 `X-API-Key: {key}` 提取 key
+//! 4. 优先在 `gateway_auth_keys` 中按明文 key 反查：
 //!    - 命中启用且未过期的记录 → 放行，并更新 `last_used_at`
-//! 4. 未命中时回退到 `gateway_settings.default_api_key_secret_id`：
+//! 5. 未命中时回退到 `gateway_settings.default_api_key_secret_id`：
 //!    - 若值为 `$SECRET:{snowflake_id}$` 或雪花 ID → 解析 Secret 后比较
 //!    - 若值为明文 → 直接比较（兼容用户直接填写明文 key 的场景）
 //!    - 未配置 → 开放模式（豁免所有请求）
@@ -18,13 +21,15 @@
 //! ## 豁免规则
 //!
 //! - `/health` 与 `/readyz` 路径不需要认证
-//! - 携带正确 `inner-cli-api` 请求头的内部 CLI 请求豁免
-//! - 未配置 `default_api_key_secret_id` 且 `gateway_auth_keys` 为空时豁免所有请求（开放模式）
+//! - 携带正确 `inner-cli-api` 请求头的内部 CLI 请求豁免（始终生效）
+//! - `auth_enabled = false` 时豁免所有外部请求（开放模式）
+//! - `auth_enabled = true` 且未配置 `default_api_key_secret_id` 且 `gateway_auth_keys` 为空时豁免所有请求
 //!
 //! ## 存储约定
 //!
 //! - `gateway_auth_keys.api_key_secret_id`：按业务需要保存**明文 key**，便于请求进来时直接反查。
 //! - `gateway_settings.default_api_key_secret_id`：保留旧数据兼容性，可存 Secret 引用或明文。
+//! - `gateway_settings.auth_enabled`：认证总开关，仅影响外部请求；内部 CLI 头豁免不受影响。
 
 use axum::extract::Request;
 use axum::http::StatusCode;
@@ -78,7 +83,7 @@ fn authenticate_request(
     state: &AuthState,
     request: &Request,
 ) -> Result<Option<String>, StatusCode> {
-    // 优先检查内部 CLI 豁免头
+    // 优先检查内部 CLI 豁免头（始终生效，不受 auth_enabled 控制）
     if let Some(header_value) = request.headers().get("inner-cli-api") {
         if let Ok(value) = header_value.to_str() {
             if constant_time_eq(value.as_bytes(), state.inner_cli_api_key.as_bytes()) {
@@ -87,6 +92,17 @@ fn authenticate_request(
         }
         // 头存在但值不正确 → 明确拒绝，不再回退到 Gateway Key 校验
         return Err(StatusCode::FORBIDDEN);
+    }
+
+    // 读取网关设置：用于判断 auth_enabled 开关与默认 Gateway Key
+    let settings = match state.ai_gateway_handle.service().get_gateway_settings() {
+        Ok(s) => s,
+        Err(_) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
+    };
+
+    // 认证总开关：auth_enabled = false → 开放模式，外部请求豁免
+    if !settings.auth_enabled {
+        return Ok(None);
     }
 
     // 从请求中提取客户端提供的 key
@@ -114,11 +130,6 @@ fn authenticate_request(
     }
 
     // 2) 回退到默认 Gateway Key
-    let settings = match state.ai_gateway_handle.service().get_gateway_settings() {
-        Ok(s) => s,
-        Err(_) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
-    };
-
     let default_key = match settings.default_api_key_secret_id {
         Some(id) if !id.is_empty() => id,
         // 未配置默认 Gateway Key → 开放模式（豁免所有请求）

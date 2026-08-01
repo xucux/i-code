@@ -46,6 +46,10 @@ const V002__PROVIDER_SCRIPT_VARIABLES: &str =
 const V003__PROVIDER_AUTH_FIELDS: &str =
     include_str!("./migrations/V003__provider_auth_fields.sql");
 
+/// 网关设置认证开关：gateway_settings 表新增 auth_enabled 列
+const V004__GATEWAY_SETTINGS_AUTH_ENABLED: &str =
+    include_str!("./migrations/V004__gateway_settings_auth_enabled.sql");
+
 /// 内置迁移列表：(版本号, 描述, SQL 内容)
 ///
 /// 增量迁移模式：V001 为基线，V002+ 为增量变更。
@@ -54,6 +58,7 @@ const BUILTIN_MIGRATIONS: &[(u32, &str, &str)] = &[
     (1, "init", V001__INIT),
     (2, "provider_script_variables", V002__PROVIDER_SCRIPT_VARIABLES),
     (3, "provider_auth_fields", V003__PROVIDER_AUTH_FIELDS),
+    (4, "gateway_settings_auth_enabled", V004__GATEWAY_SETTINGS_AUTH_ENABLED),
 ];
 
 /// 执行所有未应用的迁移

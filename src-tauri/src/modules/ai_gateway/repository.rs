@@ -906,6 +906,11 @@ pub fn update_gateway_settings(input: &UpdateGatewaySettingsInput) -> IcodeResul
         params.push(Box::new(v as i64));
         idx += 1;
     }
+    if let Some(v) = input.auth_enabled {
+        sets.push(format!("auth_enabled = ?{idx}"));
+        params.push(Box::new(v as i64));
+        idx += 1;
+    }
 
     if sets.is_empty() {
         // 没有字段更新，直接返回当前记录
@@ -1138,20 +1143,22 @@ pub fn insert_provider_extra_header(
 
 /// gateway_settings 表 SELECT 字段列表
 const GATEWAY_SETTINGS_SELECT_SQL: &str = "SELECT gs.id, gs.gateway_host, gs.gateway_port,
-    gs.default_api_key_secret_id, gs.is_enabled, gs.created_at, gs.updated_at
+    gs.default_api_key_secret_id, gs.is_enabled, gs.auth_enabled, gs.created_at, gs.updated_at
     FROM gateway_settings gs";
 
 /// gateway_settings 表行映射器
 fn gateway_settings_row_mapper(row: &rusqlite::Row<'_>) -> rusqlite::Result<GatewaySettings> {
     let is_enabled: i64 = row.get(4)?;
+    let auth_enabled: i64 = row.get(5)?;
     Ok(GatewaySettings {
         id: row.get(0)?,
         gateway_host: row.get(1)?,
         gateway_port: row.get(2)?,
         default_api_key_secret_id: row.get(3)?,
         is_enabled: is_enabled != 0,
-        created_at: row.get(5)?,
-        updated_at: row.get(6)?,
+        auth_enabled: auth_enabled != 0,
+        created_at: row.get(6)?,
+        updated_at: row.get(7)?,
     })
 }
 

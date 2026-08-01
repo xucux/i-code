@@ -920,6 +920,15 @@ export interface GatewaySettings {
    */
   defaultApiKeySecretId?: string | null
   isEnabled: boolean
+  /**
+   * 是否启用外部请求认证
+   * - true（默认）：外部请求需携带有效 API Key
+   * - false：开放模式，外部请求无需认证
+   *
+   * 注意：内部 CLI 通过 `inner-cli-api` 请求头豁免，不受此开关影响。
+   * `defaultApiKeySecretId` 仅在此字段为 true 时参与校验，不控制认证开关。
+   */
+  authEnabled: boolean
   createdAt: string
   updatedAt: string
 }
@@ -932,6 +941,7 @@ export interface UpdateGatewaySettingsInput {
   gatewayPort?: number
   defaultApiKeySecretId?: string | null
   isEnabled?: boolean
+  authEnabled?: boolean
 }
 
 // ===== 网关认证 API Key =====
