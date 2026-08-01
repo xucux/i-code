@@ -1474,9 +1474,9 @@
     "expand": "全屏",
     "restore": "还原",
     "marketplace": "市场",
-    "storageView": "公共存储",
+    "storageView": "存储",
     "storage": {
-      "title": "脚本公共存储",
+      "title": "脚本存储",
       "hint": "所有脚本共享的键值存储（应用数据目录 script-storage.json，明文不脱敏）。脚本可通过 storage::get / set / delete / incr 等读写；此处为可视化查看与编辑。",
       "refresh": "刷新",
       "new": "新建",

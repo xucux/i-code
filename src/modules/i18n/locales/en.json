@@ -1476,7 +1476,7 @@
     "marketplace": "Marketplace",
     "storageView": "Storage",
     "storage": {
-      "title": "Script Shared Storage",
+      "title": "Script Storage",
       "hint": "Key-value storage shared by all scripts (script-storage.json in the app data dir, plain text). Scripts can read/write via storage::get / set / delete / incr; this is a visual viewer & editor.",
       "refresh": "Refresh",
       "new": "New",
