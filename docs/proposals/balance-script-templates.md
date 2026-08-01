@@ -355,6 +355,57 @@ let cookie_val = cookie;  // 与 variables["cookie"] 相同
 
 > Rhai 内置字符串方法仍可用，如 `base.ends_with("/")`、`base.sub_string(0, base.len() - 1)`、`s.len()`。
 
+#### 公共存储
+
+> **v0.0.13+ 已实现**。所有脚本模板共享的键值存储，文件位于应用数据目录（与 `i-code.db` 同目录）下的 `script-storage.json`；**明文存储、无需脱敏**（与 Secret 体系区分），文件不存在时后端自动创建。  
+> **v0.0.14+ 增强**：TTL 过期、命名空间、原子计数、keys/has/clear、大小上限、UI 浏览器、随备份打包恢复。
+
+| 函数 | 签名 | 返回 | 说明 |
+|------|------|------|------|
+| `storage::get` | `(key)` | Dynamic | 读取值；key 不存在或已过期返回 `()`（用 `if v == ()` 判断） |
+| `storage::set` | `(key, value)` | `()` | 写入（无 TTL，永不过期，清除已有 TTL） |
+| `storage::set` | `(key, value, ttl_ms)` | `()` | 写入并设置过期时间（毫秒，须 > 0）；到期后 get/has/keys 自动清理 |
+| `storage::delete` | `(key)` | `()` | 删除（幂等，key 不存在不报错） |
+| `storage::has` | `(key)` | bool | key 是否存在（未过期） |
+| `storage::keys` | `()` | array | 全部 key（不含保留键，已过期项自动清理） |
+| `storage::clear` | `()` | `()` | 清空全部数据（含 TTL 记录） |
+| `storage::incr` | `(key, delta)` | i64 | 原子自增/自减；key 不存在视为 0，已有值必须是整数；保留已有 TTL |
+| `storage::get_ns` | `(ns, key)` | Dynamic | 读取命名空间值（内部 key = `ns:key`） |
+| `storage::set_ns` | `(ns, key, value)` | `()` | 写入命名空间 |
+| `storage::delete_ns` | `(ns, key)` | `()` | 删除命名空间 key |
+| `storage::keys_ns` | `(ns)` | array | 列出命名空间下全部 key（去掉 `ns:` 前缀） |
+
+- `value` 支持任意可 JSON 序列化的 Rhai 值：字符串 / 数字 / 布尔 / map / 数组
+- 扁平别名：`storage_get/storage_set/storage_delete/storage_has/storage_keys/storage_clear/storage_incr/storage_set_ns/storage_get_ns/storage_delete_ns/storage_keys_ns`
+- 进程内全局单例 + 原子写（临时文件 + rename），并发执行脚本时读写安全
+- **大小上限**：单值 ≤ 64 KiB，总量 ≤ 1 MiB，超出报错
+- **命名空间**：推荐用 `set_ns` 按模板隔离（如 `set_ns("ds", "balance", v)`），避免不同模板 key 冲突；全局 key 仍可用
+- **保留键**：`__ttl__` 为系统保留键，禁止作为用户 key
+- 存储内容为明文 JSON，适合缓存查询结果、记录上次刷新时间、跨脚本共享状态等；**不要存放 API Key / Token 等敏感信息**
+- **UI 浏览器**：脚本模板页「公共存储」按钮可查看 / 新建 / 编辑 / 删除 / 清空（含 TTL）；**备份**：创建备份时随 `script-storage.json` 打包，恢复时一并还原
+
+```js
+// 示例：缓存上次刷新时间（TTL 60s）
+let last = storage::get("last_refresh_at");
+if last != () {
+  log::info(`上次刷新: ${last}`);
+}
+storage::set("last_refresh_at", now_ms, 60000);
+
+// 示例：跨脚本共享状态（命名空间隔离，draft 模板试运行可先用全局 key）
+let cached = storage::get_ns("quota", "balance");
+if cached == () {
+  storage::set_ns("quota", "balance", #{ amount: 12.34, at: now_ms });
+}
+
+// 示例：原子计数器
+let n = storage::incr("request_count", 1);
+if n >= 1000 { log::warn("请求数达 1000"); }
+
+// 示例：清理过期缓存
+storage::delete("cache:balance");
+```
+
 ### 4.4 执行沙箱策略
 
 | 策略 | 默认 |
@@ -786,6 +837,7 @@ i18n：监控方法文案迁入 `balance` / `aiGateway` 命名空间（现状有
 | 网络 | host 白名单 + 超时 + 体积限制（响应 body 上限如 2MB） |
 | 能力 | 无 FS、无子进程、无任意 env |
 | 导出备份 | 备份含脚本正文；恢复后 status 保持；不含解密密钥 |
+| 公共存储 | `script-storage.json` 为**明文 JSON、无脱敏**（非敏感数据）；单值 ≤ 64 KiB、总量 ≤ 1 MiB；保留键 `__ttl__` 禁止写入；脚本不得向其中写入 API Key / Token；随备份打包恢复 |
 
 ---
 

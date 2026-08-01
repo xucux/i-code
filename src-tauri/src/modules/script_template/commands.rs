@@ -113,6 +113,34 @@ pub async fn script_template_list_refs(
     state.service().list_refs(&id)
 }
 
+/// 浏览脚本公共存储（`script-storage.json` 全部条目，含 TTL）
+#[tauri::command]
+pub async fn script_storage_view() -> IcodeResult<Vec<crate::modules::balance::script::host_storage::ScriptStorageEntry>> {
+    crate::modules::balance::script::host_storage::storage_snapshot()
+}
+
+/// 写入脚本公共存储（UI 编辑；`ttlMs` 为可选过期毫秒数）
+#[tauri::command]
+pub async fn script_storage_set(
+    key: String,
+    value: serde_json::Value,
+    ttl_ms: Option<i64>,
+) -> IcodeResult<()> {
+    crate::modules::balance::script::host_storage::storage_set_value(&key, value, ttl_ms)
+}
+
+/// 删除脚本公共存储 key（UI 编辑）
+#[tauri::command]
+pub async fn script_storage_delete(key: String) -> IcodeResult<()> {
+    crate::modules::balance::script::host_storage::storage_delete_value(&key)
+}
+
+/// 清空脚本公共存储（UI 编辑）
+#[tauri::command]
+pub async fn script_storage_clear() -> IcodeResult<()> {
+    crate::modules::balance::script::host_storage::storage_clear_all()
+}
+
 /// 脚本模板市场：列出 catalog（公共仓）
 #[tauri::command]
 pub async fn script_template_marketplace_list(

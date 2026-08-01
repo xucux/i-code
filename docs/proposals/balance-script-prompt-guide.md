@@ -230,6 +230,57 @@ log::info(`供应商: ${provider.name}`);
 | `error(msg)` | `(String) → !` | 立即终止脚本并抛出错误 |
 | `url_join(base, path)` | `(String, String) → String` | 拼接 URL（自动处理首尾斜杠） |
 
+### 3.7 公共存储（storage）
+
+> **v0.0.13+ 已实现**。所有脚本共享的键值存储，文件为应用数据目录（与 `i-code.db` 同目录）下的 `script-storage.json`，**明文存储、无需脱敏**，文件不存在时后端自动创建。  
+> **v0.0.14+ 增强**：TTL 过期、命名空间、原子计数、keys/has/clear、大小上限、UI 浏览器、随备份恢复。
+
+| 函数 | 签名 | 说明 |
+|------|------|------|
+| `storage::get(key)` | `(String) → Dynamic` | 读取值；key 不存在或已过期返回 `()`（用 `if v == ()` 判断） |
+| `storage::set(key, value)` | `(String, Dynamic) → ()` | 写入（无 TTL，永不过期，清除已有 TTL） |
+| `storage::set(key, value, ttl_ms)` | `(String, Dynamic, Int) → ()` | 写入并设置过期时间（毫秒，须 > 0） |
+| `storage::delete(key)` | `(String) → ()` | 删除（幂等，key 不存在不报错） |
+| `storage::has(key)` | `(String) → Bool` | key 是否存在（未过期） |
+| `storage::keys()` | `() → Array` | 全部 key（不含保留键） |
+| `storage::clear()` | `() → ()` | 清空全部数据 |
+| `storage::incr(key, delta)` | `(String, Int) → Int` | 原子自增/自减；返回新值；key 不存在视为 0 |
+| `storage::get_ns(ns, key)` | `(String, String) → Dynamic` | 读取命名空间值（内部 key = `ns:key`） |
+| `storage::set_ns(ns, key, value)` | `(String, String, Dynamic) → ()` | 写入命名空间 |
+| `storage::delete_ns(ns, key)` | `(String, String) → ()` | 删除命名空间 key |
+| `storage::keys_ns(ns)` | `(String) → Array` | 列出命名空间下全部 key（去掉 `ns:` 前缀） |
+
+**扁平别名**：`storage_get`、`storage_set`、`storage_delete`、`storage_has`、`storage_keys`、`storage_clear`、`storage_incr`、`storage_set_ns`、`storage_get_ns`、`storage_delete_ns`、`storage_keys_ns`。
+
+**值类型**：字符串 / 数字 / 布尔 / map / 数组（任意可 JSON 序列化的值）。
+
+**限制**：单值 ≤ 64 KiB；总量 ≤ 1 MiB；`__ttl__` 为系统保留键。
+
+**使用示例**：
+
+```rhai
+// 缓存上次刷新时间（TTL 60 秒；key 不存在时返回 ()）
+let last = storage::get("last_refresh_at");
+if last == () {
+    log::info("首次查询");
+} else {
+    log::info(`上次刷新: ${last}`);
+}
+storage::set("last_refresh_at", now_ms, 60000);
+
+// 命名空间隔离：不同模板写同名字段互不干扰
+storage::set_ns("mytpl", "balance", #{ amount: 12.34, at: now_ms });
+let cached = storage::get_ns("mytpl", "balance");
+
+// 原子计数器
+let n = storage::incr("request_count", 1);
+
+// 清理过期缓存（key 不存在也不报错）
+storage::delete("cache:quota");
+```
+
+> ⚠️ 公共存储为明文 JSON，**不要存放 API Key / Token 等敏感信息**（Secret 请通过 `api_key` 变量 / 供应商扩展模板变量注入）。
+
 ---
 
 ## 4. 返回值结构
@@ -788,6 +839,7 @@ if str::contains(base, "/v1") { }
 | 响应是数组 `[{...}]` | `let arr = json::parse(resp.body); let first = arr[0];` |
 | 需要拼接 base URL | `url_join(provider.base_url, "/v1/balance")` |
 | 需要额外凭证（Cookie/Token 等） | 在供应商「扩展模板变量」中添加，脚本用 `variables["key"]` 读取 |
+| 需要跨脚本/跨刷新保存状态 | `storage::set("key", value)` 写入，`storage::get("key")` 读取（明文，勿存密钥） |
 
 ---
 
@@ -801,7 +853,7 @@ if str::contains(base, "/v1") { }
 | 响应体上限 | 2 MB |
 | 表达式嵌套深度 | 64 层 |
 | 仅支持 `http://` / `https://` | 否 |
-| 文件 IO | **禁止** |
+| 文件 IO | **禁止**（例外：`storage::get/set` 读写应用目录 `script-storage.json`，明文） |
 | 脚本引擎 | Rhai（纯 Rust） |
 | 调用记法 | 模块函数用 `::`，**禁止** 点号 |
 

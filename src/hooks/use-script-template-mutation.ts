@@ -6,6 +6,7 @@ import { invokeCommand } from '@/hooks/use-command'
 import type {
   CreateScriptTemplateInput,
   MarketplaceApplyInput,
+  ScriptStorageEntry,
   ScriptTemplate,
   ScriptTemplateRef,
   ScriptTemplateStatusAction,
@@ -57,4 +58,26 @@ export async function applyMarketplaceTemplate(
   input: MarketplaceApplyInput
 ): Promise<ScriptTemplate> {
   return invokeCommand<ScriptTemplate>('script_template_marketplace_apply', { input })
+}
+
+// ===== 脚本公共存储（script-storage.json）=====
+
+export async function viewScriptStorage(): Promise<ScriptStorageEntry[]> {
+  return invokeCommand<ScriptStorageEntry[]>('script_storage_view')
+}
+
+export async function setScriptStorage(
+  key: string,
+  value: unknown,
+  ttlMs?: number | null
+): Promise<void> {
+  await invokeCommand<void>('script_storage_set', { key, value, ttlMs: ttlMs ?? null })
+}
+
+export async function deleteScriptStorage(key: string): Promise<void> {
+  await invokeCommand<void>('script_storage_delete', { key })
+}
+
+export async function clearScriptStorage(): Promise<void> {
+  await invokeCommand<void>('script_storage_clear')
 }

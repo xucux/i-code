@@ -35,6 +35,7 @@ import type { ScriptTemplate } from '@/modules/script-template/types'
 import { ScriptTemplateStatusBadge } from './script-template-status-badge'
 import { ScriptTemplateEditor } from './script-template-editor'
 import { ScriptTemplateMarketplaceDialog } from './script-template-marketplace-dialog'
+import { ScriptStorageDialog } from './script-storage-dialog'
 
 function formatTime(iso?: string): string {
   if (!iso) return '—'
@@ -70,6 +71,7 @@ export function ScriptTemplateList() {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<ScriptTemplate | null>(null)
   const [marketplaceOpen, setMarketplaceOpen] = useState(false)
+  const [storageOpen, setStorageOpen] = useState(false)
 
   const contentHeight = Math.max(0, pageHeight - toolbarHeight - 8)
 
@@ -148,6 +150,15 @@ export function ScriptTemplateList() {
           >
             <i className="fa-solid fa-store mr-1.5" />
             {t('marketplace')}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs"
+            onClick={() => setStorageOpen(true)}
+          >
+            <i className="fa-solid fa-database mr-1.5" />
+            {t('storageView')}
           </Button>
         </div>
       </div>
@@ -283,6 +294,8 @@ export function ScriptTemplateList() {
         template={editing}
         onSaved={() => refetch()}
       />
+
+      <ScriptStorageDialog open={storageOpen} onOpenChange={setStorageOpen} />
 
       <DeleteConfirmDialog
         open={deleteOpen}

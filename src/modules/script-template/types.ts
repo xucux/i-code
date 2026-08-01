@@ -89,6 +89,14 @@ export interface ScriptTemplateRef {
   displayName: string
 }
 
+/** 脚本公共存储条目（`script-storage.json` 浏览器用） */
+export interface ScriptStorageEntry {
+  key: string
+  value: unknown
+  /** 过期时间戳（毫秒）；无 TTL 时为 null */
+  expiresAt: number | null
+}
+
 /** 内置 snippet */
 export interface ScriptSnippet {
   id: string

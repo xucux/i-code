@@ -36,6 +36,7 @@ use zip::ZipWriter;
 
 use crate::db;
 use crate::error::{IcodeError, IcodeResult};
+use crate::modules::balance::script::host_storage::{STORAGE_FILE_NAME, init_script_storage};
 use crate::modules::logger::Log;
 use crate::modules::secret::SecretServiceHandle;
 /// 同时向 tauri-plugin-log 和自研内存 logger 输出日志
@@ -148,6 +149,14 @@ impl BackupService {
         }
     }
 
+    /// 脚本公共存储文件路径（与数据库同目录的 `script-storage.json`）
+    fn storage_path(&self) -> PathBuf {
+        self.db_path
+            .parent()
+            .unwrap_or_else(|| Path::new("."))
+            .join(STORAGE_FILE_NAME)
+    }
+
     /// 解析本地备份目录
     ///
     /// 优先级：
@@ -196,7 +205,14 @@ impl BackupService {
             created_at: created_at.clone(),
             database_schema_version: self.schema_version,
             checksum,
-            files: Some(vec!["i-code.db".to_string(), "backup.json".to_string()]),
+            files: Some({
+                let mut files = vec!["i-code.db".to_string(), "backup.json".to_string()];
+                // 脚本公共存储存在时一并备份
+                if self.storage_path().exists() {
+                    files.push(STORAGE_FILE_NAME.to_string());
+                }
+                files
+            }),
             target: Some(BackupTarget::Local),
             encrypted: Some(false),
         };
@@ -348,6 +364,9 @@ impl BackupService {
         let restore_db_path = self.db_path.with_extension("db.restored");
         self.extract_db_from_zip(backup_path, &restore_db_path)?;
         backup_info!("已从备份包解压数据库到临时文件");
+
+        // 恢复脚本公共存储（script-storage.json；旧备份无此文件时跳过）
+        self.restore_script_storage(backup_path)?;
 
         let restored_checksum = compute_file_checksum(&restore_db_path)?;
         if restored_checksum != meta.checksum {
@@ -786,6 +805,18 @@ impl BackupService {
         let meta_json = serde_json::to_string_pretty(meta)?;
         zip.write_all(meta_json.as_bytes())?;
 
+        // 脚本公共存储（存在时打包）
+        let storage_path = self.storage_path();
+        if storage_path.exists() {
+            let storage_options = zip::write::SimpleFileOptions::default()
+                .compression_method(zip::CompressionMethod::Deflated);
+            zip.start_file(STORAGE_FILE_NAME, storage_options)?;
+            let mut storage_file = fs::File::open(&storage_path)?;
+            let mut buf = Vec::new();
+            storage_file.read_to_end(&mut buf)?;
+            zip.write_all(&buf)?;
+        }
+
         zip.finish()?;
         Ok(())
     }
@@ -824,6 +855,54 @@ impl BackupService {
             }
         }
         Err(IcodeError::internal("备份包中未找到 i-code.db"))
+    }
+
+    /// 从 zip 中提取任意文件到指定路径；包内不存在时返回 `Ok(false)`（不报错）
+    fn extract_file_from_zip(
+        &self,
+        zip_path: &Path,
+        file_name: &str,
+        dest: &Path,
+    ) -> IcodeResult<bool> {
+        let file = fs::File::open(zip_path)?;
+        let mut archive = zip::ZipArchive::new(file)?;
+        for i in 0..archive.len() {
+            let mut entry = archive.by_index(i)?;
+            let name = entry.name().to_string();
+            if name == file_name || name.ends_with(&format!("/{file_name}")) {
+                let mut out = fs::File::create(dest)?;
+                let mut buf = Vec::new();
+                entry.read_to_end(&mut buf)?;
+                out.write_all(&buf)?;
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+
+    /// 恢复脚本公共存储：从备份包提取 `script-storage.json` 并重新加载全局单例
+    ///
+    /// 备份包中无该文件（旧版备份）时保持当前存储不变。
+    fn restore_script_storage(&self, backup_path: &Path) -> IcodeResult<()> {
+        let storage_path = self.storage_path();
+        if let Some(parent) = storage_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        if self.extract_file_from_zip(backup_path, STORAGE_FILE_NAME, &storage_path)? {
+            backup_info!(
+                "已从备份包恢复脚本公共存储: {}",
+                storage_path.to_string_lossy()
+            );
+            // 重新加载全局存储单例（幂等；失败不阻塞主流程）
+            if let Some(parent) = storage_path.parent() {
+                if let Err(e) = init_script_storage(parent) {
+                    backup_warn!("重新加载脚本公共存储失败（重启后自动恢复）: {e}");
+                }
+            }
+        } else {
+            backup_info!("备份包中无脚本公共存储，跳过");
+        }
+        Ok(())
     }
 
     /// 创建紧急安全备份（恢复前调用）

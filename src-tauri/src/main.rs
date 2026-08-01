@@ -650,6 +650,10 @@ fn main() {
             modules::script_template::commands::script_template_list_active_for_select,
             modules::script_template::commands::script_template_list_snippets,
             modules::script_template::commands::script_template_list_refs,
+            modules::script_template::commands::script_storage_view,
+            modules::script_template::commands::script_storage_set,
+            modules::script_template::commands::script_storage_delete,
+            modules::script_template::commands::script_storage_clear,
             modules::script_template::commands::script_template_marketplace_list,
             modules::script_template::commands::script_template_marketplace_get,
             modules::script_template::commands::script_template_marketplace_preview_script,
@@ -745,6 +749,14 @@ fn main() {
             db::init_db_pool(&db_path).expect("数据库连接池初始化失败");
             db::run_migrations().expect("数据库迁移执行失败");
             tracing::info!("数据库初始化完成：{}", db_path.display());
+
+            // ===== 初始化脚本公共存储 =====
+            // script-storage.json 与数据库同目录（app_config_dir），
+            // 供脚本模板通过 storage::get / storage::set 读写共享键值。
+            // 文件不存在时由 init_script_storage 自动创建。
+            modules::balance::script::host_storage::init_script_storage(&app_config_dir)
+                .expect("脚本公共存储初始化失败");
+            tracing::info!("脚本公共存储初始化完成：{}", app_config_dir.display());
 
             // ===== 初始化 Settings 模块 =====
             // Settings 无需启动期加载缓存，每次调用直接查库。

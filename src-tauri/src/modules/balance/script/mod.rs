@@ -8,6 +8,7 @@ pub mod host_http;
 pub mod host_json;
 pub mod host_log;
 pub mod host_proxied_http;
+pub mod host_storage;
 pub mod host_str_math;
 pub mod snapshot_map;
 pub mod snippets;
@@ -120,6 +121,7 @@ fn run_rhai(
     host_log::register(&mut engine, logs.clone());
     host_http::register(&mut engine, http_state.clone());
     host_proxied_http::register(&mut engine, http_state, provider_proxy_json);
+    host_storage::register(&mut engine);
     host_str_math::register(&mut engine);
 
     // error(msg) → 抛业务错误

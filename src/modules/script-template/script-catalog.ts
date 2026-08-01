@@ -14,7 +14,7 @@ export interface ScriptCatalogItem {
   /** 补全类型 */
   type: 'variable' | 'function' | 'keyword'
   /** 文档面板分组 */
-  group: 'variable' | 'http' | 'json' | 'log' | 'string' | 'math' | 'util'
+  group: 'variable' | 'http' | 'json' | 'log' | 'storage' | 'string' | 'math' | 'util'
 }
 
 /** 系统变量 */
@@ -172,6 +172,91 @@ export const SCRIPT_FUNCTIONS: ScriptCatalogItem[] = [
     detail: '安全拼接 URL 路径',
     type: 'function',
     group: 'util',
+  },
+  // storage（公共存储）
+  {
+    label: 'storage::get',
+    insert: 'storage::get(${key})',
+    detail: '读取公共存储中的值（key 不存在或已过期返回 ()）；存储于应用数据目录 script-storage.json，明文不脱敏',
+    type: 'function',
+    group: 'storage',
+  },
+  {
+    label: 'storage::set',
+    insert: 'storage::set(${key}, ${value})',
+    detail: '写入公共存储（key 不存在新增，存在覆盖），立即落盘；所有脚本共享同一存储',
+    type: 'function',
+    group: 'storage',
+  },
+  {
+    label: 'storage::set (TTL)',
+    insert: 'storage::set(${key}, ${value}, ${ttlMs})',
+    detail: '写入并设置过期时间（毫秒，须 > 0）；到期后 get/has/keys 自动清理',
+    type: 'function',
+    group: 'storage',
+  },
+  {
+    label: 'storage::delete',
+    insert: 'storage::delete(${key})',
+    detail: '删除公共存储中的 key（幂等，key 不存在不报错），立即落盘',
+    type: 'function',
+    group: 'storage',
+  },
+  {
+    label: 'storage::has',
+    insert: 'storage::has(${key})',
+    detail: 'key 是否存在（未过期）',
+    type: 'function',
+    group: 'storage',
+  },
+  {
+    label: 'storage::keys',
+    insert: 'storage::keys()',
+    detail: '列出全部 key（不含保留键，已过期项自动清理）',
+    type: 'function',
+    group: 'storage',
+  },
+  {
+    label: 'storage::clear',
+    insert: 'storage::clear()',
+    detail: '清空全部数据（含 TTL 记录）',
+    type: 'function',
+    group: 'storage',
+  },
+  {
+    label: 'storage::incr',
+    insert: 'storage::incr(${key}, ${delta})',
+    detail: '原子自增/自减（整数）；key 不存在视为 0，返回新值；保留已有 TTL',
+    type: 'function',
+    group: 'storage',
+  },
+  {
+    label: 'storage::set_ns',
+    insert: 'storage::set_ns(${ns}, ${key}, ${value})',
+    detail: '写入命名空间（内部 key = ns:key），不同模板可隔离同名 key',
+    type: 'function',
+    group: 'storage',
+  },
+  {
+    label: 'storage::get_ns',
+    insert: 'storage::get_ns(${ns}, ${key})',
+    detail: '读取命名空间下的值（key 不存在或已过期返回 ()）',
+    type: 'function',
+    group: 'storage',
+  },
+  {
+    label: 'storage::delete_ns',
+    insert: 'storage::delete_ns(${ns}, ${key})',
+    detail: '删除命名空间下的 key',
+    type: 'function',
+    group: 'storage',
+  },
+  {
+    label: 'storage::keys_ns',
+    insert: 'storage::keys_ns(${ns})',
+    detail: '列出命名空间下全部 key（去掉 ns: 前缀）',
+    type: 'function',
+    group: 'storage',
   },
   // string
   {
@@ -343,5 +428,23 @@ export const DOC_FUNCTIONS = SCRIPT_FUNCTIONS.map((f) => ({
                           ? 'error("失败原因");\n'
                           : f.label === 'url_join'
                             ? 'let url = url_join(provider.base_url, "/v1/user/balance");\n'
-                            : `${f.insert.replace(/\$\{(\w+)\}/g, '$1')};\n`,
+                            : f.group === 'storage' && f.label === 'storage::get'
+                              ? 'let v = storage::get("key");\n'
+                              : f.group === 'storage' && f.label === 'storage::set'
+                                ? 'storage::set("key", value);\n'
+                                : f.group === 'storage' && f.label === 'storage::set (TTL)'
+                                  ? 'storage::set("key", value, 60000);\n'
+                                  : f.group === 'storage' && f.label === 'storage::delete'
+                                    ? 'storage::delete("key");\n'
+                                    : f.group === 'storage' && f.label === 'storage::has'
+                                      ? 'if storage::has("key") { }\n'
+                                      : f.group === 'storage' && f.label === 'storage::incr'
+                                        ? 'let n = storage::incr("counter", 1);\n'
+                                        : f.group === 'storage' && f.label === 'storage::get_ns'
+                                          ? 'let v = storage::get_ns("ns", "key");\n'
+                                          : f.group === 'storage' && f.label === 'storage::set_ns'
+                                            ? 'storage::set_ns("ns", "key", value);\n'
+                                            : f.group === 'storage' && f.label === 'storage::keys_ns'
+                                              ? 'let keys = storage::keys_ns("ns");\n'
+                                              : `${f.insert.replace(/\$\{(\w+)\}/g, '$1')};\n`,
 }))
