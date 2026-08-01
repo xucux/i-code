@@ -25,7 +25,7 @@ export function isWildcardHost(host: string | undefined | null): boolean {
 /**
  * 按网关展示优先级对 IPv4 地址排序
  *
- * 顺序：192.168.0.0/16 → 172.16.0.0/12 → 10.0.0.0/8 → 其他
+ * 顺序：192.168.0.0/24 → 192.168.0.0/16 → 172.16.0.0/12 → 10.0.0.0/8 → 其他
  * 组内保持系统枚举顺序，避免地址频繁跳动。
  */
 export function sortLocalIps(ips: string[]): string[] {
@@ -34,9 +34,12 @@ export function sortLocalIps(ips: string[]): string[] {
     if (parts.length !== 4) return Number.MAX_SAFE_INTEGER
     const a = Number(parts[0])
     const b = Number(parts[1])
-    if (a === 192 && b === 168) return 0
-    if (a === 172 && b >= 16 && b <= 31) return 1
-    if (a === 10) return 2
+    const c = Number(parts[2])
+    // 192.168.0.x（/24）优先，常见路由器默认网关网段
+    if (a === 192 && b === 168 && c === 0) return 0
+    if (a === 192 && b === 168) return 1
+    if (a === 172 && b >= 16 && b <= 31) return 2
+    if (a === 10) return 3
     return Number.MAX_SAFE_INTEGER
   }
 

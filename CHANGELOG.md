@@ -2,6 +2,33 @@
 
 ## [Unreleased]
 
+## [0.0.13] - 2026-08-01
+
+### 新增
+
+- **网关外部请求认证开关**：`gateway_settings` 表新增 `auth_enabled` 字段，可在 AI Gateway 设置页切换外部请求认证
+  - `auth_enabled = true`（默认）：外部请求需携带有效 API Key（`gateway_auth_keys` 或默认 Gateway Key）
+  - `auth_enabled = false`：开放模式，外部请求无需认证直接放行
+  - 内部 CLI 始终豁免，不受此开关影响
+- **网关通配地址 LAN 解析**：网关监听 `0.0.0.0` / `::` 时，自动解析本机可访问的 LAN 地址用于展示与复制
+  - 新增 `gateway_list_local_ips` Command，枚举本机网卡 IPv4 地址并剔除 loopback 与 link-local
+  - 新增 `useLocalIps` Hook，前端按 LAN 优先级（`192.168.0.0/24` > `192.168/16` > `172.16/12` > `10/8`）排序地址
+  - 网关状态栏展示解析后的 LAN 地址，并显示「通配监听」提示徽章
+- **网关接口文档弹窗**：网关页面新增 `GatewayApiDocsDialog`，列出网关对外暴露的接口清单（`/health`、`/readyz`、`/v1/models`、`/v1/chat/completions`、`/v1/messages`），支持选择本机地址拼装完整 URL 一键复制
+- **请求头模板变量解析器**：新增 `header_variable_resolver` 模块，网关转发时解析供应商附加请求头中的模板占位符为运行时实际值
+  - `${uuid()}`：每次请求生成新的 UUID v4
+  - `${uuid_by_day()}`：基于当天日期生成确定性 UUID v5（全天不变，跨天自动变化）
+  - `${variables["key"]}`：从供应商扩展变量中取值，与额度脚本 `variables` 共享键空间
+  - 内置 OpenCode Zen Free 模板的附加请求头改用模板变量（`ses_${uuid_by_day()}` / `msg_${uuid()}`），并同步更新 User-Agent 对齐 opencode 1.18.3
+- **xAI Grok Build OAuth 模式完善**：模型拉取与网关转发双路径支持 OAuth 专用请求头
+  - OAuth 模式固定通过 `https://cli-chat-proxy.grok.com/v1/models` 拉取模型列表；API Key 模式走标准 OpenAI 兼容接口
+  - 网关转发为 `XaiGrokOauth` 认证注入专用身份标识头（`X-XAI-Token-Auth`、`x-grok-client-version`、`User-Agent`），对齐官方 CLI chat-proxy 请求头格式
+
+### 变更
+
+- **日志迁移至 tracing 收尾**：将 `main.rs` 启动流程、OAuth 回调、代理决策、调度器等剩余 `log::` 调用全部迁移到 `tracing` 生态
+  - 网关 tauri-plugin-log 输出器重构为 tracing 结构化日志输出器，网关日志改用结构化字段（`http.method` / `http.url` / `http.status_code` / `duration_ms` / `tokens` / `request_id` 等），便于检索与过滤
+
 ## [0.0.12] - 2026-07-31
 
 ### 新增
