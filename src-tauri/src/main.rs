@@ -698,6 +698,7 @@ fn main() {
             modules::gateway_runtime::commands::gateway_stop,
             modules::gateway_runtime::commands::gateway_status,
             modules::gateway_runtime::commands::gateway_health,
+            modules::gateway_runtime::commands::gateway_list_local_ips,
             modules::gateway_runtime::commands::gateway_get_forward_log_config,
             modules::gateway_runtime::commands::gateway_set_forward_log_config,
         ])

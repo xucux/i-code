@@ -8,9 +8,13 @@
 //! - `gateway_stop`：停止 HTTP Server
 //! - `gateway_status`：获取当前运行时状态
 //! - `gateway_health`：健康检查
+//! - `gateway_list_local_ips`：枚举本机网卡 IPv4 地址（网关监听 0.0.0.0 时用于展示可访问地址）
 //! - `gateway_get_forward_log_config`：读取转发详细日志配置
 //! - `gateway_set_forward_log_config`：更新转发详细日志配置
 
+use std::net::IpAddr;
+
+use local_ip_address::list_afinet_netifas;
 use tauri::State;
 
 use crate::error::IcodeResult;
@@ -55,6 +59,35 @@ pub async fn gateway_health(
     state: State<'_, GatewayRuntimeHandle>,
 ) -> IcodeResult<HealthCheckResult> {
     state.service().health()
+}
+
+/// 枚举本机网卡 IPv4 地址
+///
+/// 当网关监听 `0.0.0.0` 时，前端需要展示实际可访问本机的 LAN 地址。
+/// 返回的列表已剔除 loopback（127.0.0.0/8）与 link-local（169.254.0.0/16）地址，
+/// 顺序保持系统接口枚举顺序，前端按优先级（192.168/16 > 172.16/12 > 10/8）再排序。
+#[tauri::command]
+pub fn gateway_list_local_ips() -> IcodeResult<Vec<String>> {
+    let ifas = list_afinet_netifas().map_err(|e| {
+        crate::error::IcodeError::internal(format!("枚举本机网卡地址失败: {e}"))
+    })?;
+
+    let ips = ifas
+        .into_iter()
+        .filter_map(|(_, ip)| match ip {
+            IpAddr::V4(v4) => {
+                // 跳过 loopback 与 link-local，避免在 UI 上展示无效地址
+                if v4.is_loopback() || v4.is_link_local() {
+                    None
+                } else {
+                    Some(v4.to_string())
+                }
+            }
+            IpAddr::V6(_) => None,
+        })
+        .collect::<Vec<_>>();
+
+    Ok(ips)
 }
 
 /// 读取转发详细日志配置

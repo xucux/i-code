@@ -707,6 +707,8 @@
       "statusRunning": "Running",
       "statusStopped": "Stopped",
       "unboundAddress": "Unbound address",
+      "wildcardListening": "LAN",
+      "wildcardListeningHint": "Gateway is listening on a wildcard address; the preferred LAN address is shown. Open API docs to see other reachable addresses",
       "help": {
         "gateway": "View gateway status, real-time traffic and request trends",
         "auth": "Manage API Keys for accessing the local Gateway",
@@ -730,6 +732,34 @@
       "title": "Real-time Request Logs",
       "description": "Last 50 gateway call records",
       "clear": "Clear"
+    },
+    "gatewayApiDocs": {
+      "title": "API Documentation",
+      "description": "HTTP endpoints exposed by the gateway; URLs follow the current host",
+      "currentHost": "Current Host",
+      "requireAuth": "Auth Required",
+      "endpoints": {
+        "health": {
+          "name": "Health Check",
+          "desc": "Liveness probe, always returns 200 to indicate the HTTP server is responding"
+        },
+        "readyz": {
+          "name": "Readiness Check",
+          "desc": "Checks database connectivity and other readiness states"
+        },
+        "models": {
+          "name": "Models",
+          "desc": "OpenAI-compatible format, includes real and virtual provider models"
+        },
+        "chatCompletions": {
+          "name": "Chat Completions",
+          "desc": "OpenAI-compatible chat endpoint, supports SSE streaming and non-streaming responses"
+        },
+        "messages": {
+          "name": "Anthropic Messages",
+          "desc": "Anthropic-compatible messages endpoint, supports SSE streaming and non-streaming responses"
+        }
+      }
     }
   },
   "virtualProvider": {

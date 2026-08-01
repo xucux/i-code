@@ -101,6 +101,8 @@ quick-xml = "0.36"
 tiktoken = "3"
 # Rhai 脚本引擎：额度监控自定义脚本（禁文件系统相关能力）
 rhai = { version = "1", default-features = false, features = ["sync", "serde"] }
+# 本机网卡地址枚举：网关监听 0.0.0.0 时用于列出可访问本机的 LAN 地址
+local-ip-address = "0.6"
 
 [dev-dependencies]
 # 测试用临时目录（SizeAwareFileAppender 单元测试用）

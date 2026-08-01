@@ -1,8 +1,10 @@
+import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useTranslation } from '@/modules/i18n/use-translation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useGatewayStatus } from '@/hooks/use-gateway-status'
+import { useLocalIps } from '@/hooks/use-local-ips'
 import { cn } from '@/lib/utils'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -14,6 +16,7 @@ import { GatewayBasicSettings, GatewayAuthKeyManager, CallbackServerManager } fr
 import { GatewayTrafficChart } from '@/modules/gateway-runtime/ui/gateway-traffic-chart'
 import { GatewayTrendChart } from '@/modules/gateway-runtime/ui/gateway-trend-chart'
 import { GatewayTokenChart } from '@/modules/gateway-runtime/ui/gateway-token-chart'
+import { GatewayApiDocsDialog } from '@/modules/gateway-runtime/ui/gateway-api-docs-dialog'
 import { ScrollPage } from '@/components/ui/scroll-page'
 import { toast } from 'sonner'
 
@@ -33,6 +36,9 @@ function GatewaysIndexPage() {
   const { t } = useTranslation('aiGateway')
   const { t: tc } = useTranslation()
   const { status, loading, start, stop } = useGatewayStatus()
+  // 当网关监听 0.0.0.0 / :: 时，解析本机 LAN 地址用于展示、复制与接口文档
+  const resolved = useLocalIps(status.boundHost, status.boundPort)
+  const [apiDocsOpen, setApiDocsOpen] = useState(false)
 
   /** 切换网关启动/停止 */
   const handleToggleGateway = async () => {
@@ -114,7 +120,7 @@ function GatewaysIndexPage() {
         <TabsContent value="gateway" className="h-screen overflow-auto">
           <ScrollPage variant="borderless" scrollbarVisible="auto" className="h-full">
             <div className="flex flex-col gap-4 p-4">
-              {/* 状态栏：圆点 + 状态 + IP:端口 */}
+              {/* 状态栏：圆点 + 状态 + IP:端口 + 复制 + 接口文档 */}
               <Card>
                 <CardContent className="flex items-center gap-4 py-3">
                   <div className="flex items-center gap-2">
@@ -131,8 +137,17 @@ function GatewaysIndexPage() {
                   {status.boundHost && status.boundPort ? (
                     <div className="flex items-center gap-1.5">
                       <span className="text-muted-foreground font-mono text-xs">
-                        {status.boundHost}:{status.boundPort}
+                        {resolved.displayHost}:{status.boundPort}
                       </span>
+                      {/* 监听通配地址提示：当前展示的为解析后的 LAN 地址 */}
+                      {resolved.isWildcard && (
+                        <span
+                          className="rounded bg-blue-500/15 px-1.5 py-0.5 text-[10px] text-blue-600 dark:text-blue-400"
+                          title={t('gatewayOverview.wildcardListeningHint')}
+                        >
+                          {t('gatewayOverview.wildcardListening')}
+                        </span>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"
@@ -141,7 +156,7 @@ function GatewaysIndexPage() {
                         onClick={async () => {
                           try {
                             await navigator.clipboard.writeText(
-                              `http://${status.boundHost}:${status.boundPort}`
+                              `http://${resolved.displayHost}:${status.boundPort}`
                             )
                             toast.success(tc('common.copied'))
                           } catch {
@@ -150,6 +165,16 @@ function GatewaysIndexPage() {
                         }}
                       >
                         <i className="fa-solid fa-copy text-xs" />
+                      </Button>
+                      {/* 接口文档：点击弹出网关支持的接口清单 */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-6"
+                        title={t('gatewayApiDocs.title')}
+                        onClick={() => setApiDocsOpen(true)}
+                      >
+                        <i className="fa-solid fa-book-open text-xs" />
                       </Button>
                     </div>
                   ) : (
@@ -160,6 +185,15 @@ function GatewaysIndexPage() {
                   )}
                 </CardContent>
               </Card>
+
+              {/* 网关接口文档弹窗：地址与端口跟随状态卡片解析结果 */}
+              <GatewayApiDocsDialog
+                open={apiDocsOpen}
+                onOpenChange={setApiDocsOpen}
+                hosts={resolved.hosts}
+                defaultHost={resolved.displayHost}
+                port={status.boundPort}
+              />
 
               {/* 上方：实时请求流量；下方：请求趋势 + Token 消耗
                   趋势与 Token 消耗使用预聚合表数据，按模型分曲线 */}

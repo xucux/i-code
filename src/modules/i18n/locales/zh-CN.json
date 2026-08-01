@@ -707,6 +707,8 @@
       "statusRunning": "运行中",
       "statusStopped": "已停止",
       "unboundAddress": "未绑定地址",
+      "wildcardListening": "LAN",
+      "wildcardListeningHint": "网关监听通配地址，已自动展示首选本机 LAN 地址；点击接口文档可查看其他可访问地址",
       "help": {
         "gateway": "查看网关运行状态、实时流量与请求趋势",
         "auth": "管理用于访问本地 Gateway 的 API Key",
@@ -730,6 +732,34 @@
       "title": "实时请求日志",
       "description": "网关最近 50 条调用记录",
       "clear": "清空"
+    },
+    "gatewayApiDocs": {
+      "title": "接口文档",
+      "description": "网关对外暴露的 HTTP 接口清单，URL 随当前地址变化",
+      "currentHost": "当前地址",
+      "requireAuth": "需认证",
+      "endpoints": {
+        "health": {
+          "name": "健康检查",
+          "desc": "存活探针，始终返回 200，用于判断 HTTP Server 是否响应"
+        },
+        "readyz": {
+          "name": "就绪检查",
+          "desc": "检查数据库连通性等就绪状态"
+        },
+        "models": {
+          "name": "模型列表",
+          "desc": "OpenAI 兼容格式，包含真实供应商与虚拟供应商模型"
+        },
+        "chatCompletions": {
+          "name": "聊天补全",
+          "desc": "OpenAI 兼容聊天接口，支持流式 SSE 与非流式响应"
+        },
+        "messages": {
+          "name": "Anthropic 消息",
+          "desc": "Anthropic 兼容消息接口，支持流式 SSE 与非流式响应"
+        }
+      }
     }
   },
   "virtualProvider": {
