@@ -319,6 +319,11 @@
       "authMethodXaiGrok": "xAI Grok",
       "authMethodGithubCopilot": "GitHub Copilot",
       "baseUrl": "Base URL",
+      "transport": "传输方式",
+      "transportAuto": "自动（默认，HTTP/SSE）",
+      "transportSse": "HTTP / SSE",
+      "transportWebsocket": "WebSocket",
+      "transportHelp": "仅 openai-responses 协议可用：auto/sse 走 HTTP+SSE 透传；websocket 通过 WebSocket 连接上游（暂不应用代理配置）",
       "useRawBaseUrl": "使用原始 Base URL（不自动补全路径）",
       "useRawBaseUrlHelp": "关闭（默认）：自动去除尾部斜杠 + 自动补全 /v1 路径（若 URL 尚未包含 /v1）。\n开启：仅去除尾部斜杠，不做 /v1 补全。适用于 base_url 已包含完整路径的供应商（如腾讯云 TokenHub、Kilo Code 等）。",
       "apiKey": "API Key",
@@ -777,6 +782,10 @@
         "chatCompletions": {
           "name": "聊天补全",
           "desc": "OpenAI 兼容聊天接口，支持流式 SSE 与非流式响应"
+        },
+        "responses": {
+          "name": "Responses API",
+          "desc": "OpenAI Responses 接口（Agent 场景），支持流式事件流与非流式响应"
         },
         "messages": {
           "name": "Anthropic 消息",

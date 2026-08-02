@@ -877,6 +877,9 @@ pub struct CreateProviderInput {
     pub base_url: String,
     #[serde(default)]
     pub use_raw_base_url: bool,
+    /// 传输方式：`auto` / `sse` / `websocket`（Responses 供应商的 WebSocket 传输开关）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub transport: Option<String>,
     /// 认证配置（强类型），Service 层序列化为 JSON 存储
     #[serde(skip_serializing_if = "Option::is_none")]
     pub auth: Option<AuthConfig>,
@@ -917,6 +920,9 @@ pub struct UpdateProviderInput {
     pub base_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub use_raw_base_url: Option<bool>,
+    /// 传输方式：`auto` / `sse` / `websocket`（None 表示不修改）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub transport: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub auth: Option<AuthConfig>,
     /// 认证方式（可选；未提供 auth 时用于回填 `auth_method` 列）

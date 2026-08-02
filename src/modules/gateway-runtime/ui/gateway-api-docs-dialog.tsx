@@ -53,6 +53,13 @@ const ENDPOINTS: GatewayEndpoint[] = [
   },
   {
     method: 'POST',
+    path: '/v1/responses',
+    nameKey: 'gatewayApiDocs.endpoints.responses.name',
+    descKey: 'gatewayApiDocs.endpoints.responses.desc',
+    requireAuth: true,
+  },
+  {
+    method: 'POST',
     path: '/v1/messages',
     nameKey: 'gatewayApiDocs.endpoints.messages.name',
     descKey: 'gatewayApiDocs.endpoints.messages.desc',

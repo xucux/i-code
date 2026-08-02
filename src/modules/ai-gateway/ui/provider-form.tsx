@@ -137,6 +137,7 @@ const schema = z.object({
   providerType: z.string().min(1, 'aiGateway.providerForm.validation.providerTypeRequired'),
   baseUrl: z.string().min(1, 'aiGateway.providerForm.validation.baseUrlRequired'),
   useRawBaseUrl: z.boolean(),
+  transport: z.enum(['auto', 'sse', 'websocket']).optional(),
   authMethod: z.enum([
     'none',
     'api-key',
@@ -175,6 +176,7 @@ export interface ProviderFormInitialValues extends Partial<{
   providerType: string
   baseUrl: string
   useRawBaseUrl: boolean
+  transport?: 'auto' | 'sse' | 'websocket'
   authMethod: AuthMethod
   isEnabled: boolean
   sortOrder: number
@@ -193,6 +195,7 @@ interface ProviderFormProps {
     providerType: string
     baseUrl: string
     useRawBaseUrl: boolean
+    transport?: 'auto' | 'sse' | 'websocket'
     auth?: AuthConfig
     isEnabled: boolean
     sortOrder?: number
@@ -543,6 +546,7 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
         providerType: provider.providerType,
         baseUrl: provider.baseUrl,
         useRawBaseUrl: provider.useRawBaseUrl,
+        transport: provider.transport,
         authMethod: authMethod as AuthMethod,
         apiKey: isApiKeyMethod || isVertexMethod ? '' : '',
         // Google Vertex AI
@@ -635,6 +639,7 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
         providerType: 'openai-chat-completion',
         baseUrl: '',
         useRawBaseUrl: false,
+        transport: 'auto',
         authMethod: 'none',
         apiKey: '',
         googleVertexSubType: 'adc',
@@ -735,6 +740,7 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
       providerType: values.providerType,
       baseUrl: values.baseUrl,
       useRawBaseUrl: values.useRawBaseUrl,
+      transport: values.transport,
       auth,
       isEnabled: values.isEnabled,
       sortOrder: values.sortOrder,
@@ -1114,6 +1120,27 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
                   />
                 </div>
               </div>
+
+              {/* 传输方式：仅 openai-responses 类型可用（WebSocket 传输） */}
+              {form.watch('providerType') === 'openai-responses' && (
+                <div className="mt-4 space-y-1.5">
+                  <Label className="text-xs">{t('aiGateway.providerForm.transport')}</Label>
+                  <Select
+                    value={form.watch('transport') ?? 'auto'}
+                    onValueChange={(v) => form.setValue('transport', v as 'auto' | 'sse' | 'websocket')}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="auto" className="text-xs">{t('aiGateway.providerForm.transportAuto')}</SelectItem>
+                      <SelectItem value="sse" className="text-xs">{t('aiGateway.providerForm.transportSse')}</SelectItem>
+                      <SelectItem value="websocket" className="text-xs">{t('aiGateway.providerForm.transportWebsocket')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-muted-foreground text-[10px]">{t('aiGateway.providerForm.transportHelp')}</p>
+                </div>
+              )}
 
               {/* Base URL */}
               <div className="mt-4 space-y-1.5" data-invalid={errors.baseUrl ? '' : undefined}>

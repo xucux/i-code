@@ -8,6 +8,7 @@
 //! - `GET /readyz`：就绪检查（含数据库连通性）
 //! - `GET /v1/models`：列出所有对外暴露的模型
 //! - `POST /v1/chat/completions`：聊天接口（转发到上游供应商）
+//! - `POST /v1/responses`：OpenAI Responses API（转发到上游供应商）
 //! - `POST /v1/messages`：Anthropic 兼容接口（转发到上游供应商）
 //!
 //! ## 架构
@@ -62,6 +63,7 @@ pub fn build_router(shared: GatewaySharedState) -> Router {
         .route("/readyz", get(readyz))
         .route("/v1/models", get(list_models))
         .route("/v1/chat/completions", post(chat_completions))
+        .route("/v1/responses", post(responses))
         .route("/v1/messages", post(anthropic_messages))
         .with_state(shared)
         // 认证中间件：仅对非 /health、/readyz 路径生效（中间件内部判断豁免）
@@ -249,6 +251,57 @@ async fn chat_completions(
         gateway_model_id.as_deref(),
         response,
     ).await
+}
+
+/// OpenAI Responses API 接口
+///
+/// 将请求转发到真实供应商；支持流式 SSE（事件流）与非流式 JSON 响应。
+/// 上游 `openai-responses` 供应商按 `transport` 配置走 HTTP/SSE 或 WebSocket。
+async fn responses(
+    State(state): State<GatewaySharedState>,
+    Extension(api_key): Extension<RequestApiKey>,
+    Json(body): Json<Value>,
+) -> Response {
+    let start = std::time::Instant::now();
+    // 复用 TraceIdSpan 注入的 trace_id 作为 request_id，
+    // 使自研 logger 的 request_id 与 tracing 日志的 [tid=...] 前缀一致，便于全链路关联。
+    // TraceLayer 已在最外层为每个请求创建 span 并设置 thread-local，
+    // 此处读取即可；fallback 仅防御性兜底（理论上不会触发）。
+    let request_id = crate::core::trace_id_layer::current_trace_id()
+        .unwrap_or_else(crate::core::trace_id::next_trace_id);
+    let gateway_model_id = body
+        .get("model")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+
+    // 请求体快照（未截断，截断交给 LogPipeline）
+    let request_body_full = serde_json::to_string(&body).ok();
+
+    let response = match ForwardPipeline::run(
+        &state,
+        ForwardRequest {
+            protocol: GatewayProtocol::Responses,
+            body,
+            api_key_secret_id: api_key.0,
+        },
+    )
+    .await
+    {
+        Ok(resp) => resp,
+        Err(err) => upstream_error_response(err),
+    };
+
+    log_gateway_response(
+        &state,
+        "POST",
+        "/v1/responses",
+        &request_id,
+        start,
+        request_body_full.as_deref(),
+        gateway_model_id.as_deref(),
+        response,
+    )
+    .await
 }
 
 /// Anthropic 兼容消息接口

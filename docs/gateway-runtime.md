@@ -108,6 +108,7 @@ client/
 | GET | `/readyz` | 就绪检查，含数据库连通性。 |
 | GET | `/v1/models` | 列出所有对外暴露模型（真实 + 虚拟）。 |
 | POST | `/v1/chat/completions` | OpenAI 兼容聊天补全接口。 |
+| POST | `/v1/responses` | OpenAI Responses API（Agent 场景，SSE 事件流 / 非流式）。 |
 | POST | `/v1/messages` | Anthropic Messages 兼容接口。 |
 
 ### 4.2 认证中间件
@@ -170,13 +171,14 @@ API Key 通过 `ai_gateway.service().resolve_auth_for_request(&provider)` 获取
 
 ### 5.4 协议标签识别
 
-在转发层根据供应商类型与请求参数生成协议标签：
+在转发层根据供应商类型、传输方式与流式标志生成协议标签：
 
 ```rust
-fn protocol_tags(provider_type: &str, is_stream: bool) -> Vec<String> {
+fn protocol_tags(provider_type: &str, transport: Option<&str>, is_stream: bool) -> Vec<String> {
     let mut tags = Vec::new();
     if is_stream { tags.push("sse".to_string()); }
-    if provider_type == "openai-responses" || provider_type == "openai-codex" {
+    if (provider_type == "openai-responses" || provider_type == "openai-codex")
+        && transport == Some("websocket") {
         tags.push("websocket".to_string());
     }
     tags
@@ -184,6 +186,7 @@ fn protocol_tags(provider_type: &str, is_stream: bool) -> Vec<String> {
 ```
 
 标签随 `LogEntry` 写入 `logger`，用于前端区分 SSE / WebSocket / 普通 REST 请求。
+仅当供应商显式配置 `transport = websocket` 时才打 `websocket` 标签，HTTP 透传场景统一为 `sse`。
 
 ### 5.5 流式与非流式响应
 
@@ -224,7 +227,7 @@ fn protocol_tags(provider_type: &str, is_stream: bool) -> Vec<String> {
 | 抽象接口 | `ApiProvider` 统一接口 | 当前在 `upstream.rs` 中按类型分支转发，尚未抽象出统一 Client trait，但 `GatewaySharedState` 已具备注入不同 Client 的能力。 |
 | 工厂模式 | `createProvider(config)` 从 `PROVIDER_TYPES` 实例化 | 当前直接在 `forward_chat_completions` / `forward_anthropic_messages` 中按 `provider_type` 构造请求，可进一步抽象为 `UpstreamClientFactory`。 |
 | Feature 系统 | 支持 `supportedFamilys / supportedModels / supportedProviders` | 当前通过 `Provider` 和 `ModelConfig` 维护基础能力字段，尚未引入 Feature 检查。 |
-| 协议支持 | SSE、WebSocket、REST、gRPC-like 齐全 | v0.2.0 支持 SSE 与 REST；WebSocket（OpenAI Responses / Codex）已识别标签并预留扩展，实际 WebSocket 转发待实现。 |
+| 协议支持 | SSE、WebSocket、REST、gRPC-like 齐全 | 支持 REST 与 SSE；OpenAI Responses API 支持 HTTP/SSE 透传（`openai-responses`）与 WebSocket 传输（`transport = websocket`）；`openai-codex` WebSocket 转发待实现。 |
 | 认证 | SDK 内统一处理 | 当前仅支持 `api-key` 认证，其他认证方式（OAuth、Azure、GCP 等）待扩展。 |
 | 日志 | `RequestLogger` 注入 Provider | i-code 通过 `GatewaySharedState` 共享 `logger_handle`，在 handler 与 upstream 中统一写入。 |
 
@@ -232,12 +235,12 @@ fn protocol_tags(provider_type: &str, is_stream: bool) -> Vec<String> {
 
 ## 8. 演进方向
 
-1. **抽象 `UpstreamClient` trait**：借鉴 `ApiProvider`，为每种 `provider_type` 实现独立的 Client（`OpenAIChatClient`、`AnthropicClient`、`OpenAIResponsesWSClient` 等），由工厂根据 `provider_type` 创建。
-2. **完善 WebSocket 转发**：参考 `openai/responses-websocket-transport.ts` 与 `websocket-session-manager.ts`，实现 OpenAI Responses / Codex 的 WebSocket 透传。
+1. **抽象 `UpstreamClient` trait**：已落地——`client/` 按 `provider_type` 工厂分发（`OpenAiChatClient`、`AnthropicClient`、`OpenAiResponsesClient`、`WebSocketClient` 占位）。
+2. **WebSocket 转发**：已部分落地——OpenAI Responses API 支持 WebSocket 传输（`openai-responses` + `transport=websocket`，WS 帧转 SSE 字节流复用 usage 拦截）；`openai-codex` 仍为占位待实现。
 3. **引入 Feature 检查**：在模型配置中声明 `streaming`、`tool_use`、`thinking`、`vision` 等能力，网关层根据 Feature 决定是否转换请求体或响应体。
 4. **扩展认证方式**：支持 OAuth、Azure AD、GCP Service Account 等多态认证。
-5. **请求/响应体转换**：在虚拟供应商或多供应商场景下，实现 Anthropic ↔ OpenAI 等格式转换。
-6. **供应商级 extra_headers / extra_body**：当前 v0.2.0 未在转发中合并供应商/模型级额外头和额外体，后续需在构造上游请求时合并。
+5. **请求/响应体转换**：在虚拟供应商或多供应商场景下，实现 Anthropic ↔ OpenAI 等格式转换（含 Responses ↔ ChatCompletions）。
+6. **供应商级 extra_headers / extra_body**：extra_headers 已支持，extra_body 待合并到上游请求构造。
 
 ---
 

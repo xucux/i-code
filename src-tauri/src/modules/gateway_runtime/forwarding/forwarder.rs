@@ -173,7 +173,11 @@ impl ForwardPipeline {
         Self::prepare_body(ctx, body);
 
         let is_stream = ctx.upstream.is_stream;
-        let tags = protocol_tags(&ctx.upstream.provider.provider_type, is_stream);
+        let tags = protocol_tags(
+            &ctx.upstream.provider.provider_type,
+            ctx.upstream.provider.transport.as_deref(),
+            is_stream,
+        );
 
         // 调用记录起始
         let log_id = start_call_log(shared, ctx, api_key_secret_id)?;
@@ -193,7 +197,11 @@ impl ForwardPipeline {
         match result {
             Ok(response) => {
                 let status = extract_status(&response);
-                let is_streaming = matches!(response, UpstreamResponse::Streaming { .. });
+                // WebSocketStream 与 Streaming 同样按流式处理（SSE 字节流透传 + usage 拦截）
+                let is_streaming = matches!(
+                    response,
+                    UpstreamResponse::Streaming { .. } | UpstreamResponse::WebSocketStream { .. }
+                );
 
                 // 先克隆快照（不消费 response），供日志与 usage 解析复用
                 let snapshot = clone_upstream_response(&response);
@@ -371,6 +379,7 @@ impl ForwardPipeline {
 fn extract_status(response: &UpstreamResponse) -> Option<u16> {
     match response {
         UpstreamResponse::Streaming { response, .. } => Some(response.status().as_u16()),
+        UpstreamResponse::WebSocketStream { .. } => Some(200),
         UpstreamResponse::Complete { status, .. } => Some(status.as_u16()),
     }
 }
@@ -383,6 +392,9 @@ fn clone_upstream_response(response: &UpstreamResponse) -> UpstreamResponseSnaps
                 status: response.status().as_u16(),
             }
         }
+        UpstreamResponse::WebSocketStream { .. } => UpstreamResponseSnapshot::Streaming {
+            status: 200,
+        },
         UpstreamResponse::Complete { status, body, .. } => {
             UpstreamResponseSnapshot::Complete {
                 status: status.as_u16(),

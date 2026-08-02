@@ -28,63 +28,120 @@ pub fn parse_model_id(model_id: &str) -> crate::error::IcodeResult<(String, Stri
 
 /// 估算 prompt token 数
 ///
-/// 从 `messages` 字段提取文本，使用 conservative 策略（3 字节/token + 消息开销）估算。
+/// 从 `messages`（Chat Completions）或 `input`（Responses API：字符串或 item 数组）
+/// 字段提取文本，使用 conservative 策略（3 字节/token + 消息开销）估算。
 /// 此函数不会失败——估算仅作为补充，不应阻塞请求转发。
 pub fn estimate_prompt_tokens(model_id: &str, body: &Value) -> Option<i64> {
-    let messages = body.get("messages").and_then(|v| v.as_array())?;
-    if messages.is_empty() {
-        return None;
-    }
+    // Chat Completions：messages 数组
+    if let Some(messages) = body.get("messages").and_then(|v| v.as_array()) {
+        if messages.is_empty() {
+            return None;
+        }
+        let mut total_bytes: usize = 0;
+        let mut message_count: usize = 0;
+        let mut image_count: usize = 0;
 
-    let mut total_bytes: usize = 0;
-    let mut message_count: usize = 0;
-    let mut image_count: usize = 0;
-
-    for msg in messages {
-        message_count += 1;
-        if let Some(content) = msg.get("content") {
-            match content {
-                Value::String(s) => {
-                    total_bytes += s.len();
-                }
-                Value::Array(parts) => {
-                    for part in parts {
-                        if let Some(text) = part.get("text").and_then(|v| v.as_str()) {
-                            total_bytes += text.len();
+        for msg in messages {
+            message_count += 1;
+            if let Some(content) = msg.get("content") {
+                match content {
+                    Value::String(s) => {
+                        total_bytes += s.len();
+                    }
+                    Value::Array(parts) => {
+                        for part in parts {
+                            if let Some(text) = part.get("text").and_then(|v| v.as_str()) {
+                                total_bytes += text.len();
+                            }
+                            if part.get("type").and_then(|v| v.as_str()) == Some("image_url") {
+                                image_count += 1;
+                            }
                         }
-                        if part.get("type").and_then(|v| v.as_str()) == Some("image_url") {
-                            image_count += 1;
+                    }
+                    _ => {}
+                }
+            }
+            if let Some(tool_calls) = msg.get("tool_calls").and_then(|v| v.as_array()) {
+                for tc in tool_calls {
+                    if let Some(func) = tc.get("function") {
+                        if let Some(name) = func.get("name").and_then(|v| v.as_str()) {
+                            total_bytes += name.len();
+                        }
+                        if let Some(args) = func.get("arguments").and_then(|v| v.as_str()) {
+                            total_bytes += args.len();
                         }
                     }
                 }
-                _ => {}
             }
         }
-        if let Some(tool_calls) = msg.get("tool_calls").and_then(|v| v.as_array()) {
-            for tc in tool_calls {
-                if let Some(func) = tc.get("function") {
-                    if let Some(name) = func.get("name").and_then(|v| v.as_str()) {
-                        total_bytes += name.len();
+
+        let tokens_from_bytes = (total_bytes + 2) / 3;
+        let overhead = message_count * 4;
+        let image_tokens = image_count * 512;
+        let estimated = tokens_from_bytes + overhead + image_tokens;
+
+        tracing::debug!(
+            "tokenizer 估算: model={}, messages={}, bytes={}, estimated_tokens={}",
+            model_id, message_count, total_bytes, estimated
+        );
+        return Some(estimated as i64);
+    }
+
+    // Responses API：input 可以是字符串或 item 数组
+    if let Some(input) = body.get("input") {
+        let mut total_bytes: usize = 0;
+        let mut message_count: usize = 0;
+        match input {
+            Value::String(s) => {
+                if s.is_empty() {
+                    return None;
+                }
+                total_bytes += s.len();
+                message_count = 1;
+            }
+            Value::Array(items) => {
+                if items.is_empty() {
+                    return None;
+                }
+                for item in items {
+                    message_count += 1;
+                    if let Some(content) = item.get("content") {
+                        match content {
+                            Value::String(s) => total_bytes += s.len(),
+                            Value::Array(parts) => {
+                                for part in parts {
+                                    if let Some(text) = part.get("text").and_then(|v| v.as_str()) {
+                                        total_bytes += text.len();
+                                    }
+                                    if part.get("type").and_then(|v| v.as_str()) == Some("input_image") {
+                                        total_bytes += 512 * 3; // 图像按 512 token 估算
+                                    }
+                                }
+                            }
+                            _ => {}
+                        }
                     }
-                    if let Some(args) = func.get("arguments").and_then(|v| v.as_str()) {
+                    // 工具调用 item（function_call）的参数
+                    if let Some(args) = item.get("arguments").and_then(|v| v.as_str()) {
                         total_bytes += args.len();
                     }
                 }
             }
+            _ => return None,
         }
+
+        let tokens_from_bytes = (total_bytes + 2) / 3;
+        let overhead = message_count * 4;
+        let estimated = tokens_from_bytes + overhead;
+
+        tracing::debug!(
+            "tokenizer 估算(responses): model={}, input_items={}, bytes={}, estimated_tokens={}",
+            model_id, message_count, total_bytes, estimated
+        );
+        return Some(estimated as i64);
     }
 
-    let tokens_from_bytes = (total_bytes + 2) / 3;
-    let overhead = message_count * 4;
-    let image_tokens = image_count * 512;
-    let estimated = tokens_from_bytes + overhead + image_tokens;
-
-    tracing::debug!(
-        "tokenizer 估算: model={}, messages={}, bytes={}, estimated_tokens={}",
-        model_id, message_count, total_bytes, estimated
-    );
-
-    Some(estimated as i64)
+    None
 }
 
 /// 构造上游错误响应
@@ -119,16 +176,18 @@ pub fn upstream_error_response(err: IcodeError) -> Response {
     (status, axum::Json(body)).into_response()
 }
 
-/// 根据供应商类型与流式标志生成协议标签
+/// 根据供应商类型、传输方式与流式标志生成协议标签
 ///
-/// - 流式请求标记为 `sse`
-/// - OpenAI Responses / Codex 等使用 WebSocket 的供应商标记为 `websocket`
-pub fn protocol_tags(provider_type: &str, is_stream: bool) -> Vec<String> {
+/// - 流式请求标记为 `sse`（HTTP/SSE 透传）
+/// - `transport = websocket` 的 OpenAI Responses / Codex 供应商标记为 `websocket`
+pub fn protocol_tags(provider_type: &str, transport: Option<&str>, is_stream: bool) -> Vec<String> {
     let mut tags = Vec::new();
     if is_stream {
         tags.push("sse".to_string());
     }
-    if provider_type == "openai-responses" || provider_type == "openai-codex" {
+    if (provider_type == "openai-responses" || provider_type == "openai-codex")
+        && transport == Some("websocket")
+    {
         tags.push("websocket".to_string());
     }
     tags
@@ -165,6 +224,7 @@ pub fn build_log_url(ctx: &ForwardContext) -> String {
     let path = match ctx.gateway_protocol {
         GatewayProtocol::ChatCompletions => "/chat/completions",
         GatewayProtocol::AnthropicMessages => "/v1/messages",
+        GatewayProtocol::Responses => "/responses",
     };
     build_upstream_url(&ctx.upstream.provider, path).unwrap_or_else(|_| {
         format!(

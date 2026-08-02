@@ -8,12 +8,13 @@
 //! 流中间件在 chunk 透传过程中解析 SSE 事件 usage，流结束时通过回调
 //! 同步写入调用记录，替代旧版 `tokio::spawn + sleep(5s)` 轮询方案。
 
+use std::convert::Infallible;
 use std::sync::Arc;
 
 use axum::body::{Body, Bytes};
 use axum::http::{header, StatusCode};
 use axum::response::{IntoResponse, Response};
-use futures::stream::StreamExt;
+use futures::stream::{BoxStream, StreamExt};
 use reqwest::header::HeaderMap;
 
 use crate::modules::gateway_runtime::client::{
@@ -34,6 +35,8 @@ use crate::modules::gateway_runtime::client::SseUsageData;
 ///
 /// - `Streaming`：构造 SSE Response，透传字节流，同时拦截 usage 数据；
 ///   流结束通过 `on_done` 回调同步写入调用记录（无延迟轮询）。
+/// - `WebSocketStream`：与 `Streaming` 同构——上游 WS 帧已由 Client 转为
+///   SSE 字节流，按 SSE 透传并复用 usage 拦截。
 /// - `Complete`：构造标准 HTTP Response，返回完整 body。
 ///
 /// 参数：
@@ -51,8 +54,47 @@ pub fn build_response(
     on_done: Option<StreamDoneCallback>,
 ) -> Response {
     match response {
-        UpstreamResponse::Streaming { response, protocol } => build_sse_response(
-            response, protocol, usage_accumulator, shared, log_id, duration_ms, on_done,
+        UpstreamResponse::Streaming { response, protocol } => {
+            let status = StatusCode::from_u16(response.status().as_u16())
+                .unwrap_or(StatusCode::OK);
+            // 读取错误转为空字节（不中断流），与上游断开行为一致
+            let logger = shared.logger_handle.clone();
+            let byte_stream = response.bytes_stream().map(
+                move |result| -> Result<Bytes, Infallible> {
+                    match result {
+                        Ok(b) => Ok(b),
+                        Err(e) => {
+                            tracing::warn!("上游 SSE 流读取失败: {}", e);
+                            logger.service().log_system(
+                                crate::modules::logger::types::LogLevel::Warn,
+                                &format!("上游 SSE 流读取失败: {}", e),
+                                Some(file!()),
+                            );
+                            Ok(Bytes::new())
+                        }
+                    }
+                },
+            );
+            build_sse_from_stream(
+                Box::pin(byte_stream),
+                status,
+                protocol,
+                usage_accumulator,
+                shared,
+                log_id,
+                duration_ms,
+                on_done,
+            )
+        }
+        UpstreamResponse::WebSocketStream { stream, protocol } => build_sse_from_stream(
+            stream,
+            StatusCode::OK,
+            protocol,
+            usage_accumulator,
+            shared,
+            log_id,
+            duration_ms,
+            on_done,
         ),
         UpstreamResponse::Complete { status, headers, body } => {
             build_json_response(status, headers, body)
@@ -60,13 +102,17 @@ pub fn build_response(
     }
 }
 
-/// 将 reqwest 流式响应转换为 axum SSE Response
+/// 从统一 SSE 字节流构造 axum SSE Response
 ///
-/// 直接透传上游 SSE 字节流（`data: ...\n\n`），同时拦截每个事件解析 usage。
+/// 直接透传 SSE 字节流（`data: ...\n\n`），同时拦截每个事件解析 usage。
 /// 流结束后调用 `on_done` 回调同步写入调用记录。
+///
+/// 由 `build_response` 的 `Streaming`（reqwest 流）与 `WebSocketStream`
+/// （Client 转换的 WS 帧流）两个入口共用。
 #[allow(clippy::too_many_arguments)]
-fn build_sse_response(
-    upstream_resp: reqwest::Response,
+fn build_sse_from_stream(
+    byte_stream: BoxStream<'static, Result<Bytes, Infallible>>,
+    status: StatusCode,
     protocol: UpstreamProtocol,
     usage_accumulator: Option<SseUsageAccumulator>,
     shared: &GatewaySharedState,
@@ -74,29 +120,20 @@ fn build_sse_response(
     duration_ms: i64,
     on_done: Option<StreamDoneCallback>,
 ) -> Response {
-    let status =
-        StatusCode::from_u16(upstream_resp.status().as_u16()).unwrap_or(StatusCode::OK);
-
     let line_buf = std::sync::Mutex::new(String::new());
     let accumulator = usage_accumulator;
     // 在移入 map 闭包前克隆一份，供流结束回调使用
     let acc_for_done = accumulator.clone();
-    let logger = shared.logger_handle.clone();
     let shared_for_done = shared.clone();
     let log_id_for_map = log_id.map(|s| s.to_string());
     let log_id_for_done = log_id_for_map.clone();
     let callback_for_done = on_done.clone();
 
-    let byte_stream = upstream_resp.bytes_stream().map(move |result| -> Result<Bytes, std::convert::Infallible> {
+    let mapped = byte_stream.map(move |result| -> Result<Bytes, Infallible> {
         let bytes = match result {
             Ok(b) => b,
             Err(e) => {
                 tracing::warn!("上游 SSE 流读取失败: {}", e);
-                logger.service().log_system(
-                    crate::modules::logger::types::LogLevel::Warn,
-                    &format!("上游 SSE 流读取失败: {}", e),
-                    Some(file!()),
-                );
                 return Ok(Bytes::new());
             }
         };
@@ -128,7 +165,7 @@ fn build_sse_response(
     });
 
     // 在流结束时（chain 末尾）触发回调写入调用记录
-    let mapped = byte_stream.chain(futures::stream::once(async move {
+    let mapped = mapped.chain(futures::stream::once(async move {
         if let (Some(acc), Some(cb)) = (acc_for_done.as_ref(), callback_for_done.as_ref()) {
             let usage = acc.lock().unwrap_or_else(|e| e.into_inner()).clone();
             cb(&shared_for_done, &usage);
@@ -138,7 +175,7 @@ fn build_sse_response(
                 super::call_log::finish_streaming_usage(&shared_for_done, lid, duration_ms, &usage);
             }
         }
-        Ok::<Bytes, std::convert::Infallible>(Bytes::new())
+        Ok::<Bytes, Infallible>(Bytes::new())
     }));
 
     Response::builder()

@@ -74,8 +74,8 @@ pub fn insert_provider(
              balance_provider_json, timeout_json, retry_json, proxy_json,
              auto_fetch_official_models, context_cache_json, well_known_template_id,
              is_enabled, sort_order, created_at, updated_at, script_variables_json)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, NULL, NULL, ?7, ?8, ?9,
-                 ?10, ?11, ?12, ?13, ?14, NULL, NULL, ?15, ?16, ?17, ?18, ?19)",
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, NULL, ?8, ?9, ?10,
+                 ?11, ?12, ?13, ?14, ?15, NULL, NULL, ?16, ?17, ?18, ?19, ?20)",
         rusqlite::params![
             id,
             input.slug,
@@ -83,6 +83,7 @@ pub fn insert_provider(
             input.provider_type,
             input.base_url,
             input.use_raw_base_url as i64,
+            input.transport,
             auth_json,
             auth_expires_at,
             auth_method,
@@ -190,6 +191,12 @@ pub fn update_provider(
     if let Some(v) = input.use_raw_base_url {
         sets.push(format!("use_raw_base_url = ?{idx}"));
         params.push(Box::new(v as i64));
+        idx += 1;
+    }
+    // transport：None 表示不修改（清空需显式传空串或改走全量更新）
+    if let Some(ref v) = input.transport {
+        sets.push(format!("transport = ?{idx}"));
+        params.push(Box::new(v.clone()));
         idx += 1;
     }
     // auth_json: Option<Option<&str>> —— 外层 Some 表示需要更新，内层 None 表示置空

@@ -27,6 +27,8 @@ use std::sync::Arc;
 use std::sync::OnceLock;
 use std::time::Duration;
 
+use axum::body::Bytes;
+use futures::stream::BoxStream;
 use reqwest::header::HeaderMap;
 use serde_json::Value;
 
@@ -37,21 +39,25 @@ use crate::modules::shared::TimeoutConfig;
 
 pub mod anthropic_client;
 pub mod openai_chat_client;
+pub mod openai_responses_client;
 pub mod websocket_client;
 
 use anthropic_client::AnthropicClient;
 use openai_chat_client::OpenAiChatClient;
+use openai_responses_client::OpenAiResponsesClient;
 use websocket_client::WebSocketClient;
 
 /// 上游请求协议类型
 ///
-/// 网关对外提供 OpenAI / Anthropic 两套兼容接口，转发时按原协议路由到对应 Client。
+/// 网关对外提供 OpenAI / Anthropic / Responses 三套兼容接口，转发时按原协议路由到对应 Client。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UpstreamProtocol {
     /// OpenAI `/v1/chat/completions`
     ChatCompletions,
     /// Anthropic `/v1/messages`
     AnthropicMessages,
+    /// OpenAI `/v1/responses`（Responses API）
+    Responses,
 }
 
 impl fmt::Display for UpstreamProtocol {
@@ -59,6 +65,7 @@ impl fmt::Display for UpstreamProtocol {
         match self {
             Self::ChatCompletions => write!(f, "chat/completions"),
             Self::AnthropicMessages => write!(f, "messages"),
+            Self::Responses => write!(f, "responses"),
         }
     }
 }
@@ -105,13 +112,23 @@ pub struct UpstreamRequest {
 ///
 /// Client 层返回统一响应，由 `upstream.rs` 转换为 axum Response。
 pub enum UpstreamResponse {
-    /// 流式响应（SSE 或 WebSocket 透传）
+    /// 流式响应（SSE 透传）
     ///
     /// 直接持有 `reqwest::Response`，调用方通过 `response.bytes_stream()` 透传。
     Streaming {
         /// reqwest 响应对象（含流式 body）
         response: reqwest::Response,
         /// 上游协议类型（用于 SSE 流中 usage 事件解析）
+        protocol: UpstreamProtocol,
+    },
+    /// WebSocket 事件流（OpenAI Responses WebSocket 传输）
+    ///
+    /// 由 Client 内部把 WS 文本帧转换为 SSE 格式（`data: {json}\n\n`）字节流，
+    /// 调用方与 `Streaming` 同样按 SSE 透传，复用 usage 拦截逻辑。
+    WebSocketStream {
+        /// 已格式化为 SSE 的字节流（无错误，帧解析失败已转为 SSE error 事件）
+        stream: BoxStream<'static, Result<Bytes, std::convert::Infallible>>,
+        /// 上游协议类型
         protocol: UpstreamProtocol,
     },
     /// 完整响应（非流式）
@@ -233,8 +250,12 @@ impl ClientFactory {
             "anthropic" | "claude-relay-service" => {
                 Ok(Box::new(AnthropicClient::new()))
             }
-            // WebSocket 协议（OpenAI Responses / Codex，当前为未实现占位，调用即失败）
-            "websocket" | "openai-responses" | "openai-codex" => {
+            // OpenAI Responses API（HTTP/SSE + WebSocket 双传输）
+            "openai-responses" => {
+                Ok(Box::new(OpenAiResponsesClient::new()))
+            }
+            // WebSocket 协议（OpenAI Codex 等，当前为未实现占位，调用即失败）
+            "websocket" | "openai-codex" => {
                 Ok(Box::new(WebSocketClient::new(provider_type)))
             }
             _ => Err(ClientError::UnsupportedProvider(provider_type.to_string())),

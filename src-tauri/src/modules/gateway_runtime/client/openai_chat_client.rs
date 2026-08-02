@@ -49,6 +49,9 @@ impl OpenAiChatClient {
         match protocol {
             UpstreamProtocol::ChatCompletions => "/chat/completions",
             UpstreamProtocol::AnthropicMessages => "/chat/completions",
+            // OpenAiChatClient 不处理 Responses（由 OpenAiResponsesClient 负责），
+            // 该分支仅保证 match 穷尽，实际不会到达（execute 入口已按协议拦截）
+            UpstreamProtocol::Responses => "/responses",
         }
     }
 
@@ -57,7 +60,9 @@ impl OpenAiChatClient {
     /// 统一走 `auth_resolver`：
     /// - API Key / OAuth token 均映射为 `Authorization: Bearer {token}`
     /// - 无认证返回空
-    fn resolve_auth(
+    ///
+    /// `pub(crate)`：供 `openai_responses_client` 复用同一认证解析。
+    pub(crate) fn resolve_auth(
         auth: Option<AuthConfig>,
     ) -> Result<AuthResolution, ClientError> {
         match auth {
@@ -72,7 +77,9 @@ impl OpenAiChatClient {
     ///
     /// OpenAI 兼容协议统一使用 `Authorization: Bearer {token}`，
     /// 额外 headers 由 `auth_resolver` 提供（未来可扩展 `x-goog-user-project` 等）。
-    fn build_headers(
+    ///
+    /// `pub(crate)`：供 `openai_responses_client` 复用同一请求头构造。
+    pub(crate) fn build_headers(
         provider: &Provider,
         resolution: &AuthResolution,
         extra_headers: &[(String, String)],

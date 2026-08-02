@@ -18,6 +18,8 @@ pub enum GatewayProtocol {
     ChatCompletions,
     /// Anthropic 兼容 `/v1/messages`
     AnthropicMessages,
+    /// OpenAI Responses API `/v1/responses`
+    Responses,
 }
 
 impl GatewayProtocol {
@@ -26,6 +28,7 @@ impl GatewayProtocol {
         match self {
             Self::ChatCompletions => UpstreamProtocol::ChatCompletions,
             Self::AnthropicMessages => UpstreamProtocol::AnthropicMessages,
+            Self::Responses => UpstreamProtocol::Responses,
         }
     }
 
@@ -34,6 +37,7 @@ impl GatewayProtocol {
         match self {
             Self::ChatCompletions => "ChatCompletions",
             Self::AnthropicMessages => "Anthropic Messages",
+            Self::Responses => "Responses",
         }
     }
 }

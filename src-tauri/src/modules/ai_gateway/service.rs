@@ -502,6 +502,7 @@ impl AiGatewayService {
             provider_type: exported.provider.provider_type,
             base_url: exported.provider.base_url,
             use_raw_base_url: exported.provider.use_raw_base_url,
+            transport: exported.provider.transport,
             auth,
             auth_method: None,
             auto_fetch_official_models: exported.provider.auto_fetch_official_models,

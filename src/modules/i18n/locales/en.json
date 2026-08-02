@@ -319,6 +319,11 @@
       "authMethodXaiGrok": "xAI Grok",
       "authMethodGithubCopilot": "GitHub Copilot",
       "baseUrl": "Base URL",
+      "transport": "Transport",
+      "transportAuto": "Auto (default, HTTP/SSE)",
+      "transportSse": "HTTP / SSE",
+      "transportWebsocket": "WebSocket",
+      "transportHelp": "Only for openai-responses protocol: auto/sse uses HTTP+SSE passthrough; websocket connects upstream via WebSocket (proxy config not applied yet)",
       "useRawBaseUrl": "Use raw Base URL (do not auto-append path)",
       "useRawBaseUrlHelp": "Off (default): Auto-trim trailing slash + auto-append /v1 path (if not already present in URL).\nOn: Only trim trailing slash, no /v1 auto-append. Use for providers whose base_url already includes the full path (e.g. Tencent Cloud TokenHub, Kilo Code).",
       "apiKey": "API Key",
@@ -777,6 +782,10 @@
         "chatCompletions": {
           "name": "Chat Completions",
           "desc": "OpenAI-compatible chat endpoint, supports SSE streaming and non-streaming responses"
+        },
+        "responses": {
+          "name": "Responses API",
+          "desc": "OpenAI Responses endpoint (Agent scenarios), supports streaming event flow and non-streaming responses"
         },
         "messages": {
           "name": "Anthropic Messages",

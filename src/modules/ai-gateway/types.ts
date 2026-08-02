@@ -710,6 +710,8 @@ export interface CreateProviderInput {
   providerType: string
   baseUrl: string
   useRawBaseUrl?: boolean
+  /** 传输方式：auto / sse / websocket（Responses 供应商的 WebSocket 传输开关） */
+  transport?: TransportType
   auth?: AuthConfig
   autoFetchOfficialModels?: boolean
   isEnabled?: boolean
@@ -733,6 +735,8 @@ export interface UpdateProviderInput {
   displayName?: string
   baseUrl?: string
   useRawBaseUrl?: boolean
+  /** 传输方式：auto / sse / websocket（None 表示不修改） */
+  transport?: TransportType
   auth?: AuthConfig
   autoFetchOfficialModels?: boolean
   isEnabled?: boolean

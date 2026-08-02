@@ -311,6 +311,7 @@ export function ProviderList() {
     providerType: string
     baseUrl: string
     useRawBaseUrl: boolean
+    transport?: 'auto' | 'sse' | 'websocket'
     auth?: AuthConfig
     isEnabled: boolean
     sortOrder?: number
@@ -327,6 +328,7 @@ export function ProviderList() {
           displayName: values.displayName,
           baseUrl: values.baseUrl,
           useRawBaseUrl: values.useRawBaseUrl,
+          transport: values.transport,
           auth: values.auth,
           isEnabled: values.isEnabled,
           sortOrder: values.sortOrder,
@@ -351,6 +353,7 @@ export function ProviderList() {
           providerType: values.providerType,
           baseUrl: values.baseUrl,
           useRawBaseUrl: values.useRawBaseUrl,
+          transport: values.transport,
           auth: values.auth,
           isEnabled: values.isEnabled,
           sortOrder: values.sortOrder,

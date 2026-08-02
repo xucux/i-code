@@ -1,12 +1,13 @@
-//! # WebSocket 协议客户端（未实现，扩展占位）
+//! # WebSocket 协议客户端（部分占位）
 //!
-//! 用于 OpenAI Responses API、OpenAI Codex 等需要 WebSocket 长连接的供应商。
+//! 用于 OpenAI Codex 等需要 WebSocket 长连接的供应商。
 //!
-//! ## 当前状态：未实现
+//! ## 当前状态
 //!
-//! `execute()` 调用后立即返回 `UnsupportedProtocol` 错误，**不发送任何网络请求**。
-//! `ClientFactory` 仍把 `openai-responses` / `openai-codex` / `websocket` 路由到这里，
-//! 以便后续实现时无需调整路由层；当前请勿在生产场景使用这些 provider_type。
+//! `openai-responses` 供应商已由 [`super::openai_responses_client::OpenAiResponsesClient`]
+//! 支持 WebSocket 传输（`transport = websocket`，WS 帧转 SSE 字节流）。
+//! 本占位仅服务 `openai-codex` / `websocket` 类型：`execute()` 调用后立即返回
+//! `UnsupportedProtocol` 错误，**不发送任何网络请求**。
 //!
 //! ## 参考设计
 //!
@@ -17,16 +18,13 @@
 //!
 //! ## i-code 落地所需改造（按顺序）
 //!
-//! 1. **依赖**：`Cargo.toml` 引入 `tokio-tungstenite` 或 `reqwest-websocket`。
-//! 2. **`UpstreamResponse` 扩展**：当前 `Streaming` 变体直接持有 `reqwest::Response`，
-//!    WebSocket 帧流无法适配。需新增 `WebSocket { stream: BoxStream<Result<...>> }`
-//!    或抽象为统一事件流枚举，由 `forwarding/response_handler` 分支处理。
+//! 1. **依赖**：`Cargo.toml` 引入 `tokio-tungstenite`（已引入，供 Responses WS 使用）。
+//! 2. **`UpstreamResponse` 扩展**：已新增 `WebSocketStream` 变体（持有 SSE 格式字节流），
+//!    由 `forwarding/response_handler` 按 SSE 透传并复用 usage 拦截。
 //! 3. **`WebSocketTransport` trait**：定义 `connect` / `send` / `next_event` / `close`。
-//! 4. **`OpenAiResponsesTransport`**：处理 session_key 握手、热会话复用、事件流
-//!    转 SSE 的协议转换。
+//! 4. **`OpenAiCodexTransport`**：实现 Codex 的会话握手与事件流转 SSE 的协议转换。
 //! 5. **会话管理**：`WebSocketSessionManager` 管理连接复用、请求排队、abort。
-//! 6. **`ClientFactory::create`**：把 `openai-responses` / `openai-codex` 路由到
-//!    真实实现而非本占位。
+//! 6. **`ClientFactory::create`**：把 `openai-codex` 路由到真实实现而非本占位。
 
 use super::{ClientError, UpstreamClient, UpstreamContext, UpstreamRequest, UpstreamResponse};
 

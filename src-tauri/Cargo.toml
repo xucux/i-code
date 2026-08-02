@@ -41,6 +41,9 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "str
 url = "2"
 # futures 用于流式响应处理
 futures = "0.3"
+# WebSocket 客户端：OpenAI Responses API WebSocket 传输（transport=websocket）
+# rustls-tls-native-roots：与 reqwest 一致使用系统证书存储（Windows 证书库）
+tokio-tungstenite = { version = "0.24", features = ["connect", "rustls-tls-native-roots"] }
 
 # ===== 本地 HTTP 网关 Server =====
 axum = { version = "0.7", features = ["macros"] }
