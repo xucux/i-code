@@ -1,5 +1,22 @@
 # Changelog
 
+## [release-version-tempalte]
+
+## [0.1.1] - 2026-08-03
+
+### 新增
+
+- **内置预设自动关联默认模型**：`builtin-providers.json` 新增 `defaultModels` 属性（`modelId` 实际发送给供应商、`matchModelId` 对应 `builtin-models.json` 中的模型 id、`displayName` 展示名），从内置预设创建供应商（如 OpenCode Zen Free、Cline Free）时自动按 `matchModelId` 匹配内置模型并创建 `model_config` + `gateway_model`（`source = builtin`），无需创建后再手动添加
+  - `BuiltinProvider` / `CreateProviderInput` 两端新增 `defaultModels` 字段；后端匹配逻辑与前端 `findBuiltinByModelId` 一致（精确 > 前缀 > 包含回退），匹配不到时跳过该条目并告警，不阻断供应商创建
+
+### 修复
+
+- **供应商导出丢失附加请求头**：`gateway_provider_export` 此前将 `extra_headers` 硬编码为 `None` 直接丢弃。现改为读取 `provider_extra_headers` 表并写入导出数据（版本升至 `1.1`，旧 `1.0` 数据导入兼容）
+  - 导出（带密钥）：`$SECRET` 引用解析为明文
+  - 导出（不带密钥）：含 `$SECRET` 引用的条目跳过，避免导入后悬空引用导致转发失败；普通明文与模板变量占位符（`${uuid()}` 等）原样保留
+  - 导入侧逻辑原已就绪（`import_provider` 会将 `extraHeaders` 写入 `provider_extra_headers` 表），本次补齐导出侧后闭环
+
+
 ## [0.1.0] - 2026-08-03
 
 ### 新增
@@ -16,6 +33,7 @@
   - `response_handler` 重构 `build_sse_from_stream` 统一 SSE 构造入口，`Streaming` 与 `WebSocketStream` 共用字节流透传与 usage 拦截逻辑
 - **供应商传输方式配置**：`CreateProviderInput` / `UpdateProviderInput` 新增 `transport` 字段（`auto` / `sse` / `websocket`）并贯通 repository 读写；供应商表单新增「传输方式」下拉（仅 `openai-responses` 协议显示），`auto` / `sse` 走 HTTP+SSE，`websocket` 走 WebSocket
 - **网关接口文档更新**：`GatewayApiDocsDialog` 新增 `POST /v1/responses` 端点条目，i18n（zh-CN / en）同步补充
+
 
 ### 变更
 

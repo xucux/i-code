@@ -197,6 +197,66 @@ impl AiGatewayService {
             }
         }
 
+        // 自动关联默认模型：按 match_model_id 匹配内置模型预设，
+        // 同步创建 model_config 与 gateway_model（配置字段对齐前端 addModels）
+        if let Some(default_models) = &input.default_models {
+            if !default_models.is_empty() {
+                let builtin_models = seed::load_builtin_models()?;
+                for dm in default_models {
+                    if dm.model_id.trim().is_empty() || dm.match_model_id.trim().is_empty() {
+                        continue;
+                    }
+                    let Some(builtin) =
+                        seed::find_builtin_model_in(&builtin_models, &dm.match_model_id)
+                    else {
+                        // 匹配不到内置模型时跳过该条目，不阻断供应商创建
+                        log::warn!(
+                            "创建供应商 {} 时默认模型未匹配到内置预设: match_model_id={}",
+                            provider.slug,
+                            dm.match_model_id
+                        );
+                        continue;
+                    };
+                    let display_name = dm
+                        .display_name
+                        .clone()
+                        .unwrap_or_else(|| builtin.display_name.clone());
+                    let config_input = CreateModelConfigInput {
+                        name: display_name.clone(),
+                        family: Some(builtin.family.clone()),
+                        max_input_tokens: builtin.max_input_tokens,
+                        max_output_tokens: builtin.max_output_tokens,
+                        tokenizer: builtin.tokenizer.clone(),
+                        token_count_multiplier: builtin.token_count_multiplier,
+                        price_per_1m_tokens: None,
+                        stream: builtin.stream,
+                        temperature: None,
+                        top_p: None,
+                        parallel_tool_calling: builtin.parallel_tool_calling,
+                        capabilities_json: builtin
+                            .capabilities
+                            .as_ref()
+                            .map(|c| serde_json::to_string(c).unwrap_or_default()),
+                        thinking_json: builtin
+                            .thinking
+                            .as_ref()
+                            .map(|t| serde_json::to_string(t).unwrap_or_default()),
+                    };
+                    let config = repository::insert_model_config(&config_input)?;
+                    let gateway_input = CreateGatewayModelInput {
+                        provider_id: provider.id.clone(),
+                        model_config_id: config.id,
+                        model_id: dm.model_id.clone(),
+                        display_name: Some(display_name),
+                        family: Some(builtin.family.clone()),
+                        is_exposed: true,
+                        source: "builtin".to_string(),
+                    };
+                    repository::insert_gateway_model(&gateway_input)?;
+                }
+            }
+        }
+
         Ok(provider)
     }
 
@@ -352,11 +412,36 @@ impl AiGatewayService {
     /// 流程：
     /// 1. 查询供应商及其下所有网关模型
     /// 2. 查询每个网关模型关联的模型配置
-    /// 3. 根据 `include_secrets` 决定是否解析 `$SECRET:{snowflake_id}$` 引用为明文
-    /// 4. 序列化为 JSON 并用 base64（URL_SAFE 无填充）编码返回
+    /// 3. 查询供应商级附加请求头（`provider_extra_headers` 表）
+    /// 4. 根据 `include_secrets` 决定是否解析 `$SECRET:{snowflake_id}$` 引用为明文
+    /// 5. 序列化为 JSON 并用 base64（URL_SAFE 无填充）编码返回
     pub fn export_provider(&self, input: ExportProviderInput) -> IcodeResult<String> {
         let provider = repository::find_provider_by_id(&input.provider_id)?;
         let gateway_models = repository::list_gateway_models_by_provider(&input.provider_id)?;
+
+        // 查询供应商级附加请求头并组装为 key → value
+        //
+        // - 值含 `$SECRET:{uuid}$` 引用：include_secrets=true 时解析为明文导出；
+        //   否则跳过该条目，避免导出悬空引用导致导入后转发失败。
+        // - 普通明文与模板变量占位符（`${uuid()}` / `${variables["key"]}`）：原样保留，
+        //   模板变量由网关在转发时才解析，导出不应展开。
+        let raw_headers = repository::list_provider_extra_headers(&provider.id)?;
+        let mut exported_headers = std::collections::HashMap::new();
+        for (key, value) in raw_headers {
+            if is_secret_ref(&value) {
+                if input.include_secrets {
+                    let resolved = self.secret_handle.service().resolve_in_text(&value)?;
+                    exported_headers.insert(key, resolved);
+                }
+            } else {
+                exported_headers.insert(key, value);
+            }
+        }
+        let extra_headers = if exported_headers.is_empty() {
+            None
+        } else {
+            Some(exported_headers)
+        };
 
         let mut exported_models = Vec::with_capacity(gateway_models.len());
         for gm in gateway_models {
@@ -414,7 +499,7 @@ impl AiGatewayService {
         };
 
         let exported = ProviderExportData {
-            version: "1.0".to_string(),
+            version: "1.1".to_string(),
             exported_at: chrono::Utc::now().to_rfc3339(),
             provider: ExportedProvider {
                 slug: provider.slug,
@@ -434,7 +519,7 @@ impl AiGatewayService {
                 well_known_template_id: provider.well_known_template_id.clone(),
                 is_enabled: provider.is_enabled,
                 sort_order: provider.sort_order,
-                extra_headers: None,
+                extra_headers,
                 extra_body: None,
             },
             models: exported_models,
@@ -514,6 +599,7 @@ impl AiGatewayService {
             proxy_json: exported.provider.proxy_json,
             script_variables_json: None,
             extra_headers: exported.provider.extra_headers,
+            default_models: None,
         };
 
         let provider = self.create_provider(provider_input)?;

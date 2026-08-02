@@ -197,7 +197,24 @@
         "x-opencode-project": "global",
         "x-opencode-session": "ses_${uuid_by_day()}",
         "x-opencode-request": "msg_${uuid()}"
-      }
+      },
+      "defaultModels":[
+        {
+          "modelId":"nemotron-3-ultra-free",
+          "displayName":"Nemotron 3 Ultra",
+          "matchModelId":"nemotron-3-ultra"
+        },
+        {
+          "modelId":"deepseek-v4-flash-free",
+          "displayName":"DeepSeek V4 Flash",
+          "matchModelId":"deepseek-v4-flash"
+        },
+        {
+          "modelId":"mimo-v2.5-free",
+          "displayName":"MiMo V2.5",
+          "matchModelId":"mimo-v2.5"
+        }
+      ]
     },
     {
       "id": "opencode-zen-openai-chat-completion",
@@ -504,6 +521,35 @@
       "autoFetchOfficialModels": false,
       "sortOrder": 28,
       "displayCnName": "Cline Bot"
+    },
+    {
+      "id": "cline-free",
+      "displayName": "Cline Free",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "baseUrl": "https://api.cline.bot/api/v1",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 28,
+      "displayCnName": "Cline 免费",
+      "defaultModels":[
+        {
+          "modelId":"cline-free/glm-5.2",
+          "displayName":"GLM-5.2",
+          "matchModelId":"glm-5.2"
+        },
+        {
+          "modelId":"deepseek/deepseek-v4-flash",
+          "displayName":"DeepSeek V4 Flash",
+          "matchModelId":"deepseek-v4-flash"
+        }
+      ]
     },
     {
       "id": "volcano-engine",

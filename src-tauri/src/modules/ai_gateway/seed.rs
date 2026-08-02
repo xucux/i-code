@@ -85,6 +85,23 @@ pub struct BuiltinProvider {
     /// 默认附加请求头（用户创建供应商时自动填充到 provider_extra_headers 表）
     #[serde(default)]
     pub default_extra_headers: Option<std::collections::HashMap<String, String>>,
+    /// 默认关联模型（用户创建供应商时自动创建 gateway_models）
+    /// 对应 data/builtin-providers.json 中的 `defaultModels` 字段
+    #[serde(default)]
+    pub default_models: Option<Vec<BuiltinProviderDefaultModel>>,
+}
+
+/// 内置供应商默认关联模型
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BuiltinProviderDefaultModel {
+    /// 实际发给供应商的模型 ID（网关对外路由 `{provider_slug}/{model_id}` 的 model_id）
+    pub model_id: String,
+    /// 展示名称（可选，缺省时使用匹配到的内置模型展示名）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+    /// 在 data/builtin-models.json 中匹配的模型 id
+    pub match_model_id: String,
 }
 
 /// 内置模型预设
@@ -176,6 +193,43 @@ pub fn filter_builtin_models_by_provider_type(provider_type: &str) -> IcodeResul
         .into_iter()
         .filter(|m| m.provider_types.iter().any(|pt| pt == provider_type))
         .collect())
+}
+
+/// 在已加载的内置模型中按 id 匹配，返回首个匹配项
+///
+/// 匹配优先级（与前端 `findBuiltinByModelId` 保持一致）：
+/// 1. 精确匹配
+/// 2. 目标 id 以内置模型 id 开头（如 `gpt-4o-2024-01-01` 匹配 `gpt-4o`）
+/// 3. 内置模型 id 以目标 id 开头（优先选最短，如 `mimo-v2.5` 匹配 `mimo-v2.5-pro`）
+/// 4. 双向包含，优先选最短
+pub fn find_builtin_model_in(models: &[BuiltinModel], id: &str) -> Option<BuiltinModel> {
+    let lower = id.to_lowercase();
+    if let Some(exact) = models.iter().find(|m| m.id.to_lowercase() == lower) {
+        return Some(exact.clone());
+    }
+    if let Some(prefix) = models
+        .iter()
+        .find(|m| lower.starts_with(&m.id.to_lowercase()))
+    {
+        return Some(prefix.clone());
+    }
+    let mut suffix_matches: Vec<&BuiltinModel> = models
+        .iter()
+        .filter(|m| m.id.to_lowercase().starts_with(&lower))
+        .collect();
+    suffix_matches.sort_by_key(|m| m.id.len());
+    if let Some(first) = suffix_matches.first() {
+        return Some((*first).clone());
+    }
+    let mut contains_matches: Vec<&BuiltinModel> = models
+        .iter()
+        .filter(|m| {
+            let bl = m.id.to_lowercase();
+            lower.contains(&bl) || bl.contains(&lower)
+        })
+        .collect();
+    contains_matches.sort_by_key(|m| m.id.len());
+    contains_matches.first().map(|m| (*m).clone())
 }
 
 #[cfg(test)]

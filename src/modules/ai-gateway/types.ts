@@ -552,6 +552,21 @@ export interface BuiltinProvider {
   createdAt: Timestamp
   /** 默认附加请求头（来自种子数据，创建供应商时自动填充） */
   defaultExtraHeaders?: Record<string, string>
+  /** 默认关联模型（来自种子数据，创建供应商时自动创建 gateway_models） */
+  defaultModels?: BuiltinProviderDefaultModel[]
+}
+
+/**
+ * 内置供应商默认关联模型
+ * 对应 builtin-providers.json 中的 `defaultModels` 条目
+ */
+export interface BuiltinProviderDefaultModel {
+  /** 实际发给供应商的模型 ID */
+  modelId: string
+  /** 展示名称（可选，缺省时使用匹配到的内置模型展示名） */
+  displayName?: string
+  /** 在 builtin-models.json 中匹配的模型 id */
+  matchModelId: string
 }
 
 /**
@@ -728,6 +743,21 @@ export interface CreateProviderInput {
   scriptVariablesJson?: string
   /** 供应商级附加请求头（创建时写入 provider_extra_headers 表） */
   extraHeaders?: Record<string, string>
+  /** 自动关联的默认模型（创建供应商时按 matchModelId 匹配内置模型，同步创建 model_config 与 gateway_model） */
+  defaultModels?: ProviderDefaultModelInput[]
+}
+
+/**
+ * 创建供应商时自动关联的默认模型
+ * 对应后端 `ProviderDefaultModelInput`
+ */
+export interface ProviderDefaultModelInput {
+  /** 实际发给供应商的模型 ID */
+  modelId: string
+  /** 展示名称（可选，缺省时使用匹配到的内置模型展示名） */
+  displayName?: string
+  /** 在 builtin-models.json 中匹配的模型 id */
+  matchModelId: string
 }
 
 export interface UpdateProviderInput {

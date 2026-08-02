@@ -43,7 +43,7 @@ import { ProviderForm } from './provider-form'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { listen } from '@tauri-apps/api/event'
-import type { Provider, AuthConfig, BuiltinProvider, PingProviderResult, PingDonePayload } from '@/modules/ai-gateway/types'
+import type { Provider, AuthConfig, BuiltinProvider, BuiltinProviderDefaultModel, PingProviderResult, PingDonePayload } from '@/modules/ai-gateway/types'
 import type { IcodeError } from '@/core/errors'
 import { extractBalanceListDisplay } from '@/modules/balance/types'
 import type { BalanceMetric, BalanceSnapshot } from '@/modules/balance/types'
@@ -116,6 +116,7 @@ export function ProviderList() {
     isEnabled: boolean
     sortOrder: number
     extraHeaders?: Record<string, string>
+    defaultModels?: BuiltinProviderDefaultModel[]
   }> | undefined>(undefined)
 
   const [builtinOpen, setBuiltinOpen] = useState(false)
@@ -189,6 +190,7 @@ export function ProviderList() {
       isEnabled: true,
       sortOrder: 0,
       extraHeaders: builtin.defaultExtraHeaders,
+      defaultModels: builtin.defaultModels,
     })
     setBuiltinOpen(false)
     setFormOpen(true)
@@ -363,6 +365,8 @@ export function ProviderList() {
           retryJson: values.retryJson,
           scriptVariablesJson: values.scriptVariablesJson,
           extraHeaders: values.extraHeaders,
+          // 从内置预设创建时自动关联默认模型（后端按 matchModelId 匹配内置模型创建）
+          defaultModels: initialFormValues?.defaultModels,
         })
         if (result) {
           toast.success(t('aiGateway.providerList.createSuccess'))

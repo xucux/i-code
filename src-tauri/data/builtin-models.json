@@ -2283,6 +2283,28 @@
       "thinking": {
         "type": "enabled"
       }
+    },
+    {
+      "id": "nemotron-3-ultra",
+      "displayName": "Nemotron 3 Ultra",
+      "family": "nvidia",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 65536,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "high"
+      }
     }
   ]
 }

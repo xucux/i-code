@@ -910,6 +910,23 @@ pub struct CreateProviderInput {
     /// 供应商级附加请求头（创建时写入 provider_extra_headers 表）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub extra_headers: Option<std::collections::HashMap<String, String>>,
+    /// 自动关联的默认模型（创建供应商时按 match_model_id 匹配内置模型，
+    /// 同步创建 model_config 与 gateway_model）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub default_models: Option<Vec<ProviderDefaultModelInput>>,
+}
+
+/// 创建供应商时自动关联的默认模型
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderDefaultModelInput {
+    /// 实际发给供应商的模型 ID
+    pub model_id: String,
+    /// 展示名称（可选，缺省时使用匹配到的内置模型展示名）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+    /// 在 builtin-models.json 中匹配的模型 id
+    pub match_model_id: String,
 }
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
