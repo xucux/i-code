@@ -28,7 +28,8 @@
   <a href="#getting-started">Getting Started</a> •
   <a href="#development">Development</a> •
   <a href="#architecture">Architecture</a> •
-  <a href="#security">Security</a>
+  <a href="#security">Security</a> •
+  <a href="./Guide.md">User Guide</a>
 </p>
 
 ---
