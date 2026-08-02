@@ -108,7 +108,7 @@ function IndexPage() {
           title={chartsVisible ? t('dashboard.hideCharts') : t('dashboard.showCharts')}
           onClick={toggleCharts}
         >
-          <i className={cn('fa-solid text-xs', chartsVisible ? 'fa-eye' : 'fa-eye-slash')} />
+          <i className={cn('fa-solid text-xs text-muted-foreground', chartsVisible ? 'fa-eye' : 'fa-eye-slash')} />
         </Button>
       </div>
 
@@ -145,7 +145,7 @@ function IndexPage() {
                         title={tg('gatewayApiDocs.title')}
                         onClick={() => setApiDocsOpen(true)}
                       >
-                        <i className="fa-solid fa-book-open text-xs" />
+                        <i className="fa-solid fa-book-open text-xs text-muted-foreground" />
                       </Button>
                     )}
                   </div>
@@ -159,7 +159,7 @@ function IndexPage() {
                     onClick={handleToggleGateway}
                   >
                     <i
-                      className={cn('fa-solid text-xs', status.isRunning ? 'fa-stop' : 'fa-play')}
+                      className={cn('fa-solid text-xs text-muted-foreground', status.isRunning ? 'fa-stop' : 'fa-play')}
                     />
                   </Button>
                 </div>
@@ -200,7 +200,7 @@ function IndexPage() {
           >
             <Link to={item.to}>
               <span className="flex items-center gap-2 text-sm font-medium">
-                <i className={cn(item.icon)} />
+                <i className={cn(item.icon, 'text-muted-foreground')} />
                 {item.label}
               </span>
               <span className="text-muted-foreground text-xs">{item.desc}</span>
