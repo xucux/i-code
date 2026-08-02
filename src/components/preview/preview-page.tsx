@@ -414,6 +414,8 @@ export default function PreviewPage() {
                   <SelectItem value="claude-dark">{t('theme.claudeDark', { ns: 'theme' })}</SelectItem>
                   <SelectItem value="deepseek-light">{t('theme.deepseekLight', { ns: 'theme' })}</SelectItem>
                   <SelectItem value="deepseek-dark">{t('theme.deepseekDark', { ns: 'theme' })}</SelectItem>
+                  <SelectItem value="nvidia-light">{t('theme.nvidiaLight', { ns: 'theme' })}</SelectItem>
+                  <SelectItem value="nvidia-dark">{t('theme.nvidiaDark', { ns: 'theme' })}</SelectItem>
                 </SelectContent>
               </Select>
 

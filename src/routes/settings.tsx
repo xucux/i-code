@@ -172,6 +172,8 @@ function SettingsPage() {
     { key: 'claude-dark', label: t('theme.claudeDark') },
     { key: 'deepseek-light', label: t('theme.deepseekLight') },
     { key: 'deepseek-dark', label: t('theme.deepseekDark') },
+    { key: 'nvidia-light', label: t('theme.nvidiaLight') },
+    { key: 'nvidia-dark', label: t('theme.nvidiaDark') },
   ] as const
 
   const languages = [
@@ -206,7 +208,7 @@ function SettingsPage() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label className="text-sm">{t('theme.title')}</Label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-4 gap-2">
                 {themes.map(({ key, label }) => (
                   <button
                     key={key}

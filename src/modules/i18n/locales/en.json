@@ -42,6 +42,8 @@
     "claudeDark": "Claude Dark",
     "deepseekLight": "DeepSeek Light",
     "deepseekDark": "DeepSeek Dark",
+    "nvidiaLight": "Nvidia Light",
+    "nvidiaDark": "Nvidia Dark",
     "system": "System"
   },
   "locale": {

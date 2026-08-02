@@ -32,7 +32,7 @@ export const DEFAULT_GATEWAY_PORT = 54321
 export const DEFAULT_NETWORK_TIMEOUT_MS = 120_000
 
 /**
- * 应用支持的六种主题
+ * 应用支持的八种主题
  * 与 `src/modules/theme/themes/` 下的 CSS 文件一一对应
  */
 export const THEMES = [
@@ -42,6 +42,8 @@ export const THEMES = [
   'claude-dark',
   'deepseek-light',
   'deepseek-dark',
+  'nvidia-light',
+  'nvidia-dark',
 ] as const
 
 /** 应用支持的语言列表 */

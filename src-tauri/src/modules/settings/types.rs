@@ -10,10 +10,11 @@ use crate::modules::shared::{ProxyConfig, RetryConfig, TimeoutConfig};
 
 /// 主题枚举
 ///
-/// 对应 `app_settings.theme` 列，支持 6 种主题：
+/// 对应 `app_settings.theme` 列，支持 8 种主题：
 /// - `light` / `dark`：标准浅色/深色
 /// - `claude-light` / `claude-dark`：Claude 风格
 /// - `deepseek-light` / `deepseek-dark`：DeepSeek 风格
+/// - `nvidia-light` / `nvidia-dark`：NVIDIA 风格
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Theme {
@@ -23,6 +24,8 @@ pub enum Theme {
     ClaudeDark,
     DeepseekLight,
     DeepseekDark,
+    NvidiaLight,
+    NvidiaDark,
 }
 
 impl Theme {
@@ -35,6 +38,8 @@ impl Theme {
             "claude-dark" => Some(Self::ClaudeDark),
             "deepseek-light" => Some(Self::DeepseekLight),
             "deepseek-dark" => Some(Self::DeepseekDark),
+            "nvidia-light" => Some(Self::NvidiaLight),
+            "nvidia-dark" => Some(Self::NvidiaDark),
             _ => None,
         }
     }
@@ -48,6 +53,8 @@ impl Theme {
             Self::ClaudeDark => "claude-dark",
             Self::DeepseekLight => "deepseek-light",
             Self::DeepseekDark => "deepseek-dark",
+            Self::NvidiaLight => "nvidia-light",
+            Self::NvidiaDark => "nvidia-dark",
         }
     }
 }
@@ -323,6 +330,8 @@ mod tests {
             Theme::ClaudeDark,
             Theme::DeepseekLight,
             Theme::DeepseekDark,
+            Theme::NvidiaLight,
+            Theme::NvidiaDark,
         ] {
             let s = theme.as_str();
             assert_eq!(Theme::from_str(s), Some(theme));

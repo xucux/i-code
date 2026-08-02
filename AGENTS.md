@@ -181,7 +181,7 @@ i-code/
 
 ### 5.2 主题与样式
 
-- 主题：`light` / `dark` / `claude-light` / `claude-dark` / `deepseek-light` / `deepseek-dark`
+- 主题：`light` / `dark` / `claude-light` / `claude-dark` / `deepseek-light` / `deepseek-dark` / `nvidia-light` / `nvidia-dark`
 - **禁止硬编码颜色**；使用 CSS 变量（`--background`、`--primary`、`--muted` 等）
 - 图标：`<i className="fa-solid fa-{name}" />`，尺寸用 `size-3` / `size-3.5` / `size-4` / `size-5`
 - 字号以 `text-xs` / `text-sm` 为主，标题最多 `text-lg`；数值用 `tabular-nums`

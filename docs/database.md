@@ -101,7 +101,7 @@ erDiagram
 | 列名 | 类型 | 约束 | 说明 |
 |------|------|------|------|
 | `id` | TEXT | PK | 固定单例 `default` |
-| `theme` | TEXT | NOT NULL | `light` / `dark` / `claude-light` / `claude-dark` |
+| `theme` | TEXT | NOT NULL | `light` / `dark` / `claude-light` / `claude-dark` / `deepseek-light` / `deepseek-dark` / `nvidia-light` / `nvidia-dark` |
 | `locale` | TEXT | NOT NULL | `zh-CN` / `en` |
 | `global_proxy_json` | TEXT | | 全局代理 `ProxyConfig` |
 | `network_timeout_ms` | INTEGER | | 默认请求超时 |

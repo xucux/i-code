@@ -24,7 +24,7 @@ i-code 是一款基于 Tauri 2.x 的本地桌面应用，用于：
 - **统一入口**：一处配置，多处使用；CLI 通过路由模式复用同一套 Gateway 供应商。
 - **安全存储**：API Key、OAuth Token、代理认证等敏感信息目前加密落库，使用aes密钥（界面可配置或快捷生成）加密。
 - **模块独立**：像后端 DDD 一样划分模块，各域之间通过显式接口/事件交互，降低耦合。
-- **可扩展主题与国际化**：所有 UI 组件默认支持 `dark / light / claude-light / claude-dark / deepseek-light / deepseek-dark` 六种主题，并支持 `zh-CN / en` 两种语言。
+- **可扩展主题与国际化**：所有 UI 组件默认支持 `dark / light / claude-light / claude-dark / deepseek-light / deepseek-dark / nvidia-light / nvidia-dark` 八种主题，并支持 `zh-CN / en` 两种语言。
 - **向后兼容参考项目**：类型、配置字段、内置供应商/模型数据尽量与 `vscode-unify-chat-provider-7.12.3` 对齐，便于未来导入/迁移。
 
 ---
@@ -155,7 +155,7 @@ i-code/
 │   │   │   ├── types.ts
 │   │   │   ├── theme-provider.tsx
 │   │   │   ├── use-theme.ts
-│   │   │   └── themes/          # dark / light / claude-light / claude-dark / deepseek-light / deepseek-dark CSS 变量
+│   │   │   └── themes/          # dark / light / claude-light / claude-dark / deepseek-light / deepseek-dark / nvidia-light / nvidia-dark CSS 变量
 │   │   ├── i18n/                # 国际化模块（仅有前端 UI）
 │   │   │   ├── types.ts
 │   │   │   ├── i18n.ts
@@ -313,7 +313,7 @@ i-code/
 
 ### 5.2 theme
 
-职责：管理 `dark / light /claude-light / claude-dark / deepseek-light / deepseek-dark` 六种主题，并向全局注入 CSS 变量。
+职责：管理 `dark / light / claude-light / claude-dark / deepseek-light / deepseek-dark / nvidia-light / nvidia-dark` 八种主题，并向全局注入 CSS 变量。
 
 - `theme-provider.tsx`：在根组件挂载主题类名，监听系统主题变化。
 - `use-theme.ts`：返回当前主题、切换函数、主题列表。

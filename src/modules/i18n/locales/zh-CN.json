@@ -42,6 +42,8 @@
     "claudeDark": "Claude 深色",
     "deepseekLight": "DeepSeek 浅色",
     "deepseekDark": "DeepSeek 深色",
+    "nvidiaLight": "Nvidia 浅色",
+    "nvidiaDark": "Nvidia 深色",
     "system": "跟随系统"
   },
   "locale": {

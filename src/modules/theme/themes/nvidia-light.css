@@ -1,0 +1,36 @@
+/* NVIDIA 浅色主题：品牌绿 #00B843（142 100% 36%） */
+.theme-nvidia-light {
+  --background: 0 0% 100%;
+  --foreground: 142 30% 8%;
+  --card: 0 0% 100%;
+  --card-foreground: 142 30% 8%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 142 30% 8%;
+  --primary: 142 100% 36%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 142 45% 96%;
+  --secondary-foreground: 142 40% 15%;
+  --muted: 142 45% 96%;
+  --muted-foreground: 142 15% 42%;
+  --accent: 142 45% 93%;
+  --accent-foreground: 142 40% 15%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 142 30% 90%;
+  --input: 142 30% 90%;
+  --ring: 142 100% 36%;
+  --radius: 0.5rem;
+  --chart-1: 142 100% 36%;
+  --chart-2: 160 60% 40%;
+  --chart-3: 45 90% 50%;
+  --chart-4: 280 65% 60%;
+  --chart-5: 340 75% 55%;
+  --sidebar-background: 142 50% 98%;
+  --sidebar-foreground: 142 30% 20%;
+  --sidebar-primary: 142 100% 36%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 142 45% 94%;
+  --sidebar-accent-foreground: 142 40% 15%;
+  --sidebar-border: 142 30% 91%;
+  --sidebar-ring: 142 100% 36%;
+}

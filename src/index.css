@@ -4,6 +4,8 @@
 @import './modules/theme/themes/claude-dark.css';
 @import './modules/theme/themes/deepseek-light.css';
 @import './modules/theme/themes/deepseek-dark.css';
+@import './modules/theme/themes/nvidia-light.css';
+@import './modules/theme/themes/nvidia-dark.css';
 
 /* 引入 Font Awesome Free 图标字体 */
 @import '@fortawesome/fontawesome-free/css/all.min.css';

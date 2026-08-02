@@ -73,9 +73,9 @@ export function err<E>(error: E): Result<never, E> {
 
 /**
  * 应用主题枚举
- * 六种主题对应不同品牌风格（Claude/DeepSeek/默认）
+ * 八种主题对应不同品牌风格（Claude/DeepSeek/NVIDIA/默认）
  */
-export type Theme = 'light' | 'dark' | 'claude-light' | 'claude-dark' | 'deepseek-light' | 'deepseek-dark'
+export type Theme = 'light' | 'dark' | 'claude-light' | 'claude-dark' | 'deepseek-light' | 'deepseek-dark' | 'nvidia-light' | 'nvidia-dark'
 
 /**
  * 应用语言枚举

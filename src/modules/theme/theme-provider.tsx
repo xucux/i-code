@@ -8,7 +8,7 @@ const STORAGE_KEY = 'icode-theme'
 
 export const ThemeContext = createContext<ThemeContextValue | null>(null)
 
-// 应用支持的主题列表：基础明暗、Claude 风格、DeepSeek 风格
+// 应用支持的主题列表：基础明暗、Claude 风格、DeepSeek 风格、NVIDIA 风格
 const themes: AppTheme[] = [
   'light',
   'dark',
@@ -16,6 +16,8 @@ const themes: AppTheme[] = [
   'claude-dark',
   'deepseek-light',
   'deepseek-dark',
+  'nvidia-light',
+  'nvidia-dark',
 ]
 
 // 获取初始主题：优先使用本地缓存，否则根据系统暗色模式偏好决定
