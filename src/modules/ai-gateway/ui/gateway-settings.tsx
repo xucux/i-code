@@ -136,11 +136,11 @@ export function GatewayBasicSettings() {
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="flex items-center justify-between">
-          <Label className="text-xs">{t('gatewaySettings.enabled')}</Label>
+          {/* <Label className="text-xs">{t('gatewaySettings.enabled')}</Label>
           <Switch
             checked={settings.isEnabled}
             onCheckedChange={(v) => updateSettings({ isEnabled: v })}
-          />
+          /> */}
         </div>
         <div className="grid grid-cols-[1fr_1fr] gap-3">
           <div className="space-y-1">

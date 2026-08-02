@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import {
   CartesianGrid,
   Line,
@@ -16,21 +16,19 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { Slider } from '@/components/ui/slider'
 import { useAggregatedStats } from '@/hooks/use-aggregated-stats'
 import { AutoRefreshSelect } from '@/components/ui/auto-refresh'
 import type { RefreshInterval } from '@/components/ui/auto-refresh'
 import { useTranslation } from '@/modules/i18n/use-translation'
+import { getChartColor, getWindowConfig, generateBuckets, type WindowConfig } from './chart-utils'
 
-/** 趋势图默认展示近 1 小时 */
-const WINDOW_HOURS = 1
-
-/**
- * 生成 HSL 色相环颜色，保证不同模型曲线视觉可区分
- */
-function generateColor(index: number, total: number): string {
-  const hue = Math.round((index * 360) / Math.max(total, 1))
-  return `hsl(${hue} 70% 55%)`
-}
+/** 最小时间窗口：1 小时 */
+const MIN_WINDOW_HOURS = 1
+/** 最大时间窗口：24 小时 */
+const MAX_WINDOW_HOURS = 24
+/** 默认时间窗口：12 小时 */
+const DEFAULT_WINDOW_HOURS = 12
 
 interface TrendDataPoint {
   time: string
@@ -38,49 +36,37 @@ interface TrendDataPoint {
 }
 
 /**
- * 将时间桶格式化为 "MM-DD HH:mm"
- */
-function formatBucketLabel(timeBucket: string): string {
-  const t = new Date(timeBucket)
-  const month = (t.getMonth() + 1).toString().padStart(2, '0')
-  const day = t.getDate().toString().padStart(2, '0')
-  const hours = t.getHours().toString().padStart(2, '0')
-  const minutes = t.getMinutes().toString().padStart(2, '0')
-  return `${month}-${day} ${hours}:${minutes}`
-}
-
-/**
- * 将聚合统计行按 10 分钟桶 + 模型展开为折线图数据
+ * 将聚合统计行按桶宽 + 模型展开为折线图数据
+ *
+ * 生成连续时间序列（空桶补 0），每个模型一条折线。
  */
 function buildTrendData(
-  rows: Array<{ modelId: string; timeBucket: string; requestCount: number }>
+  rows: Array<{ modelId: string; timeBucket: string; requestCount: number }>,
+  windowHours: number,
+  config: WindowConfig
 ): { data: TrendDataPoint[]; models: string[] } {
+  const buckets = generateBuckets(new Date(), windowHours, config.bucketSeconds)
+  const data: TrendDataPoint[] = buckets.map((bucket) => ({
+    time: config.formatLabel(bucket),
+  }))
+  const bucketIndex = new Map(buckets.map((bucket, i) => [bucket.getTime(), i]))
   const modelSet = new Set<string>()
-  const bucketMap = new Map<string, Map<string, number>>()
 
   for (const row of rows) {
+    const idx = bucketIndex.get(new Date(row.timeBucket).getTime())
+    if (idx === undefined) continue
     modelSet.add(row.modelId)
-    const timeLabel = formatBucketLabel(row.timeBucket)
-
-    if (!bucketMap.has(timeLabel)) {
-      bucketMap.set(timeLabel, new Map())
-    }
-    const modelMap = bucketMap.get(timeLabel)!
-    modelMap.set(row.modelId, (modelMap.get(row.modelId) ?? 0) + row.requestCount)
+    const point = data[idx]
+    point[row.modelId] = (Number(point[row.modelId]) || 0) + row.requestCount
   }
 
-  // 按时间顺序排列
-  const sortedTimes = Array.from(bucketMap.keys()).sort()
   const models = Array.from(modelSet).sort()
-
-  const data = sortedTimes.map((time) => {
-    const point: TrendDataPoint = { time }
-    const modelMap = bucketMap.get(time)!
+  // 所有模型在所有桶补 0，保证折线连续
+  for (const point of data) {
     for (const model of models) {
-      point[model] = modelMap.get(model) ?? 0
+      point[model] = Number(point[model]) || 0
     }
-    return point
-  })
+  }
 
   return { data, models }
 }
@@ -88,20 +74,31 @@ function buildTrendData(
 /**
  * 网关请求趋势图
  *
- * 从 `model_call_logs` 明细表实时聚合最近 1 小时数据（默认），按 10 分钟桶统计，
- * 每个模型展示一条独立曲线，反映各模型在不同时段的请求量分布。
+ * 读取最近 1-24 小时调用记录，按当前窗口对应的粒度聚合，
+ * 每个模型展示一条独立折线，反映各模型在不同时段的请求量分布：
+ * - 1-2 小时：30 秒
+ * - 2-12 小时：2 分钟
+ * - 12-24 小时：5 分钟
+ *
+ * 底部提供滑动条调整时间窗口：最左 1 小时，最右 24 小时（默认 12 小时）。
  */
 export function GatewayTrendChart() {
   const { t } = useTranslation('aiGateway')
 
+  const [windowHours, setWindowHours] = useState<number>(DEFAULT_WINDOW_HOURS)
+  const config = useMemo(() => getWindowConfig(windowHours), [windowHours])
+
   const input = useMemo(() => {
     const endAt = new Date().toISOString()
-    const startAt = new Date(Date.now() - WINDOW_HOURS * 60 * 60 * 1000).toISOString()
-    return { granularity: 'tenMinutes' as const, startAt, endAt }
-  }, [])
+    const startAt = new Date(Date.now() - windowHours * 60 * 60 * 1000).toISOString()
+    return { granularity: config.granularity, startAt, endAt }
+  }, [windowHours, config.granularity])
 
   const { rows, intervalMs, setIntervalMs } = useAggregatedStats(input)
-  const { data, models } = useMemo(() => buildTrendData(rows), [rows])
+  const { data, models } = useMemo(
+    () => buildTrendData(rows, windowHours, config),
+    [rows, windowHours, config]
+  )
 
   return (
     <Card>
@@ -147,7 +144,7 @@ export function GatewayTrendChart() {
                 key={model}
                 type="monotone"
                 dataKey={model}
-                stroke={generateColor(index, models.length)}
+                stroke={getChartColor(index, models.length)}
                 strokeWidth={2}
                 dot={false}
                 isAnimationActive={false}
@@ -155,6 +152,25 @@ export function GatewayTrendChart() {
             ))}
           </LineChart>
         </ResponsiveContainer>
+
+        {/* 时间窗口滑动条：1-24 小时，默认 12 小时 */}
+        <div className="mt-3 flex items-center justify-center gap-3">
+          <span className="text-muted-foreground text-xs tabular-nums">
+            {t('charts.windowHours', { hours: MIN_WINDOW_HOURS })}
+          </span>
+          <Slider
+            value={[windowHours]}
+            min={MIN_WINDOW_HOURS}
+            max={MAX_WINDOW_HOURS}
+            step={1}
+            size="sm"
+            onValueChange={([value]) => setWindowHours(value ?? MAX_WINDOW_HOURS)}
+            className="w-48"
+          />
+          <span className="text-muted-foreground text-xs tabular-nums">
+            {t('charts.windowHours', { hours: windowHours })}
+          </span>
+        </div>
       </CardContent>
     </Card>
   )

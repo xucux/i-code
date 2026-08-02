@@ -98,7 +98,7 @@ export interface ModelCallStatsRow {
 // ===== 聚合表类型 =====
 
 /** 聚合时间粒度 */
-export type StatsGranularity = 'thirtySeconds' | 'oneMinute' | 'tenMinutes' | 'thirtyMinutes' | 'hourly' | 'daily'
+export type StatsGranularity = 'thirtySeconds' | 'oneMinute' | 'twoMinutes' | 'fiveMinutes' | 'tenMinutes' | 'thirtyMinutes' | 'hourly' | 'daily'
 
 /** 聚合统计查询输入 */
 export interface AggregatedStatsInput {

@@ -119,7 +119,25 @@ function GatewaysIndexPage() {
         {/* 网关总览 */}
         <TabsContent value="gateway" className="h-screen overflow-auto">
           <ScrollPage variant="borderless" scrollbarVisible="auto" className="h-full">
-            <div className="flex flex-col gap-4 p-4">
+            <div className="flex flex-col gap-4 p-4 pb-20">
+              {/* 三幅全宽图：实时请求流量 → Token 消耗 → 请求趋势
+                  三者均使用明细表实时聚合数据，按窗口自适应粒度 */}
+              <GatewayTrafficChart />
+              <GatewayTokenChart />
+              <GatewayTrendChart />
+            </div>
+          </ScrollPage>
+        </TabsContent>
+
+        {/* 网关认证：API Key 管理 */}
+        <TabsContent value="gateway-auth" className="h-screen overflow-auto">
+          <GatewayAuthKeyManager />
+        </TabsContent>
+
+        {/* 网关配置：状态卡片、监听地址、端口、日志级别、回调服务器 */}
+        <TabsContent value="gateway-settings" className="h-screen overflow-auto">
+          <ScrollPage variant="borderless" scrollbarVisible="auto" className="h-full">
+            <div className="flex flex-col gap-4 p-4 pb-20">
               {/* 状态栏：圆点 + 状态 + IP:端口 + 复制 + 接口文档 */}
               <Card>
                 <CardContent className="flex items-center gap-4 py-3">
@@ -195,28 +213,12 @@ function GatewaysIndexPage() {
                 port={status.boundPort}
               />
 
-              {/* 上方：实时请求流量；下方：请求趋势 + Token 消耗
-                  趋势与 Token 消耗使用预聚合表数据，按模型分曲线 */}
-              <GatewayTrafficChart />
-              <div className="grid grid-cols-2 gap-4">
-                <GatewayTrendChart />
-                <GatewayTokenChart />
+              <div className="space-y-4">
+                <GatewayBasicSettings />
+                <CallbackServerManager />
               </div>
             </div>
           </ScrollPage>
-        </TabsContent>
-
-        {/* 网关认证：API Key 管理 */}
-        <TabsContent value="gateway-auth" className="h-screen overflow-auto">
-          <GatewayAuthKeyManager />
-        </TabsContent>
-
-        {/* 网关配置：监听地址、端口、日志级别、回调服务器 */}
-        <TabsContent value="gateway-settings" className="h-screen overflow-auto">
-          <div className="space-y-4">
-            <GatewayBasicSettings />
-            <CallbackServerManager />
-          </div>
         </TabsContent>
 
         {/* 对外模型：ModelList 自身已用 useAvailableHeight + ScrollableTable 做内部滚动，勿再套 ScrollPage */}

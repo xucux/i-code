@@ -10,8 +10,8 @@ import { useModelCallStats } from '@/hooks/use-model-call-stats'
 import { useAggregatedStats } from '@/hooks/use-aggregated-stats'
 import { getTodayTokens } from '@/hooks/use-call-records-mutation'
 
-/** 迷你面板数据窗口：最近 1 小时 */
-const WINDOW_HOURS = 1
+/** 迷你面板数据窗口：最近 24 小时 */
+const WINDOW_HOURS = 24
 /** 今日 token 刷新间隔（毫秒） */
 const REFRESH_INTERVAL = 5_000
 
@@ -175,7 +175,7 @@ function MiniPanelPage() {
     }
   }, [])
 
-  // 最近 1 小时模型调用统计，用于推导最活跃供应商/模型
+  // 最近 24 小时模型调用统计，用于推导最活跃供应商/模型
   const statsInput = useMemo(() => {
     const startAt = new Date(Date.now() - WINDOW_HOURS * 60 * 60 * 1000).toISOString()
     return { startAt }
@@ -196,11 +196,11 @@ function MiniPanelPage() {
     }
   }, [modelStats])
 
-  // 最近 1 小时流量图数据（10 分钟桶）
+  // 最近 24 小时 token 用量趋势图数据（小时桶）
   const aggInput = useMemo(() => {
     const endAt = new Date().toISOString()
     const startAt = new Date(Date.now() - WINDOW_HOURS * 60 * 60 * 1000).toISOString()
-    return { granularity: 'tenMinutes' as const, startAt, endAt }
+    return { granularity: 'hourly' as const, startAt, endAt }
   }, [now])
   const { rows: aggRows } = useAggregatedStats(aggInput)
 
@@ -208,7 +208,7 @@ function MiniPanelPage() {
     const bucketMap = new Map<string, number>()
     for (const row of aggRows) {
       const label = formatChartLabel(row.timeBucket)
-      bucketMap.set(label, (bucketMap.get(label) ?? 0) + row.requestCount)
+      bucketMap.set(label, (bucketMap.get(label) ?? 0) + row.totalTokens)
     }
     return Array.from(bucketMap.entries())
       .sort(([a], [b]) => a.localeCompare(b))
@@ -221,7 +221,7 @@ function MiniPanelPage() {
     : undefined
   const gatewayStatus = status.isRunning ? 'running' : 'idle'
 
-  // 简易 SVG 面积图数据
+  // 简易 SVG 面积图数据（token 用量）
   const chartPoints = show.chart && chartData.length > 0
     ? (() => {
         const data = chartData
@@ -230,7 +230,8 @@ function MiniPanelPage() {
         const h = 36
         return data.map((d, i) => {
           const x = (i / (data.length - 1)) * w
-          const y = h - (d.value / maxVal) * h
+          // 全 0 时 maxVal 为 0，避免除零，保持平线
+          const y = maxVal > 0 ? h - (d.value / maxVal) * h : h
           return `${x},${y}`
         }).join(' ')
       })()

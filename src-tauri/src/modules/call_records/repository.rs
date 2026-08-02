@@ -468,8 +468,8 @@ pub fn accumulate_stats_daily(acc: &StatsAccumulate) -> IcodeResult<()> {
 ///
 /// 根据时间粒度选择数据源：
 /// - `hourly` / `daily`：从预聚合表读取。
-/// - `tenMinutes` / `thirtySeconds`：从 `model_call_logs` 明细表实时 GROUP BY 聚合，
-///   用于网关概览页展示最近 24 小时的细粒度趋势。
+/// - `thirtySeconds` / `oneMinute` / `twoMinutes` / `fiveMinutes` / `tenMinutes` / `thirtyMinutes`：
+///   从 `model_call_logs` 明细表实时 GROUP BY 聚合，用于图表展示不同时间窗口的细粒度趋势。
 pub fn query_aggregated_stats(input: &AggregatedStatsInput) -> IcodeResult<Vec<AggregatedStatsRow>> {
     let conn = get_conn()?;
 
@@ -593,7 +593,7 @@ fn query_pre_aggregated_stats(
     Ok(result)
 }
 
-/// 从明细表实时聚合（thirtySeconds / oneMinute / tenMinutes / thirtyMinutes）
+/// 从明细表实时聚合（thirtySeconds / oneMinute / twoMinutes / fiveMinutes / tenMinutes / thirtyMinutes）
 ///
 /// 通过 `strftime('%s', requested_at)` 计算 UNIX 时间戳并对桶宽取整，
 /// 在查询时动态生成时间桶，避免为细粒度单独维护预聚合表。
@@ -604,6 +604,8 @@ fn query_realtime_aggregated_stats(
     let bucket_secs: i64 = match input.granularity {
         super::types::StatsGranularity::ThirtySeconds => 30,
         super::types::StatsGranularity::OneMinute => 60,
+        super::types::StatsGranularity::TwoMinutes => 120,
+        super::types::StatsGranularity::FiveMinutes => 300,
         super::types::StatsGranularity::TenMinutes => 600,
         super::types::StatsGranularity::ThirtyMinutes => 1800,
         _ => unreachable!("realtime granularity expected"),

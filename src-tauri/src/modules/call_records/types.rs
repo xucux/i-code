@@ -237,6 +237,10 @@ pub enum StatsGranularity {
     ThirtySeconds,
     /// 1 分钟级（仅实时聚合，不预写入聚合表）
     OneMinute,
+    /// 2 分钟级（仅实时聚合，不预写入聚合表）
+    TwoMinutes,
+    /// 5 分钟级（仅实时聚合，不预写入聚合表）
+    FiveMinutes,
     /// 10 分钟级（仅实时聚合，不预写入聚合表）
     TenMinutes,
     /// 30 分钟级（仅实时聚合，不预写入聚合表）
@@ -258,6 +262,8 @@ impl StatsGranularity {
         match self {
             Self::ThirtySeconds => "thirtySeconds",
             Self::OneMinute => "oneMinute",
+            Self::TwoMinutes => "twoMinutes",
+            Self::FiveMinutes => "fiveMinutes",
             Self::TenMinutes => "tenMinutes",
             Self::ThirtyMinutes => "thirtyMinutes",
             Self::Hourly => "hourly",
