@@ -173,6 +173,11 @@
     },
     "webdav": {
       "description": "Upload or download remote backups via WebDAV",
+      "configCardTitle": "Connection Config",
+      "backupCardTitle": "Remote Backups",
+      "backupCardDesc": "Upload local database backups to a remote server, or restore from remote",
+      "emptyHint": "Click \"Upload Backup\" to sync the latest data to remote",
+      "encryptEnabled": "Auto-encrypt on upload",
       "list": "List",
       "push": "Upload Backup",
       "presetLabel": "Service Preset",

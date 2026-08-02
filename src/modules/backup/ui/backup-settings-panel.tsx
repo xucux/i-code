@@ -68,7 +68,10 @@ export function BackupSettingsPanel({
 
         {/* 本地备份设置 */}
         <div className="space-y-2 rounded-md border p-3">
-          <Label className="text-sm font-medium">{t('backup.settings.local')}</Label>
+          <div className="flex items-center gap-1.5">
+            <i className="fa-solid fa-folder-open size-3.5 text-muted-foreground" />
+            <Label className="text-sm font-semibold">{t('backup.settings.local')}</Label>
+          </div>
           <div className="space-y-1.5">
             <Label className="text-xs">{t('backup.settings.localDirectory')}</Label>
             <Input
@@ -111,7 +114,10 @@ export function BackupSettingsPanel({
 
         {/* 通用策略设置（不含 WebDAV 连接，连接配置见 WebDAV Tab） */}
         <div className="space-y-2 rounded-md border p-3">
-          <Label className="text-sm font-medium">{t('backup.settings.policy')}</Label>
+          <div className="flex items-center gap-1.5">
+            <i className="fa-solid fa-sliders size-3.5 text-muted-foreground" />
+            <Label className="text-sm font-semibold">{t('backup.settings.policy')}</Label>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">{t('backup.settings.webdavRetention')}</Label>

@@ -173,6 +173,11 @@
     },
     "webdav": {
       "description": "通过 WebDAV 协议上传或下载远程备份",
+      "configCardTitle": "连接配置",
+      "backupCardTitle": "远程备份",
+      "backupCardDesc": "将本地数据库备份上传到远程服务器，或从远程恢复",
+      "emptyHint": "点击「上传备份」将最新数据同步到远程",
+      "encryptEnabled": "上传自动加密",
       "list": "列出",
       "push": "上传备份",
       "presetLabel": "服务预设",
