@@ -399,7 +399,7 @@
       "maxRetries": "最大重试次数",
       "extraHeaders": {
         "title": "附加请求头",
-        "hint": "转发到上游时注入的额外请求头，可覆盖默认头。值支持模板变量：${uuid()}（每次请求随机）、${uuid_by_day()}（当天固定）、${variables[\"key\"]}（模板变量）。输入 $SECRET 引用原样保存，转发时自动解密。",
+        "hint": "转发到上游时注入的额外请求头，可覆盖默认头。值支持模板变量：${uuid()}（每次请求随机）、${uuid_by_day()}（当天固定）、${variables[\"key\"]}（模板变量）。",
         "keyPlaceholder": "请求头名，如 x-opencode-client",
         "valuePlaceholder": "请求头值",
         "add": "添加请求头",
