@@ -279,11 +279,38 @@ impl AiGatewayService {
 
     /// 删除供应商
     ///
-    /// 关联的 gateway_models、provider_extra_* 会通过外键级联删除。
-    /// 注意：删除供应商不会自动清理已加密的 Secret 记录，
-    /// 需由调用方通过 `secret.cleanup_orphaned` 统一清理。
+    /// 流程：
+    /// 1. 查询供应商，收集其配置 JSON（auth_json / balance_provider_json /
+    ///    proxy_json / script_variables_json）中引用的所有 `$SECRET:{id}$`
+    /// 2. 删除供应商（关联的 gateway_models、provider_extra_* 通过外键级联删除）
+    /// 3. 联动删除上述 Secret 记录，避免孤儿数据残留
     pub fn delete_provider(&self, id: &str) -> IcodeResult<()> {
-        repository::delete_provider(id)
+        // 先查询供应商，收集其配置中引用的 Secret ID
+        let provider = repository::find_provider_by_id(id)?;
+        let mut secret_ids: Vec<String> = Vec::new();
+        for json_str in [
+            provider.auth_json.as_deref(),
+            provider.balance_provider_json.as_deref(),
+            provider.proxy_json.as_deref(),
+            provider.script_variables_json.as_deref(),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            if let Ok(value) = serde_json::from_str::<serde_json::Value>(json_str) {
+                let scan = self.secret_handle.service().scan_references(&value)?;
+                secret_ids.extend(scan.secret_ids);
+            }
+        }
+
+        // 删除供应商（外键级联删除关联表）
+        repository::delete_provider(id)?;
+
+        // 删除关联的 Secret 记录（幂等：不存在时忽略）
+        for sid in secret_ids {
+            self.secret_handle.service().delete_secret(&sid)?;
+        }
+        Ok(())
     }
 
     /// 导出供应商配置为 base64 JSON
