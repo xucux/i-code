@@ -747,6 +747,8 @@ export interface UpdateProviderInput {
   proxyJson?: string
   /** 供应商扩展模板变量 JSON */
   scriptVariablesJson?: string | null
+  /** 供应商级附加请求头（全量替换语义：传对象=替换全部，传 null=清空，不传=不修改） */
+  extraHeaders?: Record<string, string> | null
 }
 
 /**

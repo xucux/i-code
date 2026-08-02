@@ -63,6 +63,18 @@ pub async fn gateway_provider_get(
     state.service().get_provider(&id)
 }
 
+/// 查询供应商级附加请求头（供前端编辑表单回填）
+///
+/// 返回完整行记录；value 可能为 `$SECRET:{uuid}$` 引用，原样返回，
+/// 前端编辑后原样回传，转发时由后端统一解密。
+#[tauri::command]
+pub async fn gateway_provider_extra_headers_list(
+    state: State<'_, AiGatewayServiceHandle>,
+    provider_id: String,
+) -> IcodeResult<Vec<super::types::ProviderExtraHeader>> {
+    super::repository::list_provider_extra_header_rows(&provider_id)
+}
+
 /// 创建供应商
 ///
 /// 若 `auth` 中的敏感字段（如 api_key）为明文，Service 层会自动加密并替换为引用。

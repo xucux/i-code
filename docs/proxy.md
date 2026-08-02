@@ -30,6 +30,12 @@
 
 两者必须复用同一份代理逻辑（`shared::apply_provider_proxy`），禁止各自实现，避免策略漂移。
 
+### 1.4 TLS 证书信任：读系统证书存储
+
+`reqwest` 使用 **`rustls-tls-native-roots`** 特性（`src-tauri/Cargo.toml`）：TLS 校验读取**系统证书存储**（Windows 证书库），因此用户安装的代理 MITM 根证书（如 Proxypin CA）可被信任。
+
+> 历史：此前使用 `rustls-tls`（webpki-roots），只信任 Mozilla 内置根证书、不读系统证书库，导致「代理 MITM 重签名 + 系统已装 CA」场景仍报 `SSL handshake failed (-2)`。2026-08-02 已切换为 `rustls-tls-native-roots`。
+
 ---
 
 ## 2. 配置类型

@@ -37,7 +37,7 @@ import { listen } from '@tauri-apps/api/event'
 import { BalanceConfigForm } from '@/modules/balance/ui/balance-config-form'
 import { ScriptVariablesEditor } from '@/modules/ai-gateway/ui/script-variables-editor'
 import { PortInUseDialog } from '@/modules/ai-gateway/ui/port-in-use-dialog'
-import type { Provider, ProviderType, AuthConfig, AuthMethod, BuiltinModel, GatewayModel, ModelConfig, ModelCapabilities, ModelThinkingConfig, ModelEditTool, DeviceCodeInfo, DeviceCodePollResult, OAuthStartResult, OAuthCallbackEvent, ProviderScriptVariable } from '@/modules/ai-gateway/types'
+import type { Provider, ProviderType, AuthConfig, AuthMethod, BuiltinModel, GatewayModel, ModelConfig, ModelCapabilities, ModelThinkingConfig, ModelEditTool, DeviceCodeInfo, DeviceCodePollResult, OAuthStartResult, OAuthCallbackEvent, ProviderScriptVariable, ProviderExtraHeader } from '@/modules/ai-gateway/types'
 import { parseAuthConfig } from '@/modules/ai-gateway/types'
 import { toast } from 'sonner'
 import { toIcodeError } from '@/core/errors'
@@ -422,6 +422,18 @@ function buildScriptVariablesJson(
   return JSON.stringify({ version: 1, items: processedItems })
 }
 
+/** 将附加请求头数组转换为 Record；跳过空 key / 空 value 行，重复 key 后者覆盖 */
+function buildExtraHeadersPayload(headers: { key: string; value: string }[]): Record<string, string> {
+  const result: Record<string, string> = {}
+  for (const h of headers) {
+    const key = h.key.trim()
+    if (key && h.value) {
+      result[key] = h.value
+    }
+  }
+  return result
+}
+
 /**
  * 供应商新增/编辑表单
  *
@@ -443,6 +455,12 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
 
   // 扩展模板变量
   const [scriptVariables, setScriptVariables] = useState<ProviderScriptVariable[]>([])
+
+  // 供应商附加请求头（数组形式便于编辑；提交时转换为 Record）
+  // extraHeadersLoaded：编辑模式加载完成 / 创建模式已有初始值后才参与提交，
+  // 避免异步加载未完成时误提交导致已有请求头被清空
+  const [extraHeaders, setExtraHeaders] = useState<{ key: string; value: string }[]>([])
+  const [extraHeadersLoaded, setExtraHeadersLoaded] = useState(false)
 
   // OAuth 授权状态
   const [oauthAuthorizing, setOauthAuthorizing] = useState(false)
@@ -498,6 +516,9 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
 
   // 编辑时回填表单
   useEffect(() => {
+    // 重置附加请求头状态（切换供应商/创建时清空）
+    setExtraHeaders([])
+    setExtraHeadersLoaded(false)
     if (provider) {
       const authConfig = parseAuthConfig(provider)
       const authMethod = authConfig?.method ?? 'none'
@@ -586,6 +607,15 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
       } catch {
         setScriptVariables([])
       }
+      // 加载供应商附加请求头（编辑回填；失败时置为已加载，避免误清空）
+      void invokeCommand<ProviderExtraHeader[]>('gateway_provider_extra_headers_list', {
+        providerId: provider.id,
+      })
+        .then((rows) => {
+          setExtraHeaders(rows.map((r) => ({ key: r.key, value: r.value })))
+          setExtraHeadersLoaded(true)
+        })
+        .catch(() => setExtraHeadersLoaded(true))
       // 重置 API Key 解密/显示状态
       setShowApiKey(false)
       setShowVertexApiKey(false)
@@ -639,6 +669,11 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
           if (initialValues.authMethod) form.setValue('authMethod', initialValues.authMethod)
           if (initialValues.sortOrder !== undefined) form.setValue('sortOrder', initialValues.sortOrder)
         }, 0)
+      }
+      // 内置预设附加请求头（如有则直接回填并标记已加载，随创建一并写入）
+      if (initialValues?.extraHeaders && Object.keys(initialValues.extraHeaders).length > 0) {
+        setExtraHeaders(Object.entries(initialValues.extraHeaders).map(([key, value]) => ({ key, value })))
+        setExtraHeadersLoaded(true)
       }
     }
   }, [provider, initialValues, form])
@@ -708,7 +743,8 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
       timeoutJson,
       retryJson,
       scriptVariablesJson: buildScriptVariablesJson(scriptVariables, isEdit),
-      extraHeaders: values.extraHeaders,
+      // 附加请求头：仅在已加载完成时提交（避免异步加载未完成时误清空已有请求头）
+      extraHeaders: extraHeadersLoaded ? buildExtraHeadersPayload(extraHeaders) : undefined,
     })
   }
 
@@ -1453,6 +1489,60 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
                   className="h-8 text-xs"
                 />
               </div>
+            </div>
+
+            {/* 附加请求头：转发到上游时注入，可覆盖默认头；支持模板变量与 $SECRET 引用 */}
+            <div>
+              <div className="mb-2 text-xs font-medium">{t('aiGateway.providerForm.extraHeaders.title')}</div>
+              <div className="space-y-2">
+                {extraHeaders.map((header, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <Input
+                      value={header.key}
+                      onChange={(e) => {
+                        const next = [...extraHeaders]
+                        next[idx] = { ...next[idx], key: e.target.value }
+                        setExtraHeaders(next)
+                      }}
+                      className="h-8 w-2/5 min-w-0 text-xs font-mono"
+                      placeholder={t('aiGateway.providerForm.extraHeaders.keyPlaceholder')}
+                    />
+                    <Input
+                      value={header.value}
+                      onChange={(e) => {
+                        const next = [...extraHeaders]
+                        next[idx] = { ...next[idx], value: e.target.value }
+                        setExtraHeaders(next)
+                      }}
+                      className="h-8 flex-1 min-w-0 text-xs font-mono"
+                      placeholder={t('aiGateway.providerForm.extraHeaders.valuePlaceholder')}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0"
+                      title={t('aiGateway.providerForm.extraHeaders.remove')}
+                      onClick={() => setExtraHeaders(extraHeaders.filter((_, i) => i !== idx))}
+                    >
+                      <i className="fa-solid fa-trash-can size-3" />
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => setExtraHeaders([...extraHeaders, { key: '', value: '' }])}
+                >
+                  <i className="fa-solid fa-plus mr-1.5" data-icon="inline-start" />
+                  {t('aiGateway.providerForm.extraHeaders.add')}
+                </Button>
+              </div>
+              <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+                {t('aiGateway.providerForm.extraHeaders.hint')}
+              </p>
             </div>
           </TabsContent>
 

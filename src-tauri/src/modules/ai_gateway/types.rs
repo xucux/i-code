@@ -944,6 +944,11 @@ pub struct UpdateProviderInput {
     /// Option<Option<String>>：外层 Some 表示需要更新，内层 None 表示置空
     #[serde(skip_serializing_if = "Option::is_none")]
     pub script_variables_json: Option<Option<String>>,
+    /// 供应商级附加请求头（全量替换语义）
+    /// Option<Option<HashMap>>：外层 Some 表示需要更新，内层 None 表示清空全部，
+    /// None 表示不修改。值为 `$SECRET:{uuid}$` 引用时原样保留，转发时由后端解密。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub extra_headers: Option<Option<std::collections::HashMap<String, String>>>,
 }
 
 /// 创建模型配置的输入参数

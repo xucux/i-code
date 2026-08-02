@@ -335,6 +335,7 @@ export function ProviderList() {
           timeoutJson: values.timeoutJson,
           retryJson: values.retryJson,
           scriptVariablesJson: values.scriptVariablesJson,
+          extraHeaders: values.extraHeaders,
         })
         if (result) {
           toast.success(t('aiGateway.providerList.updateSuccess'))

@@ -30,7 +30,7 @@ use serde_json::Value;
 use crate::error::{IcodeError, IcodeResult};
 use crate::modules::ai_gateway::repository::ExposedGatewayModelRow;
 use crate::modules::logger::Log;
-use crate::modules::secret::{build_secret_ref, SecretServiceHandle, SecretKind};
+use crate::modules::secret::{build_secret_ref, parse_secret_ref, SecretServiceHandle, SecretKind};
 
 use super::auth::oauth2::OAuth2Client;
 use super::auth::providers::{get_oauth_preset, is_oauth_method};
@@ -153,7 +153,7 @@ impl AiGatewayService {
         // 处理 AuthConfig：明文敏感字段加密后转为引用
         let auth_json = match input.auth.clone() {
             Some(auth) => {
-                let processed = self.process_auth_config_for_save(&auth)?;
+                let processed = self.process_auth_config_for_save(&auth, None)?;
                 Some(serde_json::to_string(&processed)?)
             }
             None => None,
@@ -221,6 +221,20 @@ impl AiGatewayService {
     /// `auth_method` / `auth_expires_at` 顶层冗余字段。
     /// 若传入新的 `script_variables_json`，会先加密其中的敏感变量值。
     pub fn update_provider(&self, id: &str, input: UpdateProviderInput) -> IcodeResult<Provider> {
+        self.update_provider_inner(id, input, None)
+    }
+
+    /// 更新供应商（内部实现）
+    ///
+    /// `existing_token_secret_id`：OAuth 续期场景传入旧 token 的 Secret 引用 id，
+    /// 新 token 将原地更新该 Secret（保留 id），避免每次续期产生孤儿记录；
+    /// 其余调用方传 None（明文敏感字段仍走新增 Secret）。
+    fn update_provider_inner(
+        &self,
+        id: &str,
+        input: UpdateProviderInput,
+        existing_token_secret_id: Option<&str>,
+    ) -> IcodeResult<Provider> {
         // 校验供应商存在
         let _existing = repository::find_provider_by_id(id)?;
 
@@ -228,7 +242,8 @@ impl AiGatewayService {
         // 同时派生 auth_method / auth_expires_at 顶层冗余字段
         let auth_json: Option<Option<String>> = match input.auth.clone() {
             Some(auth) => {
-                let processed = self.process_auth_config_for_save(&auth)?;
+                let processed =
+                    self.process_auth_config_for_save(&auth, existing_token_secret_id)?;
                 Some(Some(serde_json::to_string(&processed)?))
             }
             None => None,
@@ -267,14 +282,33 @@ impl AiGatewayService {
             None => None,
         };
 
-        repository::update_provider(
+        let provider = repository::update_provider(
             id,
             &input,
             auth_json.as_ref().map(|o| o.as_deref()),
             auth_method_str.as_ref().map(|o| o.as_deref()),
             auth_expires_at_str.as_ref().map(|o| o.as_deref()),
             script_variables_json.as_ref().map(|o| o.as_deref()),
-        )
+        )?;
+
+        // 处理供应商级附加请求头（三态语义）：
+        // - Some(Some(map)) → 全量替换（先删后插）
+        // - Some(None) → 清空全部
+        // - None → 不修改
+        // 值为 `$SECRET:{uuid}$` 引用时原样存储，转发时由 resolve_extra_headers_for_request 解密。
+        if let Some(headers) = &input.extra_headers {
+            let now = chrono::Utc::now().to_rfc3339();
+            match headers {
+                Some(map) => {
+                    repository::replace_provider_extra_headers(id, map, &now)?;
+                }
+                None => {
+                    repository::delete_provider_extra_headers(id)?;
+                }
+            }
+        }
+
+        Ok(provider)
     }
 
     /// 删除供应商
@@ -800,7 +834,14 @@ impl AiGatewayService {
     ///
     /// 若值已经是引用格式或为 None，则保持不变。
     /// 返回处理后的 AuthConfig（可安全序列化为 JSON 存储）。
-    fn process_auth_config_for_save(&self, auth: &AuthConfig) -> IcodeResult<AuthConfig> {
+    ///
+    /// `existing_token_secret_id`：OAuth 续期场景传入旧 token 的 Secret 引用 id，
+    /// 新 token 原地更新该 Secret（保留 id）；其余敏感字段传 None（新增 Secret）。
+    fn process_auth_config_for_save(
+        &self,
+        auth: &AuthConfig,
+        existing_token_secret_id: Option<&str>,
+    ) -> IcodeResult<AuthConfig> {
         match auth {
             AuthConfig::None => Ok(AuthConfig::None),
             AuthConfig::ApiKey {
@@ -808,7 +849,7 @@ impl AiGatewayService {
                 description,
                 api_key,
             } => {
-                let new_key = self.maybe_encrypt_secret(api_key, SecretKind::ApiKey)?;
+                let new_key = self.maybe_encrypt_secret(api_key, SecretKind::ApiKey, None)?;
                 Ok(AuthConfig::ApiKey {
                     label: label.clone(),
                     description: description.clone(),
@@ -823,7 +864,11 @@ impl AiGatewayService {
                 expires_at,
                 oauth,
             } => {
-                let new_token = self.maybe_encrypt_secret(token, SecretKind::OauthToken)?;
+                let new_token = self.maybe_encrypt_secret(
+                    token,
+                    SecretKind::OauthToken,
+                    existing_token_secret_id,
+                )?;
                 let new_oauth = oauth
                     .as_ref()
                     .map(|o| self.process_oauth2_config_for_save(o))
@@ -846,7 +891,7 @@ impl AiGatewayService {
                 key_file_path,
                 api_key,
             } => {
-                let new_key = self.maybe_encrypt_secret(api_key, SecretKind::ApiKey)?;
+                let new_key = self.maybe_encrypt_secret(api_key, SecretKind::ApiKey, None)?;
                 Ok(AuthConfig::GoogleVertexAiAuth {
                     label: label.clone(),
                     description: description.clone(),
@@ -869,7 +914,11 @@ impl AiGatewayService {
                 tier_id,
                 email,
             } => {
-                let new_token = self.maybe_encrypt_secret(token, SecretKind::OauthToken)?;
+                let new_token = self.maybe_encrypt_secret(
+                    token,
+                    SecretKind::OauthToken,
+                    existing_token_secret_id,
+                )?;
                 Ok(AuthConfig::AntigravityOauth {
                     label: label.clone(),
                     description: description.clone(),
@@ -896,7 +945,11 @@ impl AiGatewayService {
                 tier_id,
                 email,
             } => {
-                let new_token = self.maybe_encrypt_secret(token, SecretKind::OauthToken)?;
+                let new_token = self.maybe_encrypt_secret(
+                    token,
+                    SecretKind::OauthToken,
+                    existing_token_secret_id,
+                )?;
                 Ok(AuthConfig::GoogleGeminiOauth {
                     label: label.clone(),
                     description: description.clone(),
@@ -920,7 +973,11 @@ impl AiGatewayService {
                 account_id,
                 email,
             } => {
-                let new_token = self.maybe_encrypt_secret(token, SecretKind::OauthToken)?;
+                let new_token = self.maybe_encrypt_secret(
+                    token,
+                    SecretKind::OauthToken,
+                    existing_token_secret_id,
+                )?;
                 Ok(AuthConfig::OpenaiCodexAuth {
                     label: label.clone(),
                     description: description.clone(),
@@ -939,7 +996,11 @@ impl AiGatewayService {
                 expires_at,
                 email,
             } => {
-                let new_token = self.maybe_encrypt_secret(token, SecretKind::OauthToken)?;
+                let new_token = self.maybe_encrypt_secret(
+                    token,
+                    SecretKind::OauthToken,
+                    existing_token_secret_id,
+                )?;
                 Ok(AuthConfig::ClaudeCode {
                     label: label.clone(),
                     description: description.clone(),
@@ -957,7 +1018,11 @@ impl AiGatewayService {
                 expires_at,
                 email,
             } => {
-                let new_token = self.maybe_encrypt_secret(token, SecretKind::OauthToken)?;
+                let new_token = self.maybe_encrypt_secret(
+                    token,
+                    SecretKind::OauthToken,
+                    existing_token_secret_id,
+                )?;
                 Ok(AuthConfig::XaiGrokOauth {
                     label: label.clone(),
                     description: description.clone(),
@@ -977,7 +1042,11 @@ impl AiGatewayService {
                 github_login,
                 email,
             } => {
-                let new_token = self.maybe_encrypt_secret(token, SecretKind::OauthToken)?;
+                let new_token = self.maybe_encrypt_secret(
+                    token,
+                    SecretKind::OauthToken,
+                    existing_token_secret_id,
+                )?;
                 Ok(AuthConfig::GithubCopilot {
                     label: label.clone(),
                     description: description.clone(),
@@ -999,8 +1068,11 @@ impl AiGatewayService {
         &self,
         oauth: &super::types::OAuth2Config,
     ) -> IcodeResult<super::types::OAuth2Config> {
-        let new_client_secret =
-            self.maybe_encrypt_secret(&oauth.client_secret, SecretKind::OauthToken)?;
+        let new_client_secret = self.maybe_encrypt_secret(
+            &oauth.client_secret,
+            SecretKind::OauthToken,
+            None,
+        )?;
         Ok(super::types::OAuth2Config {
             grant_type: oauth.grant_type,
             token_url: oauth.token_url.clone(),
@@ -1021,16 +1093,28 @@ impl AiGatewayService {
         &self,
         value: &Option<String>,
         kind: SecretKind,
+        existing_secret_id: Option<&str>,
     ) -> IcodeResult<Option<String>> {
         match value {
             Some(v) if !v.is_empty() && !is_secret_ref(v) => {
                 // 明文值：加密保存，返回引用
                 let label = format!("{} (ai-gateway)", kind.as_str());
-                let mask =
-                    self.secret_handle
-                        .service()
-                        .save_secret(kind, v, Some(label.as_str()))?;
-                Ok(Some(build_secret_ref(&mask.id)))
+                match existing_secret_id {
+                    Some(id) => {
+                        // 续期场景：原地更新原 Secret（保留 id），避免孤儿记录
+                        self.secret_handle
+                            .service()
+                            .update_secret(id, v, Some(label.as_str()))?;
+                        Ok(Some(build_secret_ref(id)))
+                    }
+                    None => {
+                        let mask = self
+                            .secret_handle
+                            .service()
+                            .save_secret(kind, v, Some(label.as_str()))?;
+                        Ok(Some(build_secret_ref(&mask.id)))
+                    }
+                }
             }
             // None 或已是引用 → 原样返回
             other => Ok(other.clone()),
@@ -1097,8 +1181,12 @@ impl AiGatewayService {
                     .into_iter()
                     .map(|item| {
                         let new_value = if item.is_secret {
-                            self.maybe_encrypt_secret(&Some(item.value), SecretKind::ScriptVariable)
-                                .map(|v| v.unwrap_or_default())
+                            self.maybe_encrypt_secret(
+                                &Some(item.value),
+                                SecretKind::ScriptVariable,
+                                None,
+                            )
+                            .map(|v| v.unwrap_or_default())
                         } else {
                             Ok(item.value)
                         }?;
@@ -1694,6 +1782,14 @@ impl AiGatewayService {
             )));
         }
 
+        // 提取旧 token 的 Secret 引用 id（存储形态为 $SECRET:{id}$），
+        // 续期时对原 Secret 原地更新，避免每次续期产生孤儿记录
+        let existing_token_secret_id = raw_auth
+            .token()
+            .as_deref()
+            .and_then(parse_secret_ref)
+            .map(String::from);
+
         // 解析 $SECRET$ 引用为明文，再提取 token JSON
         let auth = self.resolve_auth_config(&raw_auth)?;
         let token_string = auth.token().filter(|s| !s.is_empty()).ok_or_else(|| {
@@ -1719,7 +1815,7 @@ impl AiGatewayService {
             auth: Some(new_auth),
             ..Default::default()
         };
-        self.update_provider(provider_id, update_input)
+        self.update_provider_inner(provider_id, update_input, existing_token_secret_id.as_deref())
     }
 
     /// 用新的 token 数据更新 AuthConfig

@@ -35,7 +35,8 @@ reflink = "0.1"
 
 # ===== 异步运行时与 HTTP 客户端 =====
 tokio = { version = "1.0", features = ["full"] }
-reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls", "socks", "blocking"] }
+# rustls-tls-native-roots：读取系统证书存储（Windows 证书库），支持信任用户安装的代理 MITM 根证书
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls-native-roots", "socks", "blocking"] }
 # URL 解析（脚本 HTTP host 白名单）
 url = "2"
 # futures 用于流式响应处理

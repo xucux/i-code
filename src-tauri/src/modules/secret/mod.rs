@@ -32,4 +32,4 @@ pub mod service;
 pub mod types;
 
 pub use service::SecretServiceHandle;
-pub use types::{build_secret_ref, SecretKind};
+pub use types::{build_secret_ref, parse_secret_ref, SecretKind};

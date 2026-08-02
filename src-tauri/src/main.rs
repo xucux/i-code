@@ -550,6 +550,7 @@ fn main() {
             // ===== AI Gateway 模块 =====
             modules::ai_gateway::commands::gateway_provider_list,
             modules::ai_gateway::commands::gateway_provider_get,
+            modules::ai_gateway::commands::gateway_provider_extra_headers_list,
             modules::ai_gateway::commands::gateway_provider_create,
             modules::ai_gateway::commands::gateway_provider_update,
             modules::ai_gateway::commands::gateway_provider_delete,

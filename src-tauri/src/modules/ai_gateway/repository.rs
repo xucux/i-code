@@ -1139,6 +1139,69 @@ pub fn insert_provider_extra_header(
     Ok(())
 }
 
+/// 查询供应商级附加请求头完整行（供前端编辑回填展示）
+///
+/// value 可能包含 `$SECRET:{snowflake_id}$` 引用，原样返回，由前端原样回传。
+pub fn list_provider_extra_header_rows(
+    provider_id: &str,
+) -> IcodeResult<Vec<super::types::ProviderExtraHeader>> {
+    let conn = get_conn()?;
+    let mut stmt = conn.prepare(
+        "SELECT provider_id, key, value, sort_order, created_at, updated_at
+         FROM provider_extra_headers WHERE provider_id = ?1 ORDER BY sort_order ASC",
+    )?;
+    let rows = stmt.query_map([provider_id], |row| {
+        Ok(super::types::ProviderExtraHeader {
+            provider_id: row.get(0)?,
+            key: row.get(1)?,
+            value: row.get(2)?,
+            sort_order: row.get(3)?,
+            created_at: row.get(4)?,
+            updated_at: row.get(5)?,
+        })
+    })?;
+    let mut result = Vec::new();
+    for row in rows {
+        result.push(row?);
+    }
+    Ok(result)
+}
+
+/// 全量替换供应商级附加请求头（事务：先删后插）
+///
+/// 由 Service 层在更新供应商时调用，保证与 `provider_extra_headers` 表数据一致。
+pub fn replace_provider_extra_headers(
+    provider_id: &str,
+    headers: &std::collections::HashMap<String, String>,
+    now: &str,
+) -> IcodeResult<()> {
+    let mut conn = get_conn()?;
+    let tx = conn.transaction()?;
+    tx.execute(
+        "DELETE FROM provider_extra_headers WHERE provider_id = ?1",
+        [provider_id],
+    )?;
+    for (i, (key, value)) in headers.iter().enumerate() {
+        tx.execute(
+            "INSERT INTO provider_extra_headers (provider_id, key, value, sort_order, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
+            rusqlite::params![provider_id, key, value, i as i64, now],
+        )?;
+    }
+    tx.commit()?;
+    Ok(())
+}
+
+/// 清空供应商级附加请求头
+pub fn delete_provider_extra_headers(provider_id: &str) -> IcodeResult<()> {
+    let conn = get_conn()?;
+    conn.execute(
+        "DELETE FROM provider_extra_headers WHERE provider_id = ?1",
+        [provider_id],
+    )?;
+    Ok(())
+}
+
 // ===== gateway_settings / gateway_auth_keys 行映射器与 SQL 片段 =====
 
 /// gateway_settings 表 SELECT 字段列表
