@@ -558,7 +558,7 @@ function SettingsPage() {
             <div className="flex items-center justify-between">
               <Label className="text-sm">{t('settings.about.version')}</Label>
               <div className="flex items-center gap-1">
-                <span className="text-xs text-muted-foreground tabular-nums">0.0.14</span>
+                <span className="text-xs text-muted-foreground tabular-nums">0.0.15</span>
                 <UpdateCheck />
               </div>
             </div>

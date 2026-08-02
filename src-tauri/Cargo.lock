@@ -2066,7 +2066,7 @@ dependencies = [
 
 [[package]]
 name = "i-code"
-version = "0.0.14"
+version = "0.0.15"
 dependencies = [
  "aes-gcm",
  "anyhow",
