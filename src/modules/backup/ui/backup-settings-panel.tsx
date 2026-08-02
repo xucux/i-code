@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ScrollPage } from '@/components/ui/scroll-page'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { UniversalPasswordCard } from '@/modules/secret/ui/universal-password-card'
 import { toast } from 'sonner'
 import type { BackupSettings, BackupFormat } from '@/modules/backup/types'
@@ -66,83 +67,91 @@ export function BackupSettingsPanel({
         {/* 通用密码 */}
         <UniversalPasswordCard configKey={configKey} onChange={onConfigKeyChange} />
 
-        {/* 本地备份设置 */}
-        <div className="space-y-2 rounded-md border p-3">
-          <div className="flex items-center gap-1.5">
-            <i className="fa-solid fa-folder-open size-3.5 text-muted-foreground" />
-            <Label className="text-sm font-semibold">{t('backup.settings.local')}</Label>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">{t('backup.settings.localDirectory')}</Label>
-            <Input
-              className="h-8 text-xs"
-              value={draft.localDirectory ?? ''}
-              onChange={(e) => setDraft((prev) => ({ ...prev, localDirectory: e.target.value }))}
-              placeholder={t('backup.settings.localDirectoryPlaceholder')}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
+        {/* 本地备份设置：与「通用密码」保持同一 Card 视觉 */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">
+              <i className="fa-solid fa-folder-open mr-2 text-muted-foreground" />
+              {t('backup.settings.local')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
             <div className="space-y-1.5">
-              <Label className="text-xs">{t('backup.settings.defaultFormat')}</Label>
-              <Select
-                value={draft.defaultFormat}
-                onValueChange={(v) => setDraft((prev) => ({ ...prev, defaultFormat: v as BackupFormat }))}
-              >
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="zip">zip</SelectItem>
-                  <SelectItem value="tar-gz">tar.gz</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">{t('backup.settings.localRetention')}</Label>
+              <Label className="text-xs">{t('backup.settings.localDirectory')}</Label>
               <Input
-                type="number"
-                min={0}
                 className="h-8 text-xs"
-                value={draft.localRetentionCount ?? 0}
-                onChange={(e) =>
-                  setDraft((prev) => ({ ...prev, localRetentionCount: parseInt(e.target.value, 10) }))
-                }
+                value={draft.localDirectory ?? ''}
+                onChange={(e) => setDraft((prev) => ({ ...prev, localDirectory: e.target.value }))}
+                placeholder={t('backup.settings.localDirectoryPlaceholder')}
               />
             </div>
-          </div>
-        </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">{t('backup.settings.defaultFormat')}</Label>
+                <Select
+                  value={draft.defaultFormat}
+                  onValueChange={(v) => setDraft((prev) => ({ ...prev, defaultFormat: v as BackupFormat }))}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="zip">zip</SelectItem>
+                    <SelectItem value="tar-gz">tar.gz</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">{t('backup.settings.localRetention')}</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  className="h-8 text-xs"
+                  value={draft.localRetentionCount ?? 0}
+                  onChange={(e) =>
+                    setDraft((prev) => ({ ...prev, localRetentionCount: parseInt(e.target.value, 10) }))
+                  }
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-        {/* 通用策略设置（不含 WebDAV 连接，连接配置见 WebDAV Tab） */}
-        <div className="space-y-2 rounded-md border p-3">
-          <div className="flex items-center gap-1.5">
-            <i className="fa-solid fa-sliders size-3.5 text-muted-foreground" />
-            <Label className="text-sm font-semibold">{t('backup.settings.policy')}</Label>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs">{t('backup.settings.webdavRetention')}</Label>
-              <Input
-                type="number"
-                min={0}
-                className="h-8 text-xs"
-                value={draft.webdavRetentionCount ?? 0}
-                onChange={(e) =>
-                  setDraft((prev) => ({ ...prev, webdavRetentionCount: parseInt(e.target.value, 10) }))
-                }
-              />
+        {/* 通用策略设置（不含 WebDAV 连接，连接配置见 WebDAV Tab）：与「通用密码」保持同一 Card 视觉 */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">
+              <i className="fa-solid fa-sliders mr-2 text-muted-foreground" />
+              {t('backup.settings.policy')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">{t('backup.settings.webdavRetention')}</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  className="h-8 text-xs"
+                  value={draft.webdavRetentionCount ?? 0}
+                  onChange={(e) =>
+                    setDraft((prev) => ({ ...prev, webdavRetentionCount: parseInt(e.target.value, 10) }))
+                  }
+                />
+              </div>
+              <div className="flex items-end gap-2 pb-1">
+                <Switch
+                  id="safety-backup"
+                  checked={draft.enableSafetyBackupBeforeRestore}
+                  onCheckedChange={(v) => setDraft((prev) => ({ ...prev, enableSafetyBackupBeforeRestore: v }))}
+                />
+                <Label htmlFor="safety-backup" className="text-xs">
+                  {t('backup.settings.safetyBackup')}
+                </Label>
+              </div>
             </div>
-            <div className="flex items-end gap-2 pb-1">
-              <Switch
-                id="safety-backup"
-                checked={draft.enableSafetyBackupBeforeRestore}
-                onCheckedChange={(v) => setDraft((prev) => ({ ...prev, enableSafetyBackupBeforeRestore: v }))}
-              />
-              <Label htmlFor="safety-backup" className="text-xs">
-                {t('backup.settings.safetyBackup')}
-              </Label>
-            </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         <div className="flex justify-end">
           <Button size="sm" onClick={() => void handleSave()} disabled={saving}>
