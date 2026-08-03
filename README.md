@@ -16,6 +16,9 @@
   <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react" alt="React 19" />
   <img src="https://img.shields.io/badge/Rust-2021-000000?style=flat-square&logo=rust" alt="Rust 2021" />
   <img src="https://img.shields.io/badge/pnpm-11.x-F69220?style=flat-square&logo=pnpm" alt="pnpm 11" />
+  <a href="https://github.com/xucux/i-code-script-templates">
+    <img src="https://img.shields.io/badge/Script%20Templates-Repository-4B32C3?style=flat-square" alt="Script Templates Repository" />
+  </a>
   <a href="./README.zh-CN.md">
     <img src="https://img.shields.io/badge/中文-README-blue?style=flat-square" alt="中文 README" />
   </a>
@@ -28,14 +31,15 @@
   <a href="#getting-started">Getting Started</a> •
   <a href="#development">Development</a> •
   <a href="#architecture">Architecture</a> •
-  <a href="#security">Security</a> •
-  <a href="./GUIDE.md">User Guide</a>
+  <a href="#security">Security</a>
 </p>
-
-<!-- 在此处增加英文文档 / 中文文档的链接 -->
 
 ---
 
+<p align="center">
+  <a href="./GUIDE.md">User Guide</a> •
+  <a href="./README.zh-CN.md">中文 README</a>
+</p>
 ## Features
 
 - **AI Gateway Management**: Centrally manage multiple LLM providers (OpenAI, Anthropic, Gemini, OpenRouter, etc.) with multi-protocol and authentication support.
@@ -46,7 +50,8 @@
 - **Balance & Usage Monitoring**: Track provider balances and model call records.
 - **Backup & Restore**: Local and WebDAV backup support with SQLite Online Backup API.
 - **In-App Diagnostics**: Dual logging system for development traces and operational event logs.
-<!-- 在此处增加脚本和脚本市场的特性、Cline免费模型代理 -->
+- **Script Templates & Marketplace**: Create and manage Rhai balance-monitoring script templates with a draft/active/disabled lifecycle, a CodeMirror editor with built-in snippets and system-variable docs, sandboxed trial runs, and an in-app marketplace to browse the public template repository and apply templates with one click.
+- **Cline Free Model Proxy**: Built-in Cline Free provider preset with an automatic `x-client-type: cline-cli` header and default free models (GLM-5.2 / DeepSeek V4 Flash), proxied through the local gateway.
 
 ## Screenshots
 

@@ -16,6 +16,9 @@
   <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react" alt="React 19" />
   <img src="https://img.shields.io/badge/Rust-2021-000000?style=flat-square&logo=rust" alt="Rust 2021" />
   <img src="https://img.shields.io/badge/pnpm-11.x-F69220?style=flat-square&logo=pnpm" alt="pnpm 11" />
+  <a href="https://github.com/xucux/i-code-script-templates">
+    <img src="https://img.shields.io/badge/Script%20Templates-Repository-4B32C3?style=flat-square" alt="脚本模板仓库" />
+  </a>
   <a href="./README.md">
     <img src="https://img.shields.io/badge/English-README-blue?style=flat-square" alt="English README" />
   </a>
@@ -28,12 +31,15 @@
   <a href="#快速开始">快速开始</a> •
   <a href="#开发指南">开发指南</a> •
   <a href="#架构设计">架构设计</a> •
-  <a href="#安全说明">安全说明</a> •
-  <a href="./GUIDE.md">使用指南</a>
+  <a href="#安全说明">安全说明</a>
 </p>
 
 ---
 
+<p align="center">
+  <a href="./GUIDE.md">使用指南</a> •
+  <a href="./README.md">English README</a>
+</p>
 ## 功能特性
 
 - **AI 网关管理**：集中管理多 LLM 供应商（OpenAI、Anthropic、Gemini、OpenRouter 等），支持多协议与多种认证方式。
@@ -44,6 +50,8 @@
 - **额度与调用监控**：支持供应商额度查询与模型调用记录统计。
 - **备份与恢复**：支持本地备份与 WebDAV 备份，使用 SQLite Online Backup API。
 - **应用内诊断日志**：双日志机制，分别服务开发调试与业务运行时诊断。
+- **脚本模板与模板市场**：支持 Rhai 额度监控脚本模板的增删改查与生命周期管理（草稿/启用/禁用）、CodeMirror 编辑器（内置 snippet 与系统变量/函数文档）与沙箱试运行，并可在应用内浏览公共模板仓库、一键应用为本地模板。
+- **Cline 免费模型代理**：内置 Cline Free 供应商预设（自动附带 `x-client-type: cline-cli` 请求头，默认关联 GLM-5.2 / DeepSeek V4 Flash 免费模型），可经本地网关统一代理访问免费模型。
 
 ## 应用截图
 
