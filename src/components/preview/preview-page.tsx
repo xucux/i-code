@@ -398,7 +398,9 @@ export default function PreviewPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="zh-CN">{t('locale.zhCN', { ns: 'locale' })}</SelectItem>
+                  <SelectItem value="zh-TW">{t('locale.zhTW', { ns: 'locale' })}</SelectItem>
                   <SelectItem value="en">{t('locale.en', { ns: 'locale' })}</SelectItem>
+                  <SelectItem value="ja">{t('locale.ja', { ns: 'locale' })}</SelectItem>
                 </SelectContent>
               </Select>
 

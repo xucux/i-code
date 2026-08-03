@@ -49,7 +49,9 @@
   "locale": {
     "title": "语言",
     "zhCN": "简体中文",
-    "en": "English"
+    "zhTW": "繁體中文",
+    "en": "English",
+    "ja": "日本語"
   },
   "settings": {
     "title": "设置",

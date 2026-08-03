@@ -24,7 +24,7 @@ i-code 是一款基于 Tauri 2.x 的本地桌面应用，用于：
 - **统一入口**：一处配置，多处使用；CLI 通过路由模式复用同一套 Gateway 供应商。
 - **安全存储**：API Key、OAuth Token、代理认证等敏感信息目前加密落库，使用aes密钥（界面可配置或快捷生成）加密。
 - **模块独立**：像后端 DDD 一样划分模块，各域之间通过显式接口/事件交互，降低耦合。
-- **可扩展主题与国际化**：所有 UI 组件默认支持 `dark / light / claude-light / claude-dark / deepseek-light / deepseek-dark / nvidia-light / nvidia-dark` 八种主题，并支持 `zh-CN / en` 两种语言。
+- **可扩展主题与国际化**：所有 UI 组件默认支持 `dark / light / claude-light / claude-dark / deepseek-light / deepseek-dark / nvidia-light / nvidia-dark` 八种主题，并支持 `zh-CN / zh-TW / en / ja` 四种语言。
 - **向后兼容参考项目**：类型、配置字段、内置供应商/模型数据尽量与 `vscode-unify-chat-provider-7.12.3` 对齐，便于未来导入/迁移。
 
 ---
@@ -39,7 +39,7 @@ i-code 是一款基于 Tauri 2.x 的本地桌面应用，用于：
 | 包管理 | pnpm |
 | UI 组件库 | shadcn/ui + Tailwind CSS |
 | 图标 | Font Awesome / Lucide（fonticon 语义） |
-| 国际化 | i18next 或 react-intl（zh-CN / en） |
+| 国际化 | i18next（zh-CN / zh-TW / en / ja） |
 | 本地存储 | SQLite 3（通过 `tauri-plugin-sql` 或 Rust `rusqlite`） |
 | 后端服务 | Rust（Tauri Commands + State + 本地 HTTP Server） |
 | 路由/导航 | TanStack Router（文件系统路由、类型安全 loader） |
@@ -447,12 +447,13 @@ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Micr
 
 ### 5.3 i18n
 
-职责：提供 `zh-CN / en` 双语支持。
+职责：提供 `zh-CN / zh-TW / en / ja` 四种语言支持。
 
 - `i18n.ts`：初始化 i18next，加载语言包，默认语言从 `app_settings.locale` 读取。
 - `use-translation.ts`：封装 `useTranslation`，支持命名空间（如 `t('provider.form.title')`）。
 - `locales/*.json`：按模块命名空间组织键名，例如 `ai-gateway.provider.name`、`workspace.prompt.empty`。
 - 所有用户可见字符串必须走 i18n；键名采用 `模块.页面.元素` 三段式。
+- 新增语言时需同步：`src/modules/i18n/locales/` 下新增 JSON、`src/core/types.ts` 的 `Locale` 联合类型、`src-tauri/src/modules/settings/types.rs` 的 `Locale` 枚举、设置页与预览页的语言选项。日期组件 locale 在 `use-date-locale.ts` 中映射。
 
 ### 5.4 settings/app
 

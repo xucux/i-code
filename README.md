@@ -32,6 +32,8 @@
   <a href="./GUIDE.md">User Guide</a>
 </p>
 
+<!-- 在此处增加英文文档 / 中文文档的链接 -->
+
 ---
 
 ## Features
@@ -44,6 +46,7 @@
 - **Balance & Usage Monitoring**: Track provider balances and model call records.
 - **Backup & Restore**: Local and WebDAV backup support with SQLite Online Backup API.
 - **In-App Diagnostics**: Dual logging system for development traces and operational event logs.
+<!-- 在此处增加脚本和脚本市场的特性、Cline免费模型代理 -->
 
 ## Screenshots
 

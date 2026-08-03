@@ -967,11 +967,21 @@ fn auto_title_from_content(content: &str, attachments: &[ChatAttachment]) -> Str
 /// 根据当前 locale 构造首条消息注入的 system 提示内容。
 ///
 /// - `en`：使用英文提示，与 locale 语言一致；
-/// - 其他（含 `zh-CN`）：使用中文提示。
+/// - `ja`：使用日文提示；
+/// - `zh-TW`：使用繁体中文提示；
+/// - 其他（含 `zh-CN`）：使用简体中文提示。
 fn build_locale_system_content(locale: &str) -> String {
     match locale {
         "en" => format!(
             "The current application locale is {}. Please respond in the corresponding language.",
+            locale
+        ),
+        "ja" => format!(
+            "現在のアプリの言語設定は {} です。この言語でユーザーに応答してください。",
+            locale
+        ),
+        "zh-TW" => format!(
+            "目前應用程式的語言設定為 {}，請使用該語言回覆使用者。",
             locale
         ),
         _ => format!(

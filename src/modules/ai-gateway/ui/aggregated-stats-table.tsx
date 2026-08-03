@@ -46,10 +46,17 @@ function formatNumber(value: number, fractionDigits = 0): string {
 }
 
 /**
- * 格式化金额：中文环境使用 ¥，其他环境使用 $
+ * 格式化金额：简体中文/日语使用 ¥，繁体中文使用 NT$，其他环境使用 $
  */
+const currencySymbol: Record<string, string> = {
+  'zh-CN': '¥',
+  'zh-TW': 'NT$',
+  ja: '¥',
+  en: '$',
+}
+
 function formatCny(value: number): string {
-  const symbol = getLocale() === 'zh-CN' ? '¥' : '$'
+  const symbol = currencySymbol[getLocale()] ?? '$'
   return `${symbol}${value.toLocaleString('zh-CN', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}`
 }
 

@@ -48,3 +48,4 @@ report.*.json
 *.py
 doc/
 old_docs/
+scripts/*.json

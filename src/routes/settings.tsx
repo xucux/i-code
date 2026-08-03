@@ -178,7 +178,9 @@ function SettingsPage() {
 
   const languages = [
     { key: 'zh-CN', label: t('locale.zhCN') },
+    { key: 'zh-TW', label: t('locale.zhTW') },
     { key: 'en', label: t('locale.en') },
+    { key: 'ja', label: t('locale.ja') },
   ] as const
 
   const currentLanguage = i18n.language ?? 'zh-CN'

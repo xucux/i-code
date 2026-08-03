@@ -67,8 +67,12 @@ impl Theme {
 pub enum Locale {
     #[serde(rename = "zh-CN")]
     ZhCn,
+    #[serde(rename = "zh-TW")]
+    ZhTw,
     #[serde(rename = "en")]
     En,
+    #[serde(rename = "ja")]
+    Ja,
 }
 
 impl Locale {
@@ -76,7 +80,9 @@ impl Locale {
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
             "zh-CN" => Some(Self::ZhCn),
+            "zh-TW" => Some(Self::ZhTw),
             "en" => Some(Self::En),
+            "ja" => Some(Self::Ja),
             _ => None,
         }
     }
@@ -85,7 +91,9 @@ impl Locale {
     pub fn as_str(&self) -> &'static str {
         match self {
             Self::ZhCn => "zh-CN",
+            Self::ZhTw => "zh-TW",
             Self::En => "en",
+            Self::Ja => "ja",
         }
     }
 }
@@ -342,10 +350,14 @@ mod tests {
     #[test]
     fn test_locale_roundtrip() {
         assert_eq!(Locale::from_str("zh-CN"), Some(Locale::ZhCn));
+        assert_eq!(Locale::from_str("zh-TW"), Some(Locale::ZhTw));
         assert_eq!(Locale::from_str("en"), Some(Locale::En));
-        assert_eq!(Locale::from_str("ja"), None);
+        assert_eq!(Locale::from_str("ja"), Some(Locale::Ja));
+        assert_eq!(Locale::from_str("fr"), None);
         assert_eq!(Locale::ZhCn.as_str(), "zh-CN");
+        assert_eq!(Locale::ZhTw.as_str(), "zh-TW");
         assert_eq!(Locale::En.as_str(), "en");
+        assert_eq!(Locale::Ja.as_str(), "ja");
     }
 
     #[test]

@@ -80,7 +80,7 @@ export type Theme = 'light' | 'dark' | 'claude-light' | 'claude-dark' | 'deepsee
 /**
  * 应用语言枚举
  */
-export type Locale = 'zh-CN' | 'en'
+export type Locale = 'zh-CN' | 'zh-TW' | 'en' | 'ja'
 
 /** 兼容性别名 */
 export type AppTheme = Theme

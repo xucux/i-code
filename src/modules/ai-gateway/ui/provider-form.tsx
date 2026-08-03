@@ -2510,7 +2510,7 @@ function ModelManagementSection({ provider }: ModelManagementSectionProps) {
                       <Input id="model-edit-tokenCountMultiplier" type="number" step="0.1" {...modelEditForm.register('tokenCountMultiplier', { valueAsNumber: true })} className="h-8 text-xs" />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs" htmlFor="model-edit-pricePer1mTokens">{t('aiGateway.providerForm.modelEdit.pricePer1mTokens', i18n.language === 'zh-CN' ? '¥ / 百万 tokens' : '$ / million tokens')}</Label>
+                      <Label className="text-xs" htmlFor="model-edit-pricePer1mTokens">{t('aiGateway.providerForm.modelEdit.pricePer1mTokens', ({ 'zh-CN': '¥ / 百万 tokens', 'zh-TW': '¥ / 百萬 tokens', ja: '¥ / 100万 tokens' } as Record<string, string>)[i18n.language] ?? '$ / million tokens')}</Label>
                       <Input id="model-edit-pricePer1mTokens" type="number" step="0.0001" {...modelEditForm.register('pricePer1mTokens')} className="h-8 text-xs" />
                     </div>
                     <div className="flex items-end pb-1.5">

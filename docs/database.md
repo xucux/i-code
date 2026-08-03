@@ -102,7 +102,7 @@ erDiagram
 |------|------|------|------|
 | `id` | TEXT | PK | 固定单例 `default` |
 | `theme` | TEXT | NOT NULL | `light` / `dark` / `claude-light` / `claude-dark` / `deepseek-light` / `deepseek-dark` / `nvidia-light` / `nvidia-dark` |
-| `locale` | TEXT | NOT NULL | `zh-CN` / `en` |
+| `locale` | TEXT | NOT NULL | `zh-CN` / `zh-TW` / `en` / `ja` |
 | `global_proxy_json` | TEXT | | 全局代理 `ProxyConfig` |
 | `network_timeout_ms` | INTEGER | | 默认请求超时 |
 | `network_retry_json` | TEXT | | 全局重试策略 `RetryConfig` JSON，见 §5.8 |
