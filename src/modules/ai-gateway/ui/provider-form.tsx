@@ -455,6 +455,7 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
   const [timeoutConnection, setTimeoutConnection] = useState(5000)
   const [timeoutResponse, setTimeoutResponse] = useState(120000)
   const [maxRetries, setMaxRetries] = useState(3)
+  const [retryInterval, setRetryInterval] = useState(2000)
 
   // 扩展模板变量
   const [scriptVariables, setScriptVariables] = useState<ProviderScriptVariable[]>([])
@@ -594,10 +595,12 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
       }
       // 解析 retryJson
       try {
-        const retry = provider.retryJson ? JSON.parse(provider.retryJson) as { maxRetries?: number } : null
+        const retry = provider.retryJson ? JSON.parse(provider.retryJson) as { maxRetries?: number; initialDelayMs?: number } : null
         setMaxRetries(retry?.maxRetries ?? 3)
+        setRetryInterval(retry?.initialDelayMs ?? 2000)
       } catch {
         setMaxRetries(3)
+        setRetryInterval(2000)
       }
       // 解析 scriptVariablesJson
       try {
@@ -662,6 +665,7 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
       setTimeoutConnection(5000)
       setTimeoutResponse(120000)
       setMaxRetries(3)
+      setRetryInterval(2000)
       setScriptVariables([])
       // 应用内置预设预填充值（延迟 setValue 避免与 reset 冲突）
       if (initialValues) {
@@ -730,8 +734,8 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
       : undefined
 
     // 构建 retryJson（仅非默认值时提交）
-    const retryJson = maxRetries !== 3
-      ? JSON.stringify({ maxRetries })
+    const retryJson = (maxRetries !== 3 || retryInterval !== 2000)
+      ? JSON.stringify({ maxRetries, initialDelayMs: retryInterval })
       : undefined
 
     onSubmit({
@@ -1507,14 +1511,25 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
                   />
                 </div>
               </div>
-              <div className="mt-2 space-y-1.5">
-                <Label className="text-[11px]">{t('aiGateway.providerForm.maxRetries')}</Label>
-                <Input
-                  type="number"
-                  value={maxRetries}
-                  onChange={(e) => setMaxRetries(Number(e.target.value) || 0)}
-                  className="h-8 text-xs"
-                />
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <div className="space-y-1.5">
+                  <Label className="text-[11px]">{t('aiGateway.providerForm.maxRetries')}</Label>
+                  <Input
+                    type="number"
+                    value={maxRetries}
+                    onChange={(e) => setMaxRetries(Number(e.target.value) || 0)}
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[11px]">{t('aiGateway.providerForm.retryInterval')}</Label>
+                  <Input
+                    type="number"
+                    value={retryInterval}
+                    onChange={(e) => setRetryInterval(Number(e.target.value) || 0)}
+                    className="h-8 text-xs"
+                  />
+                </div>
               </div>
             </div>
 

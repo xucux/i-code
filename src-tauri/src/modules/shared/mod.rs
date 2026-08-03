@@ -192,31 +192,89 @@ pub struct TimeoutConfig {
 #[serde(rename_all = "camelCase")]
 pub struct RetryConfig {
     /// 最大重试次数（不含首次请求）
+    #[serde(default = "default_max_retries")]
     pub max_retries: u32,
-    /// 初始退避延迟（毫秒）
+    /// 初始退避延迟（毫秒），前端展示为「重试间隔」
+    #[serde(default = "default_initial_delay_ms")]
     pub initial_delay_ms: u64,
     /// 最大退避延迟上限（毫秒）
+    #[serde(default = "default_max_delay_ms")]
     pub max_delay_ms: u64,
     /// 退避倍率（每次延迟 = 上次延迟 × 倍率）
+    #[serde(default = "default_backoff_multiplier")]
     pub backoff_multiplier: f64,
     /// 抖动因子（0.0-1.0），添加随机性避免同步重试
+    #[serde(default = "default_jitter_factor")]
     pub jitter_factor: f64,
     /// 触发重试的 HTTP 状态码列表（如 429、500、502、503、504）
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[serde(default = "default_status_codes", skip_serializing_if = "Vec::is_empty")]
     pub status_codes: Vec<u16>,
 }
 
+fn default_max_retries() -> u32 { 3 }
+fn default_initial_delay_ms() -> u64 { 2000 }
+fn default_max_delay_ms() -> u64 { 8000 }
+fn default_backoff_multiplier() -> f64 { 2.0 }
+fn default_jitter_factor() -> f64 { 0.2 }
+fn default_status_codes() -> Vec<u16> { vec![429, 500, 502, 503, 504] }
+
 impl Default for RetryConfig {
-    /// 默认重试策略：3 次重试，初始 500ms，最大 8s，倍率 2.0，抖动 0.2
+    /// 默认重试策略：3 次重试，初始间隔 2s，最大 8s，倍率 2.0，抖动 0.2
     fn default() -> Self {
         Self {
             max_retries: 3,
-            initial_delay_ms: 500,
+            initial_delay_ms: 2000,
             max_delay_ms: 8000,
             backoff_multiplier: 2.0,
             jitter_factor: 0.2,
             status_codes: vec![429, 500, 502, 503, 504],
         }
+    }
+}
+
+impl RetryConfig {
+    /// 从供应商 `retry_json` 解析配置；JSON 为空或解析失败时返回默认值
+    pub fn from_json(json: Option<&str>) -> Self {
+        let Some(json_str) = json.filter(|s| !s.is_empty()) else {
+            return Self::default();
+        };
+        match serde_json::from_str::<Self>(json_str) {
+            Ok(cfg) => cfg,
+            Err(e) => {
+                tracing::warn!("解析 retry_json 失败，使用默认配置: {} | raw={}", e, json_str);
+                Self::default()
+            }
+        }
+    }
+
+    /// 计算第 `attempt` 次重试（从 1 开始）的延迟毫秒数
+    ///
+    /// 采用指数退避 + 抖动：
+    /// - 基础延迟 = `initial_delay_ms * backoff_multiplier^(attempt-1)`
+    /// - 上限截断 = `max_delay_ms`
+    /// - 抖动 = `delay * (1 - jitter_factor + rand(0..1) * 2 * jitter_factor)`
+    pub fn retry_delay_ms(&self, attempt: u32) -> u64 {
+        if attempt == 0 {
+            return 0;
+        }
+        let exponent = (attempt - 1) as f64;
+        let base = self.initial_delay_ms as f64 * self.backoff_multiplier.powf(exponent);
+        let capped = base.min(self.max_delay_ms as f64);
+
+        // 抖动：在 [delay*(1-j), delay*(1+j)] 范围内随机
+        let jitter_range = capped * self.jitter_factor;
+        let jitter = if jitter_range > 0.0 {
+            // 简单的伪随机：使用线程本地时间纳秒做种子
+            let nanos = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.subsec_nanos() as f64)
+                .unwrap_or(0.0);
+            (nanos / 1_000_000_000.0) * 2.0 * jitter_range - jitter_range
+        } else {
+            0.0
+        };
+
+        (capped + jitter).max(0.0) as u64
     }
 }
 
@@ -413,8 +471,48 @@ mod tests {
     fn test_retry_config_default() {
         let config = RetryConfig::default();
         assert_eq!(config.max_retries, 3);
+        assert_eq!(config.initial_delay_ms, 2000);
         assert_eq!(config.status_codes.len(), 5);
         assert!(config.status_codes.contains(&429));
+        assert!(config.status_codes.contains(&503));
+    }
+
+    #[test]
+    fn test_retry_config_from_json() {
+        // 空 JSON → 默认值
+        let cfg = RetryConfig::from_json(None);
+        assert_eq!(cfg.max_retries, 3);
+
+        let cfg = RetryConfig::from_json(Some(""));
+        assert_eq!(cfg.max_retries, 3);
+
+        // 部分字段
+        let cfg = RetryConfig::from_json(Some(r#"{"maxRetries":5,"initialDelayMs":3000}"#));
+        assert_eq!(cfg.max_retries, 5);
+        assert_eq!(cfg.initial_delay_ms, 3000);
+        // 未指定字段用 serde default
+        assert!(!cfg.status_codes.is_empty());
+
+        // 非法 JSON → 默认值
+        let cfg = RetryConfig::from_json(Some("{invalid}"));
+        assert_eq!(cfg.max_retries, 3);
+    }
+
+    #[test]
+    fn test_retry_delay_ms() {
+        let cfg = RetryConfig {
+            max_retries: 3,
+            initial_delay_ms: 2000,
+            max_delay_ms: 8000,
+            backoff_multiplier: 2.0,
+            jitter_factor: 0.0, // 关闭抖动便于断言
+            status_codes: vec![],
+        };
+        assert_eq!(cfg.retry_delay_ms(0), 0);
+        assert_eq!(cfg.retry_delay_ms(1), 2000);
+        assert_eq!(cfg.retry_delay_ms(2), 4000);
+        assert_eq!(cfg.retry_delay_ms(3), 8000);
+        assert_eq!(cfg.retry_delay_ms(4), 8000); // 被 max_delay_ms 截断
     }
 
     #[test]

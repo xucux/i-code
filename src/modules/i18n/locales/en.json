@@ -409,6 +409,7 @@
       "timeoutConnection": "Connection timeout (ms)",
       "timeoutResponse": "Response timeout (ms)",
       "maxRetries": "Max retries",
+      "retryInterval": "Retry interval (ms)",
       "extraHeaders": {
         "title": "Extra Headers",
         "hint": "Extra headers injected when forwarding to upstream, overriding defaults. Values support template variables: ${uuid()} (random per request), ${uuid_by_day()} (fixed per day), ${variables[\"key\"]} (template variables).",

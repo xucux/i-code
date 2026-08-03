@@ -1,7 +1,7 @@
 # i-code Gateway Runtime 设计文档
 
-> 版本：v0.2.0  
-> 最后更新：2026-07-17  
+> 版本：v0.3.0
+> 最后更新：2026-08-03
 > 关联模块：`src-tauri/src/modules/gateway_runtime/`、`src-tauri/src/modules/ai-gateway/`、`src-tauri/src/modules/virtual_provider/`、`src-tauri/src/modules/logger/`、`src-tauri/src/modules/call_records/`  
 > 参考项目：`参考项目/vscode-unify-chat-provider-7.12.3/src/client/`
 
@@ -198,6 +198,77 @@ fn protocol_tags(provider_type: &str, transport: Option<&str>, is_stream: bool) 
 - 上游连接失败、认证失败、超时等统一转换为 `IcodeError`。
 - `upstream_error_response(err)` 构造 OpenAI 兼容错误体返回客户端。
 - 错误信息同时写入 `call_records` 和 `logger`。
+
+### 5.7 供应商级重试
+
+`DirectForwarder::execute` 在 HTTP 请求层面实现供应商级自动重试，读取 `provider.retry_json` 解析 `RetryConfig`。
+
+#### 配置结构
+
+`retry_json` 存储在 `providers` 表中，JSON 格式（camelCase）：
+
+```json
+{
+  "maxRetries": 3,
+  "initialDelayMs": 2000,
+  "maxDelayMs": 8000,
+  "backoffMultiplier": 2.0,
+  "jitterFactor": 0.2,
+  "statusCodes": [429, 500, 502, 503, 504]
+}
+```
+
+前端仅暴露 `maxRetries`（最大重试次数）与 `initialDelayMs`（重试间隔），其余字段使用默认值。
+
+| 字段 | 默认值 | 说明 |
+|------|--------|------|
+| `maxRetries` | 3 | 最大重试次数（不含首次请求）；设为 0 禁用重试 |
+| `initialDelayMs` | 2000 | 初始退避延迟（毫秒），前端展示为「重试间隔」 |
+| `maxDelayMs` | 8000 | 退避延迟上限（毫秒） |
+| `backoffMultiplier` | 2.0 | 指数退避倍率 |
+| `jitterFactor` | 0.2 | 抖动因子（0.0-1.0），避免雪崩 |
+| `statusCodes` | [429,500,502,503,504] | 触发重试的 HTTP 状态码 |
+
+`retry_json` 为空或未设置时使用全部默认值（等同于上述配置）。
+
+#### 重试触发条件
+
+| 场景 | 是否重试 | 说明 |
+|------|----------|------|
+| 网络错误（DNS/TCP/TLS/超时） | ✅ | `ClientError::RequestFailed` |
+| HTTP 429 / 500 / 502 / 503 / 504 | ✅ | 状态码在 `statusCodes` 列表中 |
+| HTTP 4xx（除 429） | ❌ | 认证/请求格式错误，重试无意义 |
+| HTTP 2xx | ❌ | 请求成功 |
+| 流式响应已开始（2xx + SSE） | ❌ | 流已透传到客户端，无法中断重传 |
+
+#### 退避延迟计算
+
+第 N 次重试（从 1 开始）的延迟：
+
+```
+base = initialDelayMs × backoffMultiplier^(N-1)
+delay = min(base, maxDelayMs)
+jitter = delay × jitterFactor × (random ∈ [-1, 1])
+final = delay + jitter
+```
+
+示例（`initialDelayMs=2000`, `backoffMultiplier=2.0`, `maxDelayMs=8000`）：
+
+| 重试次数 | 基础延迟 | 实际延迟范围（含 ±20% 抖动） |
+|----------|----------|-------------------------------|
+| 1 | 2000ms | 1600ms ~ 2400ms |
+| 2 | 4000ms | 3200ms ~ 4800ms |
+| 3 | 8000ms | 6400ms ~ 9600ms |
+
+#### 与虚拟供应商故障转移的关系
+
+`VirtualForwarder` 内部使用 `DirectForwarder`，因此虚拟路由的每条候选路由都会先执行供应商级重试，
+重试耗尽后才降级健康度并切换到下一条路由。执行顺序：
+
+```
+请求 → 虚拟路由 1 → DirectForwarder 重试（maxRetries 次）→ 全部失败 → 降级路由 1
+     → 虚拟路由 2 → DirectForwarder 重试（maxRetries 次）→ 成功 → 返回
+```
 
 ---
 

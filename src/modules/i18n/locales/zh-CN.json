@@ -409,6 +409,7 @@
       "timeoutConnection": "连接超时（毫秒）",
       "timeoutResponse": "响应超时（毫秒）",
       "maxRetries": "最大重试次数",
+      "retryInterval": "重试间隔（毫秒）",
       "extraHeaders": {
         "title": "附加请求头",
         "hint": "转发到上游时注入的额外请求头，可覆盖默认头。值支持模板变量：${uuid()}（每次请求随机）、${uuid_by_day()}（当天固定）、${variables[\"key\"]}（模板变量）。",

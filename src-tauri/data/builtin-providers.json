@@ -538,6 +538,9 @@
       "autoFetchOfficialModels": false,
       "sortOrder": 28,
       "displayCnName": "Cline 免费",
+      "defaultExtraHeaders": {
+        "x-client-type": "cline-cli"
+      },
       "defaultModels":[
         {
           "modelId":"cline-free/glm-5.2",
