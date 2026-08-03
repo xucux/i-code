@@ -23,6 +23,7 @@ use crate::modules::gateway_runtime::logging::{
 };
 use crate::modules::gateway_runtime::service::GatewaySharedState;
 use crate::modules::logger::types::LogLevel;
+use crate::modules::logger::Log;
 use crate::modules::shared::RetryConfig;
 
 use super::call_log::{
@@ -116,11 +117,13 @@ impl Forwarder for DirectForwarder {
             // 非首次尝试时等待退避延迟
             if attempt > 0 {
                 let delay = retry_cfg.retry_delay_ms(attempt);
-                tracing::info!(
+                let reason = last_retryable_response.as_ref().map(|_| "可重试状态码").or(last_err.as_ref().map(|_| "网络错误")).unwrap_or("未知");
+                let msg = format!(
                     "转发重试开始 | provider={} | model={} | attempt={}/{} | backoff_delay={}ms | reason={}",
-                    provider_slug, model_id, attempt, retry_cfg.max_retries, delay,
-                    last_retryable_response.as_ref().map(|_| "可重试状态码").or(last_err.as_ref().map(|_| "网络错误")).unwrap_or("未知")
+                    provider_slug, model_id, attempt, retry_cfg.max_retries, delay, reason
                 );
+                tracing::info!("{}", msg);
+                Log::info(&msg);
                 tokio::time::sleep(Duration::from_millis(delay)).await;
             } else {
                 tracing::debug!(
@@ -143,36 +146,42 @@ impl Forwarder for DirectForwarder {
                         .unwrap_or(false);
 
                     if is_retryable && attempt < retry_cfg.max_retries {
-                        tracing::warn!(
+                        let msg = format!(
                             "上游返回可重试状态码，准备退避重试 | provider={} | model={} | status={} | attempt={}/{} | remaining={}",
                             provider_slug, model_id,
                             status_code.unwrap_or(0),
                             attempt + 1, retry_cfg.max_retries,
                             retry_cfg.max_retries - attempt - 1
                         );
+                        tracing::warn!("{}", msg);
+                        Log::warn(&msg);
                         // 保存可重试响应（作为重试耗尽后的返回值），drop 后释放连接
                         last_retryable_response = Some(response);
                         continue;
                     }
 
                     if is_retryable && attempt == retry_cfg.max_retries {
-                        tracing::warn!(
+                        let msg = format!(
                             "上游返回可重试状态码，重试已耗尽 | provider={} | model={} | status={} | total_attempts={}",
                             provider_slug, model_id,
                             status_code.unwrap_or(0),
                             attempt + 1
                         );
+                        tracing::warn!("{}", msg);
+                        Log::warn(&msg);
                         return Ok(response);
                     }
 
                     // 成功或不可重试状态码
                     if attempt > 0 {
-                        tracing::info!(
+                        let msg = format!(
                             "转发重试成功 | provider={} | model={} | status={} | attempts_used={}",
                             provider_slug, model_id,
                             status_code.unwrap_or(0),
                             attempt + 1
                         );
+                        tracing::info!("{}", msg);
+                        Log::info(&msg);
                     } else {
                         tracing::debug!(
                             "转发首次请求成功 | provider={} | model={} | status={}",
@@ -185,23 +194,27 @@ impl Forwarder for DirectForwarder {
                 Err(err) => {
                     let retryable = is_network_error(&err);
                     if retryable && attempt < retry_cfg.max_retries {
-                        tracing::warn!(
+                        let msg = format!(
                             "网络错误，准备退避重试 | provider={} | model={} | attempt={}/{} | remaining={} | error={}",
                             provider_slug, model_id,
                             attempt + 1, retry_cfg.max_retries,
                             retry_cfg.max_retries - attempt - 1,
                             err
                         );
+                        tracing::warn!("{}", msg);
+                        Log::warn(&msg);
                         last_err = Some(err);
                         continue;
                     }
 
                     if retryable && attempt == retry_cfg.max_retries {
-                        tracing::error!(
+                        let msg = format!(
                             "网络错误，重试已耗尽 | provider={} | model={} | total_attempts={} | error={}",
                             provider_slug, model_id,
                             attempt + 1, err
                         );
+                        tracing::error!("{}", msg);
+                        Log::error(&msg);
                         return Err(err);
                     }
 
@@ -218,16 +231,20 @@ impl Forwarder for DirectForwarder {
         // 重试耗尽：优先返回最后一次可重试响应（让上层看到真实 HTTP 错误），否则返回网络错误
         if let Some(response) = last_retryable_response {
             let status = response_status_code(&response).unwrap_or(0);
-            tracing::error!(
+            let msg = format!(
                 "转发重试全部耗尽，返回最后一次可重试响应 | provider={} | model={} | final_status={} | max_retries={}",
                 provider_slug, model_id, status, retry_cfg.max_retries
             );
+            tracing::error!("{}", msg);
+            Log::error(&msg);
             Ok(response)
         } else {
-            tracing::error!(
+            let msg = format!(
                 "转发重试全部耗尽，返回最后一次网络错误 | provider={} | model={} | max_retries={}",
                 provider_slug, model_id, retry_cfg.max_retries
             );
+            tracing::error!("{}", msg);
+            Log::error(&msg);
             Err(last_err.unwrap_or_else(|| {
                 ClientError::Other("转发重试耗尽但无错误记录".to_string())
             }))

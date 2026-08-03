@@ -270,6 +270,33 @@ final = delay + jitter
      → 虚拟路由 2 → DirectForwarder 重试（maxRetries 次）→ 成功 → 返回
 ```
 
+#### 重试日志（双写策略）
+
+重试关键节点同时写入两套日志，遵循项目 §11 双日志框架约定：
+
+| 日志通道 | 写法 | 输出目标 | 用途 |
+|----------|------|----------|------|
+| `tracing` | `tracing::info!` / `warn!` / `error!` | 终端、WebView 控制台、日志文件 | 开发调试、全链路追踪（含 `[tid=...]`） |
+| 自研 logger | `Log::info` / `Log::warn` / `Log::error` | 应用内「日志」页面（内存环形缓冲区） | 用户/运维可见的业务诊断 |
+
+**镜像规则**：`warn` / `error` / `info` 级别的重试事件同时写入两套日志；`debug` 级别（首次请求、配置加载等）仅写入 `tracing`，不写入自研 logger 以避免噪音。
+
+**日志覆盖的关键节点**：
+
+| 事件 | 级别 | 日志内容（含字段） |
+|------|------|-------------------|
+| 转发重试开始（退避前） | `info` | provider / model / attempt / max_retries / backoff_delay / reason |
+| 上游返回可重试状态码，准备重试 | `warn` | provider / model / status / attempt / max_retries / remaining |
+| 网络错误，准备重试 | `warn` | provider / model / attempt / max_retries / remaining / error |
+| 转发重试成功 | `info` | provider / model / status / attempts_used |
+| 可重试状态码，重试已耗尽 | `warn` | provider / model / status / total_attempts |
+| 网络错误，重试已耗尽 | `error` | provider / model / total_attempts / error |
+| 重试全部耗尽（返回可重试响应） | `error` | provider / model / final_status / max_retries |
+| 重试全部耗尽（返回网络错误） | `error` | provider / model / max_retries |
+| 禁用重试 / 首次请求 / 配置加载 / 首次成功 / 不可重试错误 | `debug` | provider / model / stream / retryable_codes 等 |
+
+> 用户可在应用内「日志」页面按 `warn` / `error` 级别筛选，直接查看重试相关业务诊断信息；开发者在终端/日志文件中通过 `[tid=...]` 前缀关联完整请求链路。
+
 ---
 
 ## 6. 调用记录与日志
