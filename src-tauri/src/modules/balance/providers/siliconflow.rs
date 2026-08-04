@@ -51,7 +51,7 @@ impl BalanceProvider for SiliconFlowBalanceProvider {
             format!("{}/v1/user/info", base.trim_end_matches('/'))
         };
 
-        let client = reqwest::Client::new();
+        let client = super::super::provider::build_balance_http_client()?;
         let response = client
             .get(&endpoint)
             .header("Authorization", format!("Bearer {}", api_key))

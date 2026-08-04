@@ -405,7 +405,7 @@ impl BalanceProvider for CodexBalanceProvider {
                 return Err(IcodeError::internal("Codex 额度查询端点解析失败"));
             }
 
-            let client = reqwest::Client::new();
+            let client = super::super::provider::build_balance_http_client()?;
             let account_id = input.account_id.as_deref().map(|s| s.trim()).filter(|s| !s.is_empty());
 
             let mut endpoint_errors: Vec<String> = Vec::new();

@@ -179,7 +179,7 @@ impl BalanceProvider for NewApiBalanceProvider {
 
             let base = input.base_url.as_deref().unwrap_or("https://api.newapi.com");
             let base = base.trim_end_matches('/');
-            let client = reqwest::Client::new();
+            let client = super::super::provider::build_balance_http_client()?;
             let mut items: Vec<BalanceMetric> = Vec::new();
 
             // 1. 查询 API Key 余额

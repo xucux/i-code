@@ -341,7 +341,7 @@ impl BalanceProvider for ClaudeRelayServiceBalanceProvider {
                 .unwrap_or("https://relay.example.com");
             let base = base.trim_end_matches('/');
 
-            let client = reqwest::Client::new();
+            let client = super::super::provider::build_balance_http_client()?;
 
             // 1. 获取 apiId
             let api_id = fetch_api_id(&client, base, api_key).await?;

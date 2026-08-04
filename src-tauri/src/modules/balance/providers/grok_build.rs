@@ -71,6 +71,32 @@ fn pick_bool(record: &serde_json::Value, key: &str) -> Option<bool> {
     record.get(key).and_then(|v| v.as_bool())
 }
 
+/// 按候选键依次取字符串字段（兼容 camelCase / snake_case）
+fn pick_string_any(record: &serde_json::Value, keys: &[&str]) -> Option<String> {
+    keys.iter().find_map(|k| pick_string(record, k))
+}
+
+/// 按候选键依次取布尔字段
+fn pick_bool_any(record: &serde_json::Value, keys: &[&str]) -> Option<bool> {
+    keys.iter().find_map(|k| pick_bool(record, k))
+}
+
+/// 按候选键依次取数值字段
+fn pick_number_any(record: &serde_json::Value, keys: &[&str]) -> Option<f64> {
+    keys.iter().find_map(|k| pick_number(record, k))
+}
+
+/// 按候选键依次取 `{ "val": <number> }` 结构数值（金额字段单位：分）
+fn pick_val_amount_any(record: &serde_json::Value, keys: &[&str]) -> Option<f64> {
+    keys.iter().find_map(|k| pick_val_amount(record, k))
+}
+
+/// 按候选键取内层对象（如 `currentPeriod` / `productUsage`）
+fn get_object_any<'a>(value: &'a serde_json::Value, keys: &[&str]) -> Option<&'a serde_json::Value> {
+    keys.iter()
+        .find_map(|k| value.get(k).filter(|v| is_record(v)))
+}
+
 /// 取 `{ "val": <number> }` 结构中的数值（金额字段单位：分）
 fn pick_val_amount(record: &serde_json::Value, key: &str) -> Option<f64> {
     let holder = record.get(key)?;
@@ -270,7 +296,7 @@ fn build_billing_items(config: &serde_json::Value) -> Vec<BalanceMetric> {
     let mut has_primary = false;
 
     // 1) 周信用额度用量 %（免费档核心指标）
-    if let Some(percent) = pick_number(config, "creditUsagePercent") {
+    if let Some(percent) = pick_number_any(config, &["creditUsagePercent", "credit_usage_percent"]) {
         let mut metric = percent_metric(
             "credit_percent",
             percent,
@@ -285,8 +311,8 @@ fn build_billing_items(config: &serde_json::Value) -> Vec<BalanceMetric> {
     }
 
     // 2) 当前周窗口（重置时刻 = end）
-    if let Some(current_period) = config.get("currentPeriod").filter(|v| is_record(v)) {
-        if let Some(end) = pick_string(current_period, "end") {
+    if let Some(current_period) = get_object_any(config, &["currentPeriod", "current_period"]) {
+        if let Some(end) = pick_string_any(current_period, &["end", "ended"]) {
             if !end.is_empty() {
                 let millis = parse_iso_to_millis(&end);
                 items.push(
@@ -299,10 +325,16 @@ fn build_billing_items(config: &serde_json::Value) -> Vec<BalanceMetric> {
     }
 
     // 3) 按产品用量（GrokBuild / GrokChat 等）
-    if let Some(product_usage) = config.get("productUsage").and_then(|v| v.as_array()) {
+    let product_usage = config
+        .get("productUsage")
+        .or_else(|| config.get("product_usage"))
+        .and_then(|v| v.as_array());
+    if let Some(product_usage) = product_usage {
         for entry in product_usage {
             let Some(product) = pick_string(entry, "product") else { continue };
-            let Some(percent) = pick_number(entry, "usagePercent") else { continue };
+            let Some(percent) = pick_number_any(entry, &["usagePercent", "usage_percent"]) else {
+                continue;
+            };
             items.push(
                 percent_metric(
                     &format!("product_{}", product),
@@ -317,8 +349,10 @@ fn build_billing_items(config: &serde_json::Value) -> Vec<BalanceMetric> {
         }
     }
 
-    // 4) 月度额度（cent → 美元字符串）
-    if let Some(limit) = pick_val_amount(config, "monthlyLimit") {
+    // 4) 月度额度（cent → 美元字符串）+ 月度用量百分比
+    let monthly_limit = pick_val_amount_any(config, &["monthlyLimit", "monthly_limit"]);
+    let monthly_used = pick_val_amount_any(config, &["used"]);
+    if let Some(limit) = monthly_limit {
         items.push(
             BalanceMetric::amount(
                 "monthly_limit",
@@ -330,7 +364,7 @@ fn build_billing_items(config: &serde_json::Value) -> Vec<BalanceMetric> {
             .with_label("月度额度"),
         );
     }
-    if let Some(used) = pick_val_amount(config, "used") {
+    if let Some(used) = monthly_used {
         items.push(
             BalanceMetric::amount(
                 "monthly_used",
@@ -341,11 +375,27 @@ fn build_billing_items(config: &serde_json::Value) -> Vec<BalanceMetric> {
             .with_period(BalancePeriod::Month)
             .with_label("月度已用"),
         );
+        // 月度用量百分比 = used / monthlyLimit × 100（有额度上限时才有意义）
+        if let Some(limit) = monthly_limit.filter(|l| *l > 0.0) {
+            let percent = (used / limit * 100.0).max(0.0).min(100.0);
+            items.push(
+                percent_metric(
+                    "monthly_used_percent",
+                    percent,
+                    BalanceDirection::Used,
+                    BalancePeriod::Month,
+                    "月度用量",
+                    None,
+                )
+                .with_label("月度用量"),
+            );
+        }
     }
 
     // 5) 按量付费余额 = onDemandCap - onDemandUsed
-    let on_demand_cap = pick_val_amount(config, "onDemandCap").unwrap_or(0.0);
-    let on_demand_used = pick_val_amount(config, "onDemandUsed").unwrap_or(0.0);
+    let on_demand_cap = pick_val_amount_any(config, &["onDemandCap", "on_demand_cap"]).unwrap_or(0.0);
+    let on_demand_used =
+        pick_val_amount_any(config, &["onDemandUsed", "on_demand_used"]).unwrap_or(0.0);
     if on_demand_cap > 0.0 || on_demand_used > 0.0 {
         let remaining = (on_demand_cap - on_demand_used).max(0.0);
         items.push(
@@ -361,7 +411,7 @@ fn build_billing_items(config: &serde_json::Value) -> Vec<BalanceMetric> {
     }
 
     // 6) 预付余额
-    if let Some(prepaid) = pick_val_amount(config, "prepaidBalance") {
+    if let Some(prepaid) = pick_val_amount_any(config, &["prepaidBalance", "prepaid_balance"]) {
         items.push(
             BalanceMetric::amount(
                 "prepaid_balance",
@@ -374,7 +424,8 @@ fn build_billing_items(config: &serde_json::Value) -> Vec<BalanceMetric> {
     }
 
     // 7) 统一计费标识（布尔 → 状态类字符串指标）
-    if let Some(unified) = pick_bool(config, "isUnifiedBillingUser") {
+    if let Some(unified) = pick_bool_any(config, &["isUnifiedBillingUser", "is_unified_billing_user"])
+    {
         items.push(BalanceMetric {
             id: "unified_billing".into(),
             metric_type: BalanceMetricType::Status,
@@ -414,6 +465,44 @@ fn resolve_base_url(input: &BalanceRefreshInput, default: &str) -> String {
         .unwrap_or_else(|| default.trim_end_matches('/').to_string())
 }
 
+/// 解析 OAuth 分支使用的 chat-proxy base_url
+///
+/// provider.base_url 可能保留了 xAI 官方 API 域（`api.x.ai`），但 billing
+/// 端点只存在于 Grok CLI 内部 chat-proxy（`cli-chat-proxy.grok.com`）。
+/// 因此当解析结果落在 `api.x.ai` 域时，强制回退到 chat-proxy 默认地址；
+/// 其余自定义地址（第三方中转 chat-proxy）仍原样使用。
+fn resolve_oauth_chat_proxy_base(input: &BalanceRefreshInput) -> String {
+    let resolved = resolve_base_url(input, DEFAULT_CHAT_PROXY_BASE_URL);
+    let host = resolved
+        .split("://")
+        .nth(1)
+        .unwrap_or(&resolved)
+        .split('/')
+        .next()
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if host == "api.x.ai" {
+        DEFAULT_CHAT_PROXY_BASE_URL.trim_end_matches('/').to_string()
+    } else {
+        resolved
+    }
+}
+
+/// 解析 API Key 分支使用的 api.x.ai base_url
+///
+/// 确保官方域包含 `/v1`（provider.base_url 可能为 `https://api.x.ai`，不含
+/// 路径，此时健康探测会打到 `/me` 而非 `/v1/me`）；第三方中转地址原样使用。
+fn resolve_api_x_ai_base(input: &BalanceRefreshInput) -> String {
+    let resolved = resolve_base_url(input, DEFAULT_API_X_AI_BASE_URL);
+    let host_and_path = resolved.split("://").nth(1).unwrap_or(&resolved);
+    let host = host_and_path.split('/').next().unwrap_or("").to_ascii_lowercase();
+    if host == "api.x.ai" && !host_and_path.contains("/v1") {
+        "https://api.x.ai/v1".to_string()
+    } else {
+        resolved
+    }
+}
+
 /// 构建 chat-proxy 请求头（对齐 CLIProxyAPI applyXAIChatHeaders）
 fn build_chat_proxy_headers(token: &str) -> reqwest::header::HeaderMap {
     let mut headers = reqwest::header::HeaderMap::new();
@@ -437,6 +526,16 @@ fn build_chat_proxy_headers(token: &str) -> reqwest::header::HeaderMap {
         reqwest::header::HeaderValue::from_static("application/json"),
     );
     headers
+}
+
+/// 构造 HTTP 客户端（复用应用全局代理配置）
+///
+/// balance provider 属于面向供应商的网络路径，须走 `shared::apply_global_proxy`
+/// （对齐 `docs/proxy.md`：禁止直接 `reqwest::Client::new()`）。否则在需要代理
+/// 才能访问 Grok chat-proxy 的环境（如国内网络）会连接失败。
+/// 复用 `provider::build_balance_http_client` 统一实现。
+fn build_http_client() -> IcodeResult<reqwest::Client> {
+    super::super::provider::build_balance_http_client()
 }
 
 /// Grok Build 额度 Provider
@@ -476,8 +575,8 @@ async fn refresh_oauth_billing(
     input: &BalanceRefreshInput,
     token: &str,
 ) -> IcodeResult<BalanceSnapshot> {
-    let base = resolve_base_url(input, DEFAULT_CHAT_PROXY_BASE_URL);
-    let client = reqwest::Client::new();
+    let base = resolve_oauth_chat_proxy_base(input);
+    let client = build_http_client()?;
 
     // 周额度查询（主请求）
     let weekly_url = format!("{}/billing?format=credits", base);
@@ -497,6 +596,11 @@ async fn refresh_oauth_billing(
     }
 
     if weekly_status != 200 {
+        log::error!(
+            "Grok Build 周额度查询失败（HTTP {}），响应体: {}",
+            weekly_status,
+            weekly_text
+        );
         let reason = parse_error(&weekly_text)
             .and_then(|e| e.message)
             .unwrap_or_else(|| format!("HTTP {}", weekly_status));
@@ -510,7 +614,7 @@ async fn refresh_oauth_billing(
         .map_err(|e| IcodeError::internal(format!("Grok Build 周额度响应解析失败: {}", e)))?;
     let mut items = parse_billing_payload(&weekly_json);
 
-    // 2) 月额度查询（失败不致命，仅 debug 日志）
+    // 2) 月额度查询（失败不致命，但记录响应体便于排查）
     let monthly_url = format!("{}/billing", base);
     if let Ok(response) = client
         .get(&monthly_url)
@@ -518,8 +622,9 @@ async fn refresh_oauth_billing(
         .send()
         .await
     {
-        if response.status().is_success() {
-            let text = response.text().await.unwrap_or_default();
+        let monthly_status = response.status().as_u16();
+        let text = response.text().await.unwrap_or_default();
+        if (200..300).contains(&monthly_status) {
             if let Ok(payload) = serde_json::from_str::<serde_json::Value>(&text) {
                 let monthly_items = parse_billing_payload(&payload);
                 // 按月维度合并（月度指标覆盖周响应中同 id 项）
@@ -530,6 +635,12 @@ async fn refresh_oauth_billing(
                     }
                 }
             }
+        } else {
+            log::error!(
+                "Grok Build 月额度查询失败（HTTP {}），响应体: {}",
+                monthly_status,
+                text
+            );
         }
     } else {
         log::debug!("Grok Build 月额度查询跳过（请求失败），仅保留周额度");
@@ -550,8 +661,8 @@ async fn refresh_api_key_health(
     input: &BalanceRefreshInput,
     token: &str,
 ) -> IcodeResult<BalanceSnapshot> {
-    let base = resolve_base_url(input, DEFAULT_API_X_AI_BASE_URL);
-    let client = reqwest::Client::new();
+    let base = resolve_api_x_ai_base(input);
+    let client = build_http_client()?;
 
     // 1) GET /v1/me → profile（user_id / team_id）
     let me_url = format!("{}/me", base);
@@ -566,6 +677,11 @@ async fn refresh_api_key_health(
     let me_status = me_response.status().as_u16();
     let me_text = me_response.text().await.unwrap_or_default();
     if me_status != 200 {
+        log::error!(
+            "xAI /v1/me 健康探测失败（HTTP {}），响应体: {}",
+            me_status,
+            me_text
+        );
         let reason = parse_error(&me_text)
             .and_then(|e| e.message)
             .unwrap_or_else(|| format!("HTTP {}", me_status));
@@ -641,4 +757,146 @@ async fn refresh_api_key_health(
         updated_at: now_ms(),
         items,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::super::provider::BalanceRefreshInput;
+
+    /// 构造带 base_url 的输入
+    fn input_with_base(base: Option<&str>, auth: Option<&str>) -> BalanceRefreshInput {
+        BalanceRefreshInput {
+            base_url: base.map(|s| s.to_string()),
+            auth_method: auth.map(|s| s.to_string()),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn oauth_falls_back_to_chat_proxy_for_openai_api_domain() {
+        // provider.base_url 保留 xAI 官方域（api.x.ai）→ OAuth 分支应切到 chat-proxy
+        let input = input_with_base(Some("https://api.x.ai"), Some("xai-grok-oauth"));
+        assert_eq!(
+            super::resolve_oauth_chat_proxy_base(&input),
+            "https://cli-chat-proxy.grok.com/v1"
+        );
+    }
+
+    #[test]
+    fn oauth_falls_back_when_base_url_empty() {
+        let input = input_with_base(None, Some("xai-grok-oauth"));
+        assert_eq!(
+            super::resolve_oauth_chat_proxy_base(&input),
+            "https://cli-chat-proxy.grok.com/v1"
+        );
+    }
+
+    #[test]
+    fn oauth_keeps_third_party_base() {
+        // 第三方自定义 chat-proxy 中转原样保留
+        let input = input_with_base(Some("https://my-proxy.example.com/v1"), Some("xai-grok-oauth"));
+        assert_eq!(
+            super::resolve_oauth_chat_proxy_base(&input),
+            "https://my-proxy.example.com/v1"
+        );
+    }
+
+    #[test]
+    fn api_key_adds_v1_for_official_domain() {
+        // 官方域缺少 /v1 时补齐，健康探测才能命中 /v1/me
+        let input = input_with_base(Some("https://api.x.ai"), Some("api-key"));
+        assert_eq!(super::resolve_api_x_ai_base(&input), "https://api.x.ai/v1");
+    }
+
+    #[test]
+    fn api_key_keeps_explicit_v1() {
+        let input = input_with_base(Some("https://api.x.ai/v1"), Some("api-key"));
+        assert_eq!(super::resolve_api_x_ai_base(&input), "https://api.x.ai/v1");
+    }
+
+    #[test]
+    fn billing_items_maps_weekly_and_monthly_percent() {
+        use super::parse_billing_payload;
+        // 月额度响应（camelCase 字段）
+        let payload: serde_json::Value = serde_json::json!({
+            "config": {
+                "currentPeriod": { "type": "USAGE_PERIOD_TYPE_WEEKLY", "end": "2026-08-07T01:47:42Z" },
+                "creditUsagePercent": 12.5,
+                "productUsage": [ { "product": "GrokBuild", "usagePercent": 12.5 } ],
+                "monthlyLimit": { "val": 15000 },
+                "used": { "val": 3000 }
+            }
+        });
+        let items = parse_billing_payload(&payload);
+        let get = |id: &str| items.iter().find(|m| m.id == id);
+
+        // 周用量百分比（主指标）
+        let credit = get("credit_percent").expect("credit_percent");
+        assert_eq!(credit.value.as_ref().and_then(|v| v.as_f64()), Some(12.5));
+        assert_eq!(credit.primary, Some(true));
+
+        // 月度用量百分比 = 3000/15000*100 = 20
+        let monthly_pct = get("monthly_used_percent").expect("monthly_used_percent");
+        assert_eq!(
+            monthly_pct.value.as_ref().and_then(|v| v.as_f64()).map(|f| (f * 10.0).round() / 10.0),
+            Some(20.0)
+        );
+
+        // 月度金额（分→美元字符串）
+        assert_eq!(get("monthly_limit").and_then(|m| m.value.as_ref()).and_then(|v| v.as_str()), Some("150.00"));
+        assert_eq!(get("monthly_used").and_then(|m| m.value.as_ref()).and_then(|v| v.as_str()), Some("30.00"));
+
+        // 按产品用量
+        assert!(get("product_GrokBuild").is_some());
+    }
+
+    #[test]
+    fn billing_items_handles_snake_case_aliases() {
+        use super::parse_billing_payload;
+        // 上游偶发 snake_case 字段，仍需正确解析
+        let payload: serde_json::Value = serde_json::json!({
+            "config": {
+                "credit_usage_percent": 8.0,
+                "product_usage": [ { "product": "GrokBuild", "usage_percent": 8.0 } ],
+                "monthly_limit": { "val": 10000 },
+                "used": { "val": 2500 },
+                "prepaid_balance": { "val": 500 },
+                "is_unified_billing_user": true
+            }
+        });
+        let items = parse_billing_payload(&payload);
+        let get = |id: &str| items.iter().find(|m| m.id == id);
+
+        assert_eq!(get("credit_percent").and_then(|m| m.value.as_ref()).and_then(|v| v.as_f64()), Some(8.0));
+        assert_eq!(
+            get("monthly_used_percent").and_then(|m| m.value.as_ref()).and_then(|v| v.as_f64()).map(|f| (f * 10.0).round() / 10.0),
+            Some(25.0)
+        );
+        assert_eq!(get("prepaid_balance").and_then(|m| m.value.as_ref()).and_then(|v| v.as_str()), Some("5.00"));
+        assert!(get("product_GrokBuild").is_some());
+        assert!(get("unified_billing").is_some());
+    }
+
+    #[test]
+    fn billing_items_without_weekly_percent_still_shows_monthly_usage() {
+        use super::parse_billing_payload;
+        // 用户付费档：周响应无 creditUsagePercent，仅有月维度数据
+        let payload: serde_json::Value = serde_json::json!({
+            "config": {
+                "currentPeriod": { "type": "USAGE_PERIOD_TYPE_WEEKLY", "end": "2026-08-07T01:47:42Z" },
+                "prepaidBalance": { "val": 0 },
+                "isUnifiedBillingUser": true,
+                "monthlyLimit": { "val": 15000 },
+                "used": { "val": 3000 }
+            }
+        });
+        let items = parse_billing_payload(&payload);
+        let get = |id: &str| items.iter().find(|m| m.id == id);
+
+        // 周百分比缺失，但仍有周重置时间 + 月度用量百分比（主指标回退到首个）
+        assert!(get("credit_percent").is_none());
+        assert!(get("period_week").is_some());
+        assert!(get("monthly_used_percent").is_some());
+        assert!(items.iter().any(|m| m.primary == Some(true) && m.id == "period_week"));
+    }
 }

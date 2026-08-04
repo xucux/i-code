@@ -39,7 +39,7 @@ const BUILTIN_METHOD_OPTIONS: { value: BalanceMethod; label: string }[] = [
   { value: 'antigravity', label: 'Antigravity' },
   { value: 'gemini-cli', label: 'Gemini CLI' },
   { value: 'codex', label: 'Codex' },
-  { value: 'synthetic', label: '测试数据' },
+  // { value: 'synthetic', label: '测试数据' },
 ]
 
 export interface BalanceConfigFormProps {

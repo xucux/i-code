@@ -128,7 +128,7 @@ impl BalanceProvider for AihubmixBalanceProvider {
                 IcodeError::internal(format!("AIHubMix 端点解析失败: {}", base))
             })?;
 
-            let client = reqwest::Client::new();
+            let client = super::super::provider::build_balance_http_client()?;
             let mut request = client
                 .get(&endpoint)
                 .header("Authorization", format!("Bearer {}", api_key))

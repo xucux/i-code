@@ -44,7 +44,7 @@ impl BalanceProvider for MoonshotAiBalanceProvider {
         let base = input.base_url.as_deref().unwrap_or("https://api.moonshot.cn");
         let endpoint = format!("{}/v1/users/me/balance", base.trim_end_matches('/'));
 
-        let client = reqwest::Client::new();
+        let client = super::super::provider::build_balance_http_client()?;
         let response = client
             .post(&endpoint)
             .header("Authorization", format!("Bearer {}", api_key))

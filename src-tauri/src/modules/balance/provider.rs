@@ -57,3 +57,24 @@ pub trait BalanceProvider: Send + Sync {
     /// 查询额度快照
     fn refresh<'a>(&'a self, input: &'a BalanceRefreshInput) -> BalanceRefreshFuture<'a>;
 }
+
+/// 构造额度查询 HTTP 客户端（复用应用全局代理配置）
+///
+/// balance provider 属于面向供应商的网络路径，须走 `shared::apply_global_proxy`
+/// （对齐 `docs/proxy.md`：禁止直接 `reqwest::Client::new()`）。否则在需要代理
+/// 才能访问供应商接口的环境（如某些海外额度端点）会连接失败。
+/// 全局代理未启用时按规范**强制直连**（不读取系统环境变量代理）。
+pub fn build_balance_http_client() -> IcodeResult<reqwest::Client> {
+    use crate::modules::shared::apply_global_proxy;
+    let builder = reqwest::Client::builder()
+        .connect_timeout(std::time::Duration::from_secs(10))
+        .timeout(std::time::Duration::from_secs(30));
+    apply_global_proxy(builder)
+        .build()
+        .map_err(|e| {
+            crate::error::IcodeError::internal(format!(
+                "构造额度查询 HTTP 客户端失败: {}",
+                e
+            ))
+        })
+}

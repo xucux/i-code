@@ -311,7 +311,7 @@ pub fn refresh_code_assist_quota<'a>(
             return Err(IcodeError::internal(format!("{} 额度查询端点解析失败", provider_name)));
         }
 
-        let client = reqwest::Client::new();
+        let client = super::super::provider::build_balance_http_client()?;
         let mut endpoint_errors: Vec<String> = Vec::new();
         let mut missing_percent_error: Option<String> = None;
 
