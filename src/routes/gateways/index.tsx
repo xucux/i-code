@@ -174,7 +174,7 @@ function GatewaysIndexPage() {
                         onClick={async () => {
                           try {
                             await navigator.clipboard.writeText(
-                              `http://${resolved.displayHost}:${status.boundPort}`
+                              `http://${resolved.displayHost}:${status.boundPort}/v1`
                             )
                             toast.success(tc('common.copied'))
                           } catch {

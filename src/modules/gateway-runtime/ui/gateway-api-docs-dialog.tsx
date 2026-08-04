@@ -164,7 +164,7 @@ export function GatewayApiDocsDialog({
               size="icon"
               className="size-6"
               title={tc('common.copy')}
-              onClick={() => void copyText(baseUrl)}
+              onClick={() => void copyText(`${baseUrl}/v1`)}
             >
               <i className="fa-solid fa-copy text-xs" />
             </Button>
