@@ -803,8 +803,13 @@ function formatMetricValue(item: BalanceMetric): string {
       if (Math.abs(n) >= 1000) return n.toLocaleString(undefined, { maximumFractionDigits: 2 })
       return Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/\.?0+$/, '')
     }
-    case 'percent':
-      return `${item.value}%`
+    case 'percent': {
+      const v = item.value
+      if (v === undefined || v === null) return '-'
+      const n = typeof v === 'number' ? v : Number(v)
+      if (!Number.isFinite(n)) return `${item.value}%`
+      return `${n.toFixed(2).replace(/\.?0+$/, '')}%`
+    }
     case 'token': {
       const parts: string[] = []
       if (item.remaining !== undefined) parts.push(`剩余: ${item.remaining}`)

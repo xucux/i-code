@@ -2,6 +2,22 @@
 
 ## [release-version-tempalte]
 
+## [0.1.3] - 2026-08-04
+
+### 新增
+
+- **Grok Build（xAI 订阅）额度监控**：新增 `grok-build` 余额监控方法，调用 Grok CLI 内部 chat-proxy billing 端点查询周/月额度（`GET /billing?format=credits` / `GET /billing`）
+  - 认证分支：`xai-grok-oauth`（OAuth 账号，免费档 / SuperGrok）走 `cli-chat-proxy.grok.com/v1/billing`；API Key 回退 `api.x.ai` 健康探测（`/v1/me` + `/v1/chat/completions`），仅提供可用性状态，无法给出精确剩余额度
+  - 请求头对齐 `gateway_runtime/auth_resolver.rs` 的 xAI Grok OAuth 解析（`x-grok-client-version` / `xai-grok-cli` 等）；金额字段单位统一为分，输出转换为美元字符串传输，避免浮点精度问题
+  - 方案文档：`docs/proposals/grok-build-billing-monitoring.md`
+
+### 变更
+
+- **余额查询统一走全局代理**：新增 `build_balance_http_client()` 统一构造额度查询 HTTP 客户端，复用应用全局代理配置（`shared::apply_global_proxy`，对齐 `docs/proxy.md`）；全部 12 个内置 balance provider（DeepSeek、Codex、Kimi、MiniMax、Grok Build、OpenRouter 等）从 `reqwest::Client::new()` 切换为统一构造，全局代理未启用时按规范强制直连（不读系统环境变量代理），连接超时 10s、总超时 30s
+- **Grok Build 字段解析增强**：金额/对象/百分比字段候选键兼容 camelCase / snake_case（`creditUsagePercent` / `credit_usage_percent`、`currentPeriod` / `current_period`、`productUsage` / `product_usage`、`monthlyLimit` / `monthly_limit` 等）；新增「月度用量百分比」指标（`used / monthlyLimit × 100`，仅额度上限 > 0 时输出）
+- **脚本模板重命名**：公益 Grok 监控 snippet 更名「公益Grok监控(第三方)」（id `grok-usage` → `grok-usage-thirdparty`），与官方 Grok Build 订阅监控区分
+- **隐藏「测试数据」内置监控方法**：余额配置表单中的 `synthetic`（测试数据）选项不再展示
+
 ## [0.1.2] - 2026-08-04
 
 ### 新增
