@@ -9,6 +9,7 @@ pub mod code_assist_quota;
 pub mod codex;
 pub mod deepseek;
 pub mod gemini_cli;
+pub mod grok_build;
 pub mod kimi_code;
 pub mod minimax;
 pub mod moonshot_ai;
@@ -38,6 +39,7 @@ pub fn get_provider(method: BalanceMethod) -> Option<Box<dyn BalanceProvider>> {
         BalanceMethod::GeminiCli => Some(Box::new(gemini_cli::GeminiCliBalanceProvider)),
         BalanceMethod::Codex => Some(Box::new(codex::CodexBalanceProvider)),
         BalanceMethod::Minimax => Some(Box::new(minimax::MinimaxBalanceProvider)),
+        BalanceMethod::GrokBuild => Some(Box::new(grok_build::GrokBuildBalanceProvider)),
         // none / synthetic / script 不走通用 Provider 注册表
         BalanceMethod::None | BalanceMethod::Synthetic | BalanceMethod::Script => None,
     }

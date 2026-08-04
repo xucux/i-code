@@ -42,6 +42,8 @@ pub enum BalanceMethod {
     Synthetic,
     /// MiniMax
     Minimax,
+    /// Grok Build（xAI 订阅，官方 chat-proxy billing 端点）
+    GrokBuild,
     /// 自定义 Rhai 脚本
     Script,
 }
@@ -64,6 +66,7 @@ impl BalanceMethod {
             "codex" => Some(Self::Codex),
             "synthetic" => Some(Self::Synthetic),
             "minimax" => Some(Self::Minimax),
+            "grok-build" => Some(Self::GrokBuild),
             "script" => Some(Self::Script),
             _ => None,
         }
@@ -86,6 +89,7 @@ impl BalanceMethod {
             Self::Codex => "codex",
             Self::Synthetic => "synthetic",
             Self::Minimax => "minimax",
+            Self::GrokBuild => "grok-build",
             Self::Script => "script",
         }
     }
@@ -170,6 +174,7 @@ pub enum BalanceConfig {
     Codex,
     Synthetic,
     Minimax,
+    GrokBuild,
     Script(ScriptBalanceConfig),
 }
 
@@ -191,6 +196,7 @@ impl BalanceConfig {
             Self::Codex => BalanceMethod::Codex,
             Self::Synthetic => BalanceMethod::Synthetic,
             Self::Minimax => BalanceMethod::Minimax,
+            Self::GrokBuild => BalanceMethod::GrokBuild,
             Self::Script(_) => BalanceMethod::Script,
         }
     }
@@ -539,6 +545,7 @@ mod tests {
             BalanceMethod::Codex,
             BalanceMethod::Synthetic,
             BalanceMethod::Minimax,
+            BalanceMethod::GrokBuild,
             BalanceMethod::Script,
         ] {
             let s = method.as_str();

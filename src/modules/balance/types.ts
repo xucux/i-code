@@ -25,6 +25,7 @@
  * - `codex`：OpenAI Codex
  * - `synthetic`：合成数据（测试用）
  * - `minimax`：MiniMax
+ * - `grok-build`：Grok Build（xAI 订阅，官方 chat-proxy billing 端点）
  * - `script`：自定义 Rhai 脚本模板
  */
 export type BalanceMethod =
@@ -42,6 +43,7 @@ export type BalanceMethod =
   | 'codex'
   | 'synthetic'
   | 'minimax'
+  | 'grok-build'
   | 'script'
 
 /**
@@ -90,6 +92,7 @@ export type BalanceConfig =
   | { method: 'codex' }
   | { method: 'synthetic' }
   | { method: 'minimax' }
+  | { method: 'grok-build' }
   | {
       method: 'script'
       /** 引用 script_templates.id */

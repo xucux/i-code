@@ -9,7 +9,6 @@
  */
 
 import { useMemo } from 'react'
-import { useTranslation } from '@/modules/i18n/use-translation'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import {
@@ -22,9 +21,10 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useActiveScriptTemplates } from '@/hooks/use-script-templates'
+import { useTranslation } from '@/modules/i18n/use-translation'
 import type { BalanceMethod, BalanceConfig } from '@/modules/balance/types'
 
-/** 内置监控方法选项 */
+/** 内置监控方法选项（不含 Grok Build，其 label 走 i18n） */
 const BUILTIN_METHOD_OPTIONS: { value: BalanceMethod; label: string }[] = [
   { value: 'none', label: '不监控' },
   { value: 'deepseek', label: 'DeepSeek' },
@@ -58,6 +58,15 @@ export interface BalanceConfigFormProps {
 export function BalanceConfigForm({ value, onChange }: BalanceConfigFormProps) {
   const { t } = useTranslation('scriptTemplate')
   const { items: activeScripts } = useActiveScriptTemplates()
+
+  /** 内置监控方法选项（Grok Build label 走 i18n） */
+  const builtinMethodOptions = useMemo(() => {
+    const options: { value: BalanceMethod; label: string }[] = [
+      ...BUILTIN_METHOD_OPTIONS,
+      { value: 'grok-build', label: t('balanceForm.methodGrokBuild') },
+    ]
+    return options
+  }, [t])
 
   const config = useMemo<BalanceConfig>(() => {
     if (!value.trim()) return { method: 'none' }
@@ -139,7 +148,7 @@ export function BalanceConfigForm({ value, onChange }: BalanceConfigFormProps) {
           <SelectContent>
             <SelectGroup>
               <SelectLabel className="text-[10px]">内置</SelectLabel>
-              {BUILTIN_METHOD_OPTIONS.map((opt) => (
+              {builtinMethodOptions.map((opt) => (
                 <SelectItem key={opt.value} value={opt.value} className="text-xs">
                   <span className="font-medium">{opt.label}</span>
                 </SelectItem>

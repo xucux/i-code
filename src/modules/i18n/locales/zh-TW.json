@@ -1507,7 +1507,8 @@
       "manageHint": "請在閘道器頁「指令碼模板」Tab 管理",
       "timeout": "查詢超時(ms)",
       "unavailable": "所選指令碼模板不可用（未啟用或不存在）",
-      "activeOnly": "僅啟用中的模板會出現在此列表"
+      "activeOnly": "僅啟用中的模板會出現在此列表",
+      "methodGrokBuild": "Grok Build"
     },
     "expand": "全屏",
     "restore": "還原",

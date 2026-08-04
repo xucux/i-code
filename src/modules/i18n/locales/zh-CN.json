@@ -1507,7 +1507,8 @@
       "manageHint": "请在网关页「脚本模板」Tab 管理",
       "timeout": "查询超时(ms)",
       "unavailable": "所选脚本模板不可用（未启用或不存在）",
-      "activeOnly": "仅启用中的模板会出现在此列表"
+      "activeOnly": "仅启用中的模板会出现在此列表",
+      "methodGrokBuild": "Grok Build"
     },
     "expand": "全屏",
     "restore": "还原",

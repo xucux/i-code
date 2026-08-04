@@ -854,42 +854,6 @@ i18n：监控方法文案迁入 `balance` / `aiGateway` 命名空间（现状有
 
 ---
 
-## 10. 实现阶段
-
-### Phase 0 — 文档与类型（本提案）
-
-- [x] 提案文档  
-- [x] 回写 `database.md` / `AGENTS.md` 索引
-
-### Phase 1 — 数据与 CRUD MVP
-
-1. [x] 基线 `V001__init.sql` 增加 `script_templates`（项目当前为基线重置模式，未单独 V002）  
-2. [x] `script_template` 模块 repository/service/commands  
-3. [x] 前端列表 + 简单编辑（使用 CodeMirror）  
-4. [x] 网关 Tab 接入  
-
-### Phase 2 — Rhai 运行时
-
-1. [x] `balance/script/*` host functions  
-2. [x] `dispatch_refresh` 中 Script 分支（非独立 Provider trait 实例）  
-3. [x] `BalanceConfig` 扩展 + `dispatch_refresh`  
-4. [x] `BalanceConfigForm` 下拉接入 active 模板  
-5. [x] 单元测试：snapshot 映射合法/非法  
-
-### Phase 3 — 编辑体验
-
-1. [x] CodeMirror 抽象 + JS 高亮  
-2. [x] 右侧文档 / snippet 插入  
-3. [x] 试运行面板 + `last_test_*`  
-4. [x] i18n 补齐  
-
-### Phase 4 — 打磨
-
-1. [x] 删除引用检查、列表筛选  
-2. [x] `schema.rs` TABLE_NAMES 登记 `script_templates`  
-3. [x] 内置官方 snippet（运行时内置列表，当前 6 个：`balance-get-bearer` / `items-skeleton` / `bearer-header` / `mimo-balance` / `mimo-token-plan` / `grok-usage`，源码见 `balance/script/snippets/`）  
-
----
 
 ## 11. 测试计划
 

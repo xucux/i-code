@@ -56,8 +56,8 @@ pub fn list_snippets() -> Vec<ScriptSnippet> {
             body: MIMO_TOKEN_PLAN.into(),
         },
         ScriptSnippet {
-            id: "grok-usage".into(),
-            name: "公益Grok监控".into(),
+            id: "grok-usage-thirdparty".into(),
+            name: "公益Grok监控(第三方)".into(),
             description: "公益 Grok 额度监控：quota 金额 + 今日/累计 token + 账户状态".into(),
             body: GROK_USAGE.into(),
         },

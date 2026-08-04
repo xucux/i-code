@@ -1507,7 +1507,8 @@
       "manageHint": "Manage templates in the Gateway Script Templates tab",
       "timeout": "Query timeout (ms)",
       "unavailable": "Selected script template is unavailable (disabled or missing)",
-      "activeOnly": "Only active templates appear in this list"
+      "activeOnly": "Only active templates appear in this list",
+      "methodGrokBuild": "Grok Build"
     },
     "expand": "Expand",
     "restore": "Restore",

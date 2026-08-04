@@ -18,6 +18,7 @@
 //! - `antigravity`：调用 Code Assist retrieveUserQuota ✅
 //! - `gemini-cli`：调用 Code Assist retrieveUserQuota ✅
 //! - `codex`：调用 Codex usage API（多端点探测）✅
+//! - `grok-build`：调用 Grok CLI chat-proxy billing（OAuth）/ api.x.ai 健康探测（API Key）✅
 
 use std::sync::Arc;
 
@@ -136,6 +137,7 @@ mod tests {
             BalanceMethod::GeminiCli,
             BalanceMethod::Codex,
             BalanceMethod::Minimax,
+            BalanceMethod::GrokBuild,
         ] {
             assert!(
                 super::super::providers::get_provider(method).is_some(),
