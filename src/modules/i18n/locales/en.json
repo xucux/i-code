@@ -1307,7 +1307,7 @@
       "logDirPlaceholder": "Default directory",
       "retentionDays": "Retention Days",
       "filePersistence": "File Persistence",
-      "filePersistenceHint": "Also write logs to local files",
+      "filePersistenceHint": "Also write business logs to local files",
       "forward": "Forward Detail Logs",
       "forwardDesc": "Control whether to log request/response bodies when forwarding",
       "recordRequestBody": "Log request body",

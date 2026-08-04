@@ -1035,7 +1035,7 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto custom-scrollbar">
+      <DialogContent className="max-w-2xl max-h-[100vh] overflow-y-auto custom-scrollbar">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-1.5 text-base">
             {isEdit ? t('aiGateway.providerForm.editTitle') : t('aiGateway.addProvider')}
@@ -1214,17 +1214,6 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
                     />
                   </div>
                 </div>
-              </div>
-
-              {/* 备注 */}
-              <div className="mt-4 space-y-1.5">
-                <Label className="text-xs" htmlFor="remark">{t('aiGateway.providerForm.remark')}</Label>
-                <Input
-                  id="remark"
-                  {...form.register('remark')}
-                  className="h-8 text-xs"
-                  placeholder={t('aiGateway.providerForm.remarkPlaceholder')}
-                />
               </div>
 
               {/* API Key */}
@@ -1465,6 +1454,17 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
                   {t('aiGateway.providerForm.oauthSaveFirst')}
                 </div>
               )}
+
+              {/* 备注：位于认证信息与 OAuth 展示之后、启用开关上一行 */}
+              <div className="mt-4 space-y-1.5">
+                <Label className="text-xs" htmlFor="remark">{t('aiGateway.providerForm.remark')}</Label>
+                <Input
+                  id="remark"
+                  {...form.register('remark')}
+                  className="h-8 text-xs"
+                  placeholder={t('aiGateway.providerForm.remarkPlaceholder')}
+                />
+              </div>
 
               {/* 启用开关 */}
               <div className="mt-4 flex items-center gap-2">

@@ -45,13 +45,13 @@ fn init_tracing(app: &tauri::App) {
     //    tracing-appender 原生仅支持按时间滚动，自定义 SizeAwareFileAppender 实现：
     //    - 按天创建文件：i-code-2026-07-29.log
     //    - 超过 20MB 分片：i-code-2026-07-29.1.log、i-code-2026-07-29.2.log
-    //    - 保留最近 30 天文件，超期自动清理
+    //    - 保留最近 15 天文件，超期自动清理
     let file_appender = crate::core::size_aware_appender::SizeAwareFileAppender::new(
         &log_dir,
         "i-code",
         "log",
         20 * 1024 * 1024, // 20MB
-        30,               // 保留 30 天
+        15,               // 保留 15 天
     )
     .expect("构建日志文件 appender 失败");
 

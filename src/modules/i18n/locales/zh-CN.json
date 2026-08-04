@@ -1307,7 +1307,7 @@
       "logDirPlaceholder": "默认目录",
       "retentionDays": "滚动天数",
       "filePersistence": "文件持久化",
-      "filePersistenceHint": "日志同时写入本地文件",
+      "filePersistenceHint": "业务日志同时写入本地文件",
       "forward": "转发详细日志",
       "forwardDesc": "控制网关转发时是否记录请求/响应体",
       "recordRequestBody": "记录请求体",

@@ -2,6 +2,29 @@
 
 ## [release-version-tempalte]
 
+## [0.1.4] - 2026-08-05
+
+### 新增
+
+- **自研 logger 请求头展示（去敏）**：网关（inbound 入站请求头）与供应商 API（outbound 出站请求头，缺失时回退到入站头）日志展示请求头 JSON（敏感头值替换为 `***`），位于「模型 ID」下方一行，随导出写入 CSV / JSON
+  - 新增 `request_headers_to_json` 去敏序列化（`logging/headers.rs`）：将 `HeaderMap` 序列化为有序 JSON；头名称（不区分大小写、子串匹配）命中 `authorization / api-key / token / secret / credential / cookie / auth` 任一敏感片段时值替换为 `***`；非 UTF-8 二进制值序列化为 `<binary>`；无请求头时返回 `None`
+  - `UpstreamClient::execute` 签名改为 `&mut UpstreamContext`，各 Client（openai_chat / anthropic / openai_responses / websocket）在发送前对真实出站请求头做去敏快照写入 `UpstreamContext.request_headers_json`，供转发（provider-api）日志展示
+  - 网关四个对外 handler（`chat` / `responses` / `messages` / `models`）捕获入站 `HeaderMap` 并透传到网关日志与转发日志
+  - `LogRecord` / `LogEntry` 新增 `request_headers: Option<String>` 字段；CSV 导出新增 `requestHeaders` 列
+  - 前端 `LogViewer` 以 JSON 缩进格式展示请求头，i18n（zh-CN / en / ja / zh-TW）补充 `requestHeaders` 文案
+- **SSE chunk 专属日志文件（按小时滚动）**：SSE chunk 日志通过独立 target `i_code::sse` 写入单独按小时滚动的 `i-code-sse.*.log`（前缀 `i-code-sse`），不混入主日志文件，避免高频 chunk 刷屏
+  - SSE 专属 fmt layer 使用 `TraceIdFormat::without_location()`，文件内不打印 target 与 file:line
+  - 常规主日志过滤器（`MainLogFilter`）排除 `i_code::sse` target，确保 chunk 只进专属文件
+
+### 变更
+
+- **日志分段大小写入加固**（`SizeAwareFileAppender`）：写入超限时不只判断滚动，改为按 `max_size` 拆分 buffer——先写满当前文件、滚动到新分段后继续写剩余部分，保证每个分段不超过 `max_size`（修复单块大写入出现 ~40MB 分段的隐患）；使用 `create_new`（O_EXCL）独占创建分段并跳过已被占用的序号，从根上避免多进程 / 多次重启把同一分段追加撑大或序号复用
+
+### 修复
+
+- **复制的网关 API 地址缺少 `/v1` 路径**：网关 API 文档弹窗与网关首页的「复制 API 地址」按钮此前只复制 `http://host:port`，现统一补充 `/v1`，复制完整的 OpenAI 兼容基础地址
+
+
 ## [0.1.3] - 2026-08-04
 
 ### 新增

@@ -38,6 +38,11 @@ use std::time::{Duration, SystemTime};
 
 use chrono::{Datelike, Local};
 
+/// SSE 专属日志文件前缀（`i-code-sse.YYYY-MM-DD-HH.log`，由 `tracing_appender::rolling::hourly` 生成）。
+/// 该前缀下的文件与主日志**共用** `SizeAwareFileAppender` 的清理逻辑与保留天数，
+/// 在应用启动时统一按 `max_days` 清理，避免内部高频 chunk 文件无限累积。
+pub const SSE_LOG_PREFIX: &str = "i-code-sse";
+
 /// 按天 + 按大小滚动的文件 appender
 pub struct SizeAwareFileAppender {
     inner: Mutex<Inner>,
@@ -76,8 +81,10 @@ impl SizeAwareFileAppender {
         // 防御：max_size 至少为 1 字节，避免配置为 0 时每次写入都滚动
         let max_size = max_size.max(1);
 
-        // 启动时清理超过 max_days 的旧文件
-        Self::cleanup_old_files(&log_dir, prefix, suffix, max_days)?;
+        // 启动时清理超过 max_days 的旧文件。
+        // 主日志（i-code-*）与 SSE 专属文件（i-code-sse.*）共用同一清理逻辑与保留天数：
+        // 二者在同一 `new()` 触发时统一按 `max_days` 清理，保证配置单一、行为一致。
+        Self::cleanup_old_files(&log_dir, &[prefix, SSE_LOG_PREFIX], suffix, max_days)?;
 
         let today = today_string();
         let path = Self::build_path(&log_dir, prefix, &today, 0, suffix);
@@ -113,13 +120,13 @@ impl SizeAwareFileAppender {
 
     /// 清理超过 `max_days` 天的旧文件
     ///
-    /// 仅清理匹配 `prefix-*.suffix` 的文件，按 mtime 判断。
-    fn cleanup_old_files(dir: &Path, prefix: &str, suffix: &str, max_days: u32) -> io::Result<()> {
+    /// 仅清理以任一 `prefixes[*]` 开头、以 `.suffix` 结尾的文件，按 mtime 判断。
+    /// 传入多个前缀即可让多类日志文件共用同一保留天数（如主日志 `i-code` 与 SSE `i-code-sse`）。
+    fn cleanup_old_files(dir: &Path, prefixes: &[&str], suffix: &str, max_days: u32) -> io::Result<()> {
         let cutoff = SystemTime::now() - Duration::from_secs(max_days as u64 * 86400);
         if !dir.exists() {
             return Ok(());
         }
-        let starts_with = format!("{}-", prefix);
         let ends_with = format!(".{}", suffix);
         for entry in std::fs::read_dir(dir)? {
             let entry = entry?;
@@ -127,8 +134,11 @@ impl SizeAwareFileAppender {
             let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
                 continue;
             };
-            // 仅清理匹配 prefix-*.suffix 的文件
-            if !name.starts_with(&starts_with) || !name.ends_with(&ends_with) {
+            // 仅清理匹配任一 prefix 开头、以 .suffix 结尾的文件
+            if !name.ends_with(&ends_with) {
+                continue;
+            }
+            if !prefixes.iter().any(|p| name.starts_with(p)) {
                 continue;
             }
             if let Ok(meta) = entry.metadata() {

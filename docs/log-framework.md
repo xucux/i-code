@@ -95,6 +95,7 @@ log::error!("上游调用失败：{}", e);
 #### 2.5.3 SSE / WebSocket 流式输出
 
 - **SSE chunk 专属文件（按小时滚动）**：SSE chunk 日志通过独立 target `i_code::sse` 写入**单独的**按小时滚动文件 `i-code-sse.YYYY-MM-DD-HH.log`（前缀 `i-code-sse`），不混入主日志文件，避免高频 chunk 刷屏常规日志。
+  - **共用清理策略**：SSE 专属文件与主日志共用 `SizeAwareFileAppender` 的启动清理逻辑与保留天数（`max_days = 15`，保留最近 15 天），应用启动时按 mtime 统一清理超期文件，避免按小时滚动导致文件无限累积。
   - 文件内容一行一个 chunk：`2026-05-06T12:03:44.123Z INFO [tid=...] SSE chunk | log_id=... | size=... bytes | text=...`
   - **不打印 target 与 file:line**：SSE 专属 fmt layer 使用 `TraceIdFormat::without_location()`，输出中 `[...]` 内的 `i_code::modules::...response_handler.rs:142` 前缀不会打印。
   - 常规主日志过滤器会**排除** `i_code::sse` target，确保 chunk 只进入专属文件。
