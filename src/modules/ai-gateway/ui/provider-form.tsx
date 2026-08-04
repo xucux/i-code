@@ -27,7 +27,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { HelpIcon } from '@/components/ui/help-icon'
 import { Checkbox } from '@/components/ui/checkbox'
 import { invokeCommand } from '@/hooks/use-command'
@@ -136,6 +135,7 @@ const schema = z.object({
   displayName: z.string().min(1, 'aiGateway.providerForm.validation.displayNameRequired'),
   providerType: z.string().min(1, 'aiGateway.providerForm.validation.providerTypeRequired'),
   baseUrl: z.string().min(1, 'aiGateway.providerForm.validation.baseUrlRequired'),
+  remark: z.string().optional(),
   useRawBaseUrl: z.boolean(),
   transport: z.enum(['auto', 'sse', 'websocket']).optional(),
   authMethod: z.enum([
@@ -175,6 +175,7 @@ export interface ProviderFormInitialValues extends Partial<{
   displayName: string
   providerType: string
   baseUrl: string
+  remark?: string
   useRawBaseUrl: boolean
   transport?: 'auto' | 'sse' | 'websocket'
   authMethod: AuthMethod
@@ -194,6 +195,7 @@ interface ProviderFormProps {
     displayName: string
     providerType: string
     baseUrl: string
+    remark?: string
     useRawBaseUrl: boolean
     transport?: 'auto' | 'sse' | 'websocket'
     auth?: AuthConfig
@@ -510,6 +512,7 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
       displayName: '',
       providerType: 'openai-chat-completion',
       baseUrl: '',
+      remark: '',
       useRawBaseUrl: false,
       authMethod: 'none',
       apiKey: '',
@@ -546,6 +549,7 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
         displayName: provider.displayName,
         providerType: provider.providerType,
         baseUrl: provider.baseUrl,
+        remark: provider.remark ?? '',
         useRawBaseUrl: provider.useRawBaseUrl,
         transport: provider.transport,
         authMethod: authMethod as AuthMethod,
@@ -641,6 +645,7 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
         displayName: '',
         providerType: 'openai-chat-completion',
         baseUrl: '',
+        remark: '',
         useRawBaseUrl: false,
         transport: 'auto',
         authMethod: 'none',
@@ -674,6 +679,7 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
           if (initialValues.displayName) form.setValue('displayName', initialValues.displayName)
           if (initialValues.providerType) form.setValue('providerType', initialValues.providerType)
           if (initialValues.baseUrl) form.setValue('baseUrl', initialValues.baseUrl)
+          if (initialValues.remark !== undefined) form.setValue('remark', initialValues.remark)
           if (initialValues.useRawBaseUrl !== undefined) form.setValue('useRawBaseUrl', initialValues.useRawBaseUrl)
           if (initialValues.authMethod) form.setValue('authMethod', initialValues.authMethod)
           if (initialValues.sortOrder !== undefined) form.setValue('sortOrder', initialValues.sortOrder)
@@ -743,6 +749,7 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
       displayName: values.displayName,
       providerType: values.providerType,
       baseUrl: values.baseUrl,
+      remark: values.remark,
       useRawBaseUrl: values.useRawBaseUrl,
       transport: values.transport,
       auth,
@@ -1032,37 +1039,39 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
         <DialogHeader>
           <DialogTitle className="flex items-center gap-1.5 text-base">
             {isEdit ? t('aiGateway.providerForm.editTitle') : t('aiGateway.addProvider')}
-            <Popover>
-              <PopoverTrigger asChild>
-                <i className="fa-regular fa-circle-question inline-block cursor-help text-muted-foreground text-xs" />
-              </PopoverTrigger>
-              <PopoverContent side="bottom" align="start" className="w-64 text-xs">
-                <ul className="space-y-1">
-                  <li>• {t('aiGateway.providerForm.help.slug')}</li>
-                  <li>• {t('aiGateway.providerForm.help.providerType')}</li>
-                  <li>• {t('aiGateway.providerForm.help.baseUrl')}</li>
-                  <li>• {t('aiGateway.providerForm.help.apiKey')}</li>
-                  <li>• {t('aiGateway.providerForm.help.addModels')}</li>
-                  <li>• {t('aiGateway.providerForm.help.visibility')}</li>
-                </ul>
-              </PopoverContent>
-            </Popover>
+            <HelpIcon
+              type="popover"
+              side="bottom"
+              align="start"
+              contentClassName="w-64 text-xs"
+              ariaLabel={t('common.help')}
+            >
+              <ul className="space-y-1">
+                <li>• {t('aiGateway.providerForm.help.slug')}</li>
+                <li>• {t('aiGateway.providerForm.help.displayName')}</li>
+                <li>• {t('aiGateway.providerForm.help.providerType')}</li>
+                <li>• {t('aiGateway.providerForm.help.authMethod')}</li>
+                <li>• {t('aiGateway.providerForm.help.baseUrl')}</li>
+                <li>• {t('aiGateway.providerForm.help.pathCompletion')}</li>
+                <li>• {t('aiGateway.providerForm.help.remark')}</li>
+                <li>• {t('aiGateway.providerForm.help.addModels')}</li>
+                <li>• {t('aiGateway.providerForm.help.visibility')}</li>
+              </ul>
+            </HelpIcon>
           </DialogTitle>
-          <DialogDescription className="text-xs">
-            {isEdit ? t('aiGateway.providerForm.editDescription') : t('aiGateway.providerForm.createDescription')}
-          </DialogDescription>
         </DialogHeader>
 
         <Tabs defaultValue="basic" className="w-full">
-          <TabsList className="mb-3">
+          <TabsList className="mb-1">
             <TabsTrigger value="basic" className="text-xs">{t('aiGateway.providerForm.tabs.basic')}</TabsTrigger>
             <TabsTrigger value="models" className="text-xs">{t('aiGateway.providerForm.tabs.models')}</TabsTrigger>
             <TabsTrigger value="advanced" className="text-xs">{t('aiGateway.providerForm.tabs.advanced')}</TabsTrigger>
             <TabsTrigger value="extension" className="text-xs">{t('aiGateway.providerForm.tabs.extension')}</TabsTrigger>
           </TabsList>
 
+          {/* 基本信息 */}
           <form onSubmit={form.handleSubmit(handleSubmit)} id="provider-form" className="contents">
-            <TabsContent value="basic" className="space-y-4">
+            <TabsContent value="basic" className="space-y-3">
               <div className="grid grid-cols-2 gap-4">
                 {/* slug */}
                 <div className="space-y-1.5" data-invalid={errors.slug ? '' : undefined}>
@@ -1160,6 +1169,7 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
                 )}
               </div>
 
+              {/* 认证方式 + 路径补全：一行各占一半 */}
               <div className="mt-4 grid grid-cols-2 gap-4">
                 {/* 认证方式 */}
                 <div className="space-y-1.5">
@@ -1180,22 +1190,41 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex items-end pb-1.5">
-                  <label className="flex items-center gap-2 text-xs">
-                    <Switch checked={form.watch('useRawBaseUrl')} onCheckedChange={(v) => form.setValue('useRawBaseUrl', v)} />
-                    {t('aiGateway.providerForm.useRawBaseUrl')}
-                    <TooltipProvider delayDuration={200}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <i className="fa-solid fa-circle-info text-muted-foreground cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-[260px] text-[11px] leading-relaxed whitespace-pre-line">
-                          {t('aiGateway.providerForm.useRawBaseUrlHelp')}
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </label>
+
+                {/* 路径补全：是否原样使用 Base URL（不自动补全 /v1 路径） */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs">{t('aiGateway.providerForm.pathCompletion')}</Label>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-1 text-xs">
+                      {/* 文本为非交互元素，避免点击文字误触发开关 */}
+                      <span className="shrink-0 text-muted-foreground">{t('aiGateway.providerForm.useRawBaseUrl')}</span>
+                      <HelpIcon
+                        type="popover"
+                        side="top"
+                        align="start"
+                        contentClassName="max-w-[260px] text-xs"
+                        ariaLabel={t('aiGateway.providerForm.useRawBaseUrl')}
+                      >
+                        <p className="leading-relaxed whitespace-pre-line">{t('aiGateway.providerForm.useRawBaseUrlHelp')}</p>
+                      </HelpIcon>
+                    </div>
+                    <Switch
+                      checked={form.watch('useRawBaseUrl')}
+                      onCheckedChange={(v) => form.setValue('useRawBaseUrl', v)}
+                    />
+                  </div>
                 </div>
+              </div>
+
+              {/* 备注 */}
+              <div className="mt-4 space-y-1.5">
+                <Label className="text-xs" htmlFor="remark">{t('aiGateway.providerForm.remark')}</Label>
+                <Input
+                  id="remark"
+                  {...form.register('remark')}
+                  className="h-8 text-xs"
+                  placeholder={t('aiGateway.providerForm.remarkPlaceholder')}
+                />
               </div>
 
               {/* API Key */}
@@ -1448,11 +1477,12 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
               </div>
           </TabsContent>
 
+          {/* 模型管理 */}
           <TabsContent value="models" className="min-h-[200px]">
             <ModelManagementSection provider={provider} />
           </TabsContent>
 
-          <TabsContent value="advanced" className="space-y-4">
+          <TabsContent value="advanced" className="space-y-3">
             {/* 额度监控 */}
             <div>
               <div className="mb-2 text-xs font-medium">{t('aiGateway.providerForm.balanceMonitoring')}</div>

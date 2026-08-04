@@ -69,13 +69,13 @@ pub fn insert_provider(
 
     conn.execute(
         "INSERT INTO providers
-            (id, slug, display_name, provider_type, base_url, use_raw_base_url,
+            (id, slug, display_name, provider_type, base_url, use_raw_base_url, remark,
              transport, service_tier, auth_json, auth_expires_at, auth_method,
              balance_provider_json, timeout_json, retry_json, proxy_json,
              auto_fetch_official_models, context_cache_json, well_known_template_id,
              is_enabled, sort_order, created_at, updated_at, script_variables_json)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, NULL, ?8, ?9, ?10,
-                 ?11, ?12, ?13, ?14, ?15, NULL, NULL, ?16, ?17, ?18, ?19, ?20)",
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, NULL, ?9, ?10, ?11,
+                 ?12, ?13, ?14, ?15, ?16, NULL, NULL, ?17, ?18, ?19, ?20, ?21)",
         rusqlite::params![
             id,
             input.slug,
@@ -83,6 +83,7 @@ pub fn insert_provider(
             input.provider_type,
             input.base_url,
             input.use_raw_base_url as i64,
+            input.remark,
             input.transport,
             auth_json,
             auth_expires_at,
@@ -191,6 +192,12 @@ pub fn update_provider(
     if let Some(v) = input.use_raw_base_url {
         sets.push(format!("use_raw_base_url = ?{idx}"));
         params.push(Box::new(v as i64));
+        idx += 1;
+    }
+    // remark：None 表示不修改；Some("") 表示清空
+    if let Some(ref v) = input.remark {
+        sets.push(format!("remark = ?{idx}"));
+        params.push(Box::new(v.clone()));
         idx += 1;
     }
     // transport：None 表示不修改（清空需显式传空串或改走全量更新）
@@ -743,7 +750,7 @@ pub fn update_gateway_model(
 
 /// providers 表 SELECT 字段列表
 const PROVIDER_SELECT_SQL: &str = "SELECT p.id, p.slug, p.display_name, p.provider_type,
-    p.base_url, p.use_raw_base_url, p.transport, p.service_tier, p.auth_json,
+    p.base_url, p.use_raw_base_url, p.remark, p.transport, p.service_tier, p.auth_json,
     p.auth_expires_at, p.auth_method,
     p.balance_provider_json, p.timeout_json, p.retry_json, p.proxy_json,
     p.auto_fetch_official_models, p.context_cache_json, p.well_known_template_id,
@@ -755,8 +762,8 @@ const PROVIDER_SELECT_SQL: &str = "SELECT p.id, p.slug, p.display_name, p.provid
 fn provider_row_mapper(row: &rusqlite::Row<'_>) -> rusqlite::Result<Provider> {
     // 列顺序见 PROVIDER_SELECT_SQL
     let use_raw: i64 = row.get(5)?;
-    let auto_fetch: i64 = row.get(15)?;
-    let is_enabled: i64 = row.get(18)?;
+    let auto_fetch: i64 = row.get(16)?;
+    let is_enabled: i64 = row.get(19)?;
     Ok(Provider {
         id: row.get(0)?,
         slug: row.get(1)?,
@@ -764,23 +771,24 @@ fn provider_row_mapper(row: &rusqlite::Row<'_>) -> rusqlite::Result<Provider> {
         provider_type: row.get(3)?,
         base_url: row.get(4)?,
         use_raw_base_url: use_raw != 0,
-        transport: row.get(6)?,
-        service_tier: row.get(7)?,
-        auth_json: row.get(8)?,
-        auth_expires_at: row.get(9)?,
-        auth_method: row.get(10)?,
-        balance_provider_json: row.get(11)?,
-        timeout_json: row.get(12)?,
-        retry_json: row.get(13)?,
-        proxy_json: row.get(14)?,
+        remark: row.get(6)?,
+        transport: row.get(7)?,
+        service_tier: row.get(8)?,
+        auth_json: row.get(9)?,
+        auth_expires_at: row.get(10)?,
+        auth_method: row.get(11)?,
+        balance_provider_json: row.get(12)?,
+        timeout_json: row.get(13)?,
+        retry_json: row.get(14)?,
+        proxy_json: row.get(15)?,
         auto_fetch_official_models: auto_fetch != 0,
-        context_cache_json: row.get(16)?,
-        well_known_template_id: row.get(17)?,
+        context_cache_json: row.get(17)?,
+        well_known_template_id: row.get(18)?,
         is_enabled: is_enabled != 0,
-        sort_order: row.get(19)?,
-        created_at: row.get(20)?,
-        updated_at: row.get(21)?,
-        script_variables_json: row.get(22)?,
+        sort_order: row.get(20)?,
+        created_at: row.get(21)?,
+        updated_at: row.get(22)?,
+        script_variables_json: row.get(23)?,
     })
 }
 

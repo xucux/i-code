@@ -111,6 +111,7 @@ export function ProviderList() {
     displayName: string
     providerType: string
     baseUrl: string
+    remark?: string
     useRawBaseUrl: boolean
     authMethod: 'none' | 'api-key'
     isEnabled: boolean
@@ -185,6 +186,7 @@ export function ProviderList() {
       displayName: builtin.displayName,
       providerType: builtin.providerType,
       baseUrl: builtin.baseUrl,
+      remark: builtin.remark,
       useRawBaseUrl: builtin.useRawBaseUrl,
       authMethod: inferAuthMethod(builtin.defaultAuthJson),
       isEnabled: true,
@@ -312,6 +314,7 @@ export function ProviderList() {
     displayName: string
     providerType: string
     baseUrl: string
+    remark?: string
     useRawBaseUrl: boolean
     transport?: 'auto' | 'sse' | 'websocket'
     auth?: AuthConfig
@@ -329,6 +332,7 @@ export function ProviderList() {
         const result = await updateProvider(editingProvider.id, {
           displayName: values.displayName,
           baseUrl: values.baseUrl,
+          remark: values.remark,
           useRawBaseUrl: values.useRawBaseUrl,
           transport: values.transport,
           auth: values.auth,
@@ -354,6 +358,7 @@ export function ProviderList() {
           displayName: values.displayName,
           providerType: values.providerType,
           baseUrl: values.baseUrl,
+          remark: values.remark,
           useRawBaseUrl: values.useRawBaseUrl,
           transport: values.transport,
           auth: values.auth,

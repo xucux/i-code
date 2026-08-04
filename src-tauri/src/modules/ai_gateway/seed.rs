@@ -73,6 +73,9 @@ pub struct BuiltinProvider {
     /// 是否原样使用 base URL
     #[serde(default)]
     pub use_raw_base_url: bool,
+    /// 供应商备注（来自内置预设，创建供应商时自动填充 remark 字段）
+    #[serde(default)]
+    pub remark: Option<String>,
     /// 支持的认证方法列表，如 `["api-key"]`
     pub auth_methods: Vec<String>,
     /// 默认认证配置（用户创建时可一键填充）

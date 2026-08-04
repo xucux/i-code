@@ -50,6 +50,9 @@ const V003__PROVIDER_AUTH_FIELDS: &str =
 const V004__GATEWAY_SETTINGS_AUTH_ENABLED: &str =
     include_str!("./migrations/V004__gateway_settings_auth_enabled.sql");
 
+/// 供应商备注：providers 表新增 remark 列
+const V005__PROVIDER_REMARK: &str = include_str!("./migrations/V005__provider_remark.sql");
+
 /// 内置迁移列表：(版本号, 描述, SQL 内容)
 ///
 /// 增量迁移模式：V001 为基线，V002+ 为增量变更。
@@ -59,6 +62,7 @@ const BUILTIN_MIGRATIONS: &[(u32, &str, &str)] = &[
     (2, "provider_script_variables", V002__PROVIDER_SCRIPT_VARIABLES),
     (3, "provider_auth_fields", V003__PROVIDER_AUTH_FIELDS),
     (4, "gateway_settings_auth_enabled", V004__GATEWAY_SETTINGS_AUTH_ENABLED),
+    (5, "provider_remark", V005__PROVIDER_REMARK),
 ];
 
 /// 执行所有未应用的迁移

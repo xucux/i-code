@@ -198,6 +198,7 @@
         "x-opencode-session": "ses_${uuid_by_day()}",
         "x-opencode-request": "msg_${uuid()}"
       },
+      "remark":"免费模型会存在200K上下文限制",
       "defaultModels":[
         {
           "modelId":"nemotron-3-ultra-free",
@@ -541,6 +542,7 @@
       "defaultExtraHeaders": {
         "x-client-type": "cline-cli"
       },
+      "remark":"免费模型存在次数和Token限制。",
       "defaultModels":[
         {
           "modelId":"cline-free/glm-5.2",

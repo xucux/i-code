@@ -115,6 +115,7 @@ async fn refresh_with_script(
         provider_type: input.provider_type.clone().unwrap_or_default(),
         base_url: input.base_url.clone().unwrap_or_default(),
         use_raw_base_url: false,
+        remark: None,
         transport: None,
         service_tier: None,
         auth_json: input

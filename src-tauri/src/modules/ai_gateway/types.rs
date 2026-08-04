@@ -687,6 +687,9 @@ pub struct Provider {
     pub provider_type: String,
     pub base_url: String,
     pub use_raw_base_url: bool,
+    /// 供应商备注（选填）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub remark: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub transport: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -877,6 +880,9 @@ pub struct CreateProviderInput {
     pub base_url: String,
     #[serde(default)]
     pub use_raw_base_url: bool,
+    /// 供应商备注（选填）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub remark: Option<String>,
     /// 传输方式：`auto` / `sse` / `websocket`（Responses 供应商的 WebSocket 传输开关）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub transport: Option<String>,
@@ -937,6 +943,9 @@ pub struct UpdateProviderInput {
     pub base_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub use_raw_base_url: Option<bool>,
+    /// 供应商备注（选填；传空串表示清空）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub remark: Option<String>,
     /// 传输方式：`auto` / `sse` / `websocket`（None 表示不修改）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub transport: Option<String>,
@@ -1187,6 +1196,9 @@ pub struct ExportedProvider {
     pub provider_type: String,
     pub base_url: String,
     pub use_raw_base_url: bool,
+    /// 供应商备注（选填）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub remark: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub transport: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

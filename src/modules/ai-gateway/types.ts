@@ -68,6 +68,8 @@ export interface Provider {
   providerType: ProviderType
   baseUrl: string
   useRawBaseUrl: boolean
+  /** 供应商备注（选填） */
+  remark?: string
   transport?: TransportType
   serviceTier?: string
   /** 认证配置 JSON（多态联合类型），密钥以 `$SECRET:{snowflake_id}$` 引用
@@ -543,6 +545,8 @@ export interface BuiltinProvider {
   providerType: ProviderType
   baseUrl: string
   useRawBaseUrl: boolean
+  /** 供应商备注（来自内置预设，创建时自动填充） */
+  remark?: string
   defaultAuthJson?: string
   defaultBalanceProviderJson?: string
   extraHeadersJson?: string
@@ -725,6 +729,8 @@ export interface CreateProviderInput {
   providerType: string
   baseUrl: string
   useRawBaseUrl?: boolean
+  /** 供应商备注（选填） */
+  remark?: string
   /** 传输方式：auto / sse / websocket（Responses 供应商的 WebSocket 传输开关） */
   transport?: TransportType
   auth?: AuthConfig
@@ -765,6 +771,8 @@ export interface UpdateProviderInput {
   displayName?: string
   baseUrl?: string
   useRawBaseUrl?: boolean
+  /** 供应商备注（选填；传空串表示清空） */
+  remark?: string
   /** 传输方式：auto / sse / websocket（None 表示不修改） */
   transport?: TransportType
   auth?: AuthConfig
