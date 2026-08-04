@@ -132,7 +132,7 @@ impl OpenAiChatClient {
 impl UpstreamClient for OpenAiChatClient {
     async fn execute(
         &self,
-        ctx: &UpstreamContext,
+        ctx: &mut UpstreamContext,
         request: UpstreamRequest,
     ) -> Result<UpstreamResponse, ClientError> {
         if request.protocol != UpstreamProtocol::ChatCompletions {
@@ -158,6 +158,9 @@ impl UpstreamClient for OpenAiChatClient {
         }
 
         let headers = Self::build_headers(&ctx.provider, &auth_resolution, &ctx.extra_headers)?;
+        // 捕获上游请求头去敏快照，供 provider-api 日志展示真实发出的请求头
+        ctx.request_headers_json =
+            crate::modules::gateway_runtime::logging::headers::request_headers_to_json(&headers);
 
         let client = http_client_for(&ctx.provider, request.is_stream)?;
         let upstream_resp = client

@@ -192,6 +192,7 @@ mod tests {
             error_message: None,
             request_id: None,
             model_id: None,
+            request_headers: None,
             request_body: None,
             response_body: None,
             tags: Vec::new(),

@@ -72,6 +72,8 @@ pub struct LogRecord {
     pub request_id: Option<String>,
     /// 模型 ID（`{provider_slug}/{model_id}` 形式）
     pub model_id: Option<String>,
+    /// 请求头（已去敏，JSON 字符串，如 `{"authorization":"***"}`）
+    pub request_headers: Option<String>,
     /// 请求体原始字符串（未截断）
     pub request_body: Option<String>,
     /// 响应体原始字符串（未截断）
@@ -131,6 +133,10 @@ impl LogRecordBuilder {
     }
     pub fn model_id(mut self, id: &str) -> Self {
         self.record.model_id = Some(id.to_string());
+        self
+    }
+    pub fn request_headers(mut self, headers: &str) -> Self {
+        self.record.request_headers = Some(headers.to_string());
         self
     }
     pub fn request_body(mut self, body: &str) -> Self {

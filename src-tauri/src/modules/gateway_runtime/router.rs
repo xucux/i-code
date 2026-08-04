@@ -19,7 +19,7 @@
 
 use axum::body::Body;
 use axum::extract::{Extension, State};
-use axum::http::{header, StatusCode};
+use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Json, Response};
 use axum::routing::{get, post};
 use axum::Router;
@@ -135,6 +135,7 @@ async fn readyz(State(_state): State<GatewaySharedState>) -> impl IntoResponse {
 /// 数据源同时包含真实供应商模型与虚拟供应商模型。
 async fn list_models(
     State(state): State<GatewaySharedState>,
+    headers: HeaderMap,
 ) -> Response {
     let start = std::time::Instant::now();
     // 复用 TraceIdSpan 注入的 trace_id 作为 request_id，
@@ -143,6 +144,10 @@ async fn list_models(
     // 此处读取即可；fallback 仅防御性兜底（理论上不会触发）。
     let request_id = crate::core::trace_id_layer::current_trace_id()
         .unwrap_or_else(crate::core::trace_id::next_trace_id);
+
+    // 请求头快照（去敏 JSON），与 chat/responses/messages 入口保持一致
+    let request_headers_json =
+        crate::modules::gateway_runtime::logging::headers::request_headers_to_json(&headers);
 
     let result = build_exposed_models_response(&state);
 
@@ -162,6 +167,7 @@ async fn list_models(
         start,
         None,
         None,
+        request_headers_json.as_deref(),
         response,
     ).await
 }
@@ -210,6 +216,7 @@ fn build_exposed_models_response(
 async fn chat_completions(
     State(state): State<GatewaySharedState>,
     Extension(api_key): Extension<RequestApiKey>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> Response {
     let start = std::time::Instant::now();
@@ -226,6 +233,9 @@ async fn chat_completions(
 
     // 请求体快照（未截断，截断交给 LogPipeline）
     let request_body_full = serde_json::to_string(&body).ok();
+    // 请求头快照（去敏 JSON，gateway 与 provider-api 日志共用展示）
+    let request_headers_json =
+        crate::modules::gateway_runtime::logging::headers::request_headers_to_json(&headers);
 
     let response = match ForwardPipeline::run(
         &state,
@@ -233,6 +243,7 @@ async fn chat_completions(
             protocol: GatewayProtocol::ChatCompletions,
             body,
             api_key_secret_id: api_key.0,
+            request_headers_json: request_headers_json.clone(),
         },
     )
     .await
@@ -249,6 +260,7 @@ async fn chat_completions(
         start,
         request_body_full.as_deref(),
         gateway_model_id.as_deref(),
+        request_headers_json.as_deref(),
         response,
     ).await
 }
@@ -260,6 +272,7 @@ async fn chat_completions(
 async fn responses(
     State(state): State<GatewaySharedState>,
     Extension(api_key): Extension<RequestApiKey>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> Response {
     let start = std::time::Instant::now();
@@ -276,6 +289,9 @@ async fn responses(
 
     // 请求体快照（未截断，截断交给 LogPipeline）
     let request_body_full = serde_json::to_string(&body).ok();
+    // 请求头快照（去敏 JSON，gateway 与 provider-api 日志共用展示）
+    let request_headers_json =
+        crate::modules::gateway_runtime::logging::headers::request_headers_to_json(&headers);
 
     let response = match ForwardPipeline::run(
         &state,
@@ -283,6 +299,7 @@ async fn responses(
             protocol: GatewayProtocol::Responses,
             body,
             api_key_secret_id: api_key.0,
+            request_headers_json: request_headers_json.clone(),
         },
     )
     .await
@@ -299,6 +316,7 @@ async fn responses(
         start,
         request_body_full.as_deref(),
         gateway_model_id.as_deref(),
+        request_headers_json.as_deref(),
         response,
     )
     .await
@@ -310,6 +328,7 @@ async fn responses(
 async fn anthropic_messages(
     State(state): State<GatewaySharedState>,
     Extension(api_key): Extension<RequestApiKey>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> Response {
     let start = std::time::Instant::now();
@@ -326,6 +345,9 @@ async fn anthropic_messages(
 
     // 请求体快照（未截断，截断交给 LogPipeline）
     let request_body_full = serde_json::to_string(&body).ok();
+    // 请求头快照（去敏 JSON，gateway 与 provider-api 日志共用展示）
+    let request_headers_json =
+        crate::modules::gateway_runtime::logging::headers::request_headers_to_json(&headers);
 
     let response = match ForwardPipeline::run(
         &state,
@@ -333,6 +355,7 @@ async fn anthropic_messages(
             protocol: GatewayProtocol::AnthropicMessages,
             body,
             api_key_secret_id: api_key.0,
+            request_headers_json: request_headers_json.clone(),
         },
     )
     .await
@@ -349,6 +372,7 @@ async fn anthropic_messages(
         start,
         request_body_full.as_deref(),
         gateway_model_id.as_deref(),
+        request_headers_json.as_deref(),
         response,
     ).await
 }
@@ -417,6 +441,7 @@ async fn log_gateway_response(
     start: std::time::Instant,
     request_body_full: Option<&str>,
     model_id: Option<&str>,
+    request_headers: Option<&str>,
     response: Response,
 ) -> Response {
     let cfg = get_gateway_log_config(state);
@@ -501,6 +526,9 @@ async fn log_gateway_response(
 
     if let Some(mid) = model_id {
         builder = builder.model_id(mid);
+    }
+    if let Some(h) = request_headers {
+        builder = builder.request_headers(h);
     }
     if let Some(body) = request_body_full {
         builder = builder.request_body(body);

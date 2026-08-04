@@ -132,6 +132,9 @@ pub struct LogEntry {
     /// 请求使用的模型 ID（网关暴露的 model 字段，含 provider_slug 前缀）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub model_id: Option<String>,
+    /// 请求头（已去敏，JSON 字符串，如 `{"authorization":"***"}`）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub request_headers: Option<String>,
     /// 请求体内容（转发详细日志开启时记录）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub request_body: Option<String>,
@@ -475,6 +478,7 @@ mod tests {
             error_message: None,
             request_id: Some("req-123".to_string()),
             model_id: Some("openai/gpt-4.1".to_string()),
+            request_headers: None,
             request_body: None,
             response_body: None,
             tags: vec!["sse".to_string()],

@@ -94,8 +94,13 @@ log::error!("上游调用失败：{}", e);
 
 #### 2.5.3 SSE / WebSocket 流式输出
 
-- **SSE**：每次从上游接收到 chunk 立即 `debug` 打印，内容为原始事件文本与字节数。
-  - 实现位置：[`src-tauri/src/modules/gateway_runtime/client/mod.rs`](../src-tauri/src/modules/gateway_runtime/client/mod.rs) 的 `build_sse_response`。
+- **SSE chunk 专属文件（按小时滚动）**：SSE chunk 日志通过独立 target `i_code::sse` 写入**单独的**按小时滚动文件 `i-code-sse.YYYY-MM-DD-HH.log`（前缀 `i-code-sse`），不混入主日志文件，避免高频 chunk 刷屏常规日志。
+  - 文件内容一行一个 chunk：`2026-05-06T12:03:44.123Z INFO [tid=...] SSE chunk | log_id=... | size=... bytes | text=...`
+  - **不打印 target 与 file:line**：SSE 专属 fmt layer 使用 `TraceIdFormat::without_location()`，输出中 `[...]` 内的 `i_code::modules::...response_handler.rs:142` 前缀不会打印。
+  - 常规主日志过滤器会**排除** `i_code::sse` target，确保 chunk 只进入专属文件。
+  - 实现位置：
+    - 初始化：[`src-tauri/src/main.rs`](../src-tauri/src/main.rs)（SSE 专属 appender + fmt layer + 过滤）。
+    - chunk 打印：[`src-tauri/src/modules/gateway_runtime/forwarding/response_handler.rs`](../src-tauri/src/modules/gateway_runtime/forwarding/response_handler.rs)。
 - **WebSocket**：请求发出时 `debug` 打印请求体；每次接收到流式帧时 `debug` 打印（当前未完整实现流式转发，已用 `warn` 标记）。
   - 实现位置：[`src-tauri/src/modules/gateway_runtime/client/websocket_client.rs`](../src-tauri/src/modules/gateway_runtime/client/websocket_client.rs)。
 
@@ -184,6 +189,32 @@ await logger.error('导出失败', 'export-panel.tsx', 42)
 - Command 交互日志
 
 通过「日志」页面或 `log_get_settings` / `log_set_settings` Command 调整。
+
+### 3.5 请求头展示（去敏）
+
+自研 logger 的网关 / 供应商 API 日志会记录**请求头**，在「日志」页面展开详情时展示，「模型 ID」下方一行，值为 JSON（2 空格缩进）。请求头默认随导出一起写入 CSV / JSON。
+
+- **网关（inbound，入站请求头）**：记录客户端 → 本地网关的原始请求头，覆盖 `/v1/chat/completions`、`/v1/responses`、`/v1/messages`、`/v1/models`。
+  - 实现位置：[`src-tauri/src/modules/gateway_runtime/router.rs`](../src-tauri/src/modules/gateway_runtime/router.rs)（`list_models` 等 handler 捕获 `HeaderMap`）。
+- **供应商 API（outbound，出站请求头）**：记录网关 → 真实供应商上行的请求头，优先取**实际发往上游**的头快照，缺失时回退到入站请求头。
+  - 每个 Client（`openai_chat_client`、`anthropic_client`、`openai_responses_client`、`websocket_client`）在发送前对真实出站请求头做去敏快照写入 `UpstreamContext.request_headers_json`。
+  - `UpstreamClient::execute` 签名改为 `&mut UpstreamContext`。
+
+#### 去敏规则
+
+由 [`src-tauri/src/modules/gateway_runtime/logging/headers.rs`](../src-tauri/src/modules/gateway_runtime/logging/headers.rs) 的 `request_headers_to_json(&headers)` 统一处理：
+
+- 将 `HeaderMap` 序列化为 `BTreeMap` JSON 字符串（键按名字母序排序）。
+- 头名称（不区分大小写、子串匹配）命中以下任一敏感片段时，值替换为 `"***"`：
+
+```
+authorization / api-key / token / secret / credential / cookie / auth
+```
+
+- 非 UTF-8 用户头值（含二进制）序列化为 `"<binary>"`。
+- 没有任何请求头时返回 `None`（字段不落库）。
+
+**后端类型**：`LogRecord` / `LogEntry` 新增 `request_headers: Option<String>` 字段（存已去敏的 JSON 字符串），由录制/回放填充。
 
 ---
 

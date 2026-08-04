@@ -1338,6 +1338,7 @@
       "errorMessage": "錯誤資訊",
       "requestId": "請求 ID",
       "modelId": "模型 ID",
+      "requestHeaders": "請求標頭",
       "requestBody": "請求體",
       "responseBody": "響應體",
       "tags": "標籤",

@@ -61,7 +61,7 @@ impl OpenAiResponsesClient {
 
     /// HTTP/SSE 传输执行
     async fn execute_http(
-        ctx: &UpstreamContext,
+        ctx: &mut UpstreamContext,
         request: UpstreamRequest,
     ) -> Result<UpstreamResponse, ClientError> {
         let upstream_url = build_upstream_url(&ctx.provider, Self::build_path())?;
@@ -69,6 +69,9 @@ impl OpenAiResponsesClient {
 
         let headers =
             OpenAiChatClient::build_headers(&ctx.provider, &auth_resolution, &ctx.extra_headers)?;
+        // 捕获上游请求头去敏快照，供 provider-api 日志展示真实发出的请求头
+        ctx.request_headers_json =
+            crate::modules::gateway_runtime::logging::headers::request_headers_to_json(&headers);
 
         let client = http_client_for(&ctx.provider, request.is_stream)?;
         let upstream_resp = client
@@ -105,7 +108,7 @@ impl OpenAiResponsesClient {
     /// 收到 `response.completed` / `response.failed` / `response.incomplete` /
     /// `error` 任一终止事件后，向对端发送 Close 帧并结束流。
     async fn execute_websocket(
-        ctx: &UpstreamContext,
+        ctx: &mut UpstreamContext,
         request: UpstreamRequest,
     ) -> Result<UpstreamResponse, ClientError> {
         // 1. 构造 wss:// URL（复用 /v1 自动补全逻辑，再把 scheme 换成 ws/wss）
@@ -127,6 +130,9 @@ impl OpenAiResponsesClient {
                 .parse()
                 .map_err(|e| ClientError::BuildRequestError(format!("构造 OpenAI-Beta 失败: {}", e)))?,
         );
+        // 捕获上游请求头去敏快照，供 provider-api 日志展示真实发出的请求头
+        ctx.request_headers_json =
+            crate::modules::gateway_runtime::logging::headers::request_headers_to_json(&headers);
 
         // 3. 建立连接（连接超时由 socket 层处理，此处直接异步连接）
         let mut ws_request = ws_url
@@ -171,7 +177,7 @@ impl OpenAiResponsesClient {
 impl UpstreamClient for OpenAiResponsesClient {
     async fn execute(
         &self,
-        ctx: &UpstreamContext,
+        ctx: &mut UpstreamContext,
         request: UpstreamRequest,
     ) -> Result<UpstreamResponse, ClientError> {
         if request.protocol != UpstreamProtocol::Responses {

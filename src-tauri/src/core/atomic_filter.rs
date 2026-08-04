@@ -94,6 +94,24 @@ impl<S: Subscriber> Filter<S> for SharedLevelFilter {
     }
 }
 
+/// 常规日志输出（stdout / 主文件）的过滤器
+///
+/// 在运行时级别过滤（`SharedLevelFilter`）之上，额外排除 `i_code::sse` target，
+/// 使 SSE chunk 日志只进入专属文件，不刷屏常规文件与终端。
+///
+/// 注意：不使用 `FilterExt::and` 组合，因为 `And<A, B, S>` 携带 `S` 泛型参数，
+/// 会因层叠加类型变化导致无法复用同一个 filter；本类型不含 `S` 参数，
+/// 每个 fmt layer 可独立实例化 `Filter<S>`。
+#[derive(Debug, Clone)]
+pub struct MainLogFilter(pub SharedLevelFilter);
+
+impl<S: Subscriber> Filter<S> for MainLogFilter {
+    fn enabled(&self, meta: &tracing::Metadata<'_>, cx: &Context<'_, S>) -> bool {
+        meta.target() != crate::core::trace_id_layer::SSE_LOG_TARGET
+            && self.0.enabled(meta, cx)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

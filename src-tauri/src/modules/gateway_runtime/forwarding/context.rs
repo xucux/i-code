@@ -53,6 +53,8 @@ pub struct ForwardRequest {
     pub body: Value,
     /// 调用方使用的 Gateway API Key Secret ID（用于调用记录）
     pub api_key_secret_id: Option<String>,
+    /// 调用方请求头（已去敏 JSON），透传到转发日志展示
+    pub request_headers_json: Option<String>,
 }
 
 /// 已解析的转发上下文
@@ -95,6 +97,7 @@ impl ForwardContext {
             is_stream: false,
             auth_config,
             extra_headers,
+            request_headers_json: None,
         };
         Self {
             upstream,
@@ -127,6 +130,7 @@ impl ForwardContext {
             is_stream: false,
             auth_config,
             extra_headers,
+            request_headers_json: None,
         };
         Self {
             upstream,

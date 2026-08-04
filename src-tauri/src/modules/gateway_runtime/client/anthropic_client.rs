@@ -129,7 +129,7 @@ impl AnthropicClient {
 impl UpstreamClient for AnthropicClient {
     async fn execute(
         &self,
-        ctx: &UpstreamContext,
+        ctx: &mut UpstreamContext,
         request: UpstreamRequest,
     ) -> Result<UpstreamResponse, ClientError> {
         if request.protocol != UpstreamProtocol::AnthropicMessages {
@@ -142,6 +142,9 @@ impl UpstreamClient for AnthropicClient {
         let upstream_url = build_upstream_url(&ctx.provider, "/v1/messages")?;
         let auth_resolution = Self::resolve_auth_credential(ctx.auth_config.clone())?;
         let headers = Self::build_headers(&ctx.provider, &auth_resolution, &ctx.extra_headers)?;
+        // 捕获上游请求头去敏快照，供 provider-api 日志展示真实发出的请求头
+        ctx.request_headers_json =
+            crate::modules::gateway_runtime::logging::headers::request_headers_to_json(&headers);
 
         let client = http_client_for(&ctx.provider, request.is_stream)?;
         let upstream_resp = client

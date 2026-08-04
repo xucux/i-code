@@ -78,6 +78,7 @@ fn write(level: LogLevel, message: &str, file_name: Option<&str>, line_number: O
         error_message: Some(message.to_string()),
         request_id: None,
         model_id: None,
+        request_headers: None,
         request_body: None,
         response_body: None,
         tags: Vec::new(),

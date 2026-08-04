@@ -93,6 +93,15 @@ function formatTimestamp(ts: string): string {
 /** Token 相关字段 */
 const TOKEN_KEYS = ['promptTokens', 'completionTokens', 'totalTokens', 'cachedTokens']
 
+/** 将 JSON 字符串美化输出（缩进 2 空格）；解析失败时原样返回 */
+function formatJson(s: string): string {
+  try {
+    return JSON.stringify(JSON.parse(s), null, 2)
+  } catch {
+    return s
+  }
+}
+
 /**
  * 日志浏览组件
  *
@@ -121,6 +130,7 @@ export function LogViewer({
     errorMessage: t('logViewer.errorMessage'),
     requestId: t('logViewer.requestId'),
     modelId: t('logViewer.modelId'),
+    requestHeaders: t('logViewer.requestHeaders'),
     requestBody: t('logViewer.requestBody'),
     responseBody: t('logViewer.responseBody'),
     tags: t('logViewer.tags'),
@@ -235,7 +245,10 @@ export function LogViewer({
                               v != null && v !== '' && !TOKEN_KEYS.includes(key)
                             )
                             .map(([key, value]) => {
-                              const isLongText = typeof value === 'string' && value.length > 100
+                              // 请求头以 JSON 展示（后端已对敏感值做 *** 去敏）
+                              const isRequestHeaders = key === 'requestHeaders'
+                              const display = isRequestHeaders ? formatJson(String(value)) : String(value)
+                              const isLongText = display.length > 100
                               return (
                                 <tr key={key}>
                                   <td className="w-24 py-0.5 pr-2 font-medium text-muted-foreground align-top whitespace-nowrap">
@@ -244,10 +257,10 @@ export function LogViewer({
                                   <td className="py-0.5">
                                     {isLongText ? (
                                       <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded bg-background p-2 font-mono text-[10px] leading-tight">
-                                        {String(value)}
+                                        {display}
                                       </pre>
                                     ) : (
-                                      <span>{String(value)}</span>
+                                      <span>{display}</span>
                                     )}
                                   </td>
                                 </tr>

@@ -17,7 +17,12 @@ use tauri_plugin_autostart::ManagerExt;
 ///
 /// `non_blocking` 返回的 `WorkerGuard` 一旦 drop，后台写入线程立即终止，
 /// 后续文件日志全部丢失。将其注册为 Tauri State，存活到应用退出。
-pub struct WorkerGuardState(pub tracing_appender::non_blocking::WorkerGuard);
+pub struct WorkerGuardState {
+    /// 常规日志文件（按天 + 20MB 分片）后台写入线程保活句柄
+    pub main: tracing_appender::non_blocking::WorkerGuard,
+    /// SSE chunk 专属文件（按小时滚动）后台写入线程保活句柄
+    pub sse: tracing_appender::non_blocking::WorkerGuard,
+}
 
 /// 初始化 tracing-subscriber，替代 tauri-plugin-log
 ///
@@ -53,8 +58,16 @@ fn init_tracing(app: &tauri::App) {
     // 3. non_blocking 包装：返回的 guard 必须 Send + 'static 保活，
     //    否则后台写入线程在 setup 返回时立即终止，文件日志全部丢失。
     //    将 guard 注册为 Tauri State 以保活到应用退出。
-    let (file_writer, guard) = tracing_appender::non_blocking(file_appender);
-    app.manage(WorkerGuardState(guard));
+    let (file_writer, guard_main) = tracing_appender::non_blocking(file_appender);
+
+    // 3b. SSE chunk 专属文件：按小时滚动，前缀 i-code-sse
+    //     tracing_appender::rolling::hourly 生成 i-code-sse.YYYY-MM-DD-HH.log（UTC 小时）
+    let sse_appender = tracing_appender::rolling::hourly(&log_dir, "i-code-sse");
+    let (sse_writer, guard_sse) = tracing_appender::non_blocking(sse_appender);
+    app.manage(WorkerGuardState {
+        main: guard_main,
+        sse: guard_sse,
+    });
 
     // 4. 全局级别过滤：运行时可通过 AtomicLevelFilter::set_level 调整
     //    用 Arc 包装以便同时注册到 subscriber（per-layer filter）与 Tauri State。
@@ -76,9 +89,13 @@ fn init_tracing(app: &tauri::App) {
     // 直接为 Arc<AtomicLevelFilter> 实现 Filter 会触发孤儿规则，故用 newtype 包装。
     let shared_filter = crate::core::atomic_filter::SharedLevelFilter(atomic_filter.clone());
 
+    // 4b. 常规输出（stdout / 主文件）的过滤：共享运行时级别 + 排除 SSE chunk target
+    //     （SSE chunk 只进专属文件，避免刷屏常规文件）
+    let main_filter = crate::core::atomic_filter::MainLogFilter(shared_filter.clone());
+
     // 5. fmt layer（stdout）：使用自定义 FormatEvent（TraceIdFormat），
     //    在每行日志前注入当前请求的 trace_id（若处于请求 span 内）。
-    //    SharedLevelFilter 作为 per-layer filter 应用于每个输出层。
+    //    main_filter 作为 per-layer filter 应用于每个输出层。
     let fmt_stdout = tracing_subscriber::fmt::layer()
         .with_target(true)
         .with_level(true)
@@ -86,9 +103,9 @@ fn init_tracing(app: &tauri::App) {
         .with_file(true)
         .with_line_number(true)
         .compact()
-        .event_format(crate::core::trace_id_layer::TraceIdFormat)
+        .event_format(crate::core::trace_id_layer::TraceIdFormat::with_location())
         .with_writer(std::io::stdout)
-        .with_filter(shared_filter.clone());
+        .with_filter(main_filter.clone());
 
     // 6. fmt layer（文件）：与 stdout 相同格式，但禁用 ANSI 颜色
     let fmt_file = tracing_subscriber::fmt::layer()
@@ -98,10 +115,24 @@ fn init_tracing(app: &tauri::App) {
         .with_file(true)
         .with_line_number(true)
         .compact()
-        .event_format(crate::core::trace_id_layer::TraceIdFormat)
+        .event_format(crate::core::trace_id_layer::TraceIdFormat::with_location())
         .with_writer(file_writer)
         .with_ansi(false)
-        .with_filter(shared_filter.clone());
+        .with_filter(main_filter);
+
+    // 6b. fmt layer（SSE 专属文件）：只接收 i_code::sse 事件
+    //     输出到按小时滚动的 i-code-sse.*.log，且不打印 target 与 file:line
+    let fmt_sse_file = tracing_subscriber::fmt::layer()
+        .compact()
+        .event_format(crate::core::trace_id_layer::TraceIdFormat::without_location())
+        .with_writer(sse_writer)
+        .with_ansi(false)
+        .with_filter(
+            tracing_subscriber::filter::Targets::new().with_target(
+                crate::core::trace_id_layer::SSE_LOG_TARGET,
+                tracing_subscriber::filter::LevelFilter::DEBUG,
+            ),
+        );
 
     // 7. WebViewLayer：转发到前端 DevTools 控制台（Phase 2）
     //    AppHandle 在 setup 后续注入（set_app_handle）
@@ -117,6 +148,7 @@ fn init_tracing(app: &tauri::App) {
         .with(crate::core::trace_id_layer::TraceIdLayer)
         .with(fmt_stdout)
         .with(fmt_file)
+        .with(fmt_sse_file)
         .with(webview_layer.clone());
 
     tracing::subscriber::set_global_default(subscriber)

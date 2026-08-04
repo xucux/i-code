@@ -50,6 +50,7 @@ impl VirtualForwarder {
         gateway_protocol: GatewayProtocol,
         mut body: Value,
         api_key_secret_id: Option<String>,
+        request_headers_json: Option<String>,
     ) -> IcodeResult<Response> {
         let _ = upstream_model_id; // 已在 route_resolver 中通过 build_virtual_context 传入 target_model_id
         let mut last_err: Option<IcodeError> = None;
@@ -82,6 +83,7 @@ impl VirtualForwarder {
                 &mut ctx,
                 &mut body,
                 api_key_secret_id.clone(),
+                request_headers_json.clone(),
             )
             .await;
 

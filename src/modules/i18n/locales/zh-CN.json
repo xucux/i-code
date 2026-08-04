@@ -1338,6 +1338,7 @@
       "errorMessage": "错误信息",
       "requestId": "请求 ID",
       "modelId": "模型 ID",
+      "requestHeaders": "请求头",
       "requestBody": "请求体",
       "responseBody": "响应体",
       "tags": "标签",

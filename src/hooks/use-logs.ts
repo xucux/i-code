@@ -168,6 +168,7 @@ function adaptLogEntry(entry: LoggerLogEntry): UiLogEntry {
       errorMessage: entry.errorMessage ?? null,
       requestId: entry.requestId ?? null,
       modelId: entry.modelId ?? null,
+      requestHeaders: entry.requestHeaders ?? null,
       requestBody: entry.requestBody ?? null,
       responseBody: entry.responseBody ?? null,
       tags: entry.tags && entry.tags.length > 0 ? entry.tags.join(', ') : null,

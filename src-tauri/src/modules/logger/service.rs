@@ -228,6 +228,7 @@ impl LoggerService {
             error_message: Some(message.to_string()),
             request_id: None,
             model_id: None,
+            request_headers: None,
             request_body: None,
             response_body: None,
             tags: Vec::new(),
@@ -377,7 +378,7 @@ impl LoggerService {
         let mut buf = String::new();
         // 表头
         buf.push_str(
-            "id,timestamp,level,source,method,url,statusCode,durationMs,promptTokens,completionTokens,totalTokens,cachedTokens,errorMessage,requestId,modelId,requestBody,responseBody,tags,fileName,lineNumber\n",
+            "id,timestamp,level,source,method,url,statusCode,durationMs,promptTokens,completionTokens,totalTokens,cachedTokens,errorMessage,requestId,modelId,requestHeaders,requestBody,responseBody,tags,fileName,lineNumber\n",
         );
         for e in entries {
             // CSV 字段转义：包含逗号、引号、换行的字段用双引号包裹，内部双引号转义为两个双引号
@@ -390,7 +391,7 @@ impl LoggerService {
             };
             let tags = e.tags.join(",");
             buf.push_str(&format!(
-                "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
+                "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}\n",
                 esc(&e.id),
                 esc(&e.timestamp),
                 e.level.as_str(),
@@ -408,6 +409,7 @@ impl LoggerService {
                 e.error_message.as_deref().map(esc).unwrap_or_default(),
                 e.request_id.as_deref().map(esc).unwrap_or_default(),
                 e.model_id.as_deref().map(esc).unwrap_or_default(),
+                e.request_headers.as_deref().map(esc).unwrap_or_default(),
                 e.request_body.as_deref().map(esc).unwrap_or_default(),
                 e.response_body.as_deref().map(esc).unwrap_or_default(),
                 esc(&tags),
@@ -441,6 +443,7 @@ mod tests {
             error_message: None,
             request_id: Some(format!("req-{id}")),
             model_id: Some(format!("openai/model-{id}")),
+            request_headers: None,
             request_body: None,
             response_body: None,
             tags: Vec::new(),

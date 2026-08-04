@@ -41,10 +41,11 @@ pub trait Forwarder: Send + Sync {
     /// 执行上游请求
     ///
     /// 参数 `ctx` 已解析好目标供应商与认证；`body` 已替换为真实 model_id 并注入 stream_options。
+    /// `ctx` 需要 `&mut`：Client 会把去敏后的上游请求头快照写回 `ctx.upstream.request_headers_json`。
     async fn execute(
         &self,
         shared: &GatewaySharedState,
-        ctx: &ForwardContext,
+        ctx: &mut ForwardContext,
         body: Value,
     ) -> Result<UpstreamResponse, ClientError>;
 }
@@ -79,15 +80,16 @@ impl Forwarder for DirectForwarder {
     async fn execute(
         &self,
         _shared: &GatewaySharedState,
-        ctx: &ForwardContext,
+        ctx: &mut ForwardContext,
         body: Value,
     ) -> Result<UpstreamResponse, ClientError> {
         let client = ClientFactory::create(&ctx.upstream.provider.provider_type)?;
 
         // 解析供应商级重试配置；retry_json 为空时使用默认值（3 次，2s 间隔）
         let retry_cfg = RetryConfig::from_json(ctx.upstream.provider.retry_json.as_deref());
-        let provider_slug = &ctx.upstream.provider.slug;
-        let model_id = ctx.upstream.upstream_model_id.as_str();
+        // 转 owned 避免与重试循环内 `&mut ctx.upstream` 的借用冲突
+        let provider_slug = ctx.upstream.provider.slug.clone();
+        let model_id = ctx.upstream.upstream_model_id.clone();
         let is_stream = ctx.upstream.is_stream;
 
         // max_retries = 0 表示不重试，直接执行一次
@@ -101,7 +103,7 @@ impl Forwarder for DirectForwarder {
                 body,
                 is_stream,
             };
-            return client.execute(&ctx.upstream, request).await;
+            return client.execute(&mut ctx.upstream, request).await;
         }
 
         tracing::debug!(
@@ -138,7 +140,7 @@ impl Forwarder for DirectForwarder {
                 is_stream,
             };
 
-            match client.execute(&ctx.upstream, request).await {
+            match client.execute(&mut ctx.upstream, request).await {
                 Ok(response) => {
                     let status_code = response_status_code(&response);
                     let is_retryable = status_code
@@ -278,6 +280,7 @@ impl ForwardPipeline {
             protocol,
             body,
             api_key_secret_id,
+            request_headers_json,
         } = req;
 
         // 解析 model
@@ -290,7 +293,9 @@ impl ForwardPipeline {
         let resolved = resolve_route(shared, &gateway_model_id, &request_id, protocol)?;
 
         match resolved {
-            ResolvedRoute::Direct(ctx) => Self::run_direct(shared, ctx, body, api_key_secret_id).await,
+            ResolvedRoute::Direct(ctx) => {
+                Self::run_direct(shared, ctx, body, api_key_secret_id, request_headers_json).await
+            }
             ResolvedRoute::Virtual {
                 routes,
                 alias,
@@ -311,6 +316,7 @@ impl ForwardPipeline {
                         gateway_protocol,
                         body,
                         api_key_secret_id,
+                        request_headers_json,
                     )
                     .await
             }
@@ -323,9 +329,18 @@ impl ForwardPipeline {
         mut ctx: ForwardContext,
         mut body: Value,
         api_key_secret_id: Option<String>,
+        request_headers_json: Option<String>,
     ) -> IcodeResult<Response> {
         let forwarder = DirectForwarder::new();
-        Self::execute_and_finalize(shared, &forwarder, &mut ctx, &mut body, api_key_secret_id).await
+        Self::execute_and_finalize(
+            shared,
+            &forwarder,
+            &mut ctx,
+            &mut body,
+            api_key_secret_id,
+            request_headers_json,
+        )
+        .await
     }
 
     /// 公共：执行单次 Forwarder 并完成响应/日志/调用记录收尾
@@ -337,6 +352,7 @@ impl ForwardPipeline {
         ctx: &mut ForwardContext,
         body: &mut Value,
         api_key_secret_id: Option<String>,
+        request_headers_json: Option<String>,
     ) -> IcodeResult<Response> {
         let request_id = ctx.upstream.request_id.clone();
         let gateway_model_id = ctx.gateway_model_id.clone();
@@ -439,6 +455,11 @@ impl ForwardPipeline {
                     .model_id(&gateway_model_id)
                     .request_body(request_body_full.as_deref().unwrap_or(""))
                     .tags(tags.clone());
+                // 上游请求头优先（真实发给供应商的头，已去敏），无则兜底用网关入口头
+                let upstream_headers = ctx.upstream.request_headers_json.clone();
+                if let Some(h) = upstream_headers.as_deref().or(request_headers_json.as_deref()) {
+                    builder = builder.request_headers(h);
+                }
                 if let Some(s) = status {
                     builder = builder.status_code(s).status(LogStatus::from_status(Some(s)));
                 }
@@ -478,7 +499,7 @@ impl ForwardPipeline {
                 );
 
                 let error_tags = build_error_tags(&tags, is_network);
-                let log_record = LogRecord::builder()
+                let mut builder_err = LogRecord::builder()
                     .kind(LogKind::Forward)
                     .method("POST")
                     .url(&upstream_url)
@@ -488,8 +509,13 @@ impl ForwardPipeline {
                     .request_body(request_body_full.as_deref().unwrap_or(""))
                     .error_message(&icode_err.message)
                     .tags(error_tags.clone())
-                    .status(LogStatus::Failed)
-                    .build();
+                    .status(LogStatus::Failed);
+                // 上游请求头优先（真实发给供应商的头，已去敏），无则兜底用网关入口头
+                let upstream_headers = ctx.upstream.request_headers_json.clone();
+                if let Some(h) = upstream_headers.as_deref().or(request_headers_json.as_deref()) {
+                    builder_err = builder_err.request_headers(h);
+                }
+                let log_record = builder_err.build();
                 LogPipeline::default_forward().record(shared, &log_record);
 
                 // 系统错误日志

@@ -50,7 +50,7 @@ impl WebSocketClient {
 impl UpstreamClient for WebSocketClient {
     async fn execute(
         &self,
-        _ctx: &UpstreamContext,
+        _ctx: &mut UpstreamContext,
         request: UpstreamRequest,
     ) -> Result<UpstreamResponse, ClientError> {
         // WebSocket 协议尚未实现，直接返回明确的协议不支持错误。

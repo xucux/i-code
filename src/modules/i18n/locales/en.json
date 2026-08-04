@@ -1338,6 +1338,7 @@
       "errorMessage": "Error Message",
       "requestId": "Request ID",
       "modelId": "Model ID",
+      "requestHeaders": "Request Headers",
       "requestBody": "Request Body",
       "responseBody": "Response Body",
       "tags": "Tags",

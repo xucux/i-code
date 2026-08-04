@@ -120,6 +120,7 @@ pub async fn log_message(
         error_message: Some(message),
             request_id: None,
             model_id: None,
+            request_headers: None,
             request_body: None,
             response_body: None,
             tags: Vec::new(),

@@ -56,6 +56,8 @@ export interface LogEntry {
   requestId?: string
   /** 请求使用的模型 ID（网关暴露的 model 字段，含 provider_slug 前缀） */
   modelId?: string
+  /** 请求头 JSON（已由后端去敏，敏感值以 *** 代替） */
+  requestHeaders?: string
   /** 请求体内容（转发详细日志开启时记录） */
   requestBody?: string
   /** 响应体内容（转发详细日志开启时记录） */

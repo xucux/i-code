@@ -20,6 +20,7 @@
 
 pub mod forward_log;
 pub mod gateway_log;
+pub mod headers;
 pub mod recorder;
 pub mod tauri_emitter;
 

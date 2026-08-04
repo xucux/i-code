@@ -32,6 +32,12 @@ use tracing_subscriber::layer::Context;
 use tracing_subscriber::Layer;
 use tracing_subscriber::registry::LookupSpan;
 
+/// SSE chunk 日志的独立 target
+///
+/// 此类日志只进入专属文件（`i-code-sse.*.log`，按小时滚动），
+/// 并在该文件中省略 target / file:line 前缀；常规文件与控制台不输出。
+pub const SSE_LOG_TARGET: &str = "i_code::sse";
+
 thread_local! {
     /// 当前线程活跃的 trace_id（在操作 span 内有值）
     static CURRENT_TRACE_ID: RefCell<Option<String>> = const { RefCell::new(None) };
@@ -110,14 +116,34 @@ impl field::Visit for TraceIdVisitor {
 
 /// 自定义日志格式化器：在默认 compact 格式前注入 `[tid=...]` 前缀
 ///
-/// 输出格式：
+/// 输出格式（`with_location`）：
 /// ```text
 /// 2026-07-29 10:23:45.123  INFO i_code::modules::xxx file.rs:108 [tid=1v2u0j3w4x5y] 消息内容
 /// ```
 ///
 /// 未在操作 span 内的日志（极少数）不带 `[tid=...]` 前缀。
+///
+/// `without_location`（SSE 专属文件使用）不输出 target 与 file:line：
+/// ```text
+/// 2026-07-29 10:23:45.123 DEBUG [tid=1v2u0j3w4x5y] SSE chunk | ...
+/// ```
 #[derive(Clone, Copy)]
-pub struct TraceIdFormat;
+pub struct TraceIdFormat {
+    /// 是否输出 target 与 file:line（SSE 专属文件层关闭该信息）
+    with_location: bool,
+}
+
+impl TraceIdFormat {
+    /// 完整格式：stdout 与常规日志文件使用（含 target 与 file:line）
+    pub const fn with_location() -> Self {
+        Self { with_location: true }
+    }
+
+    /// 精简格式：SSE 专属文件使用（不输出 target 与 file:line）
+    pub const fn without_location() -> Self {
+        Self { with_location: false }
+    }
+}
 
 impl<S, N> FormatEvent<S, N> for TraceIdFormat
 where
@@ -147,17 +173,19 @@ where
             write!(writer, "[tid={}] ", rid)?;
         }
 
-        // 4. target
-        write!(writer, "{} ", meta.target())?;
+        // 4. target 与 file:line（SSE 专属文件层关闭，保持输出精简）
+        if self.with_location {
+            write!(writer, "{} ", meta.target())?;
 
-        // 5. file:line（仅保留文件名，避免完整路径过长）
-        //    同时处理 Unix '/' 和 Windows '\' 两种路径分隔符
-        if let (Some(file), Some(line)) = (meta.file(), meta.line()) {
-            let file = file.rsplit(|c| c == '/' || c == '\\').next().unwrap_or(file);
-            write!(writer, "{}:{} ", file, line)?;
+            // 4.1 file:line（仅保留文件名，避免完整路径过长）
+            //     同时处理 Unix '/' 和 Windows '\' 两种路径分隔符
+            if let (Some(file), Some(line)) = (meta.file(), meta.line()) {
+                let file = file.rsplit(|c| c == '/' || c == '\\').next().unwrap_or(file);
+                write!(writer, "{}:{} ", file, line)?;
+            }
         }
 
-        // 6. 消息字段（委托给默认 FormatFields）
+        // 5. 消息字段（委托给默认 FormatFields）
         ctx.format_fields(writer.by_ref(), event)?;
         writeln!(writer)
     }

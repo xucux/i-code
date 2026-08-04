@@ -1338,6 +1338,7 @@
       "errorMessage": "エラーメッセージ",
       "requestId": "リクエスト ID",
       "modelId": "モデル ID",
+      "requestHeaders": "リクエストヘッダー",
       "requestBody": "リクエストボディ",
       "responseBody": "レスポンスボディ",
       "tags": "タグ",

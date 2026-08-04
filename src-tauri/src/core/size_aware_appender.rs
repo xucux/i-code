@@ -18,7 +18,9 @@
 //! ## 边界情况
 //!
 //! - 进程重启后，`new()` 会打开当天已有文件继续追加（`append(true)`），
-//!   `current_size` 从 metadata 读取
+//!   `current_size` 从 metadata 读取；滚动时以 `create_new` 独占创建新分片，
+//!   不会重复追加旧分片，避免多实例 / 多次重启把同一分片撑到超过 `max_size`
+//! - 单次写入超过剩余容量时按 `max_size` 自动拆分，每个分片不超过 `max_size`
 //! - 跨天但进程未重启：下次 `write` 时检测到日期变化，自动切换
 //! - 旧文件清理仅在 `new()` 时执行一次，运行时不重复扫描
 //!
@@ -70,6 +72,9 @@ impl SizeAwareFileAppender {
     ) -> io::Result<Self> {
         let log_dir = log_dir.as_ref().to_path_buf();
         std::fs::create_dir_all(&log_dir)?;
+
+        // 防御：max_size 至少为 1 字节，避免配置为 0 时每次写入都滚动
+        let max_size = max_size.max(1);
 
         // 启动时清理超过 max_days 的旧文件
         Self::cleanup_old_files(&log_dir, prefix, suffix, max_days)?;
@@ -137,11 +142,45 @@ impl SizeAwareFileAppender {
         Ok(())
     }
 
-    /// 检查并执行滚动（跨天或超大小）
-    fn rotate_if_needed(&self, inner: &mut Inner, write_len: usize) -> io::Result<()> {
-        let today = today_string();
+    /// 以独占方式创建下一个分片文件，序号从 `start_seq` 起，跳过已被其他实例占用的序号。
+    ///
+    /// 使用 `create_new`（O_EXCL）保证同一序号只会被一个进程创建成功，其余实例自动顺延，
+    /// 从根上避免多进程 / 多次重启追加到同一分片：这会撑大单个文件超过 `max_size`，
+    /// 或让序号被反复复用（例如 `.2` 的写入时间早于 `.1`）。
+    fn open_exclusive_segment(
+        dir: &Path,
+        prefix: &str,
+        date: &str,
+        start_seq: u32,
+        suffix: &str,
+    ) -> io::Result<(File, u32)> {
+        let mut seq = start_seq;
+        loop {
+            let path = Self::build_path(dir, prefix, date, seq, suffix);
+            match OpenOptions::new().create_new(true).write(true).open(&path) {
+                Ok(file) => return Ok((file, seq)),
+                Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {
+                    let Some(next) = seq.checked_add(1) else {
+                        return Err(io::Error::new(
+                            io::ErrorKind::InvalidInput,
+                            "日志分片序号溢出",
+                        ));
+                    };
+                    seq = next;
+                }
+                Err(e) => return Err(e),
+            }
+        }
+    }
 
-        // 跨天：重置序号，创建新日期文件
+    /// 执行写入，并在跨天 / 超出 `max_size` 时滚动。
+    ///
+    /// 与旧实现不同，这里按 `max_size` **拆分**传入的 buffer：若数据超过当前文件剩余容量，
+    /// 先写满当前文件，滚动到新分片后再写剩余部分，保证每个分片不超过 `max_size`
+    /// （修复了单块写入越过阈值导致出现 ~40MB 分片的问题）。
+    fn write_impl(&self, inner: &mut Inner, buf: &[u8]) -> io::Result<usize> {
+        // 跨天：切换到当天主文件，并重置序号
+        let today = today_string();
         if today != inner.current_date {
             inner.current_date = today.clone();
             inner.current_seq = 0;
@@ -150,21 +189,45 @@ impl SizeAwareFileAppender {
             inner.current_size = inner.current_file.as_ref().unwrap().metadata()?.len();
         }
 
-        // 超大小：序号 +1，创建分片文件
-        if inner.current_size + write_len as u64 > inner.max_size {
-            inner.current_seq += 1;
-            let path = Self::build_path(
-                &inner.log_dir,
-                &inner.prefix,
-                &inner.current_date,
-                inner.current_seq,
-                &inner.suffix,
-            );
-            inner.current_file = Some(OpenOptions::new().create(true).append(true).open(&path)?);
-            inner.current_size = 0;
-        }
+        let mut written_total = 0usize;
+        let mut rest = buf;
+        while !rest.is_empty() {
+            // 当前文件剩余容量；已满则滚动到新分片
+            let remaining = inner.max_size.saturating_sub(inner.current_size);
+            if remaining == 0 {
+                let (file, seq) = Self::open_exclusive_segment(
+                    &inner.log_dir,
+                    &inner.prefix,
+                    &inner.current_date,
+                    inner.current_seq.saturating_add(1),
+                    &inner.suffix,
+                )?;
+                inner.current_seq = seq;
+                inner.current_file = Some(file);
+                inner.current_size = 0;
+                continue;
+            }
 
-        Ok(())
+            // 单次最多写满当前文件
+            let to_write = (rest.len() as u64).min(remaining) as usize;
+            let file = inner
+                .current_file
+                .as_mut()
+                .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "no file"))?;
+            let written = file.write(&rest[..to_write])?;
+            if written == 0 {
+                // 底层拒绝写入（如磁盘满），避免无限循环
+                return if written_total == 0 {
+                    Err(io::Error::new(io::ErrorKind::WriteZero, "日志文件写入返回 0"))
+                } else {
+                    Ok(written_total)
+                };
+            }
+            inner.current_size += written as u64;
+            written_total += written;
+            rest = &rest[written..];
+        }
+        Ok(written_total)
     }
 }
 
@@ -174,14 +237,7 @@ impl Write for SizeAwareFileAppender {
             .inner
             .lock()
             .map_err(|_| io::Error::new(io::ErrorKind::Other, "mutex poisoned"))?;
-        self.rotate_if_needed(&mut inner, buf.len())?;
-        if let Some(ref mut file) = inner.current_file {
-            let written = file.write(buf)?;
-            inner.current_size += written as u64;
-            Ok(written)
-        } else {
-            Err(io::Error::new(io::ErrorKind::Other, "no file"))
-        }
+        self.write_impl(&mut inner, buf)
     }
 
     fn flush(&mut self) -> io::Result<()> {
@@ -206,7 +262,33 @@ fn today_string() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Read;
     use tempfile::TempDir;
+
+    /// 按字典序列出目录内所有文件名
+    fn files_in(dir: &Path) -> Vec<String> {
+        let mut names: Vec<String> = std::fs::read_dir(dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        names
+    }
+
+    /// 按写入顺序（主文件在前，分片序号递增）拼接全部内容
+    fn read_all_in_order(dir: &Path, prefix: &str, date: &str) -> Vec<u8> {
+        let mut out = Vec::new();
+        let mut f = std::fs::File::open(dir.join(format!("{prefix}-{date}.log"))).unwrap();
+        f.read_to_end(&mut out).unwrap();
+        let mut seq = 1u32;
+        while let Some(mut f) =
+            std::fs::File::open(dir.join(format!("{prefix}-{date}.{seq}.log"))).ok()
+        {
+            f.read_to_end(&mut out).unwrap();
+            seq += 1;
+        }
+        out
+    }
 
     #[test]
     fn test_build_path_seq0() {
@@ -222,17 +304,70 @@ mod tests {
         assert_eq!(path.file_name().unwrap(), "i-code-2026-07-29.1.log");
     }
 
-    // #[test]
-    // fn test_size_rollover() {
-    //     let tmp = TempDir::new().unwrap();
-    //     // max_size=100 字节，触发大小滚动
-    //     let mut appender = SizeAwareFileAppender::new(tmp.path(), "test", "log", 100, 30).unwrap();
-    //     // 写入 150 字节，应触发分片
-    //     let data = vec![b'x'; 150];
-    //     appender.write_all(&data).unwrap();
-    //     appender.flush().unwrap();
-    //     // 验证存在分片文件
-    //     let files = std::fs::read_dir(tmp.path()).unwrap().count();
-    //     assert!(files >= 2, "应存在至少 2 个文件（原文件 + 分片）");
-    // }
+    /// 单块写入超过 max_size 时应被自动拆分为多个分片：每个 ≤ max_size 且内容不丢不乱
+    #[test]
+    fn test_size_rollover_splits_large_write() {
+        let tmp = TempDir::new().unwrap();
+        let max_size: u64 = 100;
+        let mut appender =
+            SizeAwareFileAppender::new(tmp.path(), "test", "log", max_size, 30).unwrap();
+        // 350B 一次写入，应拆为 100 + 100 + 100 + 50 共 4 个文件
+        let data: Vec<u8> = (0..350u32).map(|i| (i % 251) as u8).collect();
+        appender.write_all(&data).unwrap();
+        appender.flush().unwrap();
+        drop(appender);
+
+        let files = files_in(tmp.path());
+        assert_eq!(files.len(), 4, "应生成 4 个文件，实际: {files:?}");
+        for name in &files {
+            let len = std::fs::metadata(tmp.path().join(name)).unwrap().len();
+            assert!(len <= max_size, "分片 {name} 大小 {len} 超过 max_size");
+        }
+        let merged = read_all_in_order(
+            tmp.path(),
+            "test",
+            &chrono::Local::now().format("%Y-%m-%d").to_string(),
+        );
+        assert_eq!(merged, data, "拆分后内容丢失或乱序");
+    }
+
+    /// 模拟重启：已被占用的分片序号不再复用，滚动会独占创建新分片
+    #[test]
+    fn test_restart_does_not_reuse_existing_segment() {
+        let tmp = TempDir::new().unwrap();
+        let max_size: u64 = 100;
+        let date = chrono::Local::now().format("%Y-%m-%d").to_string();
+
+        // 第一次运行：150B → 主文件 100B + .1 分片 50B（内容 'x'）
+        {
+            let mut a =
+                SizeAwareFileAppender::new(tmp.path(), "i-code", "log", max_size, 30).unwrap();
+            a.write_all(&vec![b'x'; 150]).unwrap();
+            a.flush().unwrap();
+        }
+        // 第二次运行（重启）：主文件已满，滚动不应 append 到 .1，而应独占创建 .2
+        {
+            let mut a =
+                SizeAwareFileAppender::new(tmp.path(), "i-code", "log", max_size, 30).unwrap();
+            a.write_all(&vec![b'y'; 150]).unwrap();
+            a.flush().unwrap();
+        }
+
+        let seg1 = tmp.path().join(format!("i-code-{date}.1.log"));
+        let seg2 = tmp.path().join(format!("i-code-{date}.2.log"));
+        let seg3 = tmp.path().join(format!("i-code-{date}.3.log"));
+
+        // .1 是第一次运行独占创建的，内容只能是 'x'，不会被二次追加
+        assert_eq!(std::fs::metadata(&seg1).unwrap().len(), 50);
+        let mut buf1 = Vec::new();
+        std::fs::File::open(&seg1).unwrap().read_to_end(&mut buf1).unwrap();
+        assert!(buf1.iter().all(|&b| b == b'x'), ".1 被二次追加或内容被污染");
+
+        // .2 / .3 由第二次运行独占创建，内容为 'y'
+        let mut buf2 = Vec::new();
+        std::fs::File::open(&seg2).unwrap().read_to_end(&mut buf2).unwrap();
+        assert_eq!(buf2.len(), 100);
+        assert!(buf2.iter().all(|&b| b == b'y'));
+        assert_eq!(std::fs::metadata(&seg3).unwrap().len(), 50);
+    }
 }

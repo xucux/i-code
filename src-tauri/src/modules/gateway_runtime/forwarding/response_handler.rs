@@ -17,6 +17,7 @@ use axum::response::{IntoResponse, Response};
 use futures::stream::{BoxStream, StreamExt};
 use reqwest::header::HeaderMap;
 
+use crate::core::trace_id_layer::SSE_LOG_TARGET;
 use crate::modules::gateway_runtime::client::{
     SseUsageAccumulator, UpstreamProtocol, UpstreamResponse,
 };
@@ -139,7 +140,10 @@ fn build_sse_from_stream(
         };
 
         let text = String::from_utf8_lossy(&bytes);
+        // 独立 target：SSE chunk 只进专属文件（i-code-sse.*.log，按小时滚动），
+        // 不污染常规 i-code-*.log，并在专属文件中省略 target/file:line 前缀。
         tracing::debug!(
+            target: SSE_LOG_TARGET,
             "SSE chunk | log_id={} | size={} bytes | text={}",
             log_id_for_map.as_deref().unwrap_or("-"),
             bytes.len(),

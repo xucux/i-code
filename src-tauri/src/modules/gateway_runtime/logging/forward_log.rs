@@ -61,6 +61,7 @@ impl LogRecorder for ForwardLogRecorder {
             error_message: entry.error_message.clone(),
             request_id: entry.request_id.clone(),
             model_id: entry.model_id.clone(),
+            request_headers: entry.request_headers.clone(),
             request_body,
             response_body,
             tags: entry.tags.clone(),

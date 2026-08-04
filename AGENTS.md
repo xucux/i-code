@@ -385,7 +385,8 @@ CLI / 外部客户端
 - 两套日志**不共享级别控制**：修改全局设置的「日志级别」只影响 `tauri-plugin-log`；修改「日志」页面的设置只影响自研内存 logger。
 - **不要把 Secret 明文写入任何一套日志**。
 - 新增需求若涉及"记日志"，必须在需求/设计阶段明确写入哪一套；若无法确定，优先使用 `tauri-plugin-log`，因为自研 logger 有 UI 可见性要求。
-- **网关与供应商 API 同时写入两套日志**：自研 logger 提供 UI 可见、可筛选的运行时诊断；`tauri-plugin-log` 输出完整、未截断的请求/响应体与流式 chunk，供开发/运维在终端/日志文件追踪。具体格式与级别约定见 [`docs/log-framework.md` §2.5](docs/log-framework.md)。
+- **网关与供应商 API 同时写入两套日志**：自研 logger 提供 UI 可见、可筛选的运行时诊断；`tauri-plugin-log` 输出完整、未截断的请求/响应体与流式 chunk，供开发/运维在终端/日志文件追踪。SSE chunk 使用独立 target `i_code::sse` 写入单独按小时滚动的 `i-code-sse.*.log`（不混入主日志、不打印 target/file:line）。具体格式与级别约定见 [`docs/log-framework.md` §2.5](docs/log-framework.md)。
+- **自研 logger 展示请求头（去敏）**：网关（inbound 入站头）与供应商 API（outbound 出站头，缺失回退 inbound）日志展示请求头 JSON（敏感头值替换为 `***`），位于「模型 ID」下方一行，随导出写入 CSV/JSON。去敏规则见 [`docs/log-framework.md` §3.5](docs/log-framework.md)。
 
 ---
 

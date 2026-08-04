@@ -95,6 +95,9 @@ pub struct UpstreamContext {
     pub auth_config: Option<crate::modules::ai_gateway::types::AuthConfig>,
     /// 供应商级附加请求头（已解析 Secret 引用为明文）
     pub extra_headers: Vec<(String, String)>,
+    /// 本次上游请求实际发出的请求头（已去敏 JSON），
+    /// 由各 Client 在 `execute` 构造请求头后写入，供转发（provider-api）日志展示
+    pub request_headers_json: Option<String>,
 }
 
 /// 上游请求封装
@@ -218,9 +221,12 @@ impl From<ClientError> for IcodeError {
 #[async_trait::async_trait]
 pub trait UpstreamClient: Send + Sync {
     /// 执行上游请求，返回统一响应
+    ///
+    /// `ctx` 需要 `&mut`：Client 在构造请求头后会把去敏快照写回
+    /// `ctx.request_headers_json`，供转发日志（provider-api）展示真实上游请求头。
     async fn execute(
         &self,
-        ctx: &UpstreamContext,
+        ctx: &mut UpstreamContext,
         request: UpstreamRequest,
     ) -> Result<UpstreamResponse, ClientError>;
 
