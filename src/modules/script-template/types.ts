@@ -114,6 +114,21 @@ export interface ScriptTemplateSelectItem {
 
 // ===== 公共仓市场 =====
 
+/** 变量来源 */
+export type VarSource = 'system' | 'custom'
+
+/** 脚本依赖的单个变量声明 */
+export interface VarDef {
+  /** 变量名（如 api_key / provider.base_url / cookie / token） */
+  name: string
+  /** 变量来源：system=引擎自动注入；custom=供应商「扩展模板变量」 */
+  source: VarSource
+  /** 是否必填 */
+  required: boolean
+  description?: string
+  example?: string
+}
+
 /** 市场列表项（不含脚本正文） */
 export interface MarketplaceItemSummary {
   id: string
@@ -130,6 +145,8 @@ export interface MarketplaceItemSummary {
   minAppVersion?: string
   defaultTimeoutMs?: number
   allowedHosts?: string[]
+  /** 脚本依赖的变量列表（系统变量 + 供应商「扩展模板变量」） */
+  varList?: VarDef[]
 }
 
 /** 市场列表结果 */

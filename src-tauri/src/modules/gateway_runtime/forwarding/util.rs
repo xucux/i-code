@@ -179,8 +179,15 @@ pub fn upstream_error_response(err: IcodeError) -> Response {
 /// 根据供应商类型、传输方式与流式标志生成协议标签
 ///
 /// - 流式请求标记为 `sse`（HTTP/SSE 透传）
-/// - `transport = websocket` 的 OpenAI Responses / Codex 供应商标记为 `websocket`
-pub fn protocol_tags(provider_type: &str, transport: Option<&str>, is_stream: bool) -> Vec<String> {
+/// - `transport = websocket` 的 OpenAI Responses / Codex 供应商标记为 `ws`
+///   （§6.3 / §7.5：自 P4 起 `websocket` 统一更名为 `ws`，前端筛选器与日志展示同步迁移）
+/// - 桥接转发额外标记为 `bridge`（§7.5 / §8.2 P4）
+pub fn protocol_tags(
+    provider_type: &str,
+    transport: Option<&str>,
+    is_stream: bool,
+    bridge_kind: crate::modules::gateway_runtime::bridge::BridgeKind,
+) -> Vec<String> {
     let mut tags = Vec::new();
     if is_stream {
         tags.push("sse".to_string());
@@ -188,7 +195,10 @@ pub fn protocol_tags(provider_type: &str, transport: Option<&str>, is_stream: bo
     if (provider_type == "openai-responses" || provider_type == "openai-codex")
         && transport == Some("websocket")
     {
-        tags.push("websocket".to_string());
+        tags.push("ws".to_string());
+    }
+    if bridge_kind.is_bridged() {
+        tags.push("bridge".to_string());
     }
     tags
 }
@@ -204,6 +214,9 @@ pub fn is_network_error(err: &super::super::client::ClientError) -> bool {
 }
 
 /// 构造转发失败时的错误标签
+///
+/// 在 `protocol_tags` 基础上追加 `network`（网络层错误时）。
+/// `bridge` 标签已由 `protocol_tags` 注入（§7.5）。
 pub fn build_error_tags(tags: &[String], is_network: bool) -> Vec<String> {
     let mut error_tags = tags.to_vec();
     if is_network {

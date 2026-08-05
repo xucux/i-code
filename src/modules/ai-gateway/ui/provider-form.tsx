@@ -1105,7 +1105,19 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
               <div className="mt-4 grid grid-cols-2 gap-4">
                 {/* 协议类型 */}
                 <div className="space-y-1.5">
-                  <Label className="text-xs">{t('aiGateway.providerForm.providerType')}</Label>
+                  <div className="flex items-center gap-1">
+                    <Label className="text-xs">{t('aiGateway.providerForm.providerType')}</Label>
+                    <HelpIcon
+                      type="popover"
+                      side="top"
+                      align="start"
+                      size="sm"
+                      contentClassName="max-w-[280px] text-xs"
+                      ariaLabel={t('aiGateway.providerForm.providerType')}
+                    >
+                      <p className="leading-relaxed">{t('aiGateway.providerForm.help.providerTypeBridge')}</p>
+                    </HelpIcon>
+                  </div>
                   <Select
                     value={form.watch('providerType')}
                     onValueChange={(v) => form.setValue('providerType', v)}

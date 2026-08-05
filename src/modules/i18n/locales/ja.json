@@ -288,6 +288,7 @@
         "slug": "slug はルーティングに使用され、小文字英数字とハイフンのみ使用できます",
         "displayName": "表示名は一覧や選択に使用され、ルーティングには影響しません",
         "providerType": "プロトコルの種類によってゲートウェイの転送方法が決まります（anthropic / openai-chat-completion / openai-responses など）",
+        "providerTypeBridge": "ゲートウェイは Anthropic Messages と OpenAI Chat の両プロトコル間で双方向ブリッジを行います。プロバイダー側プロトコルと外部 API が一致しない場合、ゲートウェイ層が自動的に変換します。",
         "authMethod": "認証方式によって上流の呼び出し方が決まります：API Key は暗号化され、編集時に空欄のままなら維持されます。OAuth 系プロバイダーは保存後に認可が必要です",
         "baseUrl": "上流 API のベースアドレスです。通常は /v1 で終わります",
         "pathCompletion": "オフ（デフォルト）は /v1 パスを自動補完します。オンは Base URL をそのまま使用します",
@@ -1570,6 +1571,14 @@
       "updatedAt": "更新時間",
       "actions": "操作"
     },
+    "marketplaceVars": "使用変数",
+    "marketplaceNoVars": "変数依存なし",
+    "marketplaceVarSource": {
+      "system": "システム",
+      "custom": "カスタム"
+    },
+    "marketplaceVarRequired": "必須",
+    "marketplaceVarOptional": "任意",
     "kind": {
       "balance": "残高モニタリング"
     }

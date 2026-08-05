@@ -405,7 +405,7 @@ fn get_gateway_log_config(state: &GatewaySharedState) -> crate::modules::logger:
 /// 根据响应特征检测协议标签
 ///
 /// - `Content-Type: text/event-stream` → `sse`
-/// - `Upgrade: websocket` → `websocket`
+/// - `Upgrade: websocket` → `ws`（§6.3 / §7.5：P4 起统一更名为 `ws`）
 fn detect_response_tags(response: &Response) -> Vec<String> {
     let mut tags = Vec::new();
     let headers = response.headers();
@@ -419,7 +419,7 @@ fn detect_response_tags(response: &Response) -> Vec<String> {
     if let Some(upgrade) = headers.get(header::UPGRADE) {
         if let Ok(s) = upgrade.to_str() {
             if s.to_lowercase().contains("websocket") {
-                tags.push("websocket".to_string());
+                tags.push("ws".to_string());
             }
         }
     }
@@ -449,7 +449,7 @@ async fn log_gateway_response(
     let tags = detect_response_tags(&response);
 
     let is_streaming =
-        tags.contains(&"sse".to_string()) || tags.contains(&"websocket".to_string());
+        tags.contains(&"sse".to_string()) || tags.contains(&"ws".to_string());
     let is_error = !status.is_success();
     // 非流式响应按原逻辑读取 body；流式 / WebSocket 仅在非正常状态码时读取错误响应体
     let should_log_body = cfg.enable_gateway_response_log && (!is_streaming || is_error);

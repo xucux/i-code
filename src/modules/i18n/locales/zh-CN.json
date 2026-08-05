@@ -288,6 +288,7 @@
         "slug": "slug 用于路由，只能包含小写字母、数字和连字符",
         "displayName": "显示名称用于列表与选择，不影响路由",
         "providerType": "协议类型决定网关如何转发请求（anthropic / openai-chat-completion / openai-responses 等）",
+        "providerTypeBridge": "网关在 Anthropic Messages 与 OpenAI Chat 两种协议间双向桥接：供应商协议与对外接口不一致时，由网关层自动转换。",
         "authMethod": "认证方式决定如何调用上游：API Key 加密存储、编辑时留空保持不变；OAuth 类供应商保存后需完成授权",
         "baseUrl": "上游 API 的基础地址，通常以 /v1 结尾",
         "pathCompletion": "关闭（默认）自动补全 /v1 路径；开启时原样使用 Base URL",
@@ -1570,6 +1571,14 @@
       "updatedAt": "更新时间",
       "actions": "操作"
     },
+    "marketplaceVars": "使用变量",
+    "marketplaceNoVars": "无变量依赖",
+    "marketplaceVarSource": {
+      "system": "系统",
+      "custom": "自定义"
+    },
+    "marketplaceVarRequired": "必填",
+    "marketplaceVarOptional": "可选",
     "kind": {
       "balance": "额度监控"
     }

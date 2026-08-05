@@ -71,10 +71,39 @@ pub struct RemoteCatalogItem {
     pub allowed_hosts: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub min_app_version: Option<String>,
+    /// 脚本依赖的变量列表（系统变量 + 供应商「扩展模板变量」）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub var_list: Option<Vec<VarDef>>,
 }
 
 fn default_engine() -> String {
     "rhai".to_string()
+}
+
+/// 变量来源
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum VarSource {
+    /// 引擎自动注入的系统变量（api_key / provider.* / auth.* / template.* / now_ms 等）
+    System,
+    /// 供应商「扩展模板变量」中由用户配置的键值对，脚本通过 variables["name"] 访问
+    Custom,
+}
+
+/// 脚本依赖的单个变量声明
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VarDef {
+    /// 变量名（如 api_key / provider.base_url / cookie / token）
+    pub name: String,
+    /// 变量来源
+    pub source: VarSource,
+    /// 是否必填
+    pub required: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub example: Option<String>,
 }
 
 /// 返回给前端的市场列表项
@@ -101,6 +130,8 @@ pub struct MarketplaceItemSummary {
     pub default_timeout_ms: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub allowed_hosts: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub var_list: Option<Vec<VarDef>>,
 }
 
 impl From<&RemoteCatalogItem> for MarketplaceItemSummary {
@@ -120,6 +151,7 @@ impl From<&RemoteCatalogItem> for MarketplaceItemSummary {
             min_app_version: item.min_app_version.clone(),
             default_timeout_ms: item.default_timeout_ms,
             allowed_hosts: item.allowed_hosts.clone(),
+            var_list: item.var_list.clone(),
         }
     }
 }

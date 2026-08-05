@@ -32,6 +32,19 @@ impl GatewayProtocol {
         }
     }
 
+    /// 桥接场景下转换为上游协议
+    ///
+    /// 当网关入口协议与上游供应商协议不一致时，按 [`detect_bridge`] 的判定结果
+    /// 返回上游 Client 实际使用的协议。当不桥接时回退到 [`Self::to_upstream`]。
+    ///
+    /// 设计文档 §4.3：桥接时 `UpstreamRequest.protocol` 必须改为上游协议，
+    /// 否则 Client 入口的 `request.protocol !=` 校验会失败。
+    ///
+    /// [`detect_bridge`]: crate::modules::gateway_runtime::bridge::detect_bridge
+    pub fn to_upstream_with_bridge(self, provider_type: &str) -> UpstreamProtocol {
+        crate::modules::gateway_runtime::bridge::bridge_upstream_protocol(self, provider_type)
+    }
+
     /// 日志标签
     pub fn label(self) -> &'static str {
         match self {

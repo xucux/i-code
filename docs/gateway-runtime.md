@@ -14,7 +14,7 @@
 1. **统一模型路由 ID**：对外暴露 `{provider_slug}/{model_id}`，网关解析后路由到真实供应商。
 2. **协议透明**：上层调用方只需使用 OpenAI 兼容格式，底层自动适配 SSE、WebSocket、标准 REST 等协议。
 3. **虚拟供应商故障转移**：通过 `virtual-provider` 模块按策略选择真实目标供应商。
-4. **可观测性**：请求/响应日志写入 `logger`，调用统计写入 `call_records`，并支持协议标签（`sse`、`websocket`）。
+4. **可观测性**：请求/响应日志写入 `logger`，调用统计写入 `call_records`，并支持协议标签（`sse`、`ws`、`bridge`）。
 5. **Secret 安全**：API Key 等敏感信息仅在后端解析，网关中只出现 `$SECRET:{uuid}$` 引用。
 
 ---
@@ -126,7 +126,7 @@ client/
 - 在 `chat_completions` / `anthropic_messages` handler 中记录请求体。
 - 在 `log_gateway_response` 中根据响应头检测协议标签：
   - `Content-Type: text/event-stream` → `sse`
-  - `Upgrade: websocket` → `websocket`
+  - `Upgrade: websocket` → `ws`
 - 流式/WebSocket 响应不读取响应体，避免阻塞数据流；非流式响应按需读取并重建返回。
 
 ---
@@ -174,19 +174,29 @@ API Key 通过 `ai_gateway.service().resolve_auth_for_request(&provider)` 获取
 在转发层根据供应商类型、传输方式与流式标志生成协议标签：
 
 ```rust
-fn protocol_tags(provider_type: &str, transport: Option<&str>, is_stream: bool) -> Vec<String> {
+fn protocol_tags(
+    provider_type: &str,
+    transport: Option<&str>,
+    is_stream: bool,
+    bridge_kind: crate::modules::gateway_runtime::bridge::BridgeKind,
+) -> Vec<String> {
     let mut tags = Vec::new();
     if is_stream { tags.push("sse".to_string()); }
     if (provider_type == "openai-responses" || provider_type == "openai-codex")
         && transport == Some("websocket") {
-        tags.push("websocket".to_string());
+        tags.push("ws".to_string());
+    }
+    if bridge_kind.is_bridged() {
+        tags.push("bridge".to_string());
     }
     tags
 }
 ```
 
 标签随 `LogEntry` 写入 `logger`，用于前端区分 SSE / WebSocket / 普通 REST 请求。
-仅当供应商显式配置 `transport = websocket` 时才打 `websocket` 标签，HTTP 透传场景统一为 `sse`。
+仅当供应商显式配置 `transport = websocket` 时才打 `ws` 标签，HTTP 透传场景统一为 `sse`。
+协议桥接（A↔O）转发额外打 `bridge` 标签（`docs/proposals/protocol-bridge.md` §7.5）。
+直连网关响应按响应特征识别标签（`Content-Type: text/event-stream` → `sse`，`Upgrade: websocket` → `ws`）。
 
 ### 5.5 流式与非流式响应
 
@@ -314,7 +324,7 @@ final = delay + jitter
 - 请求体/响应体记录受 `log_settings` 中独立开关控制：
   - `enable_request_log / enable_response_log / forward_max_body_length`：控制转发日志。
   - `enable_gateway_request_log / enable_gateway_response_log / gateway_max_body_length`：控制直连网关日志。
-- 日志标签 `tags` 在 SSE / WebSocket 场景下分别填入 `sse` / `websocket`。
+- 日志标签 `tags` 在 SSE / WebSocket / 协议桥接场景下分别填入 `sse` / `ws` / `bridge`。
 
 ---
 

@@ -62,7 +62,7 @@ export interface LogEntry {
   requestBody?: string
   /** 响应体内容（转发详细日志开启时记录） */
   responseBody?: string
-  /** 协议/场景标签，如 `sse`、`websocket` */
+  /** 协议/场景标签，如 `sse`、`ws`、`bridge` */
   tags?: string[]
   /** 源文件名（如 upstream.rs） */
   fileName?: string

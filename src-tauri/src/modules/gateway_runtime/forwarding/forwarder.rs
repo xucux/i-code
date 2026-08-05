@@ -99,7 +99,9 @@ impl Forwarder for DirectForwarder {
                 provider_slug, model_id, is_stream
             );
             let request = UpstreamRequest {
-                protocol: ctx.gateway_protocol.to_upstream(),
+                protocol: ctx
+                    .gateway_protocol
+                    .to_upstream_with_bridge(&ctx.upstream.provider.provider_type),
                 body,
                 is_stream,
             };
@@ -135,7 +137,9 @@ impl Forwarder for DirectForwarder {
             }
 
             let request = UpstreamRequest {
-                protocol: ctx.gateway_protocol.to_upstream(),
+                protocol: ctx
+                    .gateway_protocol
+                    .to_upstream_with_bridge(&ctx.upstream.provider.provider_type),
                 body: body.clone(),
                 is_stream,
             };
@@ -360,11 +364,21 @@ impl ForwardPipeline {
         // 前置：替换 model、设置 stream、注入 stream_options
         Self::prepare_body(ctx, body);
 
+        // 协议桥接：检测桥接方向，必要时转换请求体（§4.2 / §5.1 / §5.2）
+        let bridge_kind = crate::modules::gateway_runtime::bridge::detect_bridge(
+            ctx.gateway_protocol,
+            &ctx.upstream.provider.provider_type,
+        );
+        if bridge_kind.is_bridged() {
+            Self::apply_request_bridge(shared, ctx, body, bridge_kind);
+        }
+
         let is_stream = ctx.upstream.is_stream;
         let tags = protocol_tags(
             &ctx.upstream.provider.provider_type,
             ctx.upstream.provider.transport.as_deref(),
             is_stream,
+            bridge_kind,
         );
 
         // 调用记录起始
@@ -383,13 +397,21 @@ impl ForwardPipeline {
         let result = forwarder.execute(shared, ctx, body.clone()).await;
 
         match result {
-            Ok(response) => {
+            Ok(mut response) => {
                 let status = extract_status(&response);
                 // WebSocketStream 与 Streaming 同样按流式处理（SSE 字节流透传 + usage 拦截）
                 let is_streaming = matches!(
                     response,
                     UpstreamResponse::Streaming { .. } | UpstreamResponse::WebSocketStream { .. }
                 );
+
+                // 协议桥接响应转换（仅非流式；§5.3 / §7.1）
+                // - 2xx：响应体反向转换为入口协议格式
+                // - 4xx：错误体按入口协议格式转换
+                // - 5xx：视为上游不可用，构造 OpenAI 标准错误体并改 502 状态码
+                if bridge_kind.is_bridged() && !is_streaming {
+                    Self::apply_response_bridge(&mut response, bridge_kind);
+                }
 
                 // 先克隆快照（不消费 response），供日志与 usage 解析复用
                 let snapshot = clone_upstream_response(&response);
@@ -430,6 +452,15 @@ impl ForwardPipeline {
                         price,
                     );
                     None
+                };
+
+                // 流式桥接：在 build_response 之前包装字节流（§5.4 / §7.6）
+                // - Streaming：用状态机逐事件转换为目标协议 SSE，同时解析原始 chunk 的 usage
+                // - WebSocketStream / Complete：不桥接（§4.1 矩阵：WS / Responses 不参与桥接）
+                let response = if bridge_kind.is_bridged() && is_streaming {
+                    Self::apply_stream_bridge(response, bridge_kind, usage_accumulator.as_ref())
+                } else {
+                    response
                 };
 
                 // 构造 axum Response（此处消费 response）
@@ -571,6 +602,285 @@ impl ForwardPipeline {
             }
         }
     }
+
+    /// 应用请求体桥接转换（§4.2 / §5.1 / §5.2）
+    ///
+    /// 在 `prepare_body` 之后、`forwarder.execute` 之前调用，按 `bridge_kind` 转换请求体。
+    /// 转换失败时记录 warn 但不中断转发——让上游用未完全转换的 body 处理后由 4xx 路径反馈。
+    fn apply_request_bridge(
+        shared: &GatewaySharedState,
+        ctx: &mut ForwardContext,
+        body: &mut Value,
+        bridge_kind: crate::modules::gateway_runtime::bridge::BridgeKind,
+    ) {
+        use crate::modules::gateway_runtime::bridge::{
+            anthropic_to_openai_chat, openai_chat_to_anthropic,
+        };
+
+        let result = match bridge_kind {
+            crate::modules::gateway_runtime::bridge::BridgeKind::OpenaiToAnthropic => {
+                // O→A：入口 OpenAI + 上游 Anthropic，需要 max_output_tokens 兜底
+                let max_output_tokens = lookup_max_output_tokens(shared, ctx);
+                openai_chat_to_anthropic(body, max_output_tokens)
+            }
+            crate::modules::gateway_runtime::bridge::BridgeKind::AnthropicToOpenai => {
+                anthropic_to_openai_chat(body)
+            }
+            crate::modules::gateway_runtime::bridge::BridgeKind::None => Ok(()),
+        };
+
+        if let Err(e) = result {
+            tracing::warn!(
+                target: "i_code::bridge",
+                kind = bridge_kind.label(),
+                error = %e,
+                "请求体桥接转换失败，原样转发由上游处理"
+            );
+        }
+    }
+
+    /// 应用响应体桥接转换（§5.3 / §7.1）
+    ///
+    /// 仅处理 `UpstreamResponse::Complete`；流式响应由 P3 处理。
+    ///
+    /// - 2xx：响应体反向转换为入口协议格式
+    /// - 4xx：错误体按入口协议格式转换（§7.1 方案 B）
+    /// - 5xx：视为上游不可用，构造 OpenAI 标准错误体并改 502 状态码（§7.1 / AGENTS.md §10.1）
+    fn apply_response_bridge(
+        response: &mut UpstreamResponse,
+        bridge_kind: crate::modules::gateway_runtime::bridge::BridgeKind,
+    ) {
+        use crate::modules::gateway_runtime::bridge::{
+            anthropic_response_to_openai, convert_error_body, openai_response_to_anthropic,
+        };
+
+        let UpstreamResponse::Complete { status, body, .. } = response else {
+            // 流式 / WebSocket：P2 不接入桥接，原样透传
+            return;
+        };
+
+        let code = status.as_u16();
+
+        if code >= 500 {
+            // 5xx：构造 OpenAI 标准错误体（与 upstream_error_response 格式一致），状态码统一为 502
+            let body_str = String::from_utf8_lossy(body).to_string();
+            let body_val: Value = serde_json::from_str(&body_str).unwrap_or(Value::Null);
+            let message = body_val
+                .get("error")
+                .and_then(|e| e.get("message"))
+                .and_then(|m| m.as_str())
+                .map(|s| s.to_string())
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| "上游服务不可用".to_string());
+            let err_body = serde_json::json!({
+                "error": {
+                    "message": message,
+                    "type": "api_error",
+                    "param": Value::Null,
+                    "code": "bad_gateway",
+                }
+            });
+            *body = serde_json::to_vec(&err_body).unwrap_or_default();
+            *status = reqwest::StatusCode::BAD_GATEWAY;
+            tracing::debug!(
+                target: "i_code::bridge",
+                kind = bridge_kind.label(),
+                upstream_status = code,
+                "5xx 桥接：构造 OpenAI 标准错误体并改 502"
+            );
+            return;
+        }
+
+        if code >= 400 {
+            // 4xx：错误体按入口协议格式转换（§7.1）
+            if let Ok(mut val) = serde_json::from_slice::<Value>(body) {
+                let _ = convert_error_body(&mut val, bridge_kind);
+                if let Ok(new_bytes) = serde_json::to_vec(&val) {
+                    *body = new_bytes;
+                }
+            }
+            return;
+        }
+
+        // 2xx：响应体反向转换（§5.3）
+        if let Ok(mut val) = serde_json::from_slice::<Value>(body) {
+            let convert_result = match bridge_kind {
+                crate::modules::gateway_runtime::bridge::BridgeKind::OpenaiToAnthropic => {
+                    anthropic_response_to_openai(&mut val)
+                }
+                crate::modules::gateway_runtime::bridge::BridgeKind::AnthropicToOpenai => {
+                    openai_response_to_anthropic(&mut val)
+                }
+                crate::modules::gateway_runtime::bridge::BridgeKind::None => Ok(()),
+            };
+            if let Err(e) = convert_result {
+                tracing::warn!(
+                    target: "i_code::bridge",
+                    kind = bridge_kind.label(),
+                    error = %e,
+                    "响应体转换失败，原样透传上游 body"
+                );
+                return;
+            }
+            if let Ok(new_bytes) = serde_json::to_vec(&val) {
+                *body = new_bytes;
+            }
+        }
+    }
+
+    /// 应用流式桥接转换（§5.4 / §7.6）
+    ///
+    /// 在 `build_response` 之前包装 SSE 字节流，逐事件转换为目标协议格式：
+    ///
+    /// - `OpenaiToAnthropic`：上游 OpenAI SSE → 入口 Anthropic SSE
+    /// - `AnthropicToOpenai`：上游 Anthropic SSE → 入口 OpenAI SSE
+    ///
+    /// 同时在闭包内按**上游协议**解析原始 chunk 的 usage（§5.4.3），更新 `usage_accumulator`。
+    /// `build_response` 内部的 `parse_sse_event_for_usage` 会按上游协议解析转换后的字节流，
+    /// 因协议不匹配不会重复更新 accumulator。
+    ///
+    /// WebSocket 流与 Complete 响应不进入本函数（`is_streaming` 已过滤 WebSocketStream；
+    /// Complete 由 `apply_response_bridge` 处理）。
+    ///
+    /// 实现要点：
+    /// - 用 [`BridgeStreamState`] 维护跨 chunk 行缓冲与转换状态
+    /// - 用独立 `usage_buf` 维护 usage 解析的行缓冲（与状态机内部 `line_buf` 分离）
+    /// - 转换后的字节流通过 `UpstreamResponse::WebSocketStream` 变体传递给 `build_response`
+    fn apply_stream_bridge(
+        response: UpstreamResponse,
+        bridge_kind: crate::modules::gateway_runtime::bridge::BridgeKind,
+        usage_accumulator: Option<&crate::modules::gateway_runtime::client::SseUsageAccumulator>,
+    ) -> UpstreamResponse {
+        use crate::modules::gateway_runtime::bridge::stream::{
+            anthropic_sse_to_openai, openai_sse_to_anthropic, BridgeStreamState,
+        };
+        use crate::modules::gateway_runtime::forwarding::usage_extractor::parse_sse_event_for_usage;
+        use axum::body::Bytes;
+        use futures::StreamExt;
+
+        let UpstreamResponse::Streaming {
+            response: reqwest_resp,
+            protocol,
+        } = response
+        else {
+            // WebSocketStream / Complete 不桥接
+            return response;
+        };
+
+        let state = std::sync::Mutex::new(BridgeStreamState::new());
+        let usage_buf = std::sync::Mutex::new(String::new());
+        let acc = usage_accumulator.cloned();
+        let bridge_kind_label = bridge_kind.label();
+
+        let mapped =
+            reqwest_resp
+                .bytes_stream()
+                .map(move |result| -> Result<Bytes, std::convert::Infallible> {
+                    let bytes = match result {
+                        Ok(b) => b,
+                        Err(e) => {
+                            tracing::warn!(
+                                target: "i_code::bridge",
+                                error = %e,
+                                "上游 SSE 流读取失败"
+                            );
+                            return Ok(Bytes::new());
+                        }
+                    };
+
+                    let text = String::from_utf8_lossy(&bytes).to_string();
+
+                    // 解析 usage（按上游协议，用 line_buf 处理跨 chunk 事件边界）
+                    if let Some(acc) = &acc {
+                        let mut buf = usage_buf
+                            .lock()
+                            .unwrap_or_else(|e| e.into_inner());
+                        buf.push_str(&text);
+                        while let Some(pos) = buf.find("\n\n") {
+                            let event_text = buf[..pos].to_string();
+                            *buf = buf[pos + 2..].to_string();
+                            let mut usage = acc
+                                .lock()
+                                .unwrap_or_else(|e| e.into_inner());
+                            parse_sse_event_for_usage(&event_text, protocol, &mut usage);
+                        }
+                    }
+
+                    // 桥接转换（state 内部维护 line_buf）
+                    let mut st = state
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner());
+                    let events = match bridge_kind {
+                        crate::modules::gateway_runtime::bridge::BridgeKind::OpenaiToAnthropic => {
+                            openai_sse_to_anthropic(&text, &mut st)
+                        }
+                        crate::modules::gateway_runtime::bridge::BridgeKind::AnthropicToOpenai => {
+                            anthropic_sse_to_openai(&text, &mut st)
+                        }
+                        crate::modules::gateway_runtime::bridge::BridgeKind::None => Vec::new(),
+                    };
+                    drop(st);
+
+                    let mut output = String::new();
+                    for event in events {
+                        output.push_str(&event);
+                    }
+                    tracing::debug!(
+                        target: "i_code::bridge",
+                        kind = bridge_kind_label,
+                        category = "stream_chunk",
+                        input_size = bytes.len(),
+                        output_size = output.len(),
+                        "流式桥接 chunk 处理完成"
+                    );
+                    Ok(Bytes::from(output))
+                });
+
+        UpstreamResponse::WebSocketStream {
+            stream: Box::pin(mapped),
+            protocol,
+        }
+    }
+}
+
+/// 查询 `max_output_tokens`（§7.2）
+///
+/// 通过 `ctx.upstream.gateway_model_id` → `GatewayModel.model_config_id` → `ModelConfig.max_output_tokens`
+/// 链路查询；任一步失败或为 None 时返回 None（由调用方使用 [`MAX_TOKENS_FALLBACK`] 兜底）。
+///
+/// [`MAX_TOKENS_FALLBACK`]: crate::modules::gateway_runtime::bridge::MAX_TOKENS_FALLBACK
+fn lookup_max_output_tokens(
+    shared: &GatewaySharedState,
+    ctx: &ForwardContext,
+) -> Option<i64> {
+    let gateway_model_id = ctx.upstream.gateway_model_id.as_deref()?;
+    let gateway_model = shared
+        .ai_gateway_handle
+        .service()
+        .get_gateway_model(gateway_model_id)
+        .map_err(|e| {
+            tracing::warn!(
+                target: "i_code::bridge",
+                error = %e,
+                gateway_model_id = %gateway_model_id,
+                "查询 GatewayModel 失败，max_tokens 将使用兜底值"
+            );
+        })
+        .ok()?;
+    let model_config = shared
+        .ai_gateway_handle
+        .service()
+        .get_model_config(&gateway_model.model_config_id)
+        .map_err(|e| {
+            tracing::warn!(
+                target: "i_code::bridge",
+                error = %e,
+                model_config_id = %gateway_model.model_config_id,
+                "查询 ModelConfig 失败，max_tokens 将使用兜底值"
+            );
+        })
+        .ok()?;
+    model_config.max_output_tokens
 }
 
 /// 从 UpstreamResponse 中提取状态码

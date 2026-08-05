@@ -288,6 +288,7 @@
         "slug": "slug 用於路由，只能包含小寫字母、數字和連字元",
         "displayName": "顯示名稱用於列表與選擇，不影響路由",
         "providerType": "協議型別決定閘道器如何轉發請求（anthropic / openai-chat-completion / openai-responses 等）",
+        "providerTypeBridge": "閘道器在 Anthropic Messages 與 OpenAI Chat 兩種協議間雙向橋接：供應商協議與對外介面不一致時，由閘道器層自動轉換。",
         "authMethod": "認證方式決定如何呼叫上游：API Key 加密儲存、編輯時留空保持不變；OAuth 類供應商儲存後需完成授權",
         "baseUrl": "上游 API 的基礎地址，通常以 /v1 結尾",
         "pathCompletion": "關閉（預設）自動補全 /v1 路徑；開啟時原樣使用 Base URL",
@@ -1570,6 +1571,14 @@
       "updatedAt": "更新時間",
       "actions": "操作"
     },
+    "marketplaceVars": "使用變數",
+    "marketplaceNoVars": "無變數依賴",
+    "marketplaceVarSource": {
+      "system": "系統",
+      "custom": "自訂"
+    },
+    "marketplaceVarRequired": "必填",
+    "marketplaceVarOptional": "可選",
     "kind": {
       "balance": "額度監控"
     }

@@ -44,6 +44,10 @@
 
 pub mod auth;
 pub mod auth_resolver;
+// 桥接模块 P1 阶段仅完成模块内可独立编译+测试的部分，尚未接入 forwarder/response_handler。
+// P2/P3 接入前，模块内公开 API 在非测试构建中无调用方，整体标记 `allow(dead_code)` 抑制告警。
+#[allow(dead_code)]
+pub mod bridge;
 pub mod client;
 pub mod commands;
 pub mod forwarding;

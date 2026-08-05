@@ -291,18 +291,62 @@ export function ScriptTemplateMarketplaceDialog({
                 {selected.description ? (
                   <p className="line-clamp-3 whitespace-pre-wrap">{selected.description}</p>
                 ) : null}
-                {selected.tags && selected.tags.length > 0 ? (
-                  <div className="flex flex-wrap gap-1 pt-0.5">
-                    {selected.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="bg-background rounded border px-1.5 py-0 text-[10px]"
-                      >
-                        {tag}
-                      </span>
-                    ))}
+                {selected.varList && selected.varList.length > 0 ? (
+                  <div className="pt-1">
+                    <div className="text-muted-foreground/80 mb-0.5 text-[10px]">
+                      {t('marketplaceVars')}
+                    </div>
+                    <div className="space-y-0.5">
+                      {selected.varList.map((v) => (
+                        <div
+                          key={v.name}
+                          className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5"
+                        >
+                          <code className="bg-background rounded border px-1 py-0 font-mono text-[10px]">
+                            {v.name}
+                          </code>
+                          <span
+                            className={cn(
+                              'rounded border px-1 py-0 text-[10px]',
+                              v.source === 'system'
+                                ? 'border-blue-500/30 text-blue-600 dark:text-blue-400'
+                                : 'border-amber-500/30 text-amber-600 dark:text-amber-400'
+                            )}
+                          >
+                            {t(
+                              v.source === 'system'
+                                ? 'marketplaceVarSource.system'
+                                : 'marketplaceVarSource.custom'
+                            )}
+                          </span>
+                          <span
+                            className={cn(
+                              'rounded border px-1 py-0 text-[10px]',
+                              v.required
+                                ? 'border-destructive/30 text-destructive'
+                                : 'border-muted-foreground/30 text-muted-foreground'
+                            )}
+                          >
+                            {t(
+                              v.required
+                                ? 'marketplaceVarRequired'
+                                : 'marketplaceVarOptional'
+                            )}
+                          </span>
+                          {v.description ? (
+                            <span className="text-muted-foreground/80 text-[10px]">
+                              {v.description}
+                            </span>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                ) : null}
+                ) : (
+                  <p className="text-muted-foreground/60 pt-1 text-[10px]">
+                    {t('marketplaceNoVars')}
+                  </p>
+                )}
                 <p className="text-muted-foreground/80 pt-1">{t('marketplaceApplyHint')}</p>
               </div>
             </div>
