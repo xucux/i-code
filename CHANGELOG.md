@@ -2,6 +2,35 @@
 
 ## [release-version-tempalte]
 
+## [0.1.5] - 2026-08-06
+
+### 新增
+
+- **协议桥接模块（Anthropic ↔ OpenAI Chat 双向转换）**：当网关入口协议与上游供应商协议不一致时，在转发前对请求 / 响应 / 流式事件做双向转换，支持 Anthropic Messages 与 OpenAI Chat Completions 协议互转
+  - 新增 `gateway_runtime/bridge` 模块：`BridgeKind` 枚举与 `detect_bridge` 触发判定、`anthropic_to_openai_chat` / `openai_chat_to_anthropic` 请求体转换、非流式响应体双向转换、流式事件状态机双向转换（容错：畸形 chunk 透传并告警）
+  - 关键约束：`max_tokens` 缺失时从 `model_configs.max_output_tokens` 读取，兜底 `MAX_TOKENS_FALLBACK = 200000`；O→A 时移除 `response_format` 并在 `system` 末尾追加提示；工具调用 ID 原样透传不重命名
+  - `GatewayProtocol::to_upstream_with_bridge` 按桥接判定返回上游 Client 实际协议；`forwarder` 在 `execute_and_finalize` / `apply_stream_bridge` 集成桥接，非桥接场景零开销
+  - 方案文档：`docs/proposals/protocol-bridge.md`（P1–P4 全部落地，v1.0.0 released）
+- **脚本模板变量依赖声明（`varList`）**：公共仓 `catalog.json` / `meta.json` 新增 `varList` 字段，显式声明脚本依赖的系统变量（`api_key` / `provider.base_url` 等）与供应商「扩展模板变量」（`variables["cookie"]` 等）
+  - 后端 `marketplace/types.rs` 新增 `VarDef` / `VarSource`，`RemoteCatalogItem` 与 `MarketplaceItemSummary` 透传 `var_list`
+  - 前端 `MarketplaceItemSummary` 新增 `varList`；脚本模板市场详情面板移除 tag 标签展示，改为渲染变量列表（变量名 / 来源徽章 system=蓝 custom=琥珀 / 必填徽章 / 描述），无变量时显示占位
+- **供应商协议类型桥接帮助提示**：供应商表单「协议类型」标签新增 `HelpIcon` 帮助气泡（`popover` / `side=top`），说明协议桥接行为；i18n 补充 `providerTypeBridge` 帮助文案
+
+### 变更
+
+- **日志协议标签 `websocket` 更名为 `ws`**：`protocol_tags` / `detect_response_tags` / `LogEntry` 注释统一将 `websocket` 标签更名为 `ws`，前端日志筛选器与展示同步迁移
+- **桥接转发新增 `bridge` 日志标签**：`protocol_tags` 签名新增 `BridgeKind` 参数，桥接转发额外标记 `bridge`，便于日志按桥接场景筛选
+
+
+### 测试
+
+- 协议桥接模块新增 13 个单元测试（`bridge/tests.rs`，共 1773 行）：覆盖请求 / 响应 / 流式转换规则、容错策略、工具调用 ID 透传等；全部 290 个测试通过
+
+### 备注
+
+- 方案文档：`docs/proposals/protocol-bridge.md`；`docs/gateway-runtime.md` 已同步桥接模块说明与实现状态
+
+
 ## [0.1.4] - 2026-08-05
 
 ### 新增
