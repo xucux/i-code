@@ -2220,9 +2220,7 @@ impl AiGatewayService {
             }
             "ollama" => self.fetch_ollama_models(&client, &provider).await,
             "google-ai-studio" => {
-                let api_key = extract_api_key(&auth);
-                self.fetch_gemini_models(&client, &provider, api_key)
-                    .await
+                self.fetch_gemini_models(&client, &provider, &auth).await
             }
             "google-vertex-ai" => self.fetch_vertex_ai_models(&client, &provider, &auth).await,
             "github-copilot" => {
@@ -2290,6 +2288,12 @@ impl AiGatewayService {
     }
 
     /// 拉取 OpenAI 兼容协议的模型列表
+    ///
+    /// 认证头三通道写入，兼容官方 OpenAI 与各类中转网关：
+    /// - `Authorization: Bearer {key}`：OpenAI 标准
+    /// - `x-api-key`：Anthropic 风格 / 部分中转网关
+    /// - `x-goog-api-key`：Google Gemini 风格 / 部分中转网关
+    /// 官方端点会忽略多余的请求头，无副作用。
     async fn fetch_openai_compatible_models(
         &self,
         client: &reqwest::Client,
@@ -2310,7 +2314,10 @@ impl AiGatewayService {
         let start = std::time::Instant::now();
         let mut req = client.get(&url);
         if let Some(key) = api_key {
-            req = req.header("Authorization", format!("Bearer {}", key));
+            req = req
+                .header("Authorization", format!("Bearer {}", key))
+                .header("x-api-key", key)
+                .header("x-goog-api-key", key);
         }
 
         let resp = req.send().await.map_err(|e| {
@@ -2637,21 +2644,48 @@ impl AiGatewayService {
     }
 
     /// 拉取 Google Gemini 模型列表
+    ///
+    /// 认证兼容三种方式（Google Gemini API 官方端点与中转网关差异较大）：
+    /// - API Key：同时写入 `?key=` 查询参数与 `x-goog-api-key` 请求头，
+    ///   保证官方 `generativelanguage.googleapis.com` 与只认 header 的中转网关都能工作；
+    /// - OAuth Token（`google-gemini-oauth` 等）：写入 `Authorization: Bearer {token}`；
+    /// - 其他 OAuth 变体：若 token 为 JSON（含 accessToken），解析后同样作为 Bearer。
+    ///
+    /// 此前只发 `?key=` 且不兼容 OAuth，导致部分供应商拉取返回
+    /// `401 API key is required in Authorization / x-api-key / x-goog-api-key header`。
     async fn fetch_gemini_models(
         &self,
         client: &reqwest::Client,
         provider: &Provider,
-        api_key: Option<&str>,
+        auth: &Option<AuthConfig>,
     ) -> IcodeResult<Vec<String>> {
         let base = provider.base_url.trim_end_matches('/');
-        let url = if let Some(key) = api_key {
-            format!("{}/models?key={}", base, key)
-        } else {
-            format!("{}/models", base)
-        };
+        let mut url = format!("{}/models", base);
+        let mut req = client.get(&url);
+
+        // 1. 优先提取 API Key（ApiKey / GoogleVertexAiAuth）
+        let api_key = extract_api_key(auth);
+        // 2. 其余 OAuth 变体尝试提取 token（Bearer）
+        let oauth_token = extract_oauth_token(auth)
+            .and_then(|t| extract_oauth_access_token_for_balance(t))
+            .filter(|t| !t.is_empty());
+
+        match (api_key, oauth_token) {
+            // API Key：查询参数 + x-goog-api-key 请求头双写
+            (Some(key), _) => {
+                url = format!("{}/models?key={}", base, key);
+                req = client.get(&url).header("x-goog-api-key", key);
+            }
+            // OAuth Token：Authorization Bearer
+            (None, Some(token)) => {
+                req = req.header("Authorization", format!("Bearer {}", token));
+            }
+            // 无认证：原样请求（部分供应商无需认证或使用 extra_headers）
+            (None, None) => {}
+        }
 
         let start = std::time::Instant::now();
-        let resp = client.get(&url).send().await.map_err(|e| {
+        let resp = req.send().await.map_err(|e| {
             tracing::warn!(
                 "Provider API other | GET {} | error={}",
                 redact_url_key_param(&url),

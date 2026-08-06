@@ -29,6 +29,13 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { HelpIcon } from '@/components/ui/help-icon'
 import { Checkbox } from '@/components/ui/checkbox'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { invokeCommand } from '@/hooks/use-command'
 import { clearOauthToken } from '@/hooks/use-ai-gateway-mutation'
 import { open } from '@tauri-apps/plugin-shell'
@@ -1896,7 +1903,7 @@ function ModelManagementSection({ provider }: ModelManagementSectionProps) {
     }
   }, [provider])
 
-  // 拉取官方模型
+  // 拉取官方模型（默认策略）
   const handleFetchOfficialModels = async () => {
     if (!provider) return
     setOfficialLoading(true)
@@ -1904,6 +1911,25 @@ function ModelManagementSection({ provider }: ModelManagementSectionProps) {
     try {
       const models = await invokeCommand<string[]>('gateway_fetch_official_models', {
         providerId: provider.id,
+      })
+      setOfficialModels(models)
+    } catch (err) {
+      setOfficialError(String(err))
+      setOfficialModels([])
+    } finally {
+      setOfficialLoading(false)
+    }
+  }
+
+  // 按指定协议拉取官方模型
+  const handleFetchOfficialModelsByProtocol = async (protocol: string) => {
+    if (!provider) return
+    setOfficialLoading(true)
+    setOfficialError(null)
+    try {
+      const models = await invokeCommand<string[]>('gateway_fetch_models_by_protocol', {
+        providerId: provider.id,
+        protocol,
       })
       setOfficialModels(models)
     } catch (err) {
@@ -2388,18 +2414,45 @@ function ModelManagementSection({ provider }: ModelManagementSectionProps) {
         {/* 官方模型拉取 */}
         <TabsContent value="official">
           <div className="mb-3">
-            <Button
-              type="button"
-              size="sm"
-              className="h-7 text-xs"
-              onClick={handleFetchOfficialModels}
-              disabled={officialLoading}
-            >
-              <i
-                className={cn('fa-solid fa-cloud-arrow-down mr-1.5', officialLoading && 'animate-bounce')}
-              />
-              {officialLoading ? t('aiGateway.providerForm.modelManagement.fetching') : t('aiGateway.providerForm.modelManagement.fetchOfficial')}
-            </Button>
+            {/* 分裂按钮：主按钮执行默认拉取策略，右侧下拉选择指定协议拉取 */}
+            <div className="inline-flex items-center -space-x-px">
+              <Button
+                type="button"
+                size="sm"
+                className="h-7 text-xs rounded-r-none focus:z-10"
+                onClick={handleFetchOfficialModels}
+                disabled={officialLoading}
+              >
+                <i
+                  className={cn('fa-solid fa-cloud-arrow-down mr-1.5', officialLoading && 'animate-bounce')}
+                />
+                {officialLoading ? t('aiGateway.providerForm.modelManagement.fetching') : t('aiGateway.providerForm.modelManagement.fetchOfficial')}
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-7 px-1.5 text-xs rounded-l-none focus:z-10"
+                    disabled={officialLoading}
+                    aria-label={t('aiGateway.providerForm.modelManagement.fetchByProtocol')}
+                  >
+                    <i className="fa-solid fa-chevron-down text-[10px]" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-[180px]">
+                  <DropdownMenuLabel className="text-xs">
+                    {t('aiGateway.providerForm.modelManagement.fetchByProtocol')}
+                  </DropdownMenuLabel>
+                  <DropdownMenuItem className="text-xs" onClick={() => void handleFetchOfficialModelsByProtocol('openai-compatible')}>
+                    {t('aiGateway.providerForm.modelManagement.fetchProtocolOpenai')}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="text-xs" onClick={() => void handleFetchOfficialModelsByProtocol('anthropic-native')}>
+                    {t('aiGateway.providerForm.modelManagement.fetchProtocolAnthropic')}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
 
           {officialError && (
@@ -2755,7 +2808,7 @@ function OAuthAuthorizeSection({
                     onClick={() => void handleViewToken()}
                     disabled={tokenDialogLoading}
                   >
-                    <i className={`fa-solid ${tokenDialogLoading ? 'fa-spinner fa-spin' : 'fa-eye'} text-[10px]`} />
+                    <i className={`fa-solid ${tokenDialogLoading ? 'fa-spinner fa-spin' : 'fa-eye'} text-[10px] text-muted-foreground`} />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" align="start">
