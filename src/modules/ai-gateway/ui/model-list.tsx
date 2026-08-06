@@ -87,7 +87,7 @@ export function ModelList() {
   const [granularity, setGranularity] = useState<StatsGranularity>('hourly')
 
   // ===== 表格视图模式：紧凑（自适应换行） / 滚动（固定列宽横向滚动） =====
-  const [viewMode, setViewMode] = useState<'compact' | 'scroll'>('compact')
+  const [viewMode, setViewMode] = useState<'compact' | 'scroll'>('scroll')
 
   const timeRangeOptions = useTimeRangeOptions()
 

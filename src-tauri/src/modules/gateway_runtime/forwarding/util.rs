@@ -231,19 +231,32 @@ use crate::modules::gateway_runtime::forwarding::context::ForwardContext;
 /// 构造用于日志记录的 URL
 ///
 /// 仅用于日志展示，不参与实际请求。
-/// OpenAI 兼容供应商的 `base_url` 通常已包含 `/v1`，因此日志路径不再重复版本前缀。
+///
+/// **必须与实际请求 URL 一致**：桥接场景下，入口协议（如 `ChatCompletions`）
+/// 与上游协议（如 `AnthropicMessages`）不同，日志应展示上游实际路径
+/// （`/v1/messages`），否则会误导排查（用户看到 chat 路径却实际请求了 messages 路径）。
+///
+/// 因此此处通过 [`bridge_upstream_protocol`] 计算桥接后的上游协议再选路径，
+/// 与 `AnthropicClient` / `OpenAiChatClient` 内部 `build_upstream_url` 的入参一致。
+///
+/// [`bridge_upstream_protocol`]: crate::modules::gateway_runtime::bridge::bridge_upstream_protocol
 pub fn build_log_url(ctx: &ForwardContext) -> String {
-    use crate::modules::gateway_runtime::forwarding::context::GatewayProtocol;
-    let path = match ctx.gateway_protocol {
-        GatewayProtocol::ChatCompletions => "/chat/completions",
-        GatewayProtocol::AnthropicMessages => "/v1/messages",
-        GatewayProtocol::Responses => "/responses",
+    use crate::modules::gateway_runtime::bridge::bridge_upstream_protocol;
+    use crate::modules::gateway_runtime::client::UpstreamProtocol;
+    let upstream_protocol = bridge_upstream_protocol(
+        ctx.gateway_protocol,
+        &ctx.upstream.provider.provider_type,
+    );
+    let path = match upstream_protocol {
+        UpstreamProtocol::ChatCompletions => "/chat/completions",
+        UpstreamProtocol::AnthropicMessages => "/v1/messages",
+        UpstreamProtocol::Responses => "/responses",
     };
     build_upstream_url(&ctx.upstream.provider, path).unwrap_or_else(|_| {
         format!(
             "{}/{}",
             ctx.upstream.provider.base_url,
-            ctx.gateway_protocol.to_upstream()
+            upstream_protocol
         )
     })
 }
