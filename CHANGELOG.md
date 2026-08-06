@@ -2,6 +2,30 @@
 
 ## [release-version-tempalte]
 
+## 新增
+
+## 修复
+
+## 变更
+
+## [0.1.6] - 2026-08-06
+
+### 新增
+
+- **模型调用统计展示总 token**：模型统计页面的统计描述新增「总 token」展示（随当前「明细 / 汇总」Tab 联动，取当前视图数据求和）
+  - 新增 `formatTokenKMB` token 格式化工具函数，支持 K（千）/ M（百万）/ B（十亿）西式紧凑单位转换；非法输入兜底返回 `0`
+  - `ModelList` 新增 `activeTab` 状态追踪当前激活 Tab，据此计算对应视图的 `totalTokens` 并参与统计描述 `totalTokens` 占位符渲染
+
+### 修复
+
+- **模型列表默认视图模式改为滚动模式**：`ModelList` 表格视图模式默认由 `compact`（自适应换行）改为 `scroll`（固定列宽横向滚动），避免列宽撑开导致布局溢出
+- **日志 URL 与实际请求 URL 不一致**：重构 `build_log_url`（`forwarding/util.rs`），改为通过 `bridge_upstream_protocol` 计算桥接后的**上游协议**再选路径，与 `AnthropicClient` / `OpenAiChatClient` 内部 `build_upstream_url` 的入参保持一致，解决桥接场景下入口协议（如 `ChatCompletions`）与上游协议（如 `AnthropicMessages`）不同导致日志展示路径误导排查的问题
+- **流式桥接转换函数调用方向错误**：修正 `forwarder` 流式桥接（`apply_stream_bridge`）中两种桥接模式下的 SSE 转换函数调用方向——`OpenaiToAnthropic`（入口 O → 上游 A）响应需转换为入口 OpenAI SSE（`anthropic_sse_to_openai`），`AnthropicToOpenai`（入口 A → 上游 O）响应需转换为入口 Anthropic SSE（`openai_sse_to_anthropic`），即响应转换方向与请求转换方向**相反**，与 `apply_response_bridge` / `convert_error_body` 保持一致；同步更新注释说明转换逻辑细节
+
+### 变更
+
+- **Anthropic Client 凭证双写 `Authorization` 头**：配置 `ApiKey` 时，除写入 `x-api-key` 外，同步写入 `Authorization: Bearer {key}`，兼容需要双重认证的中转网关（如小米 token-plan 等）；官方 Anthropic API 只认 `x-api-key`，多出的 `Authorization` 头会被忽略无副作用，`extra_headers` 仍可在最后覆盖 `x-api-key` / `Authorization` / `anthropic-version`
+
 ## [0.1.5] - 2026-08-06
 
 ### 新增
