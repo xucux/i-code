@@ -730,13 +730,16 @@ impl ForwardPipeline {
 
     /// 应用流式桥接转换（§5.4 / §7.6）
     ///
-    /// 在 `build_response` 之前包装 SSE 字节流，逐事件转换为目标协议格式：
+    /// 在 `build_response` 之前包装 SSE 字节流，逐事件转换为**入口协议**格式：
     ///
-    /// - `OpenaiToAnthropic`：上游 OpenAI SSE → 入口 Anthropic SSE
-    /// - `AnthropicToOpenai`：上游 Anthropic SSE → 入口 OpenAI SSE
+    /// - `OpenaiToAnthropic`（入口 O → 上游 A）：响应需 上游 Anthropic SSE → 入口 OpenAI SSE
+    /// - `AnthropicToOpenai`（入口 A → 上游 O）：响应需 上游 OpenAI SSE → 入口 Anthropic SSE
+    ///
+    /// 即响应转换方向与请求转换方向**相反**——与非流式响应转换（`apply_response_bridge`）
+    /// 和错误体转换（`convert_error_body`）保持一致。
     ///
     /// 同时在闭包内按**上游协议**解析原始 chunk 的 usage（§5.4.3），更新 `usage_accumulator`。
-    /// `build_response` 内部的 `parse_sse_event_for_usage` 会按上游协议解析转换后的字节流，
+    /// `build_response` 内部的 `parse_sse_event_for_usage` 会按上游协议解析转换后的字节流,
     /// 因协议不匹配不会重复更新 accumulator。
     ///
     /// WebSocket 流与 Complete 响应不进入本函数（`is_streaming` 已过滤 WebSocketStream；
@@ -807,15 +810,20 @@ impl ForwardPipeline {
                     }
 
                     // 桥接转换（state 内部维护 line_buf）
+                    // 注意：响应转换方向与请求转换方向相反
+                    // - OpenaiToAnthropic（入口 O → 上游 A）：上游返回 Anthropic SSE，
+                    //   需转换为入口 OpenAI SSE（`anthropic_sse_to_openai`）
+                    // - AnthropicToOpenai（入口 A → 上游 O）：上游返回 OpenAI SSE，
+                    //   需转换为入口 Anthropic SSE（`openai_sse_to_anthropic`）
                     let mut st = state
                         .lock()
                         .unwrap_or_else(|e| e.into_inner());
                     let events = match bridge_kind {
                         crate::modules::gateway_runtime::bridge::BridgeKind::OpenaiToAnthropic => {
-                            openai_sse_to_anthropic(&text, &mut st)
+                            anthropic_sse_to_openai(&text, &mut st)
                         }
                         crate::modules::gateway_runtime::bridge::BridgeKind::AnthropicToOpenai => {
-                            anthropic_sse_to_openai(&text, &mut st)
+                            openai_sse_to_anthropic(&text, &mut st)
                         }
                         crate::modules::gateway_runtime::bridge::BridgeKind::None => Vec::new(),
                     };
