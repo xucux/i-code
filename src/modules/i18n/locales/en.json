@@ -574,7 +574,7 @@
     "modelManagement": {
       "days": "{{count}} days",
       "hours": "{{count}} hours",
-      "statsDescription": "Model call statistics for {{time}}",
+      "statsDescription": "Model call statistics for {{time}}, total tokens {{totalTokens}}",
       "allSources": "All sources",
       "allRoutes": "All routes",
       "allApiKeys": "All API Keys"

@@ -574,7 +574,7 @@
     "modelManagement": {
       "days": "{{count}} 天",
       "hours": "{{count}} 小時",
-      "statsDescription": "統計 {{time}} 內的模型呼叫資料",
+      "statsDescription": "統計 {{time}} 內的模型呼叫資料，總 token {{totalTokens}}",
       "allSources": "全部入口",
       "allRoutes": "全部路由",
       "allApiKeys": "全部 API Key"

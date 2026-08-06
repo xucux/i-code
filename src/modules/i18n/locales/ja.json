@@ -574,7 +574,7 @@
     "modelManagement": {
       "days": "{{count}} 日",
       "hours": "{{count}} 時間",
-      "statsDescription": "{{time}} のモデル呼び出しデータを集計",
+      "statsDescription": "{{time}} のモデル呼び出しデータを集計、合計 token {{totalTokens}}",
       "allSources": "すべての入口",
       "allRoutes": "すべてのルート",
       "allApiKeys": "すべての API Key"

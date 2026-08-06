@@ -51,6 +51,22 @@ function truncateApiKey(key: string | undefined | null, maxLen = 12): string {
 }
 
 /**
+ * 将 token 数值格式化为紧凑计数（K / M / B 西式单位）
+ * - K = 千（1,000）
+ * - M = 百万（1,000,000）
+ * - B = 十亿（1,000,000,000）
+ *
+ * 用于统计描述中的总 token 展示。
+ */
+function formatTokenKMB(value: number): string {
+  if (!Number.isFinite(value) || value < 0) return '0'
+  if (value < 1_000) return String(Math.round(value))
+  if (value < 1_000_000) return `${(value / 1_000).toFixed(1)}K`
+  if (value < 1_000_000_000) return `${(value / 1_000_000).toFixed(2)}M`
+  return `${(value / 1_000_000_000).toFixed(2)}B`
+}
+
+/**
  * AI Gateway 模型统计页面
  *
  * 双模式：
@@ -89,24 +105,13 @@ export function ModelList() {
   // ===== 表格视图模式：紧凑（自适应换行） / 滚动（固定列宽横向滚动） =====
   const [viewMode, setViewMode] = useState<'compact' | 'scroll'>('scroll')
 
+  // ===== 当前激活的 Tab：用于计算对应数据的总 token =====
+  const [activeTab, setActiveTab] = useState<'detail' | 'aggregated'>('detail')
+
   const timeRangeOptions = useTimeRangeOptions()
 
   // 计算时间范围
   const startAt = useMemo(() => getTimeRangeStart(timeRangeHours), [timeRangeHours])
-
-  // 统计描述文本
-  const statsDescription = useMemo(() => {
-    const timeText = timeRangeHours >= 24
-      ? t('modelManagement.days', { count: timeRangeHours / 24 })
-      : t('modelManagement.hours', { count: timeRangeHours })
-    const sourceText = source !== 'all'
-      ? ` · ${source === 'cli' ? 'CLI' : source === 'gateway' ? t('modelStatsTable.sourceGateway') : t('modelStatsTable.sourceInternal')}`
-      : ''
-    const routeText = routeMode !== 'all'
-      ? ` · ${routeMode === '1' ? t('modelStatsTable.routeDirect') : t('modelStatsTable.routeFailover')}`
-      : ''
-    return `${t('modelManagement.statsDescription', { time: timeText })}${sourceText}${routeText}`
-  }, [timeRangeHours, source, routeMode, t])
 
   // ===== 明细模式 =====
   const detailInput = useMemo(() => ({
@@ -140,6 +145,27 @@ export function ModelList() {
     intervalMs: _aggInterval,
     setIntervalMs: setAggInterval,
   } = useAggregatedStats(aggInput)
+
+  // 当前 Tab 对应数据的总 token（K/M/B 紧凑格式）
+  const totalTokensText = useMemo(() => {
+    const rows = activeTab === 'detail' ? detailRows : aggRows
+    const sum = rows.reduce((acc, r) => acc + (r.totalTokens ?? 0), 0)
+    return formatTokenKMB(sum)
+  }, [activeTab, detailRows, aggRows])
+
+  // 统计描述文本
+  const statsDescription = useMemo(() => {
+    const timeText = timeRangeHours >= 24
+      ? t('modelManagement.days', { count: timeRangeHours / 24 })
+      : t('modelManagement.hours', { count: timeRangeHours })
+    const sourceText = source !== 'all'
+      ? ` · ${source === 'cli' ? 'CLI' : source === 'gateway' ? t('modelStatsTable.sourceGateway') : t('modelStatsTable.sourceInternal')}`
+      : ''
+    const routeText = routeMode !== 'all'
+      ? ` · ${routeMode === '1' ? t('modelStatsTable.routeDirect') : t('modelStatsTable.routeFailover')}`
+      : ''
+    return `${t('modelManagement.statsDescription', { time: timeText, totalTokens: totalTokensText })}${sourceText}${routeText}`
+  }, [timeRangeHours, source, routeMode, t, totalTokensText])
 
   // ===== 高度计算（§5.5） =====
   // 直接测量表格宿主区域，避免 header 估算与 magic number 偏差
@@ -258,7 +284,7 @@ export function ModelList() {
         </CardHeader>
 
         <CardContent className="flex-1 min-h-0 min-w-0 p-0 px-4 pb-4">
-          <Tabs defaultValue="detail" className="flex h-full min-w-0 flex-col">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'detail' | 'aggregated')} className="flex h-full min-w-0 flex-col">
             <div className="flex items-center justify-between pb-2">
               <TabsList className="h-7">
                 <TabsTrigger value="detail" className="text-xs px-3 py-1">
