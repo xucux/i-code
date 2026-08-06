@@ -9,7 +9,7 @@
 //! - 请求体按 Anthropic Messages 格式直接透传，v0.2 不做 OpenAI ↔ Anthropic 转换。
 //! - 流式响应直接返回 `reqwest::Response`，由上层透传 SSE。
 
-use reqwest::header::CONTENT_TYPE;
+use reqwest::header::{AUTHORIZATION, CONTENT_TYPE};
 
 use crate::modules::ai_gateway::types::{AuthConfig, Provider};
 use crate::modules::gateway_runtime::auth_resolver::{
@@ -68,10 +68,14 @@ impl AnthropicClient {
 
     /// 构造请求头
     ///
-    /// 顺序：默认 Content-Type → 默认 `x-api-key`（来自 credential）→
+    /// 顺序：默认 Content-Type → 默认 `x-api-key` + `Authorization`（来自 credential）→
     /// 默认 `anthropic-version` → `resolution.extra_headers` 覆盖。
     /// 这样 `extra_headers` 可覆盖 version、注入 `anthropic-beta`、
     /// 或为代理网关提供自定义 header。
+    ///
+    /// **同一凭证双写**：配置 `ApiKey` 时，除写入 `x-api-key` 外，同步写入
+    /// `Authorization: Bearer {key}`，兼容需要双重认证的中转网关（如小米 token-plan 等）。
+    /// 官方 Anthropic API 只认 `x-api-key`，多出的 `Authorization` 头会被忽略，无副作用。
     fn build_headers(
         _provider: &Provider,
         resolution: &AuthResolution,
@@ -89,6 +93,13 @@ impl AnthropicClient {
                     ClientError::BuildRequestError(format!("构造 x-api-key 失败: {}", e))
                 })?,
             );
+            // 同一凭证双写 Authorization: Bearer {key}，兼容需要双重认证的中转网关
+            headers.insert(
+                AUTHORIZATION,
+                format!("Bearer {}", key).parse().map_err(|e| {
+                    ClientError::BuildRequestError(format!("构造 Authorization 失败: {}", e))
+                })?,
+            );
         }
 
         headers.insert(
@@ -98,7 +109,7 @@ impl AnthropicClient {
             })?,
         );
 
-        // extra_headers 在最后注入，可覆盖 x-api-key / anthropic-version，
+        // extra_headers 在最后注入，可覆盖 x-api-key / Authorization / anthropic-version，
         // 也可注入 anthropic-beta（prompt caching、computer use 等）。
         for (k, v) in &resolution.extra_headers {
             headers.insert(
