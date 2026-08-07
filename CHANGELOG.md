@@ -2,22 +2,22 @@
 
 ## [release-version-tempalte]
 
-## 🚀新增
+### 🚀新增
 
-## 🐞修复
+### 🐞修复
 
-## 🔄变更
+### 🔄变更
 
 ## [0.1.7] - 2026-08-07
 
-## 🚀新增
+### 🚀新增
 
 - **按协议拉取官方模型**：供应商表单「拉取官方模型」按钮升级为分裂按钮（split button），主按钮执行默认拉取策略，右侧下拉菜单支持按指定协议拉取
   - 主按钮：沿用原有默认策略（按供应商 `provider_type` 自动匹配）
   - 下拉菜单：支持显式选择「OpenAI 兼容协议（`/models`）」或「Anthropic 原生协议（`/v1/models`）」拉取
   - 前端通过新增 `gateway_fetch_models_by_protocol` Command 调用，传入 `providerId` 与 `protocol` 参数
 
-## 🐞修复
+### 🐞修复
 
 - **Gemini 模型拉取不兼容 OAuth**：`fetch_gemini_models` 此前仅通过 `?key=` 查询参数传递 API Key，既不兼容 OAuth Token 认证，也无法满足只认请求头的中转网关，导致部分供应商拉取返回 `401 API key is required in Authorization / x-api-key / x-goog-api-key header`
   - 重构为支持三种认证方式：
