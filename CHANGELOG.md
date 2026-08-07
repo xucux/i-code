@@ -8,6 +8,30 @@
 
 ## 🔄变更
 
+## [0.1.7] - 2026-08-07
+
+## 🚀新增
+
+- **按协议拉取官方模型**：供应商表单「拉取官方模型」按钮升级为分裂按钮（split button），主按钮执行默认拉取策略，右侧下拉菜单支持按指定协议拉取
+  - 主按钮：沿用原有默认策略（按供应商 `provider_type` 自动匹配）
+  - 下拉菜单：支持显式选择「OpenAI 兼容协议（`/models`）」或「Anthropic 原生协议（`/v1/models`）」拉取
+  - 前端通过新增 `gateway_fetch_models_by_protocol` Command 调用，传入 `providerId` 与 `protocol` 参数
+
+## 🐞修复
+
+- **Gemini 模型拉取不兼容 OAuth**：`fetch_gemini_models` 此前仅通过 `?key=` 查询参数传递 API Key，既不兼容 OAuth Token 认证，也无法满足只认请求头的中转网关，导致部分供应商拉取返回 `401 API key is required in Authorization / x-api-key / x-goog-api-key header`
+  - 重构为支持三种认证方式：
+    - **API Key**：同时写入 `?key=` 查询参数与 `x-goog-api-key` 请求头，官方 `generativelanguage.googleapis.com` 与只认 header 的中转网关均可工作
+    - **OAuth Token**（`google-gemini-oauth` 等）：写入 `Authorization: Bearer {token}`
+    - **其他 OAuth 变体**：token 为 JSON（含 `accessToken`）时解析后同样作为 Bearer 写入
+- **OpenAI 兼容协议模型拉取认证头单写**：`fetch_openai_compatible_models` 此前仅写入 `Authorization: Bearer {key}`，部分中转网关（Anthropic 风格 / Google Gemini 风格）无法识别。改为三通道写入，兼容官方 OpenAI 与各类中转网关：
+  - `Authorization: Bearer {key}`：OpenAI 标准
+  - `x-api-key`：Anthropic 风格 / 部分中转网关
+  - `x-goog-api-key`：Google Gemini 风格 / 部分中转网关
+  - 官方端点会忽略多余的请求头，无副作用
+- **通配符监听时 LAN 地址列表缺失 loopback**：`useLocalIps` 在通配符监听（`0.0.0.0` / `::`）场景下返回的 `hosts` 列表仅包含 LAN IP，本机无法直接通过 `127.0.0.1` 访问网关。现于 LAN 地址列表末尾追加 `127.0.0.1`（若未包含），追加在排序之后确保始终位于列表最末尾，方便本机直接通过本地环回地址访问网关
+
+
 ## [0.1.6] - 2026-08-06
 
 ### 新增
