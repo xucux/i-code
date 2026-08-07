@@ -517,6 +517,84 @@ fn load_mini_panel_settings(app: &tauri::AppHandle) -> Result<MiniPanelSettings,
     })
 }
 
+/// 判断自启错误是否属于"系统侧已无注册项"类（文件/注册表值不存在）
+///
+/// `tauri-plugin-autostart` 底层在 Windows 调用 `RegDeleteValueW`、
+/// 在 Linux 删除 `.desktop` 文件、在 macOS 删除 LaunchAgent plist；
+/// 当目标项已不存在时会返回此类错误。此时系统实际状态与"已关闭"一致，
+/// 不应视为失败。
+fn is_autostart_not_found_error(err: &tauri_plugin_autostart::Error) -> bool {
+    let msg = err.to_string();
+    // Windows: "系统找不到指定的文件。 (os error 2)"
+    // Linux:   "No such file or directory (os error 2)"
+    // 通用:    "os error 2" / "cannot find" / "not found"
+    msg.contains("os error 2")
+        || msg.contains("系统找不到")
+        || msg.contains("cannot find")
+        || msg.contains("No such file")
+        || msg.contains("not found")
+}
+
+/// 启动时同步开机自启配置（DB 用户意图）与系统实际注册状态
+///
+/// 解决场景：软件更新后可执行文件路径变更、用户手动删除注册项、
+/// 迁移残留等导致 DB 中 `auto_start_enabled` 与系统实际注册不一致。
+/// 每次启动静默核对并修正**系统侧**状态，避免用户切换开关时遇到
+/// "系统找不到指定的文件 (os error 2)" 等错误。
+///
+/// 跨平台行为（由 `tauri-plugin-autostart` 抽象）：
+/// - Windows：注册表 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`
+/// - macOS：LaunchAgent plist（`~/Library/LaunchAgents/`）
+/// - Linux：XDG autostart `.desktop`（`~/.config/autostart/`）
+///
+/// 注：仅修正系统侧注册状态，不修改 DB（DB 代表用户意图）。
+fn sync_autostart_with_system(app: &tauri::App) {
+    let settings_handle = app.state::<modules::settings::SettingsServiceHandle>();
+    let db_enabled = settings_handle
+        .service()
+        .get_settings()
+        .map(|s| s.auto_start_enabled)
+        .unwrap_or(false);
+
+    let manager = app.autolaunch();
+    let sys_enabled = manager.is_enabled().unwrap_or(false);
+
+    if db_enabled == sys_enabled {
+        tracing::debug!(
+            "开机自启状态一致：DB={} 系统={}",
+            db_enabled,
+            sys_enabled
+        );
+        return;
+    }
+
+    tracing::info!(
+        "开机自启状态不一致：DB={} 系统={}，开始静默同步",
+        db_enabled,
+        sys_enabled
+    );
+
+    if db_enabled {
+        // DB=开 但系统未注册 → 重新注册（覆盖旧路径等残留）
+        match manager.enable() {
+            Ok(()) => tracing::info!("开机自启已重新注册（系统侧此前缺失）"),
+            Err(e) => tracing::warn!("开机自启重新注册失败：{}", e),
+        }
+    } else {
+        // DB=关 但系统仍残留 → 静默清理
+        match manager.disable() {
+            Ok(()) => tracing::info!("开机自启残留注册已清理（系统侧此前残留）"),
+            Err(e) if is_autostart_not_found_error(&e) => {
+                tracing::info!(
+                    "开机自启残留注册无需清理（系统侧已无注册项：{}）",
+                    e
+                );
+            }
+            Err(e) => tracing::warn!("开机自启残留清理失败：{}", e),
+        }
+    }
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -809,6 +887,12 @@ fn main() {
                 }
             }
             app.manage(settings_handle.clone());
+
+            // ===== 启动时同步开机自启配置 =====
+            // 静默核对 DB 中 `auto_start_enabled` 与系统实际注册状态，
+            // 不一致时修正系统侧（软件更新后路径变更、注册项丢失等场景）。
+            // 必须在 autostart 插件初始化后、托盘菜单创建前执行。
+            sync_autostart_with_system(app);
 
             // ===== 初始化 Secret 模块 =====
             // 1. 通用密码来自 Settings.config_key，经 SHA-256 派生为 AES-256-GCM 主密钥。
@@ -1113,12 +1197,22 @@ fn main() {
                                     }
                                 } else {
                                     if let Err(e) = autolaunch.disable() {
-                                        tracing::error!("开机自启关闭失败：{}", e);
-                                        app.state::<modules::logger::LoggerServiceHandle>().service().log_system(
-                                            crate::modules::logger::types::LogLevel::Error,
-                                            &format!("开机自启关闭失败：{}", e),
-                                            Some(file!()),
-                                        );
+                                        if is_autostart_not_found_error(&e) {
+                                            // 系统侧已无注册项，与"已关闭"状态一致，视为成功
+                                            tracing::info!("开机自启已关闭（系统侧此前已无注册项：{}）", e);
+                                            app.state::<modules::logger::LoggerServiceHandle>().service().log_system(
+                                                crate::modules::logger::types::LogLevel::Info,
+                                                "开机自启已关闭",
+                                                Some(file!()),
+                                            );
+                                        } else {
+                                            tracing::error!("开机自启关闭失败：{}", e);
+                                            app.state::<modules::logger::LoggerServiceHandle>().service().log_system(
+                                                crate::modules::logger::types::LogLevel::Error,
+                                                &format!("开机自启关闭失败：{}", e),
+                                                Some(file!()),
+                                            );
+                                        }
                                     } else {
                                         tracing::info!("开机自启已关闭");
                                         app.state::<modules::logger::LoggerServiceHandle>().service().log_system(

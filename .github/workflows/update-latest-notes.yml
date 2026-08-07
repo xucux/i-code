@@ -1,0 +1,83 @@
+# 更新 latest.json 的 notes 字段
+# 职责：手动触发时，仅更新指定 release tag 上 latest.json 的 `notes` 字段，
+#       其余字段（version / pub_date / platforms 等）保持不变，再推回原 release。
+# 说明：tag 为必填输入；不做格式/存在性强校验，直接按输入执行。
+name: Update latest.json notes
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag, e.g. v0.1.7'
+        required: true
+        type: string
+      notes:
+        description: 'New notes content (multiline). If empty, extracted from CHANGELOG.md for that version.'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  update-notes:
+    name: Update latest.json notes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Prepare GH
+        run: |
+          gh --version || (type -p curl >/dev/null && sudo apt-get update && sudo apt-get install -y gh || true)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # 下载指定 release tag 上现有的 latest.json（只改 notes，必须基于现有文件）
+      - name: Download existing latest.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${{ inputs.tag }}"
+          gh release download "$TAG" --pattern "latest.json" --dir . --repo "$GITHUB_REPOSITORY"
+          if [ ! -f latest.json ]; then
+            echo "::error::latest.json not found in release $TAG"
+            exit 1
+          fi
+          echo "Downloaded latest.json for $TAG:"
+          cat latest.json
+
+      # 仅更新 notes 字段，其余字段原样保留
+      - name: Update notes in latest.json
+        env:
+          NOTES: ${{ inputs.notes }}
+        run: |
+          set -euo pipefail
+          TAG="${{ inputs.tag }}"
+          if [ -n "$NOTES" ]; then
+            # 保留手动输入的多行内容（用换行符转义），交脚本写入 notes
+            NOTES_ARG="${{ toJSON(inputs.notes) }}"
+            # 去除 JSON 字符串外围引号，由脚本处理换行转义
+            CLEANED=$(node -e "process.stdout.write(JSON.parse(process.argv[1]))" "$NOTES_ARG")
+            node .github/scripts/update-latest-json-notes.mjs \
+              --repo="$GITHUB_REPOSITORY" \
+              --tag="$TAG" \
+              --notes="$CLEANED"
+          else
+            # 未提供 notes 时，从 CHANGELOG.md 提取该版本章节
+            node .github/scripts/update-latest-json-notes.mjs \
+              --repo="$GITHUB_REPOSITORY" \
+              --tag="$TAG"
+          fi
+          echo "Updated latest.json:"
+          cat latest.json
+
+      # 上传覆盖回指定的 release tag，替换旧版本
+      - name: Upload latest.json to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release upload "${{ inputs.tag }}" latest.json --clobber --repo "$GITHUB_REPOSITORY"
+          echo "Uploaded updated latest.json to release ${{ inputs.tag }}"

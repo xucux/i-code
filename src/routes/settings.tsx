@@ -147,6 +147,43 @@ function SettingsPage() {
     }
   }
 
+  // 切换开机自启开关：同步 DB 用户意图与系统实际注册状态
+  // - 关闭时若遇到"系统找不到指定的文件 (os error 2)"类错误，说明系统侧已无注册项，
+  //   与期望状态一致，静默处理不报错（修复软件更新后路径变更导致的报错）
+  // - 启用失败时回滚 UI 与 DB，避免状态不一致
+  const handleToggleAutoStart = async (v: boolean) => {
+    setAutoStartEnabled(v)
+    await patchSettings({ autoStartEnabled: v })
+    try {
+      if (v) {
+        await autostartEnable()
+      } else {
+        await autostartDisable()
+      }
+    } catch (e) {
+      const msg = String(e)
+      // 跨平台"文件/注册表值不存在"特征：
+      //   Windows: "系统找不到指定的文件。 (os error 2)"
+      //   Linux:   "No such file or directory (os error 2)"
+      const isNotFound =
+        msg.includes('os error 2') ||
+        msg.includes('系统找不到') ||
+        msg.includes('cannot find') ||
+        msg.includes('No such file') ||
+        msg.includes('not found')
+      if (v) {
+        // 启用失败：回滚 UI 与 DB 到关闭状态
+        setAutoStartEnabled(false)
+        await patchSettings({ autoStartEnabled: false })
+        toast.error(t('settings.autoStartEnableFailed', { error: msg }))
+      } else if (!isNotFound) {
+        // 关闭失败且非"已无注册项"类错误，正常提示
+        toast.error(t('settings.autoStartDisableFailed', { error: msg }))
+      }
+      // 关闭时遇到"已无注册项"错误：静默处理（系统状态已与期望一致）
+    }
+  }
+
   // 保存代理配置（统一提交，避免每次输入都触发保存）
   // 仅当本地与已保存值不一致（dirty）时才可点击
   const handleSaveProxy = async () => {
@@ -431,16 +468,7 @@ function SettingsPage() {
               </div>
               <Switch
                 checked={autoStartEnabled}
-                onCheckedChange={(v) => {
-                  setAutoStartEnabled(v)
-                  void patchSettings({ autoStartEnabled: v })
-                  // 同步调用 tauri-plugin-autostart 插件注册/取消系统自启
-                  if (v) {
-                    autostartEnable().catch((e) => toast.error(t('settings.autoStartEnableFailed', { error: String(e) })))
-                  } else {
-                    autostartDisable().catch((e) => toast.error(t('settings.autoStartDisableFailed', { error: String(e) })))
-                  }
-                }}
+                onCheckedChange={(v) => void handleToggleAutoStart(v)}
               />
             </div>
           </CardContent>
