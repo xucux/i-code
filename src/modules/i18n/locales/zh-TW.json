@@ -322,6 +322,7 @@
       "authMethodClaudeCode": "Claude Code",
       "authMethodXaiGrok": "xAI Grok",
       "authMethodGithubCopilot": "GitHub Copilot",
+      "recommendedByBuiltin": "內建預設推薦",
       "baseUrl": "Base URL",
       "pathCompletion": "路徑補全",
       "remark": "備註",

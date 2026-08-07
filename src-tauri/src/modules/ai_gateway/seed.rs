@@ -68,6 +68,12 @@ pub struct BuiltinProvider {
     pub category: String,
     /// 协议类型，如 `openai-chat-completion`
     pub provider_type: String,
+    /// 该供应商支持的全部协议类型列表（含 provider_type），如 `["openai-chat-completion", "anthropic"]`
+    ///
+    /// 用于「从内置预设创建」时预填充协议类型与认证方式的可选范围；
+    /// 未提供时回退为 `[provider_type]`。
+    #[serde(default)]
+    pub provider_types: Vec<String>,
     /// 默认 API Base URL
     pub base_url: String,
     /// 是否原样使用 base URL

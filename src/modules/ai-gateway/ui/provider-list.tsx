@@ -123,6 +123,10 @@ export function ProviderList() {
   const [builtinOpen, setBuiltinOpen] = useState(false)
   const [builtinSearchQuery, setBuiltinSearchQuery] = useState('')
 
+  // 内置预设推荐项（来源于预设的协议类型/认证方式，用于表单下拉项右侧显示拇指图标）
+  const [builtinProviderTypes, setBuiltinProviderTypes] = useState<string[] | undefined>()
+  const [builtinAuthMethods, setBuiltinAuthMethods] = useState<string[] | undefined>()
+
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deletingProvider, setDeletingProvider] = useState<Provider | null>(null)
 
@@ -176,6 +180,8 @@ export function ProviderList() {
   const openCreate = () => {
     setEditingProvider(null)
     setInitialFormValues(undefined)
+    setBuiltinProviderTypes(undefined)
+    setBuiltinAuthMethods(undefined)
     setFormOpen(true)
   }
 
@@ -194,6 +200,8 @@ export function ProviderList() {
       extraHeaders: builtin.defaultExtraHeaders,
       defaultModels: builtin.defaultModels,
     })
+    setBuiltinProviderTypes(builtin.providerTypes)
+    setBuiltinAuthMethods(builtin.authMethods)
     setBuiltinOpen(false)
     setFormOpen(true)
   }
@@ -207,6 +215,12 @@ export function ProviderList() {
   const openEdit = (provider: Provider) => {
     setEditingProvider(provider)
     setInitialFormValues(undefined)
+    // 编辑时尝试匹配内置预设（按 baseUrl + providerType 精确匹配，回退到 providerType）
+    const matched = builtinProviders.find(
+      (b) => b.baseUrl === provider.baseUrl && b.providerType === provider.providerType,
+    ) ?? builtinProviders.find((b) => b.providerType === provider.providerType)
+    setBuiltinProviderTypes(matched?.providerTypes)
+    setBuiltinAuthMethods(matched?.authMethods)
     setFormOpen(true)
   }
 
@@ -618,6 +632,8 @@ export function ProviderList() {
         onOpenChange={setFormOpen}
         provider={editingProvider}
         initialValues={initialFormValues}
+        builtinProviderTypes={builtinProviderTypes}
+        builtinAuthMethods={builtinAuthMethods}
         onSubmit={handleSubmit}
         onProviderUpdated={(provider) => {
           setEditingProvider(provider)

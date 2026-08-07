@@ -322,6 +322,7 @@
       "authMethodClaudeCode": "Claude Code",
       "authMethodXaiGrok": "xAI Grok",
       "authMethodGithubCopilot": "GitHub Copilot",
+      "recommendedByBuiltin": "ビルトインプリセット推奨",
       "baseUrl": "Base URL",
       "pathCompletion": "パス補完",
       "remark": "メモ",

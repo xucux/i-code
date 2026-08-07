@@ -197,6 +197,10 @@ interface ProviderFormProps {
   provider?: Provider | null
   /** 新增时用于预填充内置预设字段 */
   initialValues?: ProviderFormInitialValues
+  /** 来自内置预设的推荐协议类型列表（下拉项右侧显示拇指图标标识） */
+  builtinProviderTypes?: string[]
+  /** 来自内置预设的推荐认证方式列表（下拉项右侧显示拇指图标标识） */
+  builtinAuthMethods?: string[]
   onSubmit: (values: {
     slug: string
     displayName: string
@@ -453,7 +457,7 @@ function buildExtraHeadersPayload(headers: { key: string; value: string }[]): Re
  * - 基础信息：slug、显示名称、协议类型、Base URL、认证配置
  * - 模型管理：可从内置模型列表选择，或从供应商 API 拉取官方模型
  */
-export function ProviderForm({ open, onOpenChange, provider, initialValues, onSubmit, onProviderUpdated }: ProviderFormProps) {
+export function ProviderForm({ open, onOpenChange, provider, initialValues, builtinProviderTypes, builtinAuthMethods, onSubmit, onProviderUpdated }: ProviderFormProps) {
   const { t } = useTranslation()
   const isEdit = Boolean(provider)
 
@@ -1133,11 +1137,24 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {providerTypes.map((type) => (
-                        <SelectItem key={type} value={type} className="text-xs">
-                          {type}
-                        </SelectItem>
-                      ))}
+                      {providerTypes.map((type) => {
+                        const isRecommended = builtinProviderTypes?.includes(type)
+                        return (
+                          <SelectItem
+                            key={type}
+                            value={type}
+                            className="text-xs"
+                            trailing={isRecommended ? (
+                              <i
+                                className="fa-solid fa-thumbs-up text-primary text-[10px]"
+                                title={t('aiGateway.providerForm.recommendedByBuiltin')}
+                              />
+                            ) : undefined}
+                          >
+                            {type}
+                          </SelectItem>
+                        )
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
@@ -1201,11 +1218,24 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, onSu
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {getAuthMethodOptions(t, form.watch('providerType')).map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value} className="text-xs">
-                          {opt.label}
-                        </SelectItem>
-                      ))}
+                      {getAuthMethodOptions(t, form.watch('providerType')).map((opt) => {
+                        const isRecommended = builtinAuthMethods?.includes(opt.value)
+                        return (
+                          <SelectItem
+                            key={opt.value}
+                            value={opt.value}
+                            className="text-xs"
+                            trailing={isRecommended ? (
+                              <i
+                                className="fa-solid fa-thumbs-up text-primary text-[10px]"
+                                title={t('aiGateway.providerForm.recommendedByBuiltin')}
+                              />
+                            ) : undefined}
+                          >
+                            {opt.label}
+                          </SelectItem>
+                        )
+                      })}
                     </SelectContent>
                   </Select>
                 </div>

@@ -7,6 +7,9 @@
       "displayName": "Open AI",
       "category": "General",
       "providerType": "openai-responses",
+      "providerTypes": [
+        "openai-responses"
+      ],
       "baseUrl": "https://api.openai.com/v1",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -24,6 +27,9 @@
       "displayName": "Google AI Studio",
       "category": "General",
       "providerType": "google-ai-studio",
+      "providerTypes": [
+        "google-ai-studio"
+      ],
       "baseUrl": "https://generativelanguage.googleapis.com/v1beta",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -41,6 +47,9 @@
       "displayName": "Google Vertex AI",
       "category": "General",
       "providerType": "google-vertex-ai",
+      "providerTypes": [
+        "google-vertex-ai"
+      ],
       "baseUrl": "https://{region}-aiplatform.googleapis.com/v1",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -60,6 +69,9 @@
       "displayName": "Anthropic",
       "category": "General",
       "providerType": "anthropic",
+      "providerTypes": [
+        "anthropic"
+      ],
       "baseUrl": "https://api.anthropic.com",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -77,6 +89,9 @@
       "displayName": "xAI",
       "category": "General",
       "providerType": "openai-responses",
+      "providerTypes": [
+        "openai-responses"
+      ],
       "baseUrl": "https://api.x.ai",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -94,6 +109,9 @@
       "displayName": "Hugging Face (Inference Providers)",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://router.huggingface.co/v1",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -111,6 +129,9 @@
       "displayName": "OpenRouter",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://openrouter.ai/api/v1",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -128,6 +149,9 @@
       "displayName": "Synthetic",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://api.synthetic.new/openai/v1",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -145,6 +169,9 @@
       "displayName": "AIHubMix",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://aihubmix.com/v1",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -162,6 +189,9 @@
       "displayName": "Cerebras",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://api.cerebras.ai",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -179,6 +209,9 @@
       "displayName": "OpenCode Zen Free",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://opencode.ai/zen",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -198,22 +231,22 @@
         "x-opencode-session": "ses_${uuid_by_day()}",
         "x-opencode-request": "msg_${uuid()}"
       },
-      "remark":"无认证就可用，免费模型会存在200K上下文限制",
-      "defaultModels":[
+      "remark": "无认证就可用，免费模型会存在200K上下文限制",
+      "defaultModels": [
         {
-          "modelId":"nemotron-3-ultra-free",
-          "displayName":"Nemotron 3 Ultra",
-          "matchModelId":"nemotron-3-ultra"
+          "modelId": "nemotron-3-ultra-free",
+          "displayName": "Nemotron 3 Ultra",
+          "matchModelId": "nemotron-3-ultra"
         },
         {
-          "modelId":"deepseek-v4-flash-free",
-          "displayName":"DeepSeek V4 Flash",
-          "matchModelId":"deepseek-v4-flash"
+          "modelId": "deepseek-v4-flash-free",
+          "displayName": "DeepSeek V4 Flash",
+          "matchModelId": "deepseek-v4-flash"
         },
         {
-          "modelId":"mimo-v2.5-free",
-          "displayName":"MiMo V2.5",
-          "matchModelId":"mimo-v2.5"
+          "modelId": "mimo-v2.5-free",
+          "displayName": "MiMo V2.5",
+          "matchModelId": "mimo-v2.5"
         }
       ]
     },
@@ -222,6 +255,9 @@
       "displayName": "OpenCode Zen (OpenAI Chat Completion)",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://opencode.ai/zen",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -239,6 +275,9 @@
       "displayName": "OpenCode Zen (OpenAI Responses)",
       "category": "General",
       "providerType": "openai-responses",
+      "providerTypes": [
+        "openai-responses"
+      ],
       "baseUrl": "https://opencode.ai/zen",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -256,6 +295,9 @@
       "displayName": "OpenCode Zen (Anthropic Messages)",
       "category": "General",
       "providerType": "anthropic",
+      "providerTypes": [
+        "anthropic"
+      ],
       "baseUrl": "https://opencode.ai/zen",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -273,6 +315,9 @@
       "displayName": "OpenCode Zen (Gemini)",
       "category": "General",
       "providerType": "google-ai-studio",
+      "providerTypes": [
+        "google-ai-studio"
+      ],
       "baseUrl": "https://opencode.ai/zen",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -290,6 +335,9 @@
       "displayName": "OpenCode Go (OpenAI Chat Completion)",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://opencode.ai/zen/go/v1",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -307,6 +355,9 @@
       "displayName": "OpenCode Go (Anthropic Messages)",
       "category": "General",
       "providerType": "anthropic",
+      "providerTypes": [
+        "anthropic"
+      ],
       "baseUrl": "https://opencode.ai/zen/go/v1",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -324,6 +375,9 @@
       "displayName": "Nvidia",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://integrate.api.nvidia.com/v1",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -341,6 +395,9 @@
       "displayName": "Alibaba Cloud Model Studio (China)",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -358,6 +415,9 @@
       "displayName": "Alibaba Cloud Model Studio (Team Token Plan)",
       "category": "General",
       "providerType": "anthropic",
+      "providerTypes": [
+        "anthropic"
+      ],
       "baseUrl": "https://token-plan.cn-beijing.maas.aliyuncs.com/apps/anthropic",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -375,6 +435,9 @@
       "displayName": "Alibaba Cloud Model Studio (International)",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -392,6 +455,9 @@
       "displayName": "Tencent Cloud TokenHub (China)",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://tokenhub.tencentmaas.com",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -409,6 +475,9 @@
       "displayName": "Tencent Cloud TokenHub (International)",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://tokenhub-intl.tencentmaas.com",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -426,6 +495,9 @@
       "displayName": "Tencent Cloud TokenHub (Personal Token Plan)",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://api.lkeap.cloud.tencent.com/plan/v3",
       "useRawBaseUrl": true,
       "authMethods": [
@@ -443,6 +515,9 @@
       "displayName": "Tencent Cloud Token Plan (Enterprise)",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://tokenhub.tencentmaas.com/plan/v3",
       "useRawBaseUrl": true,
       "authMethods": [
@@ -460,6 +535,9 @@
       "displayName": "Model Scope (API-Inference)",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://api-inference.modelscope.cn/v1",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -477,6 +555,9 @@
       "displayName": "Baidu Qianfan",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://qianfan.baidubce.com/v2",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -494,6 +575,9 @@
       "displayName": "Baidu Qianfan (Coding Plan)",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://qianfan.baidubce.com/v2/coding",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -511,6 +595,9 @@
       "displayName": "Cline Bot",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://api.cline.bot/api/v1",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -528,6 +615,9 @@
       "displayName": "Cline Free",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://api.cline.bot/api/v1",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -542,17 +632,17 @@
       "defaultExtraHeaders": {
         "x-client-type": "cline-cli"
       },
-      "remark":"免费模型存在次数和Token限制。",
-      "defaultModels":[
+      "remark": "免费模型存在次数和Token限制。",
+      "defaultModels": [
         {
-          "modelId":"cline-free/glm-5.2",
-          "displayName":"GLM-5.2",
-          "matchModelId":"glm-5.2"
+          "modelId": "cline-free/glm-5.2",
+          "displayName": "GLM-5.2",
+          "matchModelId": "glm-5.2"
         },
         {
-          "modelId":"deepseek/deepseek-v4-flash",
-          "displayName":"DeepSeek V4 Flash",
-          "matchModelId":"deepseek-v4-flash"
+          "modelId": "deepseek/deepseek-v4-flash",
+          "displayName": "DeepSeek V4 Flash",
+          "matchModelId": "deepseek-v4-flash"
         }
       ]
     },
@@ -561,6 +651,9 @@
       "displayName": "Volcano Engine",
       "category": "General",
       "providerType": "openai-responses",
+      "providerTypes": [
+        "openai-responses"
+      ],
       "baseUrl": "https://ark.cn-beijing.volces.com/api/v3",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -578,6 +671,9 @@
       "displayName": "Volcano Engine (Agent Plan)",
       "category": "General",
       "providerType": "openai-responses",
+      "providerTypes": [
+        "openai-responses"
+      ],
       "baseUrl": "https://ark.cn-beijing.volces.com/api/plan/v3",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -595,6 +691,9 @@
       "displayName": "Volcano Engine (Coding Plan)",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://ark.cn-beijing.volces.com/api/coding/v3",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -612,6 +711,9 @@
       "displayName": "Byte Plus",
       "category": "General",
       "providerType": "openai-responses",
+      "providerTypes": [
+        "openai-responses"
+      ],
       "baseUrl": "https://ark.ap-southeast.bytepluses.com/api/v3",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -629,6 +731,9 @@
       "displayName": "Byte Plus (Coding Plan)",
       "category": "General",
       "providerType": "openai-responses",
+      "providerTypes": [
+        "openai-responses"
+      ],
       "baseUrl": "https://ark.ap-southeast.bytepluses.com/api/coding/v3",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -646,6 +751,9 @@
       "displayName": "DeepSeek",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://api.deepseek.com",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -663,6 +771,9 @@
       "displayName": "Gitee AI",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://ai.gitee.com/v1",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -680,6 +791,9 @@
       "displayName": "Xiaomi MIMO",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://api.xiaomimimo.com/v1",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -697,6 +811,9 @@
       "displayName": "Xiaomi MIMO (China, Token Plan)",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://token-plan-cn.xiaomimimo.com/v1",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -714,6 +831,9 @@
       "displayName": "Xiaomi MIMO (Singapore, Token Plan)",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://token-plan-sgp.xiaomimimo.com/v1",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -731,6 +851,9 @@
       "displayName": "Xiaomi MIMO (Europe, Token Plan)",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://token-plan-ams.xiaomimimo.com/v1",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -748,6 +871,9 @@
       "displayName": "StepFun (China)",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://api.stepfun.com/v1",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -765,6 +891,9 @@
       "displayName": "StepFun (International)",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://api.stepfun.ai/v1",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -782,6 +911,9 @@
       "displayName": "Ollama Local",
       "category": "General",
       "providerType": "ollama",
+      "providerTypes": [
+        "ollama"
+      ],
       "baseUrl": "http://127.0.0.1:11434",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -799,6 +931,9 @@
       "displayName": "Ollama Cloud",
       "category": "General",
       "providerType": "ollama",
+      "providerTypes": [
+        "ollama"
+      ],
       "baseUrl": "https://ollama.com/api",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -816,6 +951,9 @@
       "displayName": "ZhiPu AI",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://open.bigmodel.cn/api/paas/v4",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -833,6 +971,9 @@
       "displayName": "ZhiPu AI (Coding Plan)",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://open.bigmodel.cn/api/coding/paas/v4",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -850,6 +991,9 @@
       "displayName": "Z.AI",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://api.z.ai/api/paas/v4",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -867,6 +1011,9 @@
       "displayName": "Z.AI (Coding Plan)",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://api.z.ai/api/coding/paas/v4",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -884,6 +1031,9 @@
       "displayName": "MiniMax (China)",
       "category": "General",
       "providerType": "anthropic",
+      "providerTypes": [
+        "anthropic"
+      ],
       "baseUrl": "https://api.minimaxi.com/anthropic",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -901,6 +1051,9 @@
       "displayName": "MiniMax (International)",
       "category": "General",
       "providerType": "anthropic",
+      "providerTypes": [
+        "anthropic"
+      ],
       "baseUrl": "https://api.minimax.io/anthropic",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -918,6 +1071,9 @@
       "displayName": "LongCat",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://api.longcat.chat/openai",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -935,6 +1091,9 @@
       "displayName": "Moonshot AI (China)",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://api.moonshot.cn",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -952,6 +1111,9 @@
       "displayName": "Moonshot AI (International)",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://api.moonshot.ai",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -969,6 +1131,9 @@
       "displayName": "Moonshot AI (Coding Plan)",
       "category": "General",
       "providerType": "anthropic",
+      "providerTypes": [
+        "anthropic"
+      ],
       "baseUrl": "https://api.kimi.com/coding",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -986,6 +1151,9 @@
       "displayName": "SiliconFlow (China)",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://api.siliconflow.cn/v1",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -1003,6 +1171,9 @@
       "displayName": "SiliconFlow (International)",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://api.siliconflow.com/v1",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -1020,6 +1191,9 @@
       "displayName": "StreamLake Vanchin (China)",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://wanqing.streamlakeapi.com/api/gateway/v1/endpoints",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -1037,6 +1211,9 @@
       "displayName": "StreamLake Vanchin (China, Coding Plan)",
       "category": "General",
       "providerType": "anthropic",
+      "providerTypes": [
+        "anthropic"
+      ],
       "baseUrl": "https://wanqing.streamlakeapi.com/api/gateway/coding/kat-coder-pro-v1/claude-code-proxy",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -1054,6 +1231,9 @@
       "displayName": "StreamLake Vanchin (International)",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://vanchin.streamlake.ai/api/gateway/v1/endpoints",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -1071,6 +1251,9 @@
       "displayName": "StreamLake Vanchin (International, Coding Plan)",
       "category": "General",
       "providerType": "anthropic",
+      "providerTypes": [
+        "anthropic"
+      ],
       "baseUrl": "https://vanchin.streamlake.ai/api/gateway/coding/kat-coder-pro-v1/claude-code-proxy",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -1088,6 +1271,9 @@
       "displayName": "OpenAI Codex (ChatGPT Plus/Pro)",
       "category": "Experimental",
       "providerType": "openai-codex",
+      "providerTypes": [
+        "openai-codex"
+      ],
       "baseUrl": "https://chatgpt.com/backend-api/codex/responses",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -1106,6 +1292,9 @@
       "displayName": "xAI Grok Build (SuperGrok / X Premium+)",
       "category": "Experimental",
       "providerType": "xai-grok-build",
+      "providerTypes": [
+        "xai-grok-build"
+      ],
       "baseUrl": "https://api.x.ai",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -1123,6 +1312,9 @@
       "displayName": "GitHub Copilot",
       "category": "Experimental",
       "providerType": "github-copilot",
+      "providerTypes": [
+        "github-copilot"
+      ],
       "baseUrl": "https://api.githubcopilot.com",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -1140,6 +1332,9 @@
       "displayName": "Google Antigravity",
       "category": "Experimental",
       "providerType": "google-antigravity",
+      "providerTypes": [
+        "google-antigravity"
+      ],
       "baseUrl": "https://daily-cloudcode-pa.sandbox.googleapis.com",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -1157,6 +1352,9 @@
       "displayName": "Google Gemini CLI",
       "category": "Experimental",
       "providerType": "google-gemini-cli",
+      "providerTypes": [
+        "google-gemini-cli"
+      ],
       "baseUrl": "https://cloudcode-pa.googleapis.com",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -1174,6 +1372,9 @@
       "displayName": "Claude Code",
       "category": "Experimental",
       "providerType": "claude-code",
+      "providerTypes": [
+        "claude-code"
+      ],
       "baseUrl": "https://api.anthropic.com",
       "useRawBaseUrl": false,
       "authMethods": [
@@ -1192,6 +1393,9 @@
       "displayName": "Kilo Code",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://api.kilo.ai/api/gateway",
       "useRawBaseUrl": true,
       "authMethods": [
@@ -1209,6 +1413,9 @@
       "displayName": "Joy Agent",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://agentrs.jd.com/api/saas/openai-u/v1",
       "useRawBaseUrl": true,
       "authMethods": [
@@ -1226,6 +1433,9 @@
       "displayName": "Sensenova",
       "category": "General",
       "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
       "baseUrl": "https://token.sensenova.cn/v1",
       "useRawBaseUrl": true,
       "authMethods": [

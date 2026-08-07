@@ -543,10 +543,16 @@ export interface BuiltinProvider {
   displayCnName: string
   category: string
   providerType: ProviderType
+  /** 该供应商支持的全部协议类型列表（含 providerType），用于「从内置预设创建」时预填充可选范围 */
+  providerTypes?: string[]
   baseUrl: string
   useRawBaseUrl: boolean
   /** 供应商备注（来自内置预设，创建时自动填充） */
   remark?: string
+  /** 支持的认证方法列表，如 `['api-key']` */
+  authMethods?: string[]
+  /** 默认认证配置（来自种子数据，创建时一键填充） */
+  defaultAuth?: AuthConfig
   defaultAuthJson?: string
   defaultBalanceProviderJson?: string
   extraHeadersJson?: string
