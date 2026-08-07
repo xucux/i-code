@@ -101,9 +101,17 @@ export function useLocalIps(
     }
   }
 
+  // 通配监听时，在 LAN 地址列表末尾追加 loopback（127.0.0.1），
+  // 方便用户在本机直接通过 127.0.0.1 访问网关；
+  // 追加在排序之后，确保始终位于列表最末尾。
+  const hosts = ips.length > 0 ? ips : [boundHost]
+  const hostsWithLoopback = hosts.includes('127.0.0.1')
+    ? hosts
+    : [...hosts, '127.0.0.1']
+
   return {
     displayHost: ips[0] ?? boundHost,
-    hosts: ips.length > 0 ? ips : [boundHost],
+    hosts: hostsWithLoopback,
     isWildcard: true,
     loading,
   }
