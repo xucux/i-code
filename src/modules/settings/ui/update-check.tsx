@@ -95,11 +95,45 @@ function stripV(v: string): string {
 // 配置 marked：同步渲染 + GFM（任务列表、表格、删除线等）
 marked.use({ async: false, gfm: true })
 
+type AlertType = 'note' | 'tip' | 'important' | 'warning' | 'caution'
+
+const ALERT_ICON: Record<AlertType, string> = {
+  note: 'fa-circle-info',
+  tip: 'fa-lightbulb',
+  important: 'fa-circle-exclamation',
+  warning: 'fa-triangle-exclamation',
+  caution: 'fa-octagon-exclamation',
+}
+
+/**
+ * 预处理 GitHub 风格 Markdown Alert（如 > [!NOTE]）
+ *
+ * 将引用块转换为带图标与标题的提示块 HTML，标题走 i18n key，
+ * 后续再由 marked 解析正文中的行内 Markdown。
+ */
+function preprocessMarkdownAlerts(markdown: string, t: (key: string) => string): string {
+  return markdown.replace(
+    /^> \[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\n((?:>.*(?:\n|$))+)/gim,
+    (_match, type: string, body: string) => {
+      const alertType = type.toLowerCase() as AlertType
+      const title = t(`settings.about.alert.${alertType}`)
+      const icon = ALERT_ICON[alertType] ?? 'fa-circle-info'
+      // 去掉每行引用前缀（允许 `>` 或 `> ` / `>\t`），保留正文 Markdown 供后续解析
+      const content = body.replace(/^>[ \t]?/gim, '').trim()
+      const contentHtml = marked.parse(content) as string
+      // 前后保留空行，避免紧跟的 Markdown 被 marked 误判为 HTML 块内容
+      return `\n<div class="markdown-alert markdown-alert-${alertType}">\n<p class="markdown-alert-title"><i class="fa-solid ${icon}"></i> ${title}</p>\n${contentHtml}\n</div>\n`
+    }
+  )
+}
+
 function MarkdownContent({ content }: { content: string }) {
+  const { t } = useTranslation()
   const html = useMemo(() => {
     if (!content) return ''
-    return marked.parse(content) as string
-  }, [content])
+    const processed = preprocessMarkdownAlerts(content, t)
+    return marked.parse(processed) as string
+  }, [content, t])
 
   return (
     <div
@@ -130,7 +164,12 @@ function MarkdownContent({ content }: { content: string }) {
         // 去除任务列表 li 的圆点
         '[&_li:has(>input[type="checkbox"])]:list-none',
         '[&_li:has(>input[type="checkbox"])]:-ml-4',
-        '[&h2:first-child]:mt-0'
+        '[&h2:first-child]:mt-0',
+        // GitHub 风格 Alert 提示块样式
+        '[&_.markdown-alert]:my-3 [&_.markdown-alert]:rounded-md [&_.markdown-alert]:border [&_.markdown-alert]:border-l-4 [&_.markdown-alert]:border-blue-200 [&_.markdown-alert]:bg-blue-50 [&_.markdown-alert]:p-3 dark:[&_.markdown-alert]:border-blue-800 dark:[&_.markdown-alert]:bg-blue-950/50',
+        '[&_.markdown-alert-title]:mb-1.5 [&_.markdown-alert-title]:flex [&_.markdown-alert-title]:items-center [&_.markdown-alert-title]:gap-1.5 [&_.markdown-alert-title]:text-xs [&_.markdown-alert-title]:font-semibold [&_.markdown-alert-title]:text-blue-700 dark:[&_.markdown-alert-title]:text-blue-300',
+        '[&_.markdown-alert-title_i]:text-blue-500 dark:[&_.markdown-alert-title_i]:text-blue-400',
+        '[&_.markdown-alert_p]:my-1 [&_.markdown-alert_p]:text-foreground'
       )}
       dangerouslySetInnerHTML={{ __html: html }}
     />

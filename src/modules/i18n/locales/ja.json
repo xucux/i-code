@@ -147,7 +147,14 @@
       "upToDateDescription": "i-code {{current}} は最新バージョンです。",
       "betaWarning": "このバージョンはプレビュー版（Beta）であり、未完成の機能が含まれている場合があります。",
       "currentVersion": "現在のバージョン",
-      "latestVersion": "最新バージョン"
+      "latestVersion": "最新バージョン",
+      "alert": {
+        "note": "注意",
+        "tip": "ヒント",
+        "important": "重要",
+        "warning": "警告",
+        "caution": "危険"
+      }
     },
     "subtitle": "アプリの環境設定",
     "globalProxy": "グローバルプロキシ",

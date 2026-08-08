@@ -14,6 +14,30 @@ editRules:
 
 ### 🔄变更
 
+## [0.1.8] - 2026-08-08
+
+### 🚀新增
+
+- **聊天界面支持多网关协议选择**：会话支持 `Chat` / `Messages` / `Responses` 三种网关协议类型，可在聊天界面切换，适配不同厂商 API 格式
+  - 后端按协议构造请求体：`Chat` 走 `POST /v1/chat/completions`、`Messages` 走 `POST /v1/messages`（Anthropic 原生）、`Responses` 走 `POST /v1/responses`（OpenAI Responses）
+  - 流式与非流式响应按协议分别解析：`extract_stream_deltas` 统一按协议提取内容 / 思考 / usage / 结束标记；`message_stop` 与 `response.completed` 判定流结束，`response.completed` 同时携带完整 usage（先合并 usage 再判结束，避免丢用量）
+- **聊天记录消息模型 ID 追踪**：助手消息与 `chat:stream-done` 事件新增 `model` 字段，存储实际生成该条消息的模型 ID（`provider_slug/model_id`），避免会话内切换模型后历史气泡被改写
+- **单条聊天消息删除**：新增 `chat_message_delete` Command，从会话 JSONL 中移除指定消息并回写会话摘要计数与会话更新时间（此时无 parent / 子消息引用，采用纯 retain 全量删除，注释预留未来引用关系级联校验说明）
+- **聊天记录 HTML 导出**：新增 `chat_export_html` / `chat_reveal_file` 后端命令，将会话导出为内联主题样式、可离线查看的 HTML 到配置目录 `exports/`（文件名安全化，禁止路径越界），并支持在系统文件浏览器中定位导出文件
+  - 前端完善导出模板：项目 Logo、页脚与响应式布局；导出成功后展示结果弹窗，支持「打开文件所在文件夹」
+  - 消息操作菜单重构为独立组件并内置到气泡内，助手消息支持复制、删除操作
+- **供应商表单内置预设推荐标记**：从内置预设创建供应商时，协议类型与认证方式下拉中由预设支持的选项右侧显示「拇指」推荐图标（`fa-thumbs-up`），引导用户选择与预设匹配的配置
+  - `builtin-providers.json` 新增 `providerTypes`（支持的协议类型列表）与 `authMethods` / `defaultAuth`（支持的认证方式与默认认证配置）字段，seed 逻辑与前端类型定义同步贯通
+- **开机自启启动同步与优雅错误处理**：应用启动时静默核对 DB 中 `auto_start_enabled` 与系统实际注册状态，不一致时修正系统侧（覆盖软件更新后路径变更、注册项缺失等场景残留）
+  - 关闭自启时若遇「系统找不到指定的文件（os error 2）」类错误，视为系统侧本就无注册项、与期望状态一致，静默处理不再报错
+  - 启用失败时回滚 UI 与 DB 状态，前置避免状态不一致
+- **发布流程脚本**：新增 `latest.json`（Tauri 自动更新）的 `notes` 更新脚本与 GitHub Actions workflow，支持手动指定或从 CHANGELOG 中提取对应版本章节作为 update notes（与 release body 同源，兼容 beta 预览版提示）
+
+### 🐞修复
+
+### 🔄变更
+
+
 ## [0.1.7] - 2026-08-07
 
 ### 🚀新增

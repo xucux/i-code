@@ -14,7 +14,7 @@
 3. **管理 CLI 配置**：为 Claude Code、Codex、Gemini CLI 等维护配置档案，支持直连或路由到本地 Gateway。
 4. **工作区隔离**：按 Workspace 隔离 Prompts / MCP / Skill；**切换并「应用」后**才写入 CLI 实际配置文件。
 
-版本：`0.1.7`  
+版本：`0.1.8`  
 包管理：`pnpm@11`  
 数据库：本地 SQLite（`i-code.db`）  
 默认网关：`127.0.0.1:54321`
@@ -317,6 +317,25 @@ Rust 侧在 `src-tauri/` 下用 `cargo check` / `cargo test`（按需）。
    - shadcn 组件：`skills/shadcn-ui-shadcn`
    - Vite 配置：`skills/antfu-skills-vite`（若涉及构建）
 8. **详细设计不重复造**：架构/表结构/拦截器链以 `docs/development.md`、`docs/database.md` 为准。
+9. **Changelog 写入规范**（`CHANGELOG.md`）：
+   - **不写 i18n 变更**：翻译文件（`zh-CN` / `en` / `ja` / `zh-TW` 等）的改动不写入变更文档。
+   - **不写敏感信息**：禁止将 API Key / Token / Secret 明文、内部路径、SQL 详情等敏感信息写入变更文档；涉及敏感信息时以笼统描述代替。
+   - **格式**：使用下述固定结构，按版本追加在 `[release-version-tempalte]` 之后：
+     ```markdown
+     ## [release-version]
+
+     > [!IMPORTANT]
+     > 一般提示应保持简短。
+
+     ### 🚀新增
+
+     ### 🐞修复
+
+     ### 🔄变更
+     ```
+   - `> [!IMPORTANT]` 提示仅在**数据库结构发生变更**时才需要添加，其余情况省略。
+   - `> [!WARNING]` 提示仅在**可能包含未完善功能**时才需要添加，其余情况省略。
+   - `> [!NOTE]` 一般提示，无特殊要求，可省略。
 
 ---
 

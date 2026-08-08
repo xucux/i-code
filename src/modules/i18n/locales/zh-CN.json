@@ -147,7 +147,14 @@
       "upToDateDescription": "i-code {{current}} 已是最新版本。",
       "betaWarning": "该版本为预览版（Beta），可能包含未完善的功能。",
       "currentVersion": "当前版本",
-      "latestVersion": "最新版本"
+      "latestVersion": "最新版本",
+      "alert": {
+        "note": "注意",
+        "tip": "提示",
+        "important": "重要",
+        "warning": "警告",
+        "caution": "危险"
+      }
     },
     "subtitle": "应用偏好设置",
     "globalProxy": "全局代理",

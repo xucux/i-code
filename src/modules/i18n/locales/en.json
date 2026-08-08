@@ -147,7 +147,14 @@
       "upToDateDescription": "i-code {{current}} is the latest version.",
       "betaWarning": "This is a preview (Beta) release. It may contain incomplete features.",
       "currentVersion": "Current",
-      "latestVersion": "Latest"
+      "latestVersion": "Latest",
+      "alert": {
+        "note": "Note",
+        "tip": "Tip",
+        "important": "Important",
+        "warning": "Warning",
+        "caution": "Caution"
+      }
     },
     "subtitle": "Application preferences",
     "globalProxy": "Global proxy",
