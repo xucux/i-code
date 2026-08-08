@@ -103,8 +103,8 @@ function extractNotes(changelogPath, version, isBeta) {
   const notes = [];
   // Beta 版本在标题前添加预览版说明
   if (isBeta) {
-    notes.push('> [!NOTE]');
-    notes.push('> 🚨该版本为预览版（Beta），可能包含未完善的功能🚧');
+    notes.push('> [!WARNING]');
+    notes.push('> 🚨 该版本为预览版（Beta），可能包含未完善的功能 🚧');
     notes.push('>');
     notes.push('> 🚨 This version is a preview (Beta) and may contain incomplete features 🚧.');
     notes.push('');
