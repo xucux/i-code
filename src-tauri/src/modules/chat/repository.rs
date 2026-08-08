@@ -194,6 +194,20 @@ impl ChatRepository {
         self.write_messages(&message.session_id, &messages)
     }
 
+    /// 删除单条消息（全量重写消息文件，不含该条）
+    ///
+    /// 返回是否确实删除了一条（找不到返回 false）。
+    pub fn delete_message(&self, session_id: &str, message_id: &str) -> IcodeResult<bool> {
+        let mut messages = self.list_messages(session_id)?;
+        let before = messages.len();
+        messages.retain(|m| m.id != message_id);
+        if messages.len() == before {
+            return Ok(false);
+        }
+        self.write_messages(session_id, &messages)?;
+        Ok(true)
+    }
+
     fn write_sessions_index(&self, sessions: &[ChatSessionSummary]) -> IcodeResult<()> {
         let path = self.sessions_index_path();
         let mut file = File::create(&path).map_err(|e| {

@@ -147,6 +147,9 @@ pub struct ChatMessage {
     /// Token 用量（助手消息）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub usage: Option<ChatTokenUsage>,
+    /// 生成该助手消息的模型 ID（`provider_slug/model_id`），仅助手消息
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
     /// 是否仍在流式生成
     #[serde(default)]
     pub streaming: bool,
@@ -306,6 +309,9 @@ pub struct ChatStreamDoneEvent {
     pub thinking: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub usage: Option<ChatTokenUsage>,
+    /// 生成该条消息的模型 ID（`provider_slug/model_id`）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
 }
 
 /// 流式/HTTP 错误事件

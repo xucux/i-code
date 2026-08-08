@@ -62,6 +62,8 @@ export interface ChatInputProps {
   disabled?: boolean
   onSend: () => void
   onAbort: () => void
+  /** 导出当前会话为 HTML */
+  onExportHtml?: () => void
 }
 
 export function ChatInput({
@@ -80,6 +82,7 @@ export function ChatInput({
   disabled,
   onSend,
   onAbort,
+  onExportHtml,
 }: ChatInputProps) {
   const { t } = useTranslation('chat')
   const fileRef = useRef<HTMLInputElement>(null)
@@ -199,7 +202,7 @@ export function ChatInput({
           onValueChange={(v) => onTransportModeChange(v as ChatTransportMode)}
           disabled={sending || disabled}
         >
-          <SelectTrigger className="h-7 w-[88px] text-xs">
+          <SelectTrigger className="h-7 w-[60px] text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -217,7 +220,7 @@ export function ChatInput({
           onValueChange={(v) => onProtocolChange(v as ChatProtocol)}
           disabled={sending || disabled}
         >
-          <SelectTrigger className="h-7 w-[100px] text-xs">
+          <SelectTrigger className="h-7 w-[100px] text-xs" title={t('input.protocol')}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -266,6 +269,18 @@ export function ChatInput({
           title={t('input.attachImage')}
         >
           <i className="fa-solid fa-image" />
+        </Button>
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-7 px-2 text-xs"
+          disabled={disabled}
+          onClick={() => onExportHtml?.()}
+          title={t('input.exportHtml')}
+        >
+          <i className="fa-solid fa-file-export" />
         </Button>
 
         <input

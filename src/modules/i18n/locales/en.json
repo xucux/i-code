@@ -1380,7 +1380,14 @@
       "completionTokens": "Out",
       "totalTokens": "Total",
       "callError": "Call failed",
-      "callErrorUnknown": "Unknown error"
+      "callErrorUnknown": "Unknown error",
+      "actions": "Actions",
+      "copy": "Copy",
+      "copySuccess": "Copied to clipboard",
+      "copyFailed": "Copy failed",
+      "delete": "Delete",
+      "deleteSuccess": "Message deleted",
+      "deleteFailed": "Failed to delete message"
     },
     "input": {
       "placeholder": "Type a message. Enter to send, Shift+Enter for newline",
@@ -1395,7 +1402,11 @@
       "protocol": "Protocol",
       "protocolChat": "Chat",
       "protocolMessages": "Messages",
-      "protocolResponses": "Responses"
+      "protocolResponses": "Responses",
+      "exportHtml": "Export as HTML",
+      "exportSuccess": "Exported to: {{path}}",
+      "exportFailed": "Export failed",
+      "exportEmpty": "No messages to export"
     },
     "prompts": {
       "title": "Prompt library",

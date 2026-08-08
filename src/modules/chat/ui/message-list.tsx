@@ -22,6 +22,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
@@ -29,20 +30,26 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { useTranslation } from '@/modules/i18n/use-translation'
 import type { ChatMessage, ChatTokenUsage } from '@/modules/chat/types'
 
 export interface MessageListProps {
   messages: ChatMessage[]
-  /** 当前会话模型 ID（`provider_slug/model_id`），用于助手气泡 token 用量展示 */
-  model?: string
   /** 无消息时的提示文案；默认 i18n `messages.empty` */
   emptyHint?: string
   /** 父级计算的可用高度等样式（可选） */
   style?: React.CSSProperties
+  /** 删除单条消息回调（仅助手气泡三点菜单触发） */
+  onDeleteMessage?: (messageId: string) => void
 }
 
-export function MessageList({ messages, model, emptyHint, style }: MessageListProps) {
+export function MessageList({ messages, emptyHint, style, onDeleteMessage }: MessageListProps) {
   const { t } = useTranslation('chat')
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -60,7 +67,11 @@ export function MessageList({ messages, model, emptyHint, style }: MessageListPr
             </p>
           )}
           {messages.map((msg) => (
-            <MessageBubble key={msg.id} message={msg} model={model} />
+            <MessageBubble
+              key={msg.id}
+              message={msg}
+              onDeleteMessage={onDeleteMessage}
+            />
           ))}
           <div ref={bottomRef} />
         </div>
@@ -72,10 +83,16 @@ export function MessageList({ messages, model, emptyHint, style }: MessageListPr
 /**
  * 单条消息气泡
  *
- * 结构（助手）：思考块 → 正文/错误气泡 → token 小字
+ * 结构（助手）：思考块 → 正文/错误气泡 → token 小字 → 三点菜单
  * 结构（用户）：正文气泡 → 附件预览
  */
-function MessageBubble({ message, model }: { message: ChatMessage; model?: string }) {
+function MessageBubble({
+  message,
+  onDeleteMessage,
+}: {
+  message: ChatMessage
+  onDeleteMessage?: (messageId: string) => void
+}) {
   const { t } = useTranslation('chat')
   const isUser = message.role === 'user'
   const isAssistant = message.role === 'assistant'
@@ -89,6 +106,24 @@ function MessageBubble({ message, model }: { message: ChatMessage; model?: strin
       isAssistant &&
       !!message.content &&
       (message.content.startsWith('错误码:') || message.content.includes('响应 Body:')))
+
+  /** 复制助手消息正文到剪贴板 */
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(message.content)
+      toast.success(t('messages.copySuccess'))
+    } catch {
+      toast.error(t('messages.copyFailed'))
+    }
+  }
+
+  /** 删除当前助手消息（直接删除 + toast 由父级处理） */
+  const handleDelete = () => {
+    onDeleteMessage?.(message.id)
+  }
+
+  /** 是否展示三点菜单：仅助手且非流式 */
+  const showActions = isAssistant && !message.streaming
 
   return (
     <div className={cn('flex w-full', isUser ? 'justify-end' : 'justify-start')}>
@@ -126,6 +161,36 @@ function MessageBubble({ message, model }: { message: ChatMessage; model?: strin
           </div>
         )}
 
+        {/* 助手气泡三点菜单：复制 / 删除（非流式时显示，定位气泡右下） */}
+        {showActions && (
+          <div className="flex w-full justify-end">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="flex size-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  title={t('messages.actions')}
+                >
+                  <i className="fa-solid fa-ellipsis text-[10px]" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="text-xs">
+                <DropdownMenuItem onClick={handleCopy}>
+                  <i className="fa-solid fa-copy text-[10px]" />
+                  {t('messages.copy')}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={handleDelete}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <i className="fa-solid fa-trash text-[10px]" />
+                  {t('messages.delete')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
+
         {/* 附件/图片展示（用户消息）：名称进入会话，图片可预览 */}
         {message.attachments?.length > 0 && (
           <div className="flex max-w-full flex-wrap gap-1.5">
@@ -153,7 +218,7 @@ function MessageBubble({ message, model }: { message: ChatMessage; model?: strin
 
         {/* 单条用量：完成后展示，供顶栏汇总 */}
         {isAssistant && !message.streaming && message.usage && (
-          <TokenUsageText usage={message.usage} model={model} />
+          <TokenUsageText usage={message.usage} model={message.model} />
         )}
       </div>
     </div>

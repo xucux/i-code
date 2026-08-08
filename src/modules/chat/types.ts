@@ -98,6 +98,8 @@ export interface ChatMessage {
   thinking?: string
   attachments: ChatAttachment[]
   usage?: ChatTokenUsage
+  /** 生成该助手消息的模型 ID（`provider_slug/model_id`），仅助手消息 */
+  model?: string
   /** 是否仍在流式生成（控制光标与思考块默认展开） */
   streaming: boolean
   /** 错误摘要 */
@@ -212,6 +214,8 @@ export interface ChatStreamDoneEvent {
   /** 完整思考过程（若有） */
   thinking?: string
   usage?: ChatTokenUsage
+  /** 生成该条消息的模型 ID（`provider_slug/model_id`） */
+  model?: string
 }
 
 /** 流式/HTTP 错误事件（`chat:stream-error`） */

@@ -106,6 +106,16 @@ export async function abortChatMessage(requestId: string): Promise<AbortChatResu
   return invokeCommand<AbortChatResult>('chat_message_abort', { requestId })
 }
 
+/** 删除单条消息（从会话 JSONL 移除并回写摘要计数） */
+export async function deleteChatMessage(sessionId: string, messageId: string): Promise<void> {
+  await invokeCommand<void>('chat_message_delete', { sessionId, messageId })
+}
+
+/** 导出 HTML 到应用配置目录 exports/，返回写入文件绝对路径 */
+export async function exportChatHtml(html: string, filename: string): Promise<string> {
+  return invokeCommand<string>('chat_export_html', { html, filename })
+}
+
 // ===== 提示词库（prompt 目录下 *.md） =====
 
 /** 列出所有提示词（标题取自首个 `# ` 行） */
@@ -207,6 +217,8 @@ export function useChatSession(sessionId: string | null): {
   reload: (id?: string) => Promise<void>
   send: (content: string, attachments: PendingAttachment[], transportMode?: ChatTransportMode, protocol?: ChatProtocol) => Promise<boolean>
   abort: () => Promise<void>
+  /** 删除单条消息：后端移除 JSONL 条目，前端同步 state */
+  deleteMessage: (messageId: string) => Promise<boolean>
   applySessionSummary: (summary: ChatSessionSummary) => void
   /** 外部调用 sendChatMessage 后同步本地消息与 requestId */
   applySendResult: (result: SendChatMessageResult) => void
@@ -306,21 +318,22 @@ export function useChatSession(sessionId: string | null): {
         const payload = event.payload
         if (payload.sessionId !== sessionIdRef.current) return
         setMessages((prev) =>
-          prev.map((m) =>
-            m.id === payload.messageId
-              ? {
-                  ...m,
-                  content: payload.content,
-                  thinking: payload.thinking || m.thinking,
-                  usage: payload.usage,
-                  streaming: false,
-                  error: undefined,
-                  errorCode: undefined,
-                  errorBody: undefined,
-                }
-              : m
-          )
+        prev.map((m) =>
+          m.id === payload.messageId
+            ? {
+                ...m,
+                content: payload.content,
+                thinking: payload.thinking || m.thinking,
+                usage: payload.usage,
+                model: payload.model ?? m.model,
+                streaming: false,
+                error: undefined,
+                errorCode: undefined,
+                errorBody: undefined,
+              }
+            : m
         )
+      )
         setActiveRequestId((cur) => (cur === payload.requestId ? null : cur))
         setSending(false)
       })
@@ -420,6 +433,20 @@ export function useChatSession(sessionId: string | null): {
     }
   }, [activeRequestId])
 
+  const deleteMessage = useCallback(
+    async (messageId: string) => {
+      if (!sessionId) return false
+      try {
+        await deleteChatMessage(sessionId, messageId)
+        setMessages((prev) => prev.filter((m) => m.id !== messageId))
+        return true
+      } catch {
+        return false
+      }
+    },
+    [sessionId]
+  )
+
   const applySessionSummary = useCallback((summary: ChatSessionSummary) => {
     setSession((prev) =>
       prev
@@ -480,6 +507,7 @@ export function useChatSession(sessionId: string | null): {
     reload,
     send,
     abort,
+    deleteMessage,
     applySessionSummary,
     applySendResult,
   }

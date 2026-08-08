@@ -1380,7 +1380,14 @@
       "completionTokens": "输出",
       "totalTokens": "合计",
       "callError": "调用失败",
-      "callErrorUnknown": "未知错误"
+      "callErrorUnknown": "未知错误",
+      "actions": "操作",
+      "copy": "复制",
+      "copySuccess": "已复制到剪贴板",
+      "copyFailed": "复制失败",
+      "delete": "删除",
+      "deleteSuccess": "消息已删除",
+      "deleteFailed": "删除消息失败"
     },
     "input": {
       "placeholder": "输入消息，Enter 发送，Shift+Enter 换行",
@@ -1395,7 +1402,11 @@
       "protocol": "协议",
       "protocolChat": "Chat",
       "protocolMessages": "Messages",
-      "protocolResponses": "Responses"
+      "protocolResponses": "Responses",
+      "exportHtml": "导出为 HTML",
+      "exportSuccess": "已导出到：{{path}}",
+      "exportFailed": "导出失败",
+      "exportEmpty": "当前会话无消息可导出"
     },
     "prompts": {
       "title": "提示词库",

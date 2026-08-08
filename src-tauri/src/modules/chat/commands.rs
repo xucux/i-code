@@ -9,6 +9,8 @@
 //! | `chat_session_create` / `update` / `delete` | 会话 CRUD |
 //! | `chat_message_send` | 发送；立即返回占位，流式走事件 |
 //! | `chat_message_abort` | 按 `request_id` 中断 |
+//! | `chat_message_delete` | 删除单条消息 |
+//! | `chat_export_html` | 导出 HTML 到 `exports/` 目录 |
 
 use tauri::State;
 
@@ -82,6 +84,26 @@ pub async fn chat_message_abort(
     request_id: String,
 ) -> IcodeResult<AbortChatResult> {
     state.service().abort_request(&request_id)
+}
+
+/// 删除单条消息（从会话 JSONL 中移除并回写摘要计数）
+#[tauri::command]
+pub async fn chat_message_delete(
+    state: State<'_, ChatServiceHandle>,
+    session_id: String,
+    message_id: String,
+) -> IcodeResult<()> {
+    state.service().delete_message(&session_id, &message_id)
+}
+
+/// 导出 HTML 到应用配置目录 `exports/`，返回写入文件的绝对路径
+#[tauri::command]
+pub async fn chat_export_html(
+    state: State<'_, ChatServiceHandle>,
+    html: String,
+    filename: String,
+) -> IcodeResult<String> {
+    state.service().export_html(&html, &filename)
 }
 
 // ===== 提示词库（prompt 目录下 *.md 文件） =====

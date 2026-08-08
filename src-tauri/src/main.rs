@@ -806,8 +806,10 @@ fn main() {
             modules::chat::commands::chat_session_delete,
             modules::chat::commands::chat_message_send,
             modules::chat::commands::chat_message_abort,
+            modules::chat::commands::chat_message_delete,
             modules::chat::commands::chat_prompt_list,
             modules::chat::commands::chat_prompt_get,
+            modules::chat::commands::chat_export_html,
             // ===== Gateway Runtime 模块 =====
             modules::gateway_runtime::commands::gateway_start,
             modules::gateway_runtime::commands::gateway_stop,

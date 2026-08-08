@@ -1380,7 +1380,14 @@
       "completionTokens": "出力",
       "totalTokens": "合計",
       "callError": "呼び出しに失敗しました",
-      "callErrorUnknown": "不明なエラー"
+      "callErrorUnknown": "不明なエラー",
+      "actions": "操作",
+      "copy": "コピー",
+      "copySuccess": "クリップボードにコピーしました",
+      "copyFailed": "コピーに失敗しました",
+      "delete": "削除",
+      "deleteSuccess": "メッセージを削除しました",
+      "deleteFailed": "メッセージの削除に失敗しました"
     },
     "input": {
       "placeholder": "メッセージを入力。Enter で送信、Shift+Enter で改行",
@@ -1395,7 +1402,11 @@
       "protocol": "プロトコル",
       "protocolChat": "Chat",
       "protocolMessages": "Messages",
-      "protocolResponses": "Responses"
+      "protocolResponses": "Responses",
+      "exportHtml": "HTML としてエクスポート",
+      "exportSuccess": "エクスポート先: {{path}}",
+      "exportFailed": "エクスポートに失敗しました",
+      "exportEmpty": "エクスポートするメッセージがありません"
     },
     "prompts": {
       "title": "プロンプトライブラリ",

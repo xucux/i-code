@@ -1380,7 +1380,14 @@
       "completionTokens": "輸出",
       "totalTokens": "合計",
       "callError": "呼叫失敗",
-      "callErrorUnknown": "未知錯誤"
+      "callErrorUnknown": "未知錯誤",
+      "actions": "操作",
+      "copy": "複製",
+      "copySuccess": "已複製到剪貼簿",
+      "copyFailed": "複製失敗",
+      "delete": "刪除",
+      "deleteSuccess": "訊息已刪除",
+      "deleteFailed": "刪除訊息失敗"
     },
     "input": {
       "placeholder": "輸入訊息，Enter 傳送，Shift+Enter 換行",
@@ -1395,7 +1402,11 @@
       "protocol": "協議",
       "protocolChat": "Chat",
       "protocolMessages": "Messages",
-      "protocolResponses": "Responses"
+      "protocolResponses": "Responses",
+      "exportHtml": "匯出為 HTML",
+      "exportSuccess": "已匯出到：{{path}}",
+      "exportFailed": "匯出失敗",
+      "exportEmpty": "目前會話無訊息可匯出"
     },
     "prompts": {
       "title": "提示詞庫",

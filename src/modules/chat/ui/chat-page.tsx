@@ -37,12 +37,12 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useTranslation } from '@/modules/i18n/use-translation'
 import { useAvailableHeight } from '@/hooks/use-available-height'
-import { useChatSession, useChatSessions } from '@/hooks/use-chat'
+import { useChatSession, useChatSessions, exportChatHtml } from '@/hooks/use-chat'
 import { useExposedModels } from '@/hooks/use-virtual-provider'
 import { useGatewayStatus } from '@/hooks/use-gateway-status'
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog'
 import { buildModelId } from '@/core/utils'
-import type { ChatProtocol, ChatTransportMode, PendingAttachment } from '@/modules/chat/types'
+import type { ChatMessage, ChatProtocol, ChatTransportMode, PendingAttachment } from '@/modules/chat/types'
 import { SessionList } from './session-list'
 import { MessageList } from './message-list'
 import { ChatInput } from './chat-input'
@@ -95,6 +95,7 @@ export function ChatPage() {
     activeRequestId,
     abort,
     send,
+    deleteMessage,
   } = useChatSession(activeId)
 
   const [pageHeight, pageRef] = useAvailableHeight()
@@ -365,6 +366,34 @@ export function ChatPage() {
     toast.message(t('input.aborted'))
   }
 
+  /** 删除单条助手消息：后端移除 + 前端同步，直接删除并 toast */
+  const handleDeleteMessage = async (messageId: string) => {
+    const ok = await deleteMessage(messageId)
+    if (ok) {
+      toast.success(t('messages.deleteSuccess'))
+      void refetchSessions()
+    } else {
+      toast.error(t('messages.deleteFailed'))
+    }
+  }
+
+  /** 导出当前会话为 HTML 文件：读取主题色内联渲染，写入 exports/ 目录 */
+  const handleExportHtml = async () => {
+    if (!session || messages.length === 0) {
+      toast.error(t('input.exportEmpty'))
+      return
+    }
+    try {
+      const html = buildChatHtml(session.title, messages)
+      const safeTitle = session.title.replace(/[\\/:*?"<>|]/g, '_').slice(0, 60) || 'chat'
+      const filename = `${safeTitle}-${Date.now()}.html`
+      const path = await exportChatHtml(html, filename)
+      toast.success(t('input.exportSuccess', { path }))
+    } catch {
+      toast.error(t('input.exportFailed'))
+    }
+  }
+
   const deletingSession = sessions.find((s) => s.id === deleteId)
 
   return (
@@ -415,7 +444,7 @@ export function ChatPage() {
           </div>
         </div>
 
-        <MessageList messages={messages} model={effectiveModel} />
+        <MessageList messages={messages} onDeleteMessage={(id) => void handleDeleteMessage(id)} />
 
         <ChatInput
           value={input}
@@ -433,6 +462,7 @@ export function ChatPage() {
           disabled={false}
           onSend={() => void handleSend()}
           onAbort={() => void handleAbort()}
+          onExportHtml={() => void handleExportHtml()}
         />
       </div>
 
@@ -451,4 +481,134 @@ export function ChatPage() {
       />
     </div>
   )
+}
+
+/**
+ * 构建单会话 HTML 导出文档
+ *
+ * - 读取当前主题 CSS 变量内联到 `<style>`，保证离线打开时配色与界面一致
+ * - 用户气泡靠右（primary）、助手气泡靠左（muted）
+ * - 助手含 thinking 折叠块、正文、token 用量与模型 id
+ * - 图片附件内嵌 base64；其他附件仅展示名称与大小
+ */
+function buildChatHtml(title: string, messages: ChatMessage[]): string {
+  const root = document.documentElement
+  const cssVar = (name: string): string => {
+    const v = getComputedStyle(root).getPropertyValue(name).trim()
+    return v || '#000000'
+  }
+  const bg = cssVar('--background')
+  const fg = cssVar('--foreground')
+  const primary = cssVar('--primary')
+  const primaryFg = cssVar('--primary-foreground')
+  const muted = cssVar('--muted')
+  const mutedFg = cssVar('--muted-foreground')
+  const border = cssVar('--border')
+  const accent = cssVar('--accent')
+  const destructive = cssVar('--destructive')
+
+  const esc = (s: string): string =>
+    s
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+
+  const formatSize = (bytes?: number): string => {
+    if (bytes == null) return ''
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+  }
+
+  const renderUsage = (m: ChatMessage): string => {
+    if (!m.usage) return ''
+    const parts: string[] = []
+    if (m.usage.promptTokens != null) parts.push(`输入 ${m.usage.promptTokens}`)
+    if (m.usage.completionTokens != null) parts.push(`输出 ${m.usage.completionTokens}`)
+    if (m.usage.totalTokens != null) parts.push(`合计 ${m.usage.totalTokens}`)
+    if (parts.length === 0) return ''
+    const model = m.model ? ` <span class="model">(${esc(m.model)})</span>` : ''
+    return `<div class="usage">${esc(parts.join(' · '))}${model}</div>`
+  }
+
+  const renderAttachments = (m: ChatMessage): string => {
+    if (!m.attachments || m.attachments.length === 0) return ''
+    const items = m.attachments.map((att) => {
+      if (att.kind === 'image' && att.dataUrl) {
+        return `<img src="${esc(att.dataUrl)}" alt="${esc(att.name)}" class="att-img" />`
+      }
+      const size = formatSize(att.size)
+      return `<span class="att-file">📎 ${esc(att.name)}${size ? ` · ${esc(size)}` : ''}</span>`
+    })
+    return `<div class="attachments">${items.join('')}</div>`
+  }
+
+  const bubbles = messages
+    .map((m) => {
+      const isUser = m.role === 'user'
+      const cls = isUser ? 'bubble user' : 'bubble assistant'
+      const thinking = m.thinking?.trim()
+        ? `<details class="thinking"><summary>思考过程</summary><div>${esc(m.thinking)}</div></details>`
+        : ''
+      const content = `<div class="content">${esc(m.content) || ' '}</div>`
+      const usage = isUser ? '' : renderUsage(m)
+      const atts = isUser ? renderAttachments(m) : ''
+      return `<div class="row ${isUser ? 'row-user' : 'row-assistant'}">
+  <div class="${cls}">${thinking}${content}${atts}${usage}</div>
+</div>`
+    })
+    .join('\n')
+
+  return `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>${esc(title)}</title>
+<style>
+  :root {
+    --background: ${bg};
+    --foreground: ${fg};
+    --primary: ${primary};
+    --primary-foreground: ${primaryFg};
+    --muted: ${muted};
+    --muted-foreground: ${mutedFg};
+    --border: ${border};
+    --accent: ${accent};
+    --destructive: ${destructive};
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 16px;
+    background: var(--background);
+    color: var(--foreground);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  h1 { font-size: 16px; margin: 0 0 16px 0; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  .row { display: flex; margin-bottom: 12px; }
+  .row-user { justify-content: flex-end; }
+  .row-assistant { justify-content: flex-start; }
+  .bubble { max-width: 80%; border-radius: 8px; padding: 8px 12px; word-break: break-word; white-space: pre-wrap; }
+  .bubble.user { background: var(--primary); color: var(--primary-foreground); }
+  .bubble.assistant { background: var(--muted); color: var(--foreground); }
+  .thinking { margin-bottom: 6px; border: 1px dashed var(--border); border-radius: 6px; padding: 6px 8px; }
+  .thinking summary { cursor: pointer; font-size: 11px; color: var(--muted-foreground); }
+  .thinking div { margin-top: 6px; font-size: 12px; color: var(--muted-foreground); white-space: pre-wrap; }
+  .content { white-space: pre-wrap; }
+  .attachments { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .att-img { width: 64px; height: 64px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border); }
+  .att-file { font-size: 11px; color: var(--muted-foreground); background: var(--background); border: 1px solid var(--border); border-radius: 4px; padding: 2px 6px; }
+  .usage { margin-top: 4px; font-size: 10px; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
+  .usage .model { opacity: 0.7; margin-left: 4px; }
+</style>
+</head>
+<body>
+<h1>${esc(title)}</h1>
+${bubbles}
+</body>
+</html>`
 }

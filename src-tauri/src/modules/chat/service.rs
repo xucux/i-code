@@ -216,6 +216,46 @@ impl ChatService {
             .delete_session(id)
     }
 
+    /// 删除单条消息：移除 JSONL 中该条并回写会话摘要计数
+    pub fn delete_message(&self, session_id: &str, message_id: &str) -> IcodeResult<()> {
+        let repo = self
+            .repo
+            .lock()
+            .map_err(|_| IcodeError::internal("聊天仓储锁中毒"))?;
+        let removed = repo.delete_message(session_id, message_id)?;
+        if !removed {
+            return Err(IcodeError::not_found("ChatMessage", Some(message_id)));
+        }
+        // 同步会话摘要：消息计数递减、更新时间刷新
+        if let Some(mut summary) = repo.find_session_summary(session_id)? {
+            summary.message_count = summary.message_count.saturating_sub(1);
+            summary.updated_at = now_iso();
+            repo.upsert_session_summary(&summary)?;
+        }
+        Ok(())
+    }
+
+    /// 导出 HTML 到应用配置目录 `exports/` 子目录，返回写入文件的绝对路径
+    pub fn export_html(&self, html: &str, filename: &str) -> IcodeResult<String> {
+        // 文件名安全化：仅保留文件名部分，禁止越界
+        let safe_name = std::path::Path::new(filename)
+            .file_name()
+            .and_then(|s| s.to_str())
+            .ok_or_else(|| IcodeError::validation("无效的文件名"))?;
+        let base = self
+            .app_handle
+            .path()
+            .app_config_dir()
+            .map_err(|e| IcodeError::internal(format!("无法获取应用配置目录: {e}")))?;
+        let exports_dir = base.join("exports");
+        std::fs::create_dir_all(&exports_dir)
+            .map_err(|e| IcodeError::internal(format!("创建导出目录失败: {e}")))?;
+        let target = exports_dir.join(safe_name);
+        std::fs::write(&target, html)
+            .map_err(|e| IcodeError::internal(format!("写入 HTML 文件失败: {e}")))?;
+        Ok(target.to_string_lossy().into_owned())
+    }
+
     // ===== 提示词库（prompt 目录下 *.md 文件） =====
 
     /// 解析提示词目录：`app_config_dir/prompt`，与数据库同目录。
@@ -368,6 +408,7 @@ impl ChatService {
             thinking: None,
             attachments: attachments.clone(),
             usage: None,
+            model: None,
             streaming: false,
             error: None,
             error_code: None,
@@ -384,6 +425,7 @@ impl ChatService {
             thinking: None,
             attachments: Vec::new(),
             usage: None,
+            model: None,
             streaming: true,
             error: None,
             error_code: None,
@@ -544,6 +586,7 @@ impl ChatService {
                     None,
                     None,
                     None,
+                    Some(&model),
                 ) {
                     tracing::error!("更新助手消息失败: {}", e.message);
                 }
@@ -556,6 +599,7 @@ impl ChatService {
                         content: final_content,
                         thinking: thinking_opt,
                         usage,
+                        model: Some(model),
                     },
                 );
             }
@@ -572,6 +616,7 @@ impl ChatService {
                     Some(parsed.summary.clone()),
                     parsed.code.clone(),
                     parsed.body.clone(),
+                    Some(&model),
                 ) {
                     log::error!("更新助手错误消息失败: {}", e.message);
                 }
@@ -762,6 +807,9 @@ impl ChatService {
                                         if let Ok(v) = serde_json::from_str::<Value>(&data) {
                                             let (content_delta, thinking_delta, usage_opt, is_done) =
                                                 extract_stream_deltas(protocol, &v);
+                                            // 先合并 usage 再判断结束：Responses 的 response.completed
+                                            // 同时携带 is_done 与完整 usage，若先 return 会丢失用量
+                                            merge_usage(&mut usage, usage_opt);
                                             if is_done {
                                                 return Ok((content, thinking, usage, false));
                                             }
@@ -788,7 +836,6 @@ impl ChatService {
                                                     },
                                                 );
                                             }
-                                            merge_usage(&mut usage, usage_opt);
                                         }
                                     }
                                     continue;
@@ -839,6 +886,7 @@ impl ChatService {
         error: Option<String>,
         error_code: Option<String>,
         error_body: Option<String>,
+        model: Option<&str>,
     ) -> IcodeResult<()> {
         let repo = self
             .repo
@@ -853,6 +901,10 @@ impl ChatService {
             msg.error = error;
             msg.error_code = error_code;
             msg.error_body = error_body;
+            // 记录该条助手消息实际使用的模型，避免会话内切换模型后历史气泡被改写
+            if let Some(m) = model {
+                msg.model = Some(m.to_string());
+            }
             msg.updated_at = now_iso();
             let updated = msg.clone();
             repo.update_message(&updated)?;
