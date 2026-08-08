@@ -42,7 +42,7 @@ import { useExposedModels } from '@/hooks/use-virtual-provider'
 import { useGatewayStatus } from '@/hooks/use-gateway-status'
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog'
 import { buildModelId } from '@/core/utils'
-import type { ChatTransportMode, PendingAttachment } from '@/modules/chat/types'
+import type { ChatProtocol, ChatTransportMode, PendingAttachment } from '@/modules/chat/types'
 import { SessionList } from './session-list'
 import { MessageList } from './message-list'
 import { ChatInput } from './chat-input'
@@ -56,6 +56,7 @@ interface PendingSend {
   content: string
   attachments: PendingAttachment[]
   transportMode: ChatTransportMode
+  protocol: ChatProtocol
 }
 
 /**
@@ -79,6 +80,7 @@ export function ChatPage() {
   const [input, setInput] = useState('')
   const [attachments, setAttachments] = useState<PendingAttachment[]>([])
   const [transportMode, setTransportMode] = useState<ChatTransportMode>('sse')
+  const [protocol, setProtocol] = useState<ChatProtocol>('chat')
   const [selectedModel, setSelectedModel] = useState('')
   const pendingSendRef = useRef<PendingSend | null>(null)
   /** 正在自动创建草稿会话，避免输入过程中重复 create */
@@ -107,6 +109,7 @@ export function ChatPage() {
 
   const effectiveModel = selectedModel || session?.model || modelOptions[0]?.value || ''
   const effectiveMode = transportMode || session?.transportMode || 'sse'
+  const effectiveProtocol = protocol || session?.protocol || 'chat'
 
   /** 当前会话累计 Token（汇总各助手消息 usage） */
   const tokenTotals = useMemo(() => {
@@ -140,7 +143,7 @@ export function ChatPage() {
     if (!pending || !activeId || pending.sessionId !== activeId) return
     pendingSendRef.current = null
     void (async () => {
-      const ok = await send(pending.content, pending.attachments, pending.transportMode)
+      const ok = await send(pending.content, pending.attachments, pending.transportMode, pending.protocol)
       if (!ok) {
         toast.error(t('errors.sendFailed'))
         setInput(pending.content)
@@ -177,6 +180,7 @@ export function ChatPage() {
         const created = await create({
           model,
           transportMode: effectiveMode,
+          protocol: effectiveProtocol,
         })
         if (!created) {
           if (!silent) toast.error(t('errors.createFailed'))
@@ -185,6 +189,7 @@ export function ChatPage() {
         setActiveId(created.id)
         setSelectedModel(created.model)
         setTransportMode(created.transportMode)
+        setProtocol(created.protocol)
         return created.id
       } finally {
         ensuringSessionRef.current = false
@@ -222,6 +227,7 @@ export function ChatPage() {
     const created = await create({
       model,
       transportMode: effectiveMode,
+      protocol: effectiveProtocol,
     })
     if (!created) {
       toast.error(t('errors.createFailed'))
@@ -230,6 +236,7 @@ export function ChatPage() {
     setActiveId(created.id)
     setSelectedModel(created.model)
     setTransportMode(created.transportMode)
+    setProtocol(created.protocol)
     setInput('')
     setAttachments([])
   }
@@ -241,6 +248,7 @@ export function ChatPage() {
     if (found) {
       setSelectedModel(found.model)
       setTransportMode(found.transportMode)
+      setProtocol(found.protocol)
     }
     setInput('')
     setAttachments([])
@@ -281,6 +289,16 @@ export function ChatPage() {
     }
   }
 
+  /** 入口协议变更：Chat / Messages / Responses，有会话则持久化 */
+  const handleProtocolChange = async (p: ChatProtocol) => {
+    setProtocol(p)
+    if (activeId) {
+      const updated = await update(activeId, { protocol: p })
+      if (!updated) toast.error(t('errors.updateFailed'))
+      else void refetchSessions()
+    }
+  }
+
   /**
    * 发送消息
    *
@@ -316,19 +334,20 @@ export function ChatPage() {
         content,
         attachments: atts,
         transportMode: effectiveMode,
+        protocol: effectiveProtocol,
       }
       // activeId 可能已由 ensure 设置；若尚未对齐 hook，pending 发送 effect 会接手
       setActiveId(sessionId)
       return
     }
 
-    if (session?.model !== model || session?.transportMode !== effectiveMode) {
-      await update(sessionId, { model, transportMode: effectiveMode })
+    if (session?.model !== model || session?.transportMode !== effectiveMode || session?.protocol !== effectiveProtocol) {
+      await update(sessionId, { model, transportMode: effectiveMode, protocol: effectiveProtocol })
     }
 
     setInput('')
     setAttachments([])
-    const ok = await send(content, atts, effectiveMode)
+    const ok = await send(content, atts, effectiveMode, effectiveProtocol)
     if (!ok) {
       toast.error(t('errors.sendFailed'))
       setInput(content)
@@ -396,7 +415,7 @@ export function ChatPage() {
           </div>
         </div>
 
-        <MessageList messages={messages} />
+        <MessageList messages={messages} model={effectiveModel} />
 
         <ChatInput
           value={input}
@@ -405,6 +424,8 @@ export function ChatPage() {
           onAttachmentsChange={handleAttachmentsChange}
           transportMode={effectiveMode}
           onTransportModeChange={(m) => void handleModeChange(m)}
+          protocol={effectiveProtocol}
+          onProtocolChange={(p) => void handleProtocolChange(p)}
           models={modelOptions}
           selectedModel={effectiveModel}
           onModelChange={(m) => void handleModelChange(m)}

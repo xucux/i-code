@@ -1391,7 +1391,11 @@
       "noModels": "No models available",
       "attachFile": "Attach file",
       "attachImage": "Attach image",
-      "prompts": "Prompt library"
+      "prompts": "Prompt library",
+      "protocol": "Protocol",
+      "protocolChat": "Chat",
+      "protocolMessages": "Messages",
+      "protocolResponses": "Responses"
     },
     "prompts": {
       "title": "Prompt library",

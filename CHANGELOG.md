@@ -1,3 +1,9 @@
+---
+editRules:
+  - 禁止将i18n文件变更带入变更文档
+  - 禁止将敏感信息带入变更文档
+---
+
 # Changelog
 
 ## [release-version-tempalte]

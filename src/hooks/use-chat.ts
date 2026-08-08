@@ -30,6 +30,7 @@ import type {
   ChatMessage,
   ChatPrompt,
   ChatPromptContent,
+  ChatProtocol,
   ChatSession,
   ChatSessionSummary,
   ChatStreamChunkEvent,
@@ -79,6 +80,7 @@ export async function sendChatMessage(input: {
   content: string
   attachments?: PendingAttachment[]
   transportMode?: ChatTransportMode
+  protocol?: ChatProtocol
 }): Promise<SendChatMessageResult> {
   const attachments = (input.attachments ?? []).map((a) => ({
     name: a.name,
@@ -94,6 +96,7 @@ export async function sendChatMessage(input: {
       content: input.content,
       attachments,
       transportMode: input.transportMode,
+      protocol: input.protocol,
       locale: getLocale(),
     },
   })
@@ -202,7 +205,7 @@ export function useChatSession(sessionId: string | null): {
   activeRequestId: string | null
   sending: boolean
   reload: (id?: string) => Promise<void>
-  send: (content: string, attachments: PendingAttachment[], transportMode?: ChatTransportMode) => Promise<boolean>
+  send: (content: string, attachments: PendingAttachment[], transportMode?: ChatTransportMode, protocol?: ChatProtocol) => Promise<boolean>
   abort: () => Promise<void>
   applySessionSummary: (summary: ChatSessionSummary) => void
   /** 外部调用 sendChatMessage 后同步本地消息与 requestId */
@@ -363,7 +366,8 @@ export function useChatSession(sessionId: string | null): {
     async (
       content: string,
       attachments: PendingAttachment[],
-      transportMode?: ChatTransportMode
+      transportMode?: ChatTransportMode,
+      protocol?: ChatProtocol
     ) => {
       if (!sessionId) return false
       setSending(true)
@@ -373,6 +377,7 @@ export function useChatSession(sessionId: string | null): {
           content,
           attachments,
           transportMode,
+          protocol,
         })
         setSession((prev) =>
           prev
@@ -381,6 +386,7 @@ export function useChatSession(sessionId: string | null): {
                 title: result.session.title,
                 model: result.session.model,
                 transportMode: result.session.transportMode,
+                protocol: result.session.protocol,
                 updatedAt: result.session.updatedAt,
               }
             : prev
@@ -436,6 +442,7 @@ export function useChatSession(sessionId: string | null): {
             title: result.session.title,
             model: result.session.model,
             transportMode: result.session.transportMode,
+            protocol: result.session.protocol,
             updatedAt: result.session.updatedAt,
           }
         : prev ?? {
@@ -443,6 +450,7 @@ export function useChatSession(sessionId: string | null): {
             title: result.session.title,
             model: result.session.model,
             transportMode: result.session.transportMode,
+            protocol: result.session.protocol,
             messages: [],
             createdAt: result.session.createdAt,
             updatedAt: result.session.updatedAt,

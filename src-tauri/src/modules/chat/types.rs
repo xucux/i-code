@@ -43,6 +43,21 @@ pub enum ChatTransportMode {
     Sse,
 }
 
+/// 网关入口协议
+///
+/// 决定向本地网关哪个端点发送请求：
+/// - `Chat`：`POST /v1/chat/completions`（OpenAI 兼容，默认）
+/// - `Messages`：`POST /v1/messages`（Anthropic 兼容）
+/// - `Responses`：`POST /v1/responses`（OpenAI Responses API）
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum ChatProtocol {
+    #[default]
+    Chat,
+    Messages,
+    Responses,
+}
+
 /// 附件类型
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -157,6 +172,9 @@ pub struct ChatSessionSummary {
     /// 路由模型 ID：`{provider_slug}/{model_id}`
     pub model: String,
     pub transport_mode: ChatTransportMode,
+    /// 网关入口协议（旧数据缺失时默认 `chat`）
+    #[serde(default)]
+    pub protocol: ChatProtocol,
     pub message_count: u32,
     pub created_at: String,
     pub updated_at: String,
@@ -170,6 +188,8 @@ pub struct ChatSession {
     pub title: String,
     pub model: String,
     pub transport_mode: ChatTransportMode,
+    #[serde(default)]
+    pub protocol: ChatProtocol,
     pub messages: Vec<ChatMessage>,
     pub created_at: String,
     pub updated_at: String,
@@ -185,6 +205,8 @@ pub struct CreateChatSessionInput {
     pub model: String,
     #[serde(default)]
     pub transport_mode: Option<ChatTransportMode>,
+    #[serde(default)]
+    pub protocol: Option<ChatProtocol>,
 }
 
 /// 更新会话
@@ -197,6 +219,8 @@ pub struct UpdateChatSessionInput {
     pub model: Option<String>,
     #[serde(default)]
     pub transport_mode: Option<ChatTransportMode>,
+    #[serde(default)]
+    pub protocol: Option<ChatProtocol>,
 }
 
 /// 前端提交的附件（发送前已读取内容 / base64）
@@ -229,6 +253,9 @@ pub struct SendChatMessageInput {
     /// 可选覆盖本轮传输模式
     #[serde(default)]
     pub transport_mode: Option<ChatTransportMode>,
+    /// 可选覆盖本轮网关入口协议
+    #[serde(default)]
+    pub protocol: Option<ChatProtocol>,
     /// 当前应用 locale；首条消息时后端会注入为 system 消息
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub locale: Option<String>,

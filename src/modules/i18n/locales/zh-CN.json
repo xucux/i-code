@@ -1391,7 +1391,11 @@
       "noModels": "暂无可用模型",
       "attachFile": "添加附件",
       "attachImage": "添加图片",
-      "prompts": "提示词库"
+      "prompts": "提示词库",
+      "protocol": "协议",
+      "protocolChat": "Chat",
+      "protocolMessages": "Messages",
+      "protocolResponses": "Responses"
     },
     "prompts": {
       "title": "提示词库",

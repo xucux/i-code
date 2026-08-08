@@ -1391,7 +1391,11 @@
       "noModels": "暫無可用模型",
       "attachFile": "新增附件",
       "attachImage": "新增圖片",
-      "prompts": "提示詞庫"
+      "prompts": "提示詞庫",
+      "protocol": "協議",
+      "protocolChat": "Chat",
+      "protocolMessages": "Messages",
+      "protocolResponses": "Responses"
     },
     "prompts": {
       "title": "提示詞庫",

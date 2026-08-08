@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 聊天消息列表（右侧上方）
  *
  * ## 界面描述
@@ -34,13 +34,15 @@ import type { ChatMessage, ChatTokenUsage } from '@/modules/chat/types'
 
 export interface MessageListProps {
   messages: ChatMessage[]
+  /** 当前会话模型 ID（`provider_slug/model_id`），用于助手气泡 token 用量展示 */
+  model?: string
   /** 无消息时的提示文案；默认 i18n `messages.empty` */
   emptyHint?: string
   /** 父级计算的可用高度等样式（可选） */
   style?: React.CSSProperties
 }
 
-export function MessageList({ messages, emptyHint, style }: MessageListProps) {
+export function MessageList({ messages, model, emptyHint, style }: MessageListProps) {
   const { t } = useTranslation('chat')
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -58,7 +60,7 @@ export function MessageList({ messages, emptyHint, style }: MessageListProps) {
             </p>
           )}
           {messages.map((msg) => (
-            <MessageBubble key={msg.id} message={msg} />
+            <MessageBubble key={msg.id} message={msg} model={model} />
           ))}
           <div ref={bottomRef} />
         </div>
@@ -73,7 +75,7 @@ export function MessageList({ messages, emptyHint, style }: MessageListProps) {
  * 结构（助手）：思考块 → 正文/错误气泡 → token 小字
  * 结构（用户）：正文气泡 → 附件预览
  */
-function MessageBubble({ message }: { message: ChatMessage }) {
+function MessageBubble({ message, model }: { message: ChatMessage; model?: string }) {
   const { t } = useTranslation('chat')
   const isUser = message.role === 'user'
   const isAssistant = message.role === 'assistant'
@@ -151,7 +153,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
 
         {/* 单条用量：完成后展示，供顶栏汇总 */}
         {isAssistant && !message.streaming && message.usage && (
-          <TokenUsageText usage={message.usage} />
+          <TokenUsageText usage={message.usage} model={model} />
         )}
       </div>
     </div>
@@ -282,8 +284,8 @@ function ThinkingBlock({ text, streaming }: { text: string; streaming: boolean }
   )
 }
 
-/** 气泡下方 token 用量小字（prompt / completion / total） */
-function TokenUsageText({ usage }: { usage: ChatTokenUsage }) {
+/** 气泡下方 token 用量小字（prompt / completion / total），右侧括号显示模型 id */
+function TokenUsageText({ usage, model }: { usage: ChatTokenUsage; model?: string }) {
   const { t } = useTranslation('chat')
   const parts: string[] = []
   if (usage.promptTokens != null) {
@@ -296,7 +298,21 @@ function TokenUsageText({ usage }: { usage: ChatTokenUsage }) {
     parts.push(`${t('messages.totalTokens')} ${usage.totalTokens}`)
   }
   if (parts.length === 0) return null
+  const modelLabel = model ? formatModelLabel(model) : null
   return (
-    <p className="text-[10px] text-muted-foreground tabular-nums">{parts.join(' · ')}</p>
+    <p className="text-[10px] text-muted-foreground tabular-nums">
+      {parts.join(' · ')}
+      {modelLabel && <span className="ml-1 text-muted-foreground/70">({modelLabel})</span>}
+    </p>
   )
+}
+
+/**
+ * 模型 id 展示：`provider_slug/model_id` 超长时省略前缀为 `…/model_id`。
+ */
+function formatModelLabel(model: string): string {
+  const idx = model.indexOf('/')
+  if (idx < 0) return model
+  if (model.length <= 24) return model
+  return `…/${model.slice(idx + 1)}`
 }

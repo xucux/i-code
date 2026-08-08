@@ -7,7 +7,7 @@
  * 1. **附件预览条**（有附件时显示）
  *    - 普通文件：小字文件名 + 回形针图标 + 移除按钮
  *    - 图片：约 40×40 缩略图 + 文件名 + hover 移除
- * 2. **工具栏**：模型选择、传输模式（SSE/HTTP）、选文件、选图片
+ * 2. **工具栏**：模型选择、传输模式（SSE/HTTP）、协议选择、选文件、选图片
  * 3. **输入行**：多行 Textarea + 发送按钮；发送中切换为红色「中断」
  *
  * 主题色全部走 CSS 变量（`bg-card` / `border` / `muted-foreground` 等）。
@@ -34,7 +34,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useTranslation } from '@/modules/i18n/use-translation'
-import type { ChatTransportMode, PendingAttachment } from '@/modules/chat/types'
+import type { ChatProtocol, ChatTransportMode, PendingAttachment } from '@/modules/chat/types'
 import { readFileAsPendingAttachment } from '@/hooks/use-chat'
 import { cn } from '@/lib/utils'
 import { PromptPickerDialog } from './prompt-picker-dialog'
@@ -49,6 +49,9 @@ export interface ChatInputProps {
   onAttachmentsChange: (items: PendingAttachment[]) => void
   transportMode: ChatTransportMode
   onTransportModeChange: (mode: ChatTransportMode) => void
+  /** 网关入口协议：Chat / Messages / Responses */
+  protocol: ChatProtocol
+  onProtocolChange: (protocol: ChatProtocol) => void
   modelLabel?: string
   /** 可选模型：`value` 为路由 ID，`label` 为展示名 */
   models: Array<{ value: string; label: string }>
@@ -68,6 +71,8 @@ export function ChatInput({
   onAttachmentsChange,
   transportMode,
   onTransportModeChange,
+  protocol,
+  onProtocolChange,
   models,
   selectedModel,
   onModelChange,
@@ -203,6 +208,27 @@ export function ChatInput({
             </SelectItem>
             <SelectItem value="http" className="text-xs">
               HTTP
+            </SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={protocol}
+          onValueChange={(v) => onProtocolChange(v as ChatProtocol)}
+          disabled={sending || disabled}
+        >
+          <SelectTrigger className="h-7 w-[100px] text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="chat" className="text-xs">
+              {t('input.protocolChat')}
+            </SelectItem>
+            <SelectItem value="messages" className="text-xs">
+              {t('input.protocolMessages')}
+            </SelectItem>
+            <SelectItem value="responses" className="text-xs">
+              {t('input.protocolResponses')}
             </SelectItem>
           </SelectContent>
         </Select>

@@ -1391,7 +1391,11 @@
       "noModels": "利用可能なモデルはありません",
       "attachFile": "添付ファイルを追加",
       "attachImage": "画像を追加",
-      "prompts": "プロンプトライブラリ"
+      "prompts": "プロンプトライブラリ",
+      "protocol": "プロトコル",
+      "protocolChat": "Chat",
+      "protocolMessages": "Messages",
+      "protocolResponses": "Responses"
     },
     "prompts": {
       "title": "プロンプトライブラリ",

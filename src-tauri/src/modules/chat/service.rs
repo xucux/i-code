@@ -43,7 +43,7 @@ use crate::modules::secret::SecretServiceHandle;
 use super::repository::ChatRepository;
 use super::types::{
     AbortChatResult, ChatAttachment, ChatAttachmentInput, ChatAttachmentKind, ChatMessage,
-    ChatPrompt, ChatPromptContent, ChatRole, ChatSession, ChatSessionSummary,
+    ChatProtocol, ChatPrompt, ChatPromptContent, ChatRole, ChatSession, ChatSessionSummary,
     ChatStreamChunkEvent, ChatStreamDoneEvent, ChatStreamErrorEvent, ChatTokenUsage,
     ChatTransportMode, CHAT_PROMPT_MAX_CHARS, CreateChatSessionInput, SendChatMessageInput,
     SendChatMessageResult, UpdateChatSessionInput,
@@ -164,6 +164,7 @@ impl ChatService {
             title,
             model: input.model.trim().to_string(),
             transport_mode: input.transport_mode.unwrap_or_default(),
+            protocol: input.protocol.unwrap_or_default(),
             message_count: 0,
             created_at: now.clone(),
             updated_at: now,
@@ -199,6 +200,9 @@ impl ChatService {
         }
         if let Some(mode) = input.transport_mode {
             summary.transport_mode = mode;
+        }
+        if let Some(p) = input.protocol {
+            summary.protocol = p;
         }
         summary.updated_at = now_iso();
         repo.upsert_session_summary(&summary)?;
@@ -348,6 +352,7 @@ impl ChatService {
         let transport_mode = input
             .transport_mode
             .unwrap_or(summary.transport_mode);
+        let protocol = input.protocol.unwrap_or(summary.protocol);
 
         let now = now_iso();
         let attachments = convert_attachments(&input.attachments)?;
@@ -402,6 +407,7 @@ impl ChatService {
         }
         summary.message_count = summary.message_count.saturating_add(2);
         summary.transport_mode = transport_mode;
+        summary.protocol = protocol;
         summary.updated_at = now;
         repo.upsert_session_summary(&summary)?;
 
@@ -453,6 +459,7 @@ impl ChatService {
                 req_id,
                 model,
                 gateway_messages,
+                protocol,
                 stream,
                 abort_rx,
             )
@@ -494,6 +501,7 @@ impl ChatService {
         request_id: String,
         model: String,
         messages: Vec<Value>,
+        protocol: ChatProtocol,
         stream: bool,
         abort_rx: oneshot::Receiver<()>,
     ) {
@@ -504,6 +512,7 @@ impl ChatService {
                 &request_id,
                 &model,
                 messages,
+                protocol,
                 stream,
                 abort_rx,
             )
@@ -588,19 +597,29 @@ impl ChatService {
         request_id: &str,
         model: &str,
         messages: Vec<Value>,
+        protocol: ChatProtocol,
         stream: bool,
         mut abort_rx: oneshot::Receiver<()>,
     ) -> IcodeResult<(String, String, Option<ChatTokenUsage>, bool)> {
         // 返回值：(content, thinking, usage, aborted)
         let base_url = self.resolve_gateway_base_url()?;
         let api_key = self.resolve_gateway_api_key()?;
-        let url = format!("{}/v1/chat/completions", base_url.trim_end_matches('/'));
+        let endpoint = match protocol {
+            ChatProtocol::Chat => "/v1/chat/completions",
+            ChatProtocol::Messages => "/v1/messages",
+            ChatProtocol::Responses => "/v1/responses",
+        };
+        let url = format!("{}{}", base_url.trim_end_matches('/'), endpoint);
 
-        let body = json!({
-            "model": model,
-            "messages": messages,
-            "stream": stream,
-        });
+        let body = match protocol {
+            ChatProtocol::Chat => json!({
+                "model": model,
+                "messages": messages,
+                "stream": stream,
+            }),
+            ChatProtocol::Messages => build_anthropic_request_body(model, &messages, stream),
+            ChatProtocol::Responses => build_responses_request_body(model, &messages, stream),
+        };
 
         let mut builder = self
             .http_client
@@ -666,6 +685,7 @@ impl ChatService {
                 session_id,
                 assistant_id,
                 request_id,
+                protocol,
                 abort_rx,
             )
             .await
@@ -681,7 +701,11 @@ impl ChatService {
                     return Ok((String::new(), String::new(), None, true));
                 }
             };
-            let (content, thinking, usage) = parse_non_stream_response(&text)?;
+            let (content, thinking, usage) = match protocol {
+                ChatProtocol::Chat => parse_non_stream_response(&text)?,
+                ChatProtocol::Messages => parse_anthropic_response(&text)?,
+                ChatProtocol::Responses => parse_responses_response(&text)?,
+            };
             // 推送完整内容作为一次 chunk，便于前端统一渲染
             let _ = self.app_handle.emit(
                 EVENT_CHAT_STREAM_CHUNK,
@@ -705,6 +729,7 @@ impl ChatService {
         session_id: &str,
         assistant_id: &str,
         request_id: &str,
+        protocol: ChatProtocol,
         mut abort_rx: oneshot::Receiver<()>,
     ) -> IcodeResult<(String, String, Option<ChatTokenUsage>, bool)> {
         let mut stream = response.bytes_stream();
@@ -735,8 +760,11 @@ impl ChatService {
                                             return Ok((content, thinking, usage, false));
                                         }
                                         if let Ok(v) = serde_json::from_str::<Value>(&data) {
-                                            let content_delta = extract_sse_delta(&v).unwrap_or_default();
-                                            let thinking_delta = extract_sse_thinking_delta(&v).unwrap_or_default();
+                                            let (content_delta, thinking_delta, usage_opt, is_done) =
+                                                extract_stream_deltas(protocol, &v);
+                                            if is_done {
+                                                return Ok((content, thinking, usage, false));
+                                            }
                                             let mut changed = false;
                                             if !content_delta.is_empty() {
                                                 content.push_str(&content_delta);
@@ -760,9 +788,7 @@ impl ChatService {
                                                     },
                                                 );
                                             }
-                                            if let Some(u) = extract_usage(&v) {
-                                                usage = Some(u);
-                                            }
+                                            merge_usage(&mut usage, usage_opt);
                                         }
                                     }
                                     continue;
@@ -785,15 +811,10 @@ impl ChatService {
                             if let Some(data) = take_sse_data(&mut buffer) {
                                 if data.trim() != "[DONE]" {
                                     if let Ok(v) = serde_json::from_str::<Value>(&data) {
-                                        if let Some(delta) = extract_sse_delta(&v) {
-                                            content.push_str(&delta);
-                                        }
-                                        if let Some(delta) = extract_sse_thinking_delta(&v) {
-                                            thinking.push_str(&delta);
-                                        }
-                                        if let Some(u) = extract_usage(&v) {
-                                            usage = Some(u);
-                                        }
+                                        let (cd, td, u_opt, _) = extract_stream_deltas(protocol, &v);
+                                        content.push_str(&cd);
+                                        thinking.push_str(&td);
+                                        merge_usage(&mut usage, u_opt);
                                     }
                                 }
                             }
@@ -1290,6 +1311,323 @@ fn parse_non_stream_response(text: &str) -> IcodeResult<(String, String, Option<
     };
     let usage = extract_usage(&v);
     Ok((content, thinking, usage))
+}
+
+// ===== 协议适配：Anthropic Messages / OpenAI Responses =====
+
+/// 按协议从单个 SSE 事件 JSON 提取增量
+///
+/// 返回 `(content_delta, thinking_delta, usage_opt, is_done)`：
+/// - `is_done`：该事件标志流结束（Anthropic `message_stop` / Responses `response.completed`）
+fn extract_stream_deltas(
+    protocol: ChatProtocol,
+    v: &Value,
+) -> (String, String, Option<ChatTokenUsage>, bool) {
+    match protocol {
+        ChatProtocol::Chat => {
+            let cd = extract_sse_delta(v).unwrap_or_default();
+            let td = extract_sse_thinking_delta(v).unwrap_or_default();
+            let u = extract_usage(v);
+            (cd, td, u, false)
+        }
+        ChatProtocol::Messages => extract_anthropic_stream_deltas(v),
+        ChatProtocol::Responses => extract_responses_stream_deltas(v),
+    }
+}
+
+/// 合并 token 用量：Anthropic 的 input_tokens（message_start）与 output_tokens
+/// （message_delta）分事件到达，需按字段累并。
+fn merge_usage(usage: &mut Option<ChatTokenUsage>, new: Option<ChatTokenUsage>) {
+    let Some(new) = new else {
+        return;
+    };
+    let mut cur = usage.clone().unwrap_or_default();
+    if new.prompt_tokens.is_some() {
+        cur.prompt_tokens = new.prompt_tokens;
+    }
+    if new.completion_tokens.is_some() {
+        cur.completion_tokens = new.completion_tokens;
+    }
+    if new.total_tokens.is_some() {
+        cur.total_tokens = new.total_tokens;
+    }
+    *usage = Some(cur);
+}
+
+/// Anthropic Messages 流式事件提取
+///
+/// 事件类型（`type` 字段）：
+/// - `message_start`：`message.usage.input_tokens`
+/// - `content_block_delta`：`delta.type` = `text_delta` / `thinking_delta`
+/// - `message_delta`：`usage.output_tokens`
+/// - `message_stop`：流结束
+fn extract_anthropic_stream_deltas(v: &Value) -> (String, String, Option<ChatTokenUsage>, bool) {
+    let ty = v.get("type").and_then(|t| t.as_str()).unwrap_or("");
+    let mut content_delta = String::new();
+    let mut thinking_delta = String::new();
+    let mut usage = None;
+    let mut is_done = false;
+    match ty {
+        "message_start" => {
+            if let Some(u) = v.pointer("/message/usage") {
+                let input = u.get("input_tokens").and_then(|x| x.as_i64());
+                let output = u.get("output_tokens").and_then(|x| x.as_i64());
+                if input.is_some() || output.is_some() {
+                    usage = Some(ChatTokenUsage {
+                        prompt_tokens: input,
+                        completion_tokens: output,
+                        total_tokens: None,
+                    });
+                }
+            }
+        }
+        "content_block_delta" => {
+            if let Some(delta) = v.get("delta") {
+                let dtype = delta.get("type").and_then(|t| t.as_str()).unwrap_or("");
+                match dtype {
+                    "text_delta" => {
+                        if let Some(t) = delta.get("text").and_then(|t| t.as_str()) {
+                            content_delta.push_str(t);
+                        }
+                    }
+                    "thinking_delta" => {
+                        if let Some(t) = delta.get("thinking").and_then(|t| t.as_str()) {
+                            thinking_delta.push_str(t);
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+        "message_delta" => {
+            if let Some(u) = v.get("usage") {
+                let output = u.get("output_tokens").and_then(|x| x.as_i64());
+                if output.is_some() {
+                    usage = Some(ChatTokenUsage {
+                        prompt_tokens: None,
+                        completion_tokens: output,
+                        total_tokens: None,
+                    });
+                }
+            }
+        }
+        "message_stop" => {
+            is_done = true;
+        }
+        _ => {}
+    }
+    (content_delta, thinking_delta, usage, is_done)
+}
+
+/// OpenAI Responses 流式事件提取
+///
+/// 事件类型（`type` 字段）：
+/// - `response.output_text.delta`：`delta` 为文本增量
+/// - `response.completed`：流结束，`response.usage` 含完整用量
+fn extract_responses_stream_deltas(v: &Value) -> (String, String, Option<ChatTokenUsage>, bool) {
+    let ty = v.get("type").and_then(|t| t.as_str()).unwrap_or("");
+    let mut content_delta = String::new();
+    let mut usage = None;
+    let mut is_done = false;
+    match ty {
+        "response.output_text.delta" => {
+            if let Some(d) = v.get("delta").and_then(|d| d.as_str()) {
+                content_delta.push_str(d);
+            }
+        }
+        "response.completed" => {
+            is_done = true;
+            if let Some(u) = v.pointer("/response/usage") {
+                usage = Some(ChatTokenUsage {
+                    prompt_tokens: u.get("input_tokens").and_then(|x| x.as_i64()),
+                    completion_tokens: u.get("output_tokens").and_then(|x| x.as_i64()),
+                    total_tokens: u.get("total_tokens").and_then(|x| x.as_i64()),
+                });
+            }
+        }
+        _ => {}
+    }
+    (content_delta, String::new(), usage, is_done)
+}
+
+/// 构造 Anthropic Messages 请求体
+///
+/// - system 角色消息提取到顶层 `system` 字段
+/// - 图片 `image_url` 转为 `source.base64`
+/// - `max_tokens` 必填，默认 4096
+fn build_anthropic_request_body(model: &str, messages: &[Value], stream: bool) -> Value {
+    let mut system_parts: Vec<String> = Vec::new();
+    let mut anthropic_messages: Vec<Value> = Vec::new();
+    for msg in messages {
+        let role = msg.get("role").and_then(|r| r.as_str()).unwrap_or("user");
+        if role == "system" {
+            if let Some(s) = msg.get("content").and_then(|c| c.as_str()) {
+                system_parts.push(s.to_string());
+            } else if let Some(arr) = msg.get("content").and_then(|c| c.as_array()) {
+                for part in arr {
+                    if let Some(t) = part.get("text").and_then(|t| t.as_str()) {
+                        system_parts.push(t.to_string());
+                    }
+                }
+            }
+            continue;
+        }
+        let content = convert_openai_content_to_anthropic(msg.get("content"));
+        anthropic_messages.push(json!({
+            "role": role,
+            "content": content,
+        }));
+    }
+    let mut body = json!({
+        "model": model,
+        "messages": anthropic_messages,
+        "max_tokens": 4096,
+        "stream": stream,
+    });
+    if !system_parts.is_empty() {
+        body["system"] = json!(system_parts.join("\n\n"));
+    }
+    body
+}
+
+/// 构造 OpenAI Responses 请求体：`input` 直接复用 OpenAI messages 数组
+fn build_responses_request_body(model: &str, messages: &[Value], stream: bool) -> Value {
+    json!({
+        "model": model,
+        "input": messages,
+        "stream": stream,
+    })
+}
+
+/// 将 OpenAI content（字符串或 parts 数组）转为 Anthropic content
+///
+/// - 字符串：原样返回
+/// - 数组：`text` 保留；`image_url` 的 data URL 解析为 `source.base64`
+fn convert_openai_content_to_anthropic(content: Option<&Value>) -> Value {
+    let Some(content) = content else {
+        return Value::Null;
+    };
+    if let Some(s) = content.as_str() {
+        return Value::String(s.to_string());
+    }
+    let Some(arr) = content.as_array() else {
+        return Value::Null;
+    };
+    let mut out: Vec<Value> = Vec::new();
+    for part in arr {
+        let ty = part.get("type").and_then(|t| t.as_str()).unwrap_or("text");
+        match ty {
+            "text" | "output_text" | "" => {
+                if let Some(t) = part.get("text").and_then(|t| t.as_str()) {
+                    out.push(json!({"type": "text", "text": t}));
+                }
+            }
+            "image_url" => {
+                if let Some(url) = part.pointer("/image_url/url").and_then(|u| u.as_str()) {
+                    if let Some((media_type, data)) = parse_data_url(url) {
+                        out.push(json!({
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": media_type,
+                                "data": data,
+                            }
+                        }));
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    Value::Array(out)
+}
+
+/// 解析 `data:{media_type};base64,{data}` 形式的 data URL
+fn parse_data_url(url: &str) -> Option<(String, String)> {
+    let rest = url.strip_prefix("data:")?;
+    let semi = rest.find(';')?;
+    let media_type = &rest[..semi];
+    let after = &rest[semi + 1..];
+    let data = after.strip_prefix("base64,")?;
+    Some((media_type.to_string(), data.to_string()))
+}
+
+/// 解析 Anthropic Messages 非流式响应
+///
+/// `content` 数组中 `type=text` 拼为正文，`type=thinking` 拼为思考；
+/// `usage.input_tokens` / `usage.output_tokens` 映射到 prompt/completion。
+fn parse_anthropic_response(text: &str) -> IcodeResult<(String, String, Option<ChatTokenUsage>)> {
+    let v: Value = serde_json::from_str(text)
+        .map_err(|e| IcodeError::gateway(format!("解析 Anthropic 响应 JSON 失败: {}", e)))?;
+    let mut content = String::new();
+    let mut thinking = String::new();
+    if let Some(arr) = v.get("content").and_then(|c| c.as_array()) {
+        for block in arr {
+            let ty = block.get("type").and_then(|t| t.as_str()).unwrap_or("");
+            match ty {
+                "text" => {
+                    if let Some(t) = block.get("text").and_then(|t| t.as_str()) {
+                        content.push_str(t);
+                    }
+                }
+                "thinking" => {
+                    if let Some(t) = block.get("thinking").and_then(|t| t.as_str()) {
+                        thinking.push_str(t);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    let usage = v.get("usage").map(|u| {
+        let input = u.get("input_tokens").and_then(|x| x.as_i64());
+        let output = u.get("output_tokens").and_then(|x| x.as_i64());
+        ChatTokenUsage {
+            prompt_tokens: input,
+            completion_tokens: output,
+            total_tokens: match (input, output) {
+                (Some(i), Some(o)) => Some(i + o),
+                _ => None,
+            },
+        }
+    });
+    Ok((content, thinking, usage))
+}
+
+/// 解析 OpenAI Responses 非流式响应
+///
+/// `output[*].content` 中 `output_text`/`text` 拼为正文；
+/// `usage` 含 `input_tokens` / `output_tokens` / `total_tokens`。
+fn parse_responses_response(text: &str) -> IcodeResult<(String, String, Option<ChatTokenUsage>)> {
+    let v: Value = serde_json::from_str(text)
+        .map_err(|e| IcodeError::gateway(format!("解析 Responses 响应 JSON 失败: {}", e)))?;
+    let mut content = String::new();
+    if let Some(arr) = v.get("output").and_then(|c| c.as_array()) {
+        for item in arr {
+            if let Some(blocks) = item.get("content").and_then(|c| c.as_array()) {
+                for block in blocks {
+                    let ty = block.get("type").and_then(|t| t.as_str()).unwrap_or("");
+                    if matches!(ty, "output_text" | "text" | "") {
+                        if let Some(t) = block.get("text").and_then(|t| t.as_str()) {
+                            content.push_str(t);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // 部分实现直接在顶层提供 output_text 字符串
+    if content.is_empty() {
+        if let Some(s) = v.get("output_text").and_then(|c| c.as_str()) {
+            content.push_str(s);
+        }
+    }
+    let usage = v.get("usage").map(|u| ChatTokenUsage {
+        prompt_tokens: u.get("input_tokens").and_then(|x| x.as_i64()),
+        completion_tokens: u.get("output_tokens").and_then(|x| x.as_i64()),
+        total_tokens: u.get("total_tokens").and_then(|x| x.as_i64()),
+    });
+    Ok((content, String::new(), usage))
 }
 
 fn extract_error_message(text: &str) -> Option<String> {

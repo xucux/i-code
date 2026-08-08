@@ -127,6 +127,7 @@ impl ChatRepository {
             title: summary.title,
             model: summary.model,
             transport_mode: summary.transport_mode,
+            protocol: summary.protocol,
             messages,
             created_at: summary.created_at,
             updated_at: summary.updated_at,

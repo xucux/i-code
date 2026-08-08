@@ -30,6 +30,14 @@ export type ChatRole = 'system' | 'user' | 'assistant'
 export type ChatTransportMode = 'http' | 'sse'
 
 /**
+ * 网关入口协议
+ * - `chat`：`POST /v1/chat/completions`（OpenAI 兼容，默认）
+ * - `messages`：`POST /v1/messages`（Anthropic 兼容）
+ * - `responses`：`POST /v1/responses`（OpenAI Responses API）
+ */
+export type ChatProtocol = 'chat' | 'messages' | 'responses'
+
+/**
  * 提示词库条目（来自 `app_config_dir/prompt/*.md`）
  *
  * - `id`：文件名（如 `code-review.md`），读取详情的稳定键
@@ -109,6 +117,8 @@ export interface ChatSessionSummary {
   /** 路由模型 ID：`{provider_slug}/{model_id}` */
   model: string
   transportMode: ChatTransportMode
+  /** 网关入口协议（旧数据缺失时默认 `chat`） */
+  protocol: ChatProtocol
   messageCount: number
   createdAt: string
   updatedAt: string
@@ -120,6 +130,7 @@ export interface ChatSession {
   title: string
   model: string
   transportMode: ChatTransportMode
+  protocol: ChatProtocol
   messages: ChatMessage[]
   createdAt: string
   updatedAt: string
@@ -130,6 +141,7 @@ export interface CreateChatSessionInput {
   title?: string
   model: string
   transportMode?: ChatTransportMode
+  protocol?: ChatProtocol
 }
 
 /** 更新会话入参（部分字段） */
@@ -137,6 +149,7 @@ export interface UpdateChatSessionInput {
   title?: string
   model?: string
   transportMode?: ChatTransportMode
+  protocol?: ChatProtocol
 }
 
 /** 发送消息时提交的附件（前端已读内容/base64） */
@@ -157,6 +170,8 @@ export interface SendChatMessageInput {
   attachments?: ChatAttachmentInput[]
   /** 可选覆盖本轮传输模式 */
   transportMode?: ChatTransportMode
+  /** 可选覆盖本轮网关入口协议 */
+  protocol?: ChatProtocol
   /** 当前应用 locale；首条消息时后端会注入为 system 消息 */
   locale?: string
 }
