@@ -810,6 +810,7 @@ fn main() {
             modules::chat::commands::chat_prompt_list,
             modules::chat::commands::chat_prompt_get,
             modules::chat::commands::chat_export_html,
+            modules::chat::commands::chat_reveal_file,
             // ===== Gateway Runtime 模块 =====
             modules::gateway_runtime::commands::gateway_start,
             modules::gateway_runtime::commands::gateway_stop,

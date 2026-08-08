@@ -1406,7 +1406,10 @@
       "exportHtml": "HTML としてエクスポート",
       "exportSuccess": "エクスポート先: {{path}}",
       "exportFailed": "エクスポートに失敗しました",
-      "exportEmpty": "エクスポートするメッセージがありません"
+      "exportEmpty": "エクスポートするメッセージがありません",
+      "exportSuccessTitle": "エクスポート成功",
+      "exportFailedTitle": "エクスポート失敗",
+      "openFolder": "フォルダを開く"
     },
     "prompts": {
       "title": "プロンプトライブラリ",

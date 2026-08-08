@@ -1406,7 +1406,10 @@
       "exportHtml": "导出为 HTML",
       "exportSuccess": "已导出到：{{path}}",
       "exportFailed": "导出失败",
-      "exportEmpty": "当前会话无消息可导出"
+      "exportEmpty": "当前会话无消息可导出",
+      "exportSuccessTitle": "导出成功",
+      "exportFailedTitle": "导出失败",
+      "openFolder": "打开文件夹"
     },
     "prompts": {
       "title": "提示词库",

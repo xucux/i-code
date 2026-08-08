@@ -14,7 +14,7 @@
 
 use tauri::State;
 
-use crate::error::IcodeResult;
+use crate::error::{IcodeError, IcodeResult};
 
 use super::service::ChatServiceHandle;
 use super::types::{
@@ -104,6 +104,13 @@ pub async fn chat_export_html(
     filename: String,
 ) -> IcodeResult<String> {
     state.service().export_html(&html, &filename)
+}
+
+/// 在系统文件浏览器中显示导出的文件（选中该文件）
+#[tauri::command]
+pub async fn chat_reveal_file(path: String) -> IcodeResult<()> {
+    tauri_plugin_opener::reveal_item_in_dir(&path)
+        .map_err(|e| IcodeError::internal(format!("打开文件浏览器失败: {e}")))
 }
 
 // ===== 提示词库（prompt 目录下 *.md 文件） =====

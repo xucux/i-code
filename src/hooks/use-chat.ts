@@ -116,6 +116,11 @@ export async function exportChatHtml(html: string, filename: string): Promise<st
   return invokeCommand<string>('chat_export_html', { html, filename })
 }
 
+/** 在系统文件浏览器中显示导出的文件（选中该文件） */
+export async function revealChatFile(path: string): Promise<void> {
+  await invokeCommand<void>('chat_reveal_file', { path })
+}
+
 // ===== 提示词库（prompt 目录下 *.md） =====
 
 /** 列出所有提示词（标题取自首个 `# ` 行） */

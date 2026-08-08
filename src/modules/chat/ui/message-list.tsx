@@ -138,15 +138,19 @@ function MessageBubble({
 
         {/* 调用失败：错误码 + body 直接写在气泡内 */}
         {isAssistant && hasError && !message.streaming ? (
-          <ErrorBubble message={message} />
+          <ErrorBubble
+            message={message}
+            actions={showActions ? <MessageActionsMenu onCopy={handleCopy} onDelete={handleDelete} /> : null}
+          />
         ) : (
           /* 正文：主题色气泡；流式时空正文用占位文案 + 光标 */
           <div
             className={cn(
-              'rounded-lg px-3 py-2 text-xs leading-relaxed whitespace-pre-wrap break-words',
+              'relative rounded-lg px-3 py-2 text-xs leading-relaxed whitespace-pre-wrap break-words',
               isUser && 'bg-primary text-primary-foreground',
               isAssistant && 'bg-muted text-foreground',
-              message.role === 'system' && 'bg-accent text-accent-foreground'
+              message.role === 'system' && 'bg-accent text-accent-foreground',
+              showActions && 'pr-7'
             )}
           >
             {message.content ||
@@ -158,36 +162,10 @@ function MessageBubble({
             {message.streaming && (
               <span className="ml-1 inline-block animate-pulse text-muted-foreground">▍</span>
             )}
-          </div>
-        )}
-
-        {/* 助手气泡三点菜单：复制 / 删除（非流式时显示，定位气泡右下） */}
-        {showActions && (
-          <div className="flex w-full justify-end">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="flex size-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                  title={t('messages.actions')}
-                >
-                  <i className="fa-solid fa-ellipsis text-[10px]" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="text-xs">
-                <DropdownMenuItem onClick={handleCopy}>
-                  <i className="fa-solid fa-copy text-[10px]" />
-                  {t('messages.copy')}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={handleDelete}
-                  className="text-destructive focus:text-destructive"
-                >
-                  <i className="fa-solid fa-trash text-[10px]" />
-                  {t('messages.delete')}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* 助手气泡三点菜单：定位气泡内右下角 */}
+            {showActions && (
+              <MessageActionsMenu onCopy={handleCopy} onDelete={handleDelete} />
+            )}
           </div>
         )}
 
@@ -230,7 +208,7 @@ function MessageBubble({
  *
  * 展示错误码与完整响应 body，写入会话消息便于回看。
  */
-function ErrorBubble({ message }: { message: ChatMessage }) {
+function ErrorBubble({ message, actions }: { message: ChatMessage; actions?: React.ReactNode }) {
   const { t } = useTranslation('chat')
   const code = message.errorCode?.trim()
   const body = message.errorBody?.trim()
@@ -242,7 +220,7 @@ function ErrorBubble({ message }: { message: ChatMessage }) {
   return (
     <div
       className={cn(
-        'w-full rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs leading-relaxed text-destructive'
+        'relative w-full rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs leading-relaxed text-destructive'
       )}
       role="alert"
     >
@@ -272,7 +250,49 @@ function ErrorBubble({ message }: { message: ChatMessage }) {
           )}
         </>
       )}
+      {actions}
     </div>
+  )
+}
+
+/**
+ * 助手气泡三点菜单（复制 / 删除）
+ *
+ * 触发器绝对定位在父级 `relative` 气泡的右下角（`absolute bottom-0.5 right-1`）。
+ */
+function MessageActionsMenu({
+  onCopy,
+  onDelete,
+}: {
+  onCopy: () => void
+  onDelete: () => void
+}) {
+  const { t } = useTranslation('chat')
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="absolute bottom-0.5 right-1 flex size-5 items-center justify-center rounded text-muted-foreground/60 transition-colors hover:bg-accent hover:text-foreground"
+          title={t('messages.actions')}
+        >
+          <i className="fa-solid fa-ellipsis text-[10px]" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="text-xs">
+        <DropdownMenuItem onClick={onCopy}>
+          <i className="fa-solid fa-copy text-[10px]" />
+          {t('messages.copy')}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={onDelete}
+          className="text-destructive focus:text-destructive"
+        >
+          <i className="fa-solid fa-trash text-[10px]" />
+          {t('messages.delete')}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 

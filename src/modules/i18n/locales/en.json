@@ -1406,7 +1406,10 @@
       "exportHtml": "Export as HTML",
       "exportSuccess": "Exported to: {{path}}",
       "exportFailed": "Export failed",
-      "exportEmpty": "No messages to export"
+      "exportEmpty": "No messages to export",
+      "exportSuccessTitle": "Export succeeded",
+      "exportFailedTitle": "Export failed",
+      "openFolder": "Open folder"
     },
     "prompts": {
       "title": "Prompt library",

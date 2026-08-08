@@ -197,6 +197,14 @@ impl ChatRepository {
     /// 删除单条消息（全量重写消息文件，不含该条）
     ///
     /// 返回是否确实删除了一条（找不到返回 false）。
+    ///
+    /// # 约束说明
+    ///
+    /// 当前 `ChatMessage` 无 parent / 子消息引用字段，删除单条不会产生孤儿引用，
+    /// 故采用纯 `retain` 全量删除。
+    ///
+    /// **若未来引入消息引用关系（分支 / 重放 / captured 上下文 / parent_id），
+    /// 必须在此处联删或级联校验依赖该消息的子消息，避免悬空引用。**
     pub fn delete_message(&self, session_id: &str, message_id: &str) -> IcodeResult<bool> {
         let mut messages = self.list_messages(session_id)?;
         let before = messages.len();

@@ -37,10 +37,20 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useTranslation } from '@/modules/i18n/use-translation'
 import { useAvailableHeight } from '@/hooks/use-available-height'
-import { useChatSession, useChatSessions, exportChatHtml } from '@/hooks/use-chat'
+import { useChatSession, useChatSessions, exportChatHtml, revealChatFile } from '@/hooks/use-chat'
 import { useExposedModels } from '@/hooks/use-virtual-provider'
 import { useGatewayStatus } from '@/hooks/use-gateway-status'
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { toIcodeError } from '@/core/errors'
 import { buildModelId } from '@/core/utils'
 import type { ChatMessage, ChatProtocol, ChatTransportMode, PendingAttachment } from '@/modules/chat/types'
 import { SessionList } from './session-list'
@@ -77,6 +87,12 @@ export function ChatPage() {
 
   const [activeId, setActiveId] = useState<string | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  /** 导出 HTML 结果弹窗：null=关闭；success=成功；error=失败 */
+  const [exportResult, setExportResult] = useState<{
+    success: boolean
+    path?: string
+    error?: string
+  } | null>(null)
   const [input, setInput] = useState('')
   const [attachments, setAttachments] = useState<PendingAttachment[]>([])
   const [transportMode, setTransportMode] = useState<ChatTransportMode>('sse')
@@ -377,10 +393,10 @@ export function ChatPage() {
     }
   }
 
-  /** 导出当前会话为 HTML 文件：读取主题色内联渲染，写入 exports/ 目录 */
+  /** 导出当前会话为 HTML 文件：读取主题色内联渲染，写入 exports/ 目录，弹窗展示结果 */
   const handleExportHtml = async () => {
     if (!session || messages.length === 0) {
-      toast.error(t('input.exportEmpty'))
+      setExportResult({ success: false, error: t('input.exportEmpty') })
       return
     }
     try {
@@ -388,9 +404,18 @@ export function ChatPage() {
       const safeTitle = session.title.replace(/[\\/:*?"<>|]/g, '_').slice(0, 60) || 'chat'
       const filename = `${safeTitle}-${Date.now()}.html`
       const path = await exportChatHtml(html, filename)
-      toast.success(t('input.exportSuccess', { path }))
-    } catch {
-      toast.error(t('input.exportFailed'))
+      setExportResult({ success: true, path })
+    } catch (e) {
+      setExportResult({ success: false, error: toIcodeError(e)?.message ?? t('input.exportFailed') })
+    }
+  }
+
+  /** 在系统文件浏览器中显示导出的文件 */
+  const handleRevealFile = async (path: string) => {
+    try {
+      await revealChatFile(path)
+    } catch (e) {
+      toast.error(toIcodeError(e)?.message ?? t('input.exportFailed'))
     }
   }
 
@@ -479,9 +504,71 @@ export function ChatPage() {
         }
         onConfirm={() => void handleDeleteConfirm()}
       />
+
+      {/* 导出 HTML 结果弹窗：成功展示路径 + 打开文件夹；失败展示原因 */}
+      <Dialog
+        open={!!exportResult}
+        onOpenChange={(open) => {
+          if (!open) setExportResult(null)
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-sm">
+              <i
+                className={
+                  exportResult?.success
+                    ? 'fa-solid fa-circle-check text-green-500'
+                    : 'fa-solid fa-circle-exclamation text-destructive'
+                }
+              />
+              {exportResult?.success
+                ? t('input.exportSuccessTitle')
+                : t('input.exportFailedTitle')}
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              {exportResult?.success
+                ? exportResult.path
+                : exportResult?.error || t('input.exportFailed')}
+            </DialogDescription>
+          </DialogHeader>
+          {exportResult?.success && exportResult.path && (
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="default"
+                size="sm"
+                onClick={() => void handleRevealFile(exportResult.path!)}
+              >
+                <i className="fa-solid fa-folder-open" />
+                {t('input.openFolder')}
+              </Button>
+            </DialogFooter>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
+
+/**
+ * i-code Logo SVG（内联到导出 HTML 中，无需外部依赖）
+ *
+ * 圆角矩形背景 + 代码符号，与项目 "AI 编程助手" 定位一致。
+ */
+const APP_LOGO_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">' +
+  '<rect width="32" height="32" rx="7" ry="7" fill="currentColor"/>' +
+  '<path d="M10 12 L6 16 L10 20" stroke="white" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>' +
+  '<path d="M22 12 L26 16 L22 20" stroke="white" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>' +
+  '<line x1="18" y1="11" x2="14" y2="21" stroke="white" stroke-width="2.4" stroke-linecap="round"/>' +
+  '</svg>'
+
+/**
+ * GitHub 仓库地址
+ */
+const APP_GITHUB_URL = 'https://github.com/xucux/i-code'
+const APP_VERSION = 'v0.1.7'
 
 /**
  * 构建单会话 HTML 导出文档
@@ -490,6 +577,7 @@ export function ChatPage() {
  * - 用户气泡靠右（primary）、助手气泡靠左（muted）
  * - 助手含 thinking 折叠块、正文、token 用量与模型 id
  * - 图片附件内嵌 base64；其他附件仅展示名称与大小
+ * - 顶部带项目 Logo、标题、GitHub 链接；宽度 800px 居中
  */
 function buildChatHtml(title: string, messages: ChatMessage[]): string {
   const root = document.documentElement
@@ -506,6 +594,38 @@ function buildChatHtml(title: string, messages: ChatMessage[]): string {
   const border = cssVar('--border')
   const accent = cssVar('--accent')
   const destructive = cssVar('--destructive')
+  const card = cssVar('--card')
+  const cardFg = cssVar('--card-foreground')
+
+  /**
+   * 检测主题深浅：解析 HSL 格式 `h s% l%` 的 L 分量。
+   * 浅色主题下 `--card` 与 `--background` 颜色几乎相同，
+   * 需要通过 filter 拉开助手气泡与背景的对比度。
+   */
+  const parseLuminance = (hsl: string): number => {
+    const parts = hsl.trim().split(/\s+/)
+    if (parts.length >= 3) {
+      const l = Number.parseFloat(parts[2].replace('%', ''))
+      return Number.isNaN(l) ? 50 : l
+    }
+    return 50
+  }
+  const bgL = parseLuminance(bg)
+  const cardL = parseLuminance(card)
+  const isLightTheme = bgL >= 50
+  const bgCardSimilar = Math.abs(bgL - cardL) < 2
+  // 计算助手气泡背景色：当 card 与背景接近时，通过调整亮度拉开对比度
+  let assistantBg = card
+  if (bgCardSimilar) {
+    const parts = card.trim().split(/\s+/)
+    if (parts.length >= 3) {
+      const h = parts[0]
+      const s = parts[1]
+      let l = Number.parseFloat(parts[2].replace('%', ''))
+      l = isLightTheme ? l * 0.94 : Math.min(l * 1.08, 100)
+      assistantBg = `${h} ${s} ${l.toFixed(1)}%`
+    }
+  }
 
   const esc = (s: string): string =>
     s
@@ -560,12 +680,18 @@ function buildChatHtml(title: string, messages: ChatMessage[]): string {
     })
     .join('\n')
 
+  const titleEsc = esc(title)
+  const githubSvg =
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">' +
+    '<path d="M12 .297C5.37.297 0 5.67 0 12.297c0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.385-1.333-1.755-1.333-1.755-1.09-.745.084-.729.084-.729 1.205.084 1.84 1.236 1.84 1.236 1.07 1.835 2.805 1.305 3.49.998.108-.776.418-1.305.762-1.605-2.665-.305-5.467-1.335-5.467-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.957-.266 1.98-.398 3-.403 1.02.005 2.045.137 3 .403 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.62-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297 24 5.67 18.627.297 12 .297z"/>' +
+    '</svg>'
+
   return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>${esc(title)}</title>
+<title>${titleEsc} - i-code</title>
 <style>
   :root {
     --background: ${bg};
@@ -577,38 +703,206 @@ function buildChatHtml(title: string, messages: ChatMessage[]): string {
     --border: ${border};
     --accent: ${accent};
     --destructive: ${destructive};
+    --card: ${card};
+    --card-foreground: ${cardFg};
+    --assistant-bg: ${assistantBg};
   }
   * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
   body {
-    margin: 0;
-    padding: 16px;
     background: var(--background);
     color: var(--foreground);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     font-size: 13px;
     line-height: 1.6;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 16px;
   }
-  h1 { font-size: 16px; margin: 0 0 16px 0; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
-  .row { display: flex; margin-bottom: 12px; }
+  /* 容器：800px 居中，白色背景，圆角阴影 */
+  .container {
+    width: 100%;
+    max-width: 800px;
+    background: var(--background);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+  }
+  /* 顶部 Header */
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(to bottom, ${muted}, var(--background));
+  }
+  .header .logo {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    color: ${primary};
+  }
+  .header .title-area { flex: 1; min-width: 0; }
+  .header .app-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--foreground);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .header .app-name .version {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--muted-foreground);
+    background: var(--muted);
+    padding: 1px 6px;
+    border-radius: 4px;
+  }
+  .header .session-title {
+    font-size: 13px;
+    color: var(--muted-foreground);
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .header .actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .header .github-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--muted-foreground);
+    text-decoration: none;
+    font-size: 12px;
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    transition: all 0.2s;
+  }
+  .header .github-link:hover {
+    color: var(--primary);
+    border-color: var(--primary);
+    background: var(--accent);
+  }
+  /* 消息区 */
+  .content-area {
+    padding: 24px;
+  }
+  .row { display: flex; margin-bottom: 16px; }
   .row-user { justify-content: flex-end; }
   .row-assistant { justify-content: flex-start; }
-  .bubble { max-width: 80%; border-radius: 8px; padding: 8px 12px; word-break: break-word; white-space: pre-wrap; }
-  .bubble.user { background: var(--primary); color: var(--primary-foreground); }
-  .bubble.assistant { background: var(--muted); color: var(--foreground); }
-  .thinking { margin-bottom: 6px; border: 1px dashed var(--border); border-radius: 6px; padding: 6px 8px; }
-  .thinking summary { cursor: pointer; font-size: 11px; color: var(--muted-foreground); }
-  .thinking div { margin-top: 6px; font-size: 12px; color: var(--muted-foreground); white-space: pre-wrap; }
+  .bubble {
+    max-width: 80%;
+    border-radius: 10px;
+    padding: 10px 14px;
+    word-break: break-word;
+    white-space: pre-wrap;
+  }
+  .bubble.user {
+    background: var(--primary);
+    color: var(--primary-foreground);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  }
+  .bubble.assistant {
+    background: hsl(var(--assistant-bg));
+    color: var(--card-foreground);
+    border: 1px solid var(--border);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  }
+  .thinking {
+    margin-bottom: 8px;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    background: var(--accent);
+    opacity: 0.9;
+  }
+  .thinking summary {
+    cursor: pointer;
+    font-size: 11px;
+    color: var(--muted-foreground);
+    user-select: none;
+  }
+  .thinking summary:hover { color: var(--foreground); }
+  .thinking div {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--muted-foreground);
+    white-space: pre-wrap;
+  }
   .content { white-space: pre-wrap; }
-  .attachments { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; }
-  .att-img { width: 64px; height: 64px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border); }
-  .att-file { font-size: 11px; color: var(--muted-foreground); background: var(--background); border: 1px solid var(--border); border-radius: 4px; padding: 2px 6px; }
-  .usage { margin-top: 4px; font-size: 10px; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
+  .attachments { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .att-img {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    display: block;
+  }
+  .att-file {
+    font-size: 11px;
+    color: var(--muted-foreground);
+    background: var(--background);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 3px 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .usage {
+    margin-top: 6px;
+    font-size: 10px;
+    color: var(--muted-foreground);
+    font-variant-numeric: tabular-nums;
+  }
   .usage .model { opacity: 0.7; margin-left: 4px; }
+  /* 底部 Footer */
+  .footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    text-align: center;
+    font-size: 11px;
+    color: var(--muted-foreground);
+  }
+  .footer a {
+    color: var(--primary);
+    text-decoration: none;
+  }
+  .footer a:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
-<h1>${esc(title)}</h1>
-${bubbles}
+<div class="container">
+  <!-- Header -->
+  <div class="header">
+    <div class="logo">${APP_LOGO_SVG}</div>
+    <div class="title-area">
+      <div class="app-name">i-code <span class="version">${APP_VERSION}</span></div>
+      <div class="session-title">${titleEsc}</div>
+    </div>
+    <div class="actions">
+      <a class="github-link" href="${APP_GITHUB_URL}" target="_blank" rel="noopener noreferrer">
+        ${githubSvg}
+        GitHub
+      </a>
+    </div>
+  </div>
+  <!-- Content -->
+  <div class="content-area">
+    ${bubbles}
+  </div>
+  <!-- Footer -->
+  <div class="footer">
+    Exported by <a href="${APP_GITHUB_URL}" target="_blank" rel="noopener noreferrer">i-code</a> · Local AI Gateway & CLI Config Manager
+  </div>
+</div>
 </body>
 </html>`
 }

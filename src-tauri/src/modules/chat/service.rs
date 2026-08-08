@@ -217,6 +217,8 @@ impl ChatService {
     }
 
     /// 删除单条消息：移除 JSONL 中该条并回写会话摘要计数
+    ///
+    /// 当前无子消息引用关系，直接删除即可；未来若引入分支/引用需联删（见 repository::delete_message 约束说明）
     pub fn delete_message(&self, session_id: &str, message_id: &str) -> IcodeResult<()> {
         let repo = self
             .repo
