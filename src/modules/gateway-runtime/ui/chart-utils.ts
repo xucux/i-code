@@ -58,41 +58,15 @@ export function generateBuckets(now: Date, windowHours: number, bucketSeconds: n
   return buckets
 }
 
-/** 模型曲线颜色：围绕主题色相的最大偏移（±度） */
+/** 模型曲线颜色：围绕主题色相的最大偏移（±度），最外圈色相偏移量 */
 const HUE_SPREAD = 32
 
-/**
- * 生成围绕主题色的模型曲线颜色（替代色相环 360° 均分）
- *
- * 读取当前主题 `--primary` 的色相作为基准，在 ±HUE_SPREAD 范围内按模型数量均分，
- * 避免颜色跳变到与主题无关的色相；饱和度与亮度沿渐变方向递增，
- * 并针对浅色/深色主题调整亮度区间（浅色主题偏深、深色主题偏亮），
- * 保证各颜色在对应背景下可读且整体与主题协调。
- */
-export function getChartColor(index: number, total: number): string {
-  // 读取主题主色相（Tailwind HSL 空格语法：`222.2 47.4% 11.2%`）
-  const raw = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim()
-  const hueMatch = raw.match(/^([\d.]+)/)
-  const baseHue = hueMatch ? parseFloat(hueMatch[1]) : 222
-
-  // 深色主题判断：主题类名形如 theme-dark / theme-claude-dark
+/** 判断当前是否为深色主题（主题类名形如 theme-dark / theme-claude-dark） */
+function isDarkTheme(): boolean {
   const themeClass = Array.from(document.documentElement.classList).find((c) =>
     c.startsWith('theme-')
   )
-  const isDark = themeClass?.includes('dark') ?? false
-
-  const hue = total <= 1
-    ? baseHue
-    : baseHue - HUE_SPREAD + (HUE_SPREAD * 2 * index) / (total - 1)
-  const progress = total <= 1 ? 0.5 : index / (total - 1)
-  // 饱和度与亮度沿渐变方向递增，相邻模型既有色相差又有明暗差，便于区分
-  const sat = Math.round(58 + progress * 22)
-  const light = isDark
-    ? Math.round(55 + progress * 14)
-    : Math.round(34 + progress * 16)
-  const normalizedHue = ((hue % 360) + 360) % 360
-
-  return `hsl(${normalizedHue} ${sat}% ${light}%)`
+  return themeClass?.includes('dark') ?? false
 }
 
 /** 解析当前主题 `--primary` 变量的 HSL 分量（Tailwind 空格语法：`222.2 47.4% 11.2%`） */
@@ -106,34 +80,77 @@ function readPrimaryHsl(): { hue: number; sat: number; light: number } {
 }
 
 /**
- * 生成 Token 累计柱状图的双色（围绕主题主色的明暗配对）
+ * 生成主题色对（围绕当前主题主色的两个配色）
  *
- * - `total`：当天总 Token 消耗（亮一档）
- * - `cached`：当天缓存命中 Token 消耗（深一档，比 total 更深）
+ * - `primary`：主题色——深色主题直接用 `--primary`（本身偏亮），浅色主题提亮一档
+ * - `deep`：主题深色——与主题色同色相、更深一档（浅色主题直接用 `--primary`）
  *
- * 深色主题下主色本身偏亮，缓存色在主色基础上压低亮度实现"更深"；
- * 浅色主题下主色偏深（如 11% 亮度），总消耗使用提亮后的版本、缓存色压得更深。
+ * Token 累计柱状图（总消耗 / 缓存命中）与模型折线图（前两条线）共用此配色，
+ * 保证全站图表与主题主色一致。
  */
-export function getTokenBarColors(): { total: string; cached: string } {
+export function getThemeColorPair(): { primary: string; deep: string } {
   const { hue, sat, light } = readPrimaryHsl()
-  const themeClass = Array.from(document.documentElement.classList).find((c) =>
-    c.startsWith('theme-')
-  )
-  const isDark = themeClass?.includes('dark') ?? false
-
-  if (isDark) {
-    // 深色主题：主色偏亮 → 总消耗用主色，缓存命中压低亮度（更深更重）
-    const cachedLight = Math.max(light - 26, 15)
+  if (isDarkTheme()) {
+    // 深色主题：主色偏亮 → 主题色用主色，深色压缩低亮度（更重）
+    const deepLight = Math.max(light - 26, 15)
     return {
-      total: `hsl(${hue} ${sat}% ${light}%)`,
-      cached: `hsl(${hue} ${Math.min(sat + 5, 95)}% ${cachedLight}%)`,
+      primary: `hsl(${hue} ${sat}% ${light}%)`,
+      deep: `hsl(${hue} ${Math.min(sat + 5, 95)}% ${deepLight}%)`,
     }
   }
-  // 浅色主题：主色偏深 → 总消耗提亮一档、缓存命中的亮度再压低（保持明显更深）
-  const totalLight = Math.min(light + 30, 55)
-  const cachedLight = Math.max(light - 10, 9)
+  // 浅色主题：主色偏深 → 主题色提亮一档、主题深色直接用主色
+  const primaryLight = Math.min(light + 30, 55)
+  const deepLight = Math.max(light - 10, 9)
   return {
-    total: `hsl(${hue} ${Math.max(sat - 8, 35)}% ${totalLight}%)`,
-    cached: `hsl(${hue} ${Math.min(sat + 5, 95)}% ${cachedLight}%)`,
+    primary: `hsl(${hue} ${Math.max(sat - 8, 35)}% ${primaryLight}%)`,
+    deep: `hsl(${hue} ${Math.min(sat + 5, 95)}% ${deepLight}%)`,
   }
+}
+
+/**
+ * 生成 Token 累计柱状图的双色
+ *
+ * - `total`：当天总 Token 消耗（主题色）
+ * - `cached`：当天缓存命中 Token 消耗（主题深色，比 total 更深）
+ */
+export function getTokenBarColors(): { total: string; cached: string } {
+  const pair = getThemeColorPair()
+  return { total: pair.primary, cached: pair.deep }
+}
+
+/**
+ * 生成围绕主题色的模型曲线颜色（包括主题色与主题深色）
+ *
+ * 颜色表固定包含两组主题色：
+ * - `index 0`：主题色（与 Token 累计柱状图「总消耗」一致）
+ * - `index 1`：主题深色（与 Token 累计柱状图「缓存命中」一致）
+ * 其余模型色围绕主题色相在两侧渐变分布（避开中心主题色对），
+ * 饱和度与亮度沿渐变方向递增，并针对浅色/深色主题调整亮度区间，
+ * 保证各颜色可读且整体与主题协调。
+ */
+export function getChartColor(index: number, total: number): string {
+  const pair = getThemeColorPair()
+  if (total <= 1 || index === 0) return pair.primary
+  if (index === 1) return pair.deep
+
+  // 其余模型色：按「外圈 → 内圈」交替取色相偏移，始终避开中心主题色对
+  const { hue: baseHue } = readPrimaryHsl()
+  const k = index - 1 // 剩余模型序号（0 起）
+  const remaining = total - 2
+  const maxRings = Math.max(Math.ceil(remaining / 2), 1)
+  const ring = Math.floor(k / 2)
+  // 最外圈偏移 HUE_SPREAD，每向内一圈收缩，最小 8°（避免与主题色对重叠）
+  const offset = Math.round(
+    HUE_SPREAD - (ring * (HUE_SPREAD - 8)) / Math.max(maxRings - 1, 1)
+  )
+  const sign = k % 2 === 0 ? 1 : -1
+  const hue = baseHue + sign * offset
+  const pos = remaining <= 1 ? 0.5 : k / (remaining - 1)
+  const sat = Math.round(58 + pos * 22)
+  const light = isDarkTheme()
+    ? Math.round(55 + pos * 14)
+    : Math.round(34 + pos * 16)
+  const normalizedHue = ((hue % 360) + 360) % 360
+
+  return `hsl(${normalizedHue} ${sat}% ${light}%)`
 }
