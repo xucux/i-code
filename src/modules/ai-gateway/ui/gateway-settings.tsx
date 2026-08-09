@@ -453,7 +453,7 @@ export function GatewayAuthKeyManager() {
                 >
                   <i className="fa-solid fa-globe text-[10px]" />
                   <code className="truncate font-mono text-[11px]">{gatewayUrl}</code>
-                  <i className="fa-solid fa-copy text-[10px]" />
+                  {/* <i className="fa-solid fa-copy text-[10px]" /> */}
                 </Button>
               )}
               <Button size="sm" className="h-7 text-xs" onClick={() => openAuthForm()}>

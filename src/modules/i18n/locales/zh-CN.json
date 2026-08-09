@@ -783,7 +783,15 @@
       "trendTitle": "请求趋势",
       "trendDescription": "近 24 小时 · 10 分钟聚合 · 按模型",
       "tokenTitle": "Token 消耗",
-      "tokenDescription": "近 24 小时 · 10 分钟聚合 · 按模型"
+      "tokenDescription": "近 24 小时 · 10 分钟聚合 · 按模型",
+      "cumulativeTitle": "Token 累计消耗",
+      "cumulativeDescription": "近 {{days}} 天 · 按天聚合 · 总消耗与缓存命中",
+      "rangeDays": "时间范围",
+      "lastDays": "近 {{days}} 天",
+      "legendTotal": "总消耗",
+      "legendCached": "缓存命中",
+      "filterModel": "按模型筛选",
+      "allModels": "全部模型"
     },
     "logViewer": {
       "title": "实时请求日志",

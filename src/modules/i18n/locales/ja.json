@@ -783,7 +783,15 @@
       "trendTitle": "リクエスト傾向",
       "trendDescription": "直近 24 時間・10 分集計・モデル別",
       "tokenTitle": "Token 消費",
-      "tokenDescription": "直近 24 時間・10 分集計・モデル別"
+      "tokenDescription": "直近 24 時間・10 分集計・モデル別",
+      "cumulativeTitle": "Token 累計消費",
+      "cumulativeDescription": "直近 {{days}} 日・日別集計・総消費とキャッシュヒット",
+      "rangeDays": "期間",
+      "lastDays": "直近 {{days}} 日",
+      "legendTotal": "総消費",
+      "legendCached": "キャッシュヒット",
+      "filterModel": "モデルで絞り込み",
+      "allModels": "すべてのモデル"
     },
     "logViewer": {
       "title": "リアルタイムリクエストログ",

@@ -783,7 +783,15 @@
       "trendTitle": "請求趨勢",
       "trendDescription": "近 24 小時 · 10 分鐘聚合 · 按模型",
       "tokenTitle": "Token 消耗",
-      "tokenDescription": "近 24 小時 · 10 分鐘聚合 · 按模型"
+      "tokenDescription": "近 24 小時 · 10 分鐘聚合 · 按模型",
+      "cumulativeTitle": "Token 累計消耗",
+      "cumulativeDescription": "近 {{days}} 天 · 按天聚合 · 總消耗與快取命中",
+      "rangeDays": "時間範圍",
+      "lastDays": "近 {{days}} 天",
+      "legendTotal": "總消耗",
+      "legendCached": "快取命中",
+      "filterModel": "按模型篩選",
+      "allModels": "全部模型"
     },
     "logViewer": {
       "title": "即時請求日誌",

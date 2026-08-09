@@ -16,6 +16,7 @@ import { GatewayBasicSettings, GatewayAuthKeyManager, CallbackServerManager } fr
 import { GatewayTrafficChart } from '@/modules/gateway-runtime/ui/gateway-traffic-chart'
 import { GatewayTrendChart } from '@/modules/gateway-runtime/ui/gateway-trend-chart'
 import { GatewayTokenChart } from '@/modules/gateway-runtime/ui/gateway-token-chart'
+import { GatewayTokenCumulativeChart } from '@/modules/gateway-runtime/ui/gateway-token-cumulative-chart'
 import { GatewayApiDocsDialog } from '@/modules/gateway-runtime/ui/gateway-api-docs-dialog'
 import { ScrollPage } from '@/components/ui/scroll-page'
 import { toast } from 'sonner'
@@ -120,10 +121,11 @@ function GatewaysIndexPage() {
         <TabsContent value="gateway" className="h-screen overflow-auto">
           <ScrollPage variant="borderless" scrollbarVisible="auto" className="h-full">
             <div className="flex flex-col gap-4 p-4 pb-20">
-              {/* 三幅全宽图：实时请求流量 → Token 消耗 → 请求趋势
+              {/* 三幅全宽图：实时请求流量 → Token 消耗 → Token 累计消耗 → 请求趋势
                   三者均使用明细表实时聚合数据，按窗口自适应粒度 */}
               <GatewayTrafficChart />
               <GatewayTokenChart />
+              <GatewayTokenCumulativeChart />
               <GatewayTrendChart />
             </div>
           </ScrollPage>

@@ -94,3 +94,46 @@ export function getChartColor(index: number, total: number): string {
 
   return `hsl(${normalizedHue} ${sat}% ${light}%)`
 }
+
+/** 解析当前主题 `--primary` 变量的 HSL 分量（Tailwind 空格语法：`222.2 47.4% 11.2%`） */
+function readPrimaryHsl(): { hue: number; sat: number; light: number } {
+  const raw = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim()
+  const parts = raw.split(/\s+/)
+  const hue = parts[0] !== undefined ? parseFloat(parts[0]) : 222
+  const sat = parts[1] !== undefined ? parseFloat(parts[1]) : 60
+  const light = parts[2] !== undefined ? parseFloat(parts[2]) : 40
+  return { hue, sat, light }
+}
+
+/**
+ * 生成 Token 累计柱状图的双色（围绕主题主色的明暗配对）
+ *
+ * - `total`：当天总 Token 消耗（亮一档）
+ * - `cached`：当天缓存命中 Token 消耗（深一档，比 total 更深）
+ *
+ * 深色主题下主色本身偏亮，缓存色在主色基础上压低亮度实现"更深"；
+ * 浅色主题下主色偏深（如 11% 亮度），总消耗使用提亮后的版本、缓存色压得更深。
+ */
+export function getTokenBarColors(): { total: string; cached: string } {
+  const { hue, sat, light } = readPrimaryHsl()
+  const themeClass = Array.from(document.documentElement.classList).find((c) =>
+    c.startsWith('theme-')
+  )
+  const isDark = themeClass?.includes('dark') ?? false
+
+  if (isDark) {
+    // 深色主题：主色偏亮 → 总消耗用主色，缓存命中压低亮度（更深更重）
+    const cachedLight = Math.max(light - 26, 15)
+    return {
+      total: `hsl(${hue} ${sat}% ${light}%)`,
+      cached: `hsl(${hue} ${Math.min(sat + 5, 95)}% ${cachedLight}%)`,
+    }
+  }
+  // 浅色主题：主色偏深 → 总消耗提亮一档、缓存命中的亮度再压低（保持明显更深）
+  const totalLight = Math.min(light + 30, 55)
+  const cachedLight = Math.max(light - 10, 9)
+  return {
+    total: `hsl(${hue} ${Math.max(sat - 8, 35)}% ${totalLight}%)`,
+    cached: `hsl(${hue} ${Math.min(sat + 5, 95)}% ${cachedLight}%)`,
+  }
+}

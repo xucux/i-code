@@ -783,7 +783,15 @@
       "trendTitle": "Request Trend",
       "trendDescription": "Last 24 hours · 10min aggregation · by model",
       "tokenTitle": "Token Usage",
-      "tokenDescription": "Last 24 hours · 10min aggregation · by model"
+      "tokenDescription": "Last 24 hours · 10min aggregation · by model",
+      "cumulativeTitle": "Cumulative Token Usage",
+      "cumulativeDescription": "Last {{days}} days · daily aggregation · total & cache hit",
+      "rangeDays": "Time range",
+      "lastDays": "Last {{days}} days",
+      "legendTotal": "Total",
+      "legendCached": "Cache hit",
+      "filterModel": "Filter by model",
+      "allModels": "All models"
     },
     "logViewer": {
       "title": "Real-time Request Logs",
