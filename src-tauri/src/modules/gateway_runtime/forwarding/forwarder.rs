@@ -364,6 +364,9 @@ impl ForwardPipeline {
         // 前置：替换 model、设置 stream、注入 stream_options
         Self::prepare_body(ctx, body);
 
+        // DeepSeek 思考修复：为匹配模型的 assistant 消息补注入空 reasoning_content
+        Self::apply_deepseek_thinking_fix(shared, ctx, body);
+
         // 协议桥接：检测桥接方向，必要时转换请求体（§4.2 / §5.1 / §5.2）
         let bridge_kind = crate::modules::gateway_runtime::bridge::detect_bridge(
             ctx.gateway_protocol,
@@ -600,6 +603,70 @@ impl ForwardPipeline {
                     serde_json::json!({"include_usage": true}),
                 );
             }
+        }
+    }
+
+    /// DeepSeek 思考修复：为匹配模型的 assistant 消息补注入空 reasoning_content
+    ///
+    /// DeepSeek V4 思考模式下，多轮对话中所有 assistant 消息必须携带 `reasoning_content` 字段。
+    /// 但模型有时仅返回 tool_calls 而不产生 reasoning_content，导致下一轮请求被上游 400 拒绝。
+    ///
+    /// 开启后，网关在 `prepare_body` 之后、协议桥接之前，对匹配模型的请求体 messages 数组中
+    /// 缺少 `reasoning_content` 字段的 assistant 消息补注入空字符串。
+    ///
+    /// 仅对 ChatCompletions 协议生效（`reasoning_content` 是 OpenAI 兼容扩展）。
+    fn apply_deepseek_thinking_fix(shared: &GatewaySharedState, ctx: &ForwardContext, body: &mut Value) {
+        // 仅对 ChatCompletions 协议生效
+        if ctx.gateway_protocol != GatewayProtocol::ChatCompletions {
+            return;
+        }
+
+        // 读取网关设置；失败时静默跳过（不阻塞转发）
+        let settings = match shared.ai_gateway_handle.service().get_gateway_settings() {
+            Ok(s) => s,
+            Err(e) => {
+                log::warn!("DeepSeek 思考修复：读取网关设置失败，跳过: {e}");
+                return;
+            }
+        };
+        let fix = &settings.deepseek_thinking_fix;
+        if !fix.enabled {
+            return;
+        }
+
+        // 模型匹配（忽略大小写）
+        let keyword = fix.keyword.to_ascii_lowercase();
+        let model_id = ctx.gateway_model_id.to_ascii_lowercase();
+        let matched = match fix.match_mode.as_str() {
+            "equals" => model_id == keyword,
+            "prefix" => model_id.starts_with(&keyword),
+            "suffix" => model_id.ends_with(&keyword),
+            _ => model_id.contains(&keyword), // 默认 contains
+        };
+        if !matched {
+            return;
+        }
+
+        // 遍历 messages，为缺少 reasoning_content 的 assistant 消息补注入空字符串
+        let mut fixed_count = 0u32;
+        if let Some(messages) = body.get_mut("messages").and_then(|m| m.as_array_mut()) {
+            for msg in messages.iter_mut() {
+                let role = msg.get("role").and_then(|r| r.as_str());
+                if role != Some("assistant") {
+                    continue;
+                }
+                if msg.get("reasoning_content").is_none() {
+                    msg["reasoning_content"] = serde_json::Value::String(String::new());
+                    fixed_count += 1;
+                }
+            }
+        }
+        if fixed_count > 0 {
+            log::debug!(
+                "DeepSeek 思考修复：为模型 {} 的 {} 条 assistant 消息补注入 reasoning_content",
+                ctx.gateway_model_id,
+                fixed_count
+            );
         }
     }
 

@@ -1151,8 +1151,36 @@ pub struct GatewaySettings {
     /// `default_api_key_secret_id` 仅在此字段为 `true` 时参与校验，
     /// 不控制认证开关。
     pub auth_enabled: bool,
+    /// DeepSeek 思考修复配置（JSON 列，序列化为 camelCase 对象传递给前端）
+    pub deepseek_thinking_fix: DeepSeekThinkingFixConfig,
     pub created_at: String,
     pub updated_at: String,
+}
+
+/// DeepSeek 思考修复配置
+///
+/// DeepSeek V4 思考模式下，多轮对话中 assistant 消息必须携带 `reasoning_content`。
+/// 但模型有时仅返回 tool_calls 而不产生 reasoning_content，导致下一轮 400。
+/// 开启后，网关自动为匹配模型的 assistant 消息补注入空 `reasoning_content`。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeepSeekThinkingFixConfig {
+    /// 是否开启修复
+    pub enabled: bool,
+    /// 模型匹配关键字（默认 "deepseek"）
+    pub keyword: String,
+    /// 匹配模式 contains/equals/prefix/suffix（默认 "contains"）
+    pub match_mode: String,
+}
+
+impl Default for DeepSeekThinkingFixConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            keyword: "deepseek".to_string(),
+            match_mode: "contains".to_string(),
+        }
+    }
 }
 
 /// Gateway 监听地址
@@ -1370,6 +1398,9 @@ pub struct UpdateGatewaySettingsInput {
     /// 是否启用外部请求认证；`Some(false)` 关闭认证，`Some(true)` 开启认证
     #[serde(skip_serializing_if = "Option::is_none")]
     pub auth_enabled: Option<bool>,
+    /// DeepSeek 思考修复配置（整体替换）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub deepseek_thinking_fix: Option<DeepSeekThinkingFixConfig>,
 }
 
 // ===== 网关认证 API Key =====

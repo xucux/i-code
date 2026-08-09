@@ -53,6 +53,10 @@ const V004__GATEWAY_SETTINGS_AUTH_ENABLED: &str =
 /// 供应商备注：providers 表新增 remark 列
 const V005__PROVIDER_REMARK: &str = include_str!("./migrations/V005__provider_remark.sql");
 
+/// DeepSeek 思考修复：gateway_settings 表新增 deepseek_thinking_fix JSON 配置列
+const V006__GATEWAY_SETTINGS_DEEPSEEK_FIX: &str =
+    include_str!("./migrations/V006__gateway_settings_deepseek_fix.sql");
+
 /// 内置迁移列表：(版本号, 描述, SQL 内容)
 ///
 /// 增量迁移模式：V001 为基线，V002+ 为增量变更。
@@ -63,6 +67,7 @@ const BUILTIN_MIGRATIONS: &[(u32, &str, &str)] = &[
     (3, "provider_auth_fields", V003__PROVIDER_AUTH_FIELDS),
     (4, "gateway_settings_auth_enabled", V004__GATEWAY_SETTINGS_AUTH_ENABLED),
     (5, "provider_remark", V005__PROVIDER_REMARK),
+    (6, "gateway_settings_deepseek_fix", V006__GATEWAY_SETTINGS_DEEPSEEK_FIX),
 ];
 
 /// 执行所有未应用的迁移

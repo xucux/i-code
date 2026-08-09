@@ -149,7 +149,7 @@ export function ProviderList() {
   // 网络检测状态
   const [pinging, setPinging] = useState(false)
   const [pingResultOpen, setPingResultOpen] = useState(false)
-  const [pingMode, setPingMode] = useState<'direct' | 'proxy'>('direct')
+  const [pingMode, setPingMode] = useState<'direct' | 'proxy' | 'config'>('direct')
   const [pingDone, setPingDone] = useState<PingDonePayload | null>(null)
   const [pingResults, setPingResults] = useState<PingProviderResult[]>([])
 
@@ -244,7 +244,7 @@ export function ProviderList() {
   }
 
   // 网络检测：立即弹窗，逐条接收事件推送结果
-  const handlePingProviders = async (mode: 'direct' | 'proxy') => {
+  const handlePingProviders = async (mode: 'direct' | 'proxy' | 'config') => {
     if (providers.length === 0) {
       toast.info(t('aiGateway.providerList.networkCheckEmpty'))
       return
@@ -452,6 +452,13 @@ export function ProviderList() {
                   >
                     <i className="fa-solid fa-network-wired size-4" />
                     <span className="text-xs">{t('aiGateway.providerList.networkCheckProxy')}</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={pinging}
+                    onClick={() => handlePingProviders('config')}
+                  >
+                    <i className="fa-solid fa-sliders size-4" />
+                    <span className="text-xs">{t('aiGateway.providerList.networkCheckConfig')}</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -1026,7 +1033,7 @@ function BalanceDetailDialog({
 interface PingResultDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  mode: 'direct' | 'proxy'
+  mode: 'direct' | 'proxy' | 'config'
   results: PingProviderResult[]
   done: PingDonePayload | null
   loading: boolean
@@ -1050,7 +1057,9 @@ function PingResultDialog({
 
   const modeLabel = mode === 'direct'
     ? t('aiGateway.providerList.networkCheckDirect')
-    : t('aiGateway.providerList.networkCheckProxy')
+    : mode === 'proxy'
+      ? t('aiGateway.providerList.networkCheckProxy')
+      : t('aiGateway.providerList.networkCheckConfig')
 
   const summaryText = done
     ? t('aiGateway.providerList.pingResultSummary', { success: done.success, failed: done.failed, total: done.total })

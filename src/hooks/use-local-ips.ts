@@ -1,5 +1,30 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { invokeCommand } from '@/hooks/use-command'
+
+/** 网关首选展示地址持久化键（localStorage） */
+const PREFERRED_HOST_STORAGE_KEY = 'i-code:gateway-preferred-host'
+
+/** 订阅回调集合：当地址偏好变化时通知所有 useLocalIps 消费方 */
+const preferredHostListeners = new Set<() => void>()
+
+/** 读取用户最后选中的网关展示地址；读取失败（如隐私模式）返回 null */
+export function getPreferredGatewayHost(): string | null {
+  try {
+    return localStorage.getItem(PREFERRED_HOST_STORAGE_KEY)
+  } catch {
+    return null
+  }
+}
+
+/** 持久化用户最后选中的网关展示地址，并通知所有消费方刷新 */
+export function setPreferredGatewayHost(host: string): void {
+  try {
+    localStorage.setItem(PREFERRED_HOST_STORAGE_KEY, host)
+  } catch {
+    // 忽略持久化失败，仅影响本次会话
+  }
+  preferredHostListeners.forEach((listener) => listener())
+}
 
 /**
  * 网关监听地址解析结果
@@ -68,6 +93,15 @@ export function useLocalIps(
   const [ips, setIps] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
 
+  // 订阅「接口文档中最后选中的地址」，变化后立即重算展示地址
+  const preferredHost = useSyncExternalStore(
+    (onStoreChange) => {
+      preferredHostListeners.add(onStoreChange)
+      return () => preferredHostListeners.delete(onStoreChange)
+    },
+    getPreferredGatewayHost
+  )
+
   const refresh = useCallback(async () => {
     if (!wildcard) {
       setIps([])
@@ -88,30 +122,37 @@ export function useLocalIps(
     void refresh()
   }, [refresh, boundPort])
 
+  // 所有可用于访问网关的地址：
+  // - 未绑定时为空
+  // - 绑定具体地址时仅含该地址
+  // - 通配监听时：LAN 地址列表末尾追加 loopback（127.0.0.1），方便本机访问；
+  //   追加在排序之后，确保始终位于列表最末尾。
+  const hosts = useMemo(() => {
+    if (!boundHost) return []
+    if (!wildcard) return [boundHost]
+    const base = ips.length > 0 ? ips : [boundHost]
+    return base.includes('127.0.0.1') ? base : [...base, '127.0.0.1']
+  }, [boundHost, wildcard, ips])
+
+  // 展示地址优先级：接口文档中最后选中的地址（若仍在当前可用列表内）> 排序首个 LAN 地址
+  const displayHost = useMemo(() => {
+    if (!boundHost) return ''
+    if (!wildcard) return boundHost
+    if (preferredHost && hosts.includes(preferredHost)) return preferredHost
+    return ips[0] ?? boundHost
+  }, [boundHost, wildcard, preferredHost, hosts, ips])
+
   if (!boundHost) {
     return { displayHost: '', hosts: [], isWildcard: wildcard, loading: false }
   }
 
   if (!wildcard) {
-    return {
-      displayHost: boundHost,
-      hosts: [boundHost],
-      isWildcard: false,
-      loading: false,
-    }
+    return { displayHost: boundHost, hosts: [boundHost], isWildcard: false, loading: false }
   }
 
-  // 通配监听时，在 LAN 地址列表末尾追加 loopback（127.0.0.1），
-  // 方便用户在本机直接通过 127.0.0.1 访问网关；
-  // 追加在排序之后，确保始终位于列表最末尾。
-  const hosts = ips.length > 0 ? ips : [boundHost]
-  const hostsWithLoopback = hosts.includes('127.0.0.1')
-    ? hosts
-    : [...hosts, '127.0.0.1']
-
   return {
-    displayHost: ips[0] ?? boundHost,
-    hosts: hostsWithLoopback,
+    displayHost,
+    hosts,
     isWildcard: true,
     loading,
   }

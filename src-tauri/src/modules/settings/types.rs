@@ -140,6 +140,7 @@ impl LogLevel {
     ///
     /// 保留供其他场景使用（如直接调用 `log::set_max_level`）；
     /// 本项目主要使用 [`Self::to_tracing_level`] 配合 `AtomicLevelFilter`。
+    #[allow(dead_code)]
     pub fn to_level_filter(&self) -> log::LevelFilter {
         match self {
             Self::Trace => log::LevelFilter::Trace,

@@ -47,7 +47,9 @@ export function useBuiltinProviders(): {
     setLoading(true)
     try {
       const result = await invokeCommand<BuiltinProvider[]>('gateway_builtin_providers_list')
-      setBuiltinProviders(result)
+      // 按 sortOrder 倒序排列（值越大越靠前）
+      const sorted = [...result].sort((a, b) => b.sortOrder - a.sortOrder)
+      setBuiltinProviders(sorted)
     } catch {
       setBuiltinProviders([])
     } finally {

@@ -130,7 +130,7 @@ pub fn init_script_storage(config_dir: &Path) -> IcodeResult<()> {
     }
 
     // 读取并解析（容错：损坏时按空存储处理，不阻塞脚本运行）
-    let mut data: HashMap<String, serde_json::Value> = match std::fs::read_to_string(&path) {
+    let data: HashMap<String, serde_json::Value> = match std::fs::read_to_string(&path) {
         Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
         Err(e) => {
             tracing::warn!("读取脚本公共存储失败，按空存储处理（{}）: {e}", path.display());

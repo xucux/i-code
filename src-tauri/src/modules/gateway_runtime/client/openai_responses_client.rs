@@ -251,7 +251,6 @@ where
             if let Some(mut write) = st.write.take() {
                 let _ = write.send(Message::Close(None)).await;
             }
-            st.done = true;
             return None;
         }
         if st.done {
@@ -273,7 +272,6 @@ where
                     return Some((Ok(bytes), st));
                 }
                 Some(Ok(Message::Close(_))) => {
-                    st.done = true;
                     return None;
                 }
                 // 忽略二进制帧 / Ping / Pong
@@ -294,7 +292,6 @@ where
                     return Some((Ok(bytes), st));
                 }
                 None => {
-                    st.done = true;
                     return None;
                 }
             }

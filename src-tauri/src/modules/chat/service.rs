@@ -1103,10 +1103,18 @@ fn build_openai_messages(
                 if msg.error.is_some() && msg.content.is_empty() {
                     continue;
                 }
-                out.push(json!({
+                // 构建助手消息；若有 thinking 内容则作为 reasoning_content 回传
+                // 警告：DeepSeek V4 等模型要求在思考模式下多轮对话必须回传 reasoning_content，否者会报错，停止对话
+                let mut assistant_msg = json!({
                     "role": "assistant",
                     "content": msg.content,
-                }));
+                });
+                if let Some(thinking) = &msg.thinking {
+                    if !thinking.is_empty() {
+                        assistant_msg["reasoning_content"] = json!(thinking);
+                    }
+                }
+                out.push(assistant_msg);
             }
             ChatRole::System => {
                 out.push(json!({

@@ -53,6 +53,7 @@ struct Inner {
     prefix: String,
     suffix: String,
     max_size: u64,
+    #[allow(dead_code)]
     max_days: u32,
     current_file: Option<File>,
     current_size: u64,

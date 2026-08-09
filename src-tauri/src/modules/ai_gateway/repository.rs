@@ -24,9 +24,9 @@ use crate::error::{IcodeError, IcodeResult};
 
 use super::types::{
     CreateGatewayAuthKeyInput, CreateGatewayModelInput, CreateModelConfigInput,
-    CreateProviderInput, GatewayAuthKey, GatewayModel, GatewaySettings, ModelConfig, Provider,
-    UpdateGatewayAuthKeyInput, UpdateGatewayModelInput, UpdateGatewaySettingsInput,
-    UpdateModelConfigInput, UpdateProviderInput,
+    CreateProviderInput, DeepSeekThinkingFixConfig, GatewayAuthKey, GatewayModel, GatewaySettings,
+    ModelConfig, Provider, UpdateGatewayAuthKeyInput, UpdateGatewayModelInput,
+    UpdateGatewaySettingsInput, UpdateModelConfigInput, UpdateProviderInput,
 };
 
 // ===== 通用辅助 =====
@@ -926,6 +926,15 @@ pub fn update_gateway_settings(input: &UpdateGatewaySettingsInput) -> IcodeResul
         params.push(Box::new(v as i64));
         idx += 1;
     }
+    if let Some(ref v) = input.deepseek_thinking_fix {
+        // 序列化为 JSON 文本存储
+        let json = serde_json::to_string(v).unwrap_or_else(|_| {
+            serde_json::to_string(&DeepSeekThinkingFixConfig::default()).unwrap()
+        });
+        sets.push(format!("deepseek_thinking_fix = ?{idx}"));
+        params.push(Box::new(json));
+        idx += 1;
+    }
 
     if sets.is_empty() {
         // 没有字段更新，直接返回当前记录
@@ -1221,13 +1230,18 @@ pub fn delete_provider_extra_headers(provider_id: &str) -> IcodeResult<()> {
 
 /// gateway_settings 表 SELECT 字段列表
 const GATEWAY_SETTINGS_SELECT_SQL: &str = "SELECT gs.id, gs.gateway_host, gs.gateway_port,
-    gs.default_api_key_secret_id, gs.is_enabled, gs.auth_enabled, gs.created_at, gs.updated_at
+    gs.default_api_key_secret_id, gs.is_enabled, gs.auth_enabled, gs.deepseek_thinking_fix,
+    gs.created_at, gs.updated_at
     FROM gateway_settings gs";
 
 /// gateway_settings 表行映射器
 fn gateway_settings_row_mapper(row: &rusqlite::Row<'_>) -> rusqlite::Result<GatewaySettings> {
     let is_enabled: i64 = row.get(4)?;
     let auth_enabled: i64 = row.get(5)?;
+    // deepseek_thinking_fix 为 JSON 文本列，解析失败时回退到默认值
+    let ds_fix_json: String = row.get(6)?;
+    let deepseek_thinking_fix = serde_json::from_str::<DeepSeekThinkingFixConfig>(&ds_fix_json)
+        .unwrap_or_default();
     Ok(GatewaySettings {
         id: row.get(0)?,
         gateway_host: row.get(1)?,
@@ -1235,8 +1249,9 @@ fn gateway_settings_row_mapper(row: &rusqlite::Row<'_>) -> rusqlite::Result<Gate
         default_api_key_secret_id: row.get(3)?,
         is_enabled: is_enabled != 0,
         auth_enabled: auth_enabled != 0,
-        created_at: row.get(6)?,
-        updated_at: row.get(7)?,
+        deepseek_thinking_fix,
+        created_at: row.get(7)?,
+        updated_at: row.get(8)?,
     })
 }
 

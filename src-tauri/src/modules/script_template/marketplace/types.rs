@@ -216,6 +216,7 @@ pub enum MarketplaceConflictStrategy {
 }
 
 impl MarketplaceConflictStrategy {
+    #[allow(dead_code)]
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
             "rename" => Some(Self::Rename),

@@ -69,7 +69,7 @@ pub async fn gateway_provider_get(
 /// 前端编辑后原样回传，转发时由后端统一解密。
 #[tauri::command]
 pub async fn gateway_provider_extra_headers_list(
-    state: State<'_, AiGatewayServiceHandle>,
+    _state: State<'_, AiGatewayServiceHandle>,
     provider_id: String,
 ) -> IcodeResult<Vec<super::types::ProviderExtraHeader>> {
     super::repository::list_provider_extra_header_rows(&provider_id)
@@ -476,9 +476,11 @@ pub struct PingDonePayload {
 
 /// 检测所有供应商 URL 的网络连通性
 ///
-/// 支持两种模式：
+/// 支持三种模式：
 /// - `direct`：直连网络检测（强制 `no_proxy`，忽略所有代理设置）
 /// - `proxy`：代理网络检测（按全局代理设置发起请求；若全局代理未启用则回退到直连）
+/// - `config`：按供应商配置代理检测（按各供应商 `proxy_json` 配置发起请求；
+///   未配置或 `global` 类型回退到全局代理，`direct` 类型直连，`socks`/`http` 类型使用各自代理）
 ///
 /// 事件推送流程：
 /// 1. 前端调用后，立即返回供应商数量（前端据此打开弹窗并展示待检测列表）
@@ -502,6 +504,7 @@ pub async fn gateway_provider_ping(
     let mode_label = match mode.as_str() {
         "direct" => "直连",
         "proxy" => "代理",
+        "config" => "按供应商配置",
         other => return Err(IcodeError::validation(format!("不支持的网络检测模式: {}", other))),
     };
 
@@ -592,7 +595,7 @@ async fn ping_single_provider(provider: &super::types::Provider, mode: &str) -> 
         return make_result(false, None, None, Some("baseUrl 为空".to_string()));
     }
 
-    // 构造 HTTP 客户端：direct 强制直连；proxy 按全局代理设置
+    // 构造 HTTP 客户端：direct 强制直连；proxy 按全局代理设置；config 按供应商配置代理
     let mut builder = reqwest::Client::builder()
         .user_agent(concat!("i-code-gateway/", env!("CARGO_PKG_VERSION")))
         .connect_timeout(Duration::from_secs(5))
@@ -605,6 +608,23 @@ async fn ping_single_provider(provider: &super::types::Provider, mode: &str) -> 
         }
         "proxy" => {
             builder = apply_global_proxy(builder);
+        }
+        "config" => {
+            // 按供应商自身 proxy_json 配置应用代理
+            builder = match crate::modules::shared::apply_provider_proxy(
+                builder,
+                provider.proxy_json.as_deref(),
+            ) {
+                Ok(b) => b,
+                Err(e) => {
+                    return make_result(
+                        false,
+                        None,
+                        None,
+                        Some(format!("应用供应商代理配置失败: {}", e)),
+                    );
+                }
+            };
         }
         _ => {
             builder = builder.no_proxy();

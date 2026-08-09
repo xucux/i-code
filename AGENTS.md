@@ -14,7 +14,7 @@
 3. **管理 CLI 配置**：为 Claude Code、Codex、Gemini CLI 等维护配置档案，支持直连或路由到本地 Gateway。
 4. **工作区隔离**：按 Workspace 隔离 Prompts / MCP / Skill；**切换并「应用」后**才写入 CLI 实际配置文件。
 
-版本：`0.1.8`  
+版本：`0.1.9`  
 包管理：`pnpm@11`  
 数据库：本地 SQLite（`i-code.db`）  
 默认网关：`127.0.0.1:54321`
@@ -259,7 +259,10 @@ const contentHeight = Math.max(0, pageHeight - headerHeight - padding)
 - 新 Command 在对应 `modules/*/commands.rs` 定义，并在 `main.rs` 的 `invoke_handler` 注册
 - 错误统一 `IcodeError`（`error.rs`）
 - 跨表写操作使用事务
-- 迁移：`src-tauri/src/db/migrations/V{nnn}__{desc}.sql`，只追加不改历史
+- 迁移：`src-tauri/src/db/migrations/V{nnn}__{desc}.sql`，只追加不改历史。**新增迁移文件后必须完成 3 步注册**，否则迁移不会执行：
+  1. `src-tauri/src/db/migrations.rs`：添加 `const V{nnn}__{NAME}: &str = include_str!("./migrations/V{nnn}__{desc}.sql");`
+  2. `src-tauri/src/db/migrations.rs`：在 `BUILTIN_MIGRATIONS` 数组末尾追加 `(n, "desc", V{nnn}__{NAME})`
+  3. `src-tauri/src/db/schema.rs`：将 `SCHEMA_VERSION` 常量更新为最新版本号
 - Secret 引用扫描与解析仅后端；配置 JSON 中保留 `$SECRET:{uuid}$`
 
 ### 6.4 与参考项目对齐

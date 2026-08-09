@@ -26,6 +26,7 @@ use super::types::{
 struct CatalogCache {
     catalog: RemoteCatalog,
     fetched_at: Instant,
+    #[allow(dead_code)]
     etag: Option<String>,
 }
 

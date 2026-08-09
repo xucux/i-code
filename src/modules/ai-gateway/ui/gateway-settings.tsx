@@ -13,6 +13,8 @@ import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog'
 import { HelpIcon } from '@/components/ui/help-icon'
 import { toast } from 'sonner'
 import { useTranslation } from '@/modules/i18n/use-translation'
+import { useGatewayStatus } from '@/hooks/use-gateway-status'
+import { useLocalIps } from '@/hooks/use-local-ips'
 import {
   getGatewaySettings,
   updateGatewaySettings,
@@ -94,6 +96,7 @@ export function GatewayBasicSettings() {
         gatewayPort: DEFAULT_GATEWAY_PORT,
         isEnabled: true,
         authEnabled: true,
+        deepseekThinkingFix: { enabled: false, keyword: 'deepseek', matchMode: 'contains' },
         createdAt: '',
         updatedAt: '',
       })
@@ -112,6 +115,7 @@ export function GatewayBasicSettings() {
       if ('isEnabled' in patch) input.isEnabled = patch.isEnabled
       if ('authEnabled' in patch) input.authEnabled = patch.authEnabled
       if ('defaultApiKeySecretId' in patch) input.defaultApiKeySecretId = patch.defaultApiKeySecretId
+      if ('deepseekThinkingFix' in patch) input.deepseekThinkingFix = patch.deepseekThinkingFix
       const updated = await updateGatewaySettings(input as Parameters<typeof updateGatewaySettings>[0])
       setSettings(updated)
     } catch (err) {
@@ -244,6 +248,55 @@ export function GatewayBasicSettings() {
             <p className="text-[10px] text-muted-foreground">{t('gatewaySettings.defaultApiKeyDisabledHint')}</p>
           )}
         </div>
+
+        {/* DeepSeek 思考修复 */}
+        <div className="space-y-2 border-t pt-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <Label className="text-xs">{t('gatewaySettings.deepseekFixEnabled')}</Label>
+              <HelpIcon type="popover" side="top" align="start" contentClassName="max-w-sm text-xs">
+                <div className="space-y-1.5">
+                  <p className="font-medium">{t('gatewaySettings.deepseekFixHelpTitle')}</p>
+                  <p className="whitespace-pre-line text-muted-foreground">{t('gatewaySettings.deepseekFixHelpContent')}</p>
+                </div>
+              </HelpIcon>
+            </div>
+            <Switch
+              checked={settings.deepseekThinkingFix.enabled}
+              onCheckedChange={(v) => updateSettings({ deepseekThinkingFix: { ...settings.deepseekThinkingFix, enabled: v } })}
+            />
+          </div>
+          {settings.deepseekThinkingFix.enabled && (
+            <div className="grid grid-cols-[1fr_1fr] gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">{t('gatewaySettings.deepseekFixKeyword')}</Label>
+                <Input
+                  value={settings.deepseekThinkingFix.keyword}
+                  onChange={(e) => updateSettings({ deepseekThinkingFix: { ...settings.deepseekThinkingFix, keyword: e.target.value } })}
+                  className="h-8 text-xs"
+                  placeholder="deepseek"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">{t('gatewaySettings.deepseekFixMatchMode')}</Label>
+                <Select
+                  value={settings.deepseekThinkingFix.matchMode}
+                  onValueChange={(v) => updateSettings({ deepseekThinkingFix: { ...settings.deepseekThinkingFix, matchMode: v } })}
+                >
+                  <SelectTrigger className="h-8 text-xs" title={t('gatewaySettings.deepseekFixMatchMode')}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="contains">{t('gatewaySettings.deepseekFixModeContains')}</SelectItem>
+                    <SelectItem value="equals">{t('gatewaySettings.deepseekFixModeEquals')}</SelectItem>
+                    <SelectItem value="prefix">{t('gatewaySettings.deepseekFixModePrefix')}</SelectItem>
+                    <SelectItem value="suffix">{t('gatewaySettings.deepseekFixModeSuffix')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   )
@@ -258,6 +311,21 @@ export function GatewayAuthKeyManager() {
   const { t } = useTranslation('aiGateway')
   const { t: tc } = useTranslation()
   const [authKeys, setAuthKeys] = useState<GatewayAuthKey[]>([])
+
+  // 网关运行状态 + 展示地址解析（监听 0.0.0.0 时优先展示「接口文档中最后选中的地址」）
+  const { status } = useGatewayStatus()
+  const resolved = useLocalIps(status.boundHost, status.boundPort)
+  const gatewayUrl =
+    status.boundHost && status.boundPort != null
+      ? `http://${resolved.displayHost}:${status.boundPort}`
+      : ''
+
+  // 复制网关访问地址（点击复制带 /v1 的完整 URL）
+  const handleCopyGatewayUrl = async () => {
+    if (!gatewayUrl) return
+    const ok = await copyToClipboard(`${gatewayUrl}/v1`)
+    toast[ok ? 'success' : 'error'](ok ? tc('common.copied') : tc('common.copyFailed'))
+  }
 
   // API Key 表单状态
   const [authFormOpen, setAuthFormOpen] = useState(false)
@@ -372,14 +440,27 @@ export function GatewayAuthKeyManager() {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-base">{t('authKey.title')}</CardTitle>
-              <CardDescription className="text-xs">{t('authKey.description')}</CardDescription>
+            <CardTitle className="text-base">{t('authKey.title')}</CardTitle>
+            <div className="flex items-center gap-2">
+              {/* 网关启动后的访问地址：点击复制（含 /v1） */}
+              {gatewayUrl && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 max-w-56 gap-1.5 px-2 text-muted-foreground hover:text-foreground"
+                  onClick={() => void handleCopyGatewayUrl()}
+                  title={t('authKey.baseUrlHint')}
+                >
+                  <i className="fa-solid fa-globe text-[10px]" />
+                  <code className="truncate font-mono text-[11px]">{gatewayUrl}</code>
+                  <i className="fa-solid fa-copy text-[10px]" />
+                </Button>
+              )}
+              <Button size="sm" className="h-7 text-xs" onClick={() => openAuthForm()}>
+                <i className="fa-solid fa-plus mr-1.5" />
+                {t('authKey.add')}
+              </Button>
             </div>
-            <Button size="sm" className="h-7 text-xs" onClick={() => openAuthForm()}>
-              <i className="fa-solid fa-plus mr-1.5" />
-              {t('authKey.add')}
-            </Button>
           </div>
         </CardHeader>
         <CardContent className="p-0">

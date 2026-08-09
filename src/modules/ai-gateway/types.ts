@@ -979,8 +979,20 @@ export interface GatewaySettings {
    * `defaultApiKeySecretId` 仅在此字段为 true 时参与校验，不控制认证开关。
    */
   authEnabled: boolean
+  /** DeepSeek 思考修复配置 */
+  deepseekThinkingFix: DeepSeekThinkingFixConfig
   createdAt: string
   updatedAt: string
+}
+
+/** DeepSeek 思考修复配置 */
+export interface DeepSeekThinkingFixConfig {
+  /** 是否开启修复 */
+  enabled: boolean
+  /** 模型匹配关键字（默认 "deepseek"） */
+  keyword: string
+  /** 匹配模式 contains/equals/prefix/suffix（默认 "contains"） */
+  matchMode: string
 }
 
 /**
@@ -992,6 +1004,8 @@ export interface UpdateGatewaySettingsInput {
   defaultApiKeySecretId?: string | null
   isEnabled?: boolean
   authEnabled?: boolean
+  /** DeepSeek 思考修复配置（整体替换） */
+  deepseekThinkingFix?: DeepSeekThinkingFixConfig
 }
 
 // ===== 网关认证 API Key =====
@@ -1044,7 +1058,7 @@ export interface UpdateGatewayAuthKeyInput {
 // ===== 供应商网络检测 =====
 
 /** 网络检测模式 */
-export type PingMode = 'direct' | 'proxy'
+export type PingMode = 'direct' | 'proxy' | 'config'
 
 /** 单个供应商网络检测结果 */
 export interface PingProviderResult {

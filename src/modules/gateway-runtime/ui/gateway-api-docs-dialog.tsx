@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useTranslation } from '@/modules/i18n/use-translation'
+import { setPreferredGatewayHost } from '@/hooks/use-local-ips'
 
 /** 网关暴露的单个 HTTP 接口描述 */
 interface GatewayEndpoint {
@@ -100,6 +101,7 @@ export function GatewayApiDocsDialog({
   const [selectedHost, setSelectedHost] = useState<string>(defaultHost)
 
   // 弹窗打开或默认地址变化时，重置选中地址
+  // defaultHost 已优先「接口文档中最后选中的地址」，因此重开后仍保持用户上次的选择
   useEffect(() => {
     if (open) {
       setSelectedHost(defaultHost)
@@ -137,7 +139,14 @@ export function GatewayApiDocsDialog({
         <div className="flex items-center gap-2">
           <span className="text-muted-foreground text-xs">{t('gatewayApiDocs.currentHost')}</span>
           {hosts.length > 1 ? (
-            <Select value={selectedHost} onValueChange={setSelectedHost}>
+            <Select
+              value={selectedHost}
+              onValueChange={(h) => {
+                setSelectedHost(h)
+                // 记录「接口文档中最后选中的地址」，全局展示地址优先跟随
+                setPreferredGatewayHost(h)
+              }}
+            >
               <SelectTrigger className="h-7 w-auto min-w-48 text-xs">
                 <SelectValue />
               </SelectTrigger>
