@@ -16,12 +16,24 @@ editRules:
 
 ## [0.1.9] - 2026-08-09
 
+> [!IMPORTANT]
+> 数据库结构变更：`gateway_settings` 表新增 DeepSeek 思考修复配置列（V006 迁移，应用启动时自动执行，无需手动操作）。
+
 ### 🚀新增
+
+- **DeepSeek 思考修复（网关侧）**：网关设置新增「DeepSeek 思考修复」开关，解决 DeepSeek V4 思考模式下多轮对话报错（上游要求 assistant 消息必须携带 `reasoning_content`，但模型有时仅返回 tool_calls 而不产生该字段，导致下一轮请求被 400 拒绝）
+  - `gateway_settings` 表新增 `deepseek_thinking_fix` JSON 配置列（`enabled` / `keyword` / `matchMode`，默认关键字 `deepseek`、默认匹配模式 `contains`），网关设置页新增配置卡片：开关 + 模型匹配关键字输入 + 匹配模式下拉（`contains` / `equals` / `prefix` / `suffix`），附帮助气泡说明
+  - 开启后，网关转发器在请求体预处理之后、协议桥接之前，为匹配模型的 assistant 消息补注入空 `reasoning_content` 兜底（忽略大小写匹配，仅对 Chat Completions 协议生效）
+- **供应商网络检测新增「按供应商配置」模式**：供应商列表网络检测下拉新增第三种模式，按各供应商自身代理配置发起检测
+  - `gateway_provider_ping` Command 支持 `config` 模式：按供应商 `proxy_json` 配置应用代理（未配置或 `global` 类型回退到全局代理，`direct` 类型直连，`socks` / `http` 类型使用各自代理），与既有「直连」「代理」模式并列
 
 ### 🐞修复
 
+- **DeepSeek V4 思考模式多轮对话报错（聊天侧）**：聊天模块回传历史消息时，将助手消息的 thinking 思考内容作为 `reasoning_content` 字段一并回传。此前思考模式下缺少该字段会导致多轮对话被上游拒绝、对话中断
+
 ### 🔄变更
 
+- **内置供应商列表排序调整**：内置供应商列表改为按 `sortOrder` 倒序排列（值越大越靠前），推荐供应商优先展示
 - **网关认证界面调整**：API Key 管理卡片移除头部描述文字，卡片右侧新增网关启动后的访问地址，点击一键复制带 `/v1` 的完整 URL
 - **网关访问地址记忆**：接口文档弹窗中最后选中的访问地址会持久化，网关配置状态卡片、仪表盘与 API Key 管理处的地址展示均优先跟随该选择；未选择时仍按排序规则展示
 
