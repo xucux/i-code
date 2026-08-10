@@ -111,7 +111,14 @@ pub async fn list_directory(
         )));
     }
 
-    parse_propfind(&text)
+    let mut items = parse_propfind(&text)?;
+    // 将服务器返回的 href 归一化为"相对于 base_url 的路径"，
+    // 避免 base_url 自带 path（如 https://dav.jianguoyun.com/dav/ 的 /dav）
+    // 与 href 中的同名前缀重复拼接，导致后续 GET/PUT/DELETE 路径错位（如 /dav/dav/...）。
+    for item in &mut items {
+        item.path = href_to_remote_path(base_url, &item.path);
+    }
+    Ok(items)
 }
 
 /// 上传文件到 WebDAV
@@ -377,6 +384,56 @@ fn normalize_base_url(base_url: &str) -> String {
     } else {
         s.to_string()
     }
+}
+
+/// 从完整 URL 中提取 path 部分（不含 query/fragment，且去掉末尾 `/`）
+///
+/// 例如 `https://dav.jianguoyun.com/dav/i-code-backups/` → `/dav/i-code-backups`；
+/// 若 URL 不含 path（如 `https://example.com`），返回空字符串。
+fn extract_path_from_url(url: &str) -> String {
+    let s = url.trim();
+    // 跳过 scheme://
+    let after_scheme = match s.find("://") {
+        Some(pos) => &s[pos + 3..],
+        None => s,
+    };
+    // 跳过 host，定位 path 起始位置
+    let path_start = match after_scheme.find('/') {
+        Some(pos) => pos,
+        None => return String::new(),
+    };
+    let path_with_query = &after_scheme[path_start..];
+    // 去掉 query 与 fragment
+    let path = path_with_query
+        .split('?')
+        .next()
+        .unwrap_or("")
+        .split('#')
+        .next()
+        .unwrap_or("");
+    path.trim_end_matches('/').to_string()
+}
+
+/// 将 WebDAV 服务器返回的 href 转换为"相对于 base_url 的路径"
+///
+/// 服务器返回的 href 通常是相对于服务器根的绝对路径（如 `/dav/i-code-backups/xxx.zip.enc`），
+/// 而业务层使用的 remote_path 是相对于 base_url 的路径（如 `/i-code-backups/xxx.zip.enc`）。
+/// 此函数去掉 base_url 的 path 前缀，使两者保持一致，避免与 base_url 拼接时路径重复
+/// （例如 base_url 已含 `/dav`，再拼上含 `/dav` 的 href 会得到 `/dav/dav/...` 触发 409）。
+fn href_to_remote_path(base_url: &str, href: &str) -> String {
+    let base_path = extract_path_from_url(base_url);
+    let mut p = href.to_string();
+    if !base_path.is_empty() && p.starts_with(&base_path) {
+        let rest = &p[base_path.len()..];
+        // 仅当剩余为空或以 `/` 开头时才去除前缀，避免误匹配（如 /dav 与 /dav-backup）
+        if rest.is_empty() || rest.starts_with('/') {
+            p = rest.to_string();
+        }
+    }
+    if !p.starts_with('/') {
+        p = format!("/{p}");
+    }
+    p
 }
 
 /// 将网络错误映射为 IcodeError
