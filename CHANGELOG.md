@@ -14,6 +14,17 @@ editRules:
 
 ### 🔄变更
 
+## [0.2.0] - 2026-08-10
+
+### 🚀新增
+
+### 🐞修复
+
+- **WebDAV 备份路径拼接错位修复**：修复 WebDAV 备份在 `base_url` 自带 path（如 `https://dav.jianguoyun.com/dav/` 的 `/dav`）时，服务器返回的 href 与 `base_url` 同名前缀重复拼接（如 `/dav/dav/...`），导致 PUT / GET / DELETE 请求路径错位触发 409 等错误
+  - 新增 `extract_path_from_url` / `href_to_remote_path` 路径归一化工具函数，将服务器返回的 href 转换为相对于 `base_url` 的路径（仅当剩余部分为空或以 `/` 开头时才去除前缀，避免 `/dav` 误匹配 `/dav-backup` 等场景）
+
+### 🔄变更
+
 ## [0.1.10] - 2026-08-09
 
 ### 🚀新增
