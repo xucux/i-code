@@ -65,6 +65,22 @@ export function DatePicker({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align={align}>
+        <div className="flex items-center justify-end px-1 pt-1">
+          {value && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-5 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
+              onClick={() => {
+                onChange?.(undefined)
+                setOpen(false)
+              }}
+            >
+              <i className="fa-solid fa-xmark mr-1" />
+              {t('clear')}
+            </Button>
+          )}
+        </div>
         <Calendar
           mode="single"
           selected={value}

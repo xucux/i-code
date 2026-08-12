@@ -587,13 +587,16 @@
     "timeRange": {
       "1hour": "1h",
       "6hours": "6h",
+      "12hours": "12h",
       "24hours": "24h",
       "7days": "7d",
-      "30days": "30d"
+      "30days": "30d",
+      "today": "Today"
     },
     "modelManagement": {
       "days": "{{count}} days",
       "hours": "{{count}} hours",
+      "today": "Today",
       "statsDescription": "Model call statistics for {{time}}, total tokens {{totalTokens}}",
       "allSources": "All sources",
       "allRoutes": "All routes",
@@ -731,7 +734,11 @@
       "pingResultSummary": "{{success}} ok / {{failed}} failed / {{total}} total",
       "pingInProgress": "Checking ({{done}}/?)...",
       "pingOk": "Reachable",
-      "pingFail": "Unreachable"
+      "pingFail": "Unreachable",
+      "pingErrorClickHint": "Click to view details",
+      "pingErrorDetail": "Error details",
+      "pingErrorCopy": "Copy",
+      "pingErrorCopied": "Copied to clipboard"
     },
     "providersPage": {
       "tabs": {
@@ -1293,7 +1300,8 @@
     "pickDateTime": "Pick date and time",
     "pickDateTimeRange": "Pick date time range",
     "start": "Start",
-    "end": "End"
+    "end": "End",
+    "clear": "Clear"
   },
   "autoRefresh": {
     "label": "Auto refresh",

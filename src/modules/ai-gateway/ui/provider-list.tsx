@@ -39,6 +39,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import { ProviderForm } from './provider-form'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -419,10 +424,6 @@ export function ProviderList() {
           <div className="flex items-center justify-between">
             <CardTitle className="text-base">{t('aiGateway.providers')}</CardTitle>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" className="h-7 text-xs" onClick={refetch} disabled={loading}>
-                <i className={cn('fa-solid fa-rotate', loading && 'animate-spin', 'mr-1.5')} />
-                {t('aiGateway.refresh')}
-              </Button>
               <Button variant="outline" size="sm" className="h-7 text-xs" onClick={openBuiltinDialog} disabled={builtinLoading}>
                 <i className={cn('fa-solid fa-book', builtinLoading && 'animate-spin', 'mr-1.5')} />
                 {t('aiGateway.providerList.fromBuiltin')}
@@ -1069,7 +1070,7 @@ function PingResultDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+      <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col gap-3">
         <DialogHeader>
           <DialogTitle className="text-base">
             {t('aiGateway.providerList.pingResultTitle')}
@@ -1078,15 +1079,16 @@ function PingResultDialog({
             {modeLabel} — {summaryText}
           </DialogDescription>
         </DialogHeader>
-        <ScrollArea className="flex-1 min-h-0 -mx-6 px-6">
+        {/* 滚动容器：使用原生 overflow-auto，避免 Radix ScrollArea 在 Table 上注入 display:table 包裹层导致撑开与高度链断裂 */}
+        <div className="min-h-0 flex-1 overflow-auto rounded-md border -mx-1">
           <Table density="compact" overflow={false}>
-            <TableHeader className="sticky top-0 z-10 bg-muted/50">
+            <TableHeader className="sticky top-0 z-10 bg-muted/80 backdrop-blur">
               <TableRow>
                 <TableHead className="text-xs">供应商</TableHead>
                 <TableHead className="text-xs">URL</TableHead>
-                <TableHead className="text-xs w-16">状态</TableHead>
-                <TableHead className="text-xs w-20">延迟</TableHead>
-                <TableHead className="text-xs w-14">状态码</TableHead>
+                <TableHead className="text-xs w-20 whitespace-nowrap">状态</TableHead>
+                <TableHead className="text-xs w-20 whitespace-nowrap">延迟</TableHead>
+                <TableHead className="text-xs w-20 whitespace-nowrap">状态码</TableHead>
                 <TableHead className="text-xs">错误</TableHead>
               </TableRow>
             </TableHeader>
@@ -1100,21 +1102,21 @@ function PingResultDialog({
                   <TableCell className="text-xs font-mono text-muted-foreground max-w-[200px] truncate">
                     {r.baseUrl}
                   </TableCell>
-                  <TableCell className="text-xs">
+                  <TableCell className="text-xs whitespace-nowrap">
                     {r.success ? (
-                      <span className="text-emerald-600"><i className="fa-solid fa-circle-check mr-1" />{t('aiGateway.providerList.pingOk')}</span>
+                      <span className="text-emerald-600 whitespace-nowrap"><i className="fa-solid fa-circle-check mr-1" />{t('aiGateway.providerList.pingOk')}</span>
                     ) : (
-                      <span className="text-destructive"><i className="fa-solid fa-circle-xmark mr-1" />{t('aiGateway.providerList.pingFail')}</span>
+                      <span className="text-destructive whitespace-nowrap"><i className="fa-solid fa-circle-xmark mr-1" />{t('aiGateway.providerList.pingFail')}</span>
                     )}
                   </TableCell>
-                  <TableCell className="text-xs tabular-nums">
+                  <TableCell className="text-xs tabular-nums whitespace-nowrap">
                     {r.latencyMs != null ? `${r.latencyMs}ms` : '-'}
                   </TableCell>
-                  <TableCell className="text-xs tabular-nums">
+                  <TableCell className="text-xs tabular-nums whitespace-nowrap">
                     {r.statusCode ?? '-'}
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground max-w-[180px] truncate">
-                    {r.error || '-'}
+                  <TableCell className="text-xs text-muted-foreground">
+                    <PingErrorCell error={r.error} t={t} />
                   </TableCell>
                 </TableRow>
               ))}
@@ -1128,8 +1130,69 @@ function PingResultDialog({
               )}
             </TableBody>
           </Table>
-        </ScrollArea>
+        </div>
       </DialogContent>
     </Dialog>
+  )
+}
+
+/**
+ * 网络检测错误单元格
+ *
+ * - 无错误：显示占位短横线。
+ * - 有错误：默认截断显示，鼠标指针变化提示可点击；点击触发 Popover 弹出完整错误信息（保留换行），
+ *   并提供「复制」按钮便于把完整错误外发分析。
+ *
+ * 单元格不直接使用 `title` 原生 tooltip，因为长错误在原生 tooltip 中不可选中、不可复制，
+ * 用户体验差；改用 Popover 后可滚动、可复制。
+ */
+function PingErrorCell({
+  error,
+  t,
+}: {
+  error?: string | null
+  t: ReturnType<typeof useTranslation>['t']
+}) {
+  if (!error) {
+    return <span className="text-muted-foreground/60">-</span>
+  }
+
+  const handleCopy = () => {
+    navigator.clipboard?.writeText(error)
+    toast.success(t('aiGateway.providerList.pingErrorCopied'))
+  }
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <div
+          role="button"
+          tabIndex={0}
+          title={t('aiGateway.providerList.pingErrorClickHint')}
+          className="max-w-[220px] truncate cursor-pointer outline-none hover:text-foreground hover:underline focus-visible:ring-1 focus-visible:ring-ring"
+        >
+          {error}
+        </div>
+      </PopoverTrigger>
+      <PopoverContent side="top" align="end" className="w-80 p-0">
+        <div className="flex items-center justify-between border-b px-2 py-1">
+          <span className="text-[10px] text-muted-foreground">
+            {t('aiGateway.providerList.pingErrorDetail')}
+          </span>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-5 px-1.5 text-[10px]"
+            onClick={handleCopy}
+          >
+            <i className="fa-regular fa-copy mr-1" />
+            {t('aiGateway.providerList.pingErrorCopy')}
+          </Button>
+        </div>
+        <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words p-2 text-[11px] leading-relaxed">
+          {error}
+        </pre>
+      </PopoverContent>
+    </Popover>
   )
 }

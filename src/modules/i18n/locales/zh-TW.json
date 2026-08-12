@@ -587,13 +587,16 @@
     "timeRange": {
       "1hour": "1小時",
       "6hours": "6小時",
+      "12hours": "12小時",
       "24hours": "24小時",
       "7days": "7天",
-      "30days": "30天"
+      "30days": "30天",
+      "today": "今天"
     },
     "modelManagement": {
       "days": "{{count}} 天",
       "hours": "{{count}} 小時",
+      "today": "今天",
       "statsDescription": "統計 {{time}} 內的模型呼叫資料，總 token {{totalTokens}}",
       "allSources": "全部入口",
       "allRoutes": "全部路由",
@@ -731,7 +734,11 @@
       "pingResultSummary": "成功 {{success}} / 失敗 {{failed}} / 共 {{total}}",
       "pingInProgress": "檢測中 ({{done}}/?)...",
       "pingOk": "可達",
-      "pingFail": "不可達"
+      "pingFail": "不可達",
+      "pingErrorClickHint": "點擊查看詳細錯誤",
+      "pingErrorDetail": "詳細錯誤",
+      "pingErrorCopy": "複製",
+      "pingErrorCopied": "已複製到剪貼簿"
     },
     "providersPage": {
       "tabs": {
@@ -1293,7 +1300,8 @@
     "pickDateTime": "選擇日期時間",
     "pickDateTimeRange": "選擇日期時間範圍",
     "start": "開始",
-    "end": "結束"
+    "end": "結束",
+    "clear": "清除"
   },
   "autoRefresh": {
     "label": "自動重新整理",

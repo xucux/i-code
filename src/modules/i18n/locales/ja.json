@@ -587,13 +587,16 @@
     "timeRange": {
       "1hour": "1時間",
       "6hours": "6時間",
+      "12hours": "12時間",
       "24hours": "24時間",
       "7days": "7日",
-      "30days": "30日"
+      "30days": "30日",
+      "today": "今日"
     },
     "modelManagement": {
       "days": "{{count}} 日",
       "hours": "{{count}} 時間",
+      "today": "今日",
       "statsDescription": "{{time}} のモデル呼び出しデータを集計、合計 token {{totalTokens}}",
       "allSources": "すべての入口",
       "allRoutes": "すべてのルート",
@@ -731,7 +734,11 @@
       "pingResultSummary": "成功 {{success}} / 失敗 {{failed}} / 合計 {{total}}",
       "pingInProgress": "チェック中 ({{done}}/?)...",
       "pingOk": "到達可能",
-      "pingFail": "到達不可"
+      "pingFail": "到達不可",
+      "pingErrorClickHint": "クリックして詳細を表示",
+      "pingErrorDetail": "エラー詳細",
+      "pingErrorCopy": "コピー",
+      "pingErrorCopied": "クリップボードにコピーしました"
     },
     "providersPage": {
       "tabs": {
@@ -1293,7 +1300,8 @@
     "pickDateTime": "日時を選択",
     "pickDateTimeRange": "日時範囲を選択",
     "start": "開始",
-    "end": "終了"
+    "end": "終了",
+    "clear": "クリア"
   },
   "autoRefresh": {
     "label": "自動更新",

@@ -325,7 +325,18 @@ export function DateTimeRangePicker({
             <div className="flex flex-row gap-1 border-t p-1.5 items-center">
               <TimeField point="from" />
               <TimeField point="to" />
-              <div className="flex justify-end">
+              <div className="flex justify-end gap-1 ml-auto">
+                {(value?.from || value?.to) && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-[10px] text-muted-foreground hover:text-foreground"
+                    onClick={() => onChange?.(undefined)}
+                  >
+                    <i className="fa-solid fa-xmark mr-1" />
+                    {tDate('clear')}
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   className="h-6 px-2 text-[10px]"

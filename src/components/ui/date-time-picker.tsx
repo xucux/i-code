@@ -197,6 +197,20 @@ export function DateTimePicker({
             onChange={(v) => handleTimeChange("seconds", v)}
             max={59}
           />
+          {value && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="ml-1 h-6 px-2 text-[10px] text-muted-foreground hover:text-foreground"
+              onClick={() => {
+                onChange?.(undefined)
+                setOpen(false)
+              }}
+            >
+              <i className="fa-solid fa-xmark mr-1" />
+              {t('clear')}
+            </Button>
+          )}
           <Button
             size="sm"
             className="ml-1 h-6 px-2 text-[10px]"

@@ -17,24 +17,36 @@ import type { CallSource, StatsGranularity } from '@/modules/call-records/types'
 import type { RefreshInterval } from '@/components/ui/auto-refresh'
 import type { GatewayAuthKey } from '@/modules/ai-gateway/types'
 
-/** 时间范围快捷选项 */
+/** 时间范围快捷选项
+ *
+ * - `hours` 存在：按「当前时间 - hours」计算起点
+ * - `hours` 缺省（today）：按「今天 00:00:00」计算起点，跨日时自动回滚到当天 0 点
+ */
 function useTimeRangeOptions() {
   const { t } = useTranslation('aiGateway')
   return [
-    { label: t('timeRange.1hour'), hours: 1 },
-    { label: t('timeRange.6hours'), hours: 6 },
-    { label: t('timeRange.24hours'), hours: 24 },
-    { label: t('timeRange.7days'), hours: 168 },
-    { label: t('timeRange.30days'), hours: 720 },
+    { id: '1', label: t('timeRange.1hour'), hours: 1 },
+    { id: '6', label: t('timeRange.6hours'), hours: 6 },
+    { id: '12', label: t('timeRange.12hours'), hours: 12 },
+    { id: 'today', label: t('timeRange.today') },
+    { id: '24', label: t('timeRange.24hours'), hours: 24 },
+    { id: '168', label: t('timeRange.7days'), hours: 168 },
+    { id: '720', label: t('timeRange.30days'), hours: 720 },
   ]
 }
 
 /**
- * 计算指定小时数前的 ISO 8601 时间字符串
+ * 计算时间范围起点的 ISO 8601 字符串
+ * - hours 提供：now - hours*3600_000
+ * - hours 缺省：今天本地 00:00:00
  */
-function getTimeRangeStart(hours: number): string {
+function getTimeRangeStart(hours?: number): string {
   const d = new Date()
-  d.setTime(d.getTime() - hours * 3600_000)
+  if (hours == null) {
+    d.setHours(0, 0, 0, 0)
+  } else {
+    d.setTime(d.getTime() - hours * 3600_000)
+  }
   return d.toISOString()
 }
 
@@ -82,7 +94,7 @@ export function ModelList() {
   // ===== 通用过滤条件 =====
   const [source, setSource] = useState<CallSource | 'all'>('all')
   const [routeMode, setRouteMode] = useState<string>('all')
-  const [timeRangeHours, setTimeRangeHours] = useState(1)
+  const [timeRangeId, setTimeRangeId] = useState<string>('1')
   const [apiKeySecretId, setApiKeySecretId] = useState<string>('all')
   const [authKeys, setAuthKeys] = useState<GatewayAuthKey[]>([])
 
@@ -110,8 +122,19 @@ export function ModelList() {
 
   const timeRangeOptions = useTimeRangeOptions()
 
-  // 计算时间范围
-  const startAt = useMemo(() => getTimeRangeStart(timeRangeHours), [timeRangeHours])
+  // 计算时间范围：直接依赖基本类型 timeRangeId（字符串/数字），避免依赖 timeRangeOptions
+  // 数组引用（每次 render 重建）导致 startAt 连锁重建，进而破坏 AutoRefresh 的 setInterval 节奏。
+  // today 跨日：startAt 缓存为切换当天的 0 点，跨日后不自动推进；切换时间范围或刷新页面会修正。
+  const startAt = useMemo(() => {
+    const hours = timeRangeId === 'today' ? undefined : Number(timeRangeId)
+    return getTimeRangeStart(hours)
+  }, [timeRangeId])
+
+  // 仅供 statsDescription 文案使用，引用稳定性不影响 fetch / timer
+  const timeRangeOption = useMemo(
+    () => timeRangeOptions.find((o) => o.id === timeRangeId) ?? timeRangeOptions[0],
+    [timeRangeOptions, timeRangeId]
+  )
 
   // ===== 明细模式 =====
   const detailInput = useMemo(() => ({
@@ -155,9 +178,11 @@ export function ModelList() {
 
   // 统计描述文本
   const statsDescription = useMemo(() => {
-    const timeText = timeRangeHours >= 24
-      ? t('modelManagement.days', { count: timeRangeHours / 24 })
-      : t('modelManagement.hours', { count: timeRangeHours })
+    const timeText = timeRangeOption?.hours == null
+      ? t('modelManagement.today')
+      : timeRangeOption.hours >= 24
+        ? t('modelManagement.days', { count: timeRangeOption.hours / 24 })
+        : t('modelManagement.hours', { count: timeRangeOption.hours })
     const sourceText = source !== 'all'
       ? ` · ${source === 'cli' ? 'CLI' : source === 'gateway' ? t('modelStatsTable.sourceGateway') : t('modelStatsTable.sourceInternal')}`
       : ''
@@ -165,7 +190,7 @@ export function ModelList() {
       ? ` · ${routeMode === '1' ? t('modelStatsTable.routeDirect') : t('modelStatsTable.routeFailover')}`
       : ''
     return `${t('modelManagement.statsDescription', { time: timeText, totalTokens: totalTokensText })}${sourceText}${routeText}`
-  }, [timeRangeHours, source, routeMode, t, totalTokensText])
+  }, [timeRangeOption, source, routeMode, t, totalTokensText])
 
   // ===== 高度计算（§5.5） =====
   // 直接测量表格宿主区域，避免 header 估算与 magic number 偏差
@@ -179,15 +204,15 @@ export function ModelList() {
             <div className="flex items-center gap-2">
               {/* 时间范围快捷选择 */}
               <Select
-                value={timeRangeHours.toString()}
-                onValueChange={(v) => setTimeRangeHours(Number(v))}
+                value={timeRangeId}
+                onValueChange={setTimeRangeId}
               >
-                <SelectTrigger className="h-7 w-20 text-xs">
+                <SelectTrigger className="h-7 w-24 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {timeRangeOptions.map((opt) => (
-                    <SelectItem key={opt.hours} value={opt.hours.toString()} className="text-xs">
+                    <SelectItem key={opt.id} value={opt.id} className="text-xs">
                       {opt.label}
                     </SelectItem>
                   ))}
