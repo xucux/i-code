@@ -226,15 +226,6 @@ function GatewaysIndexPage() {
                 port={status.boundPort}
               />
 
-              {/* 网关启动失败帮助弹窗：端口被占用/权限不足时复用端口排查指引 */}
-              <PortInUseDialog
-                open={portInUsePort !== null}
-                port={portInUsePort}
-                onOpenChange={(v) => !v && setPortInUsePort(null)}
-                title={t('gatewayOverview.gatewayPortInUseTitle')}
-                description={t('gatewayOverview.gatewayPortInUseDesc', { port: portInUsePort ?? '' })}
-              />
-
               <div className="space-y-4">
                 <GatewayBasicSettings />
                 <CallbackServerManager />
@@ -263,6 +254,16 @@ function GatewaysIndexPage() {
           <ScriptTemplateList />
         </TabsContent>
       </Tabs>
+
+      {/* 网关启动失败帮助弹窗：端口被占用/权限不足时复用端口排查指引。
+          放在 Tabs 外层，确保在任意 Tab 下点击启动网关都能弹出。 */}
+      <PortInUseDialog
+        open={portInUsePort !== null}
+        port={portInUsePort}
+        onOpenChange={(v) => !v && setPortInUsePort(null)}
+        title={t('gatewayOverview.gatewayPortInUseTitle')}
+        description={t('gatewayOverview.gatewayPortInUseDesc', { port: portInUsePort ?? '' })}
+      />
     </div>
   )
 }

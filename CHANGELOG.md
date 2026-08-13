@@ -14,6 +14,27 @@ editRules:
 
 ### 🔄变更
 
+## [0.2.1] - 2026-08-13
+
+### 🚀新增
+
+- **日期选择类组件支持清空**：DatePicker / DateTimePicker / DateRangePicker / DateTimeRangePicker 新增清空按钮，仅在已有值时显示，点击后完全移除已选值并关闭弹窗
+- **模型统计时间范围扩展**：新增「12 小时」与「今天」两个快捷选项，时间范围选择逻辑重构为基于 ID 匹配，避免数组引用变化导致定时刷新节奏被打乱
+- **端口占用弹窗 Windows winnat 指引**：端口占用提示弹窗 Windows 部分新增第 3 步——重启 winnat 服务（`net stop winnat; net start winnat`），用于解决 Hyper-V / WSL 保留端口导致固定端口无法绑定的问题
+- **网关启动失败复用端口帮助弹窗**：网关启动绑定端口失败（端口被占用 / 权限不足 / 地址不可用）时，复用 PortInUseDialog 展示分平台排查指引，而非仅展示一条失败 toast
+
+### 🐞修复
+
+- **供应商网络检测弹窗滚动布局修复**：移除外层 Radix ScrollArea（其注入的 `display: table` 包裹层导致固定高度失效），改用原生 div overflow-auto + min-h-0 + DialogContent max-h-[80vh]
+- **网络检测错误信息截断与详情查看**：Ping 错误信息过长时默认截断（max-width 220px），点击展开 Popover 查看完整错误内容并支持复制
+- **状态字段文字竖排修复**：调整列宽（w-20）并添加 whitespace-nowrap，防止表头与单元格文字垂直换行
+
+### 🔄变更
+
+- 版本号升级至 0.2.1
+- PortInUseDialog 组件泛化：新增可选 `title` / `description` props，供 OAuth 授权与网关启动两个场景复用
+- 供应商列表移除顶部「刷新」按钮，保留新增 / 导入 / 网络检测等操作
+
 ## [0.2.0] - 2026-08-10
 
 ### 🚀新增

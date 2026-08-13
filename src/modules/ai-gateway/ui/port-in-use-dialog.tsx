@@ -65,7 +65,7 @@ export function PortInUseDialog({ open, port, onOpenChange, title, description }
       // Windows 保留端口（Hyper-V / WSL 预留的动态端口范围）可能导致固定端口无法绑定，
       // 重启 winnat 服务可重置动态端口保留，需管理员权限。
       extraStepKey: 'portInUse.windowsWinnatStep',
-      extraCmd: 'net stop winnat && net start winnat',
+      extraCmd: 'net stop winnat; net start winnat',
     },
     {
       titleKey: 'portInUse.macosTitle',
