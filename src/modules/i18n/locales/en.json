@@ -566,6 +566,7 @@
       "windowsCmd": "netstat -ano | findstr :{{port}}",
       "windowsStep2": "2. Terminate the process (replace <PID> with the PID from step 1):",
       "windowsKillCmd": "taskkill /PID <PID> /F",
+      "windowsWinnatStep": "3. If it still fails to start, Windows may have reserved this port. Restart the winnat service (run as Administrator):",
       "macosTitle": "macOS",
       "macosStep1": "1. Find the process occupying the port:",
       "macosCmd": "lsof -i :{{port}}",

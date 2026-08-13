@@ -566,6 +566,7 @@
       "windowsCmd": "netstat -ano | findstr :{{port}}",
       "windowsStep2": "2. 終止程序（將 <PID> 替換為上一步得到的 PID）：",
       "windowsKillCmd": "taskkill /PID <PID> /F",
+      "windowsWinnatStep": "3. 若仍無法啟動，可能是 Windows 保留了該埠，請重新啟動 winnat 服務（以管理員身分執行）：",
       "macosTitle": "macOS",
       "macosStep1": "1. 查詢佔用埠的程序：",
       "macosCmd": "lsof -i :{{port}}",

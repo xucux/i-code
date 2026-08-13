@@ -566,6 +566,7 @@
       "windowsCmd": "netstat -ano | findstr :{{port}}",
       "windowsStep2": "2. 终止进程（将 <PID> 替换为上一步得到的 PID）：",
       "windowsKillCmd": "taskkill /PID <PID> /F",
+      "windowsWinnatStep": "3. 若仍无法启动，可能是 Windows 保留了该端口，请重启 winnat 服务（以管理员身份运行）：",
       "macosTitle": "macOS",
       "macosStep1": "1. 查找占用端口的进程：",
       "macosCmd": "lsof -i :{{port}}",

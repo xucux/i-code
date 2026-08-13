@@ -1,6 +1,6 @@
 [package]
 name = "i-code"
-version = "0.2.0"
+version = "0.2.1"
 description = "Local AI Gateway & CLI Config Manager"
 authors = ["i-code"]
 edition = "2021"

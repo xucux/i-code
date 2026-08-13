@@ -566,6 +566,7 @@
       "windowsCmd": "netstat -ano | findstr :{{port}}",
       "windowsStep2": "2. プロセスを終了（<PID> を前の手順で取得した PID に置き換え）：",
       "windowsKillCmd": "taskkill /PID <PID> /F",
+      "windowsWinnatStep": "3. それでも起動できない場合、Windows がこのポートを予約している可能性があります。winnat サービスを再起動します（管理者として実行）：",
       "macosTitle": "macOS",
       "macosStep1": "1. ポートを使用中のプロセスを検索：",
       "macosCmd": "lsof -i :{{port}}",

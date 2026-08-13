@@ -48,6 +48,9 @@ export function PortInUseDialog({ open, port, onOpenChange }: PortInUseDialogPro
     cmd: string
     step2Key: string
     killCmd: string
+    /** 额外的处理命令（仅部分平台，如 Windows 重启 winnat 服务以释放保留端口） */
+    extraStepKey?: string
+    extraCmd?: string
   }> = [
     {
       titleKey: 'portInUse.windowsTitle',
@@ -55,6 +58,10 @@ export function PortInUseDialog({ open, port, onOpenChange }: PortInUseDialogPro
       cmd: `netstat -ano | findstr :${portStr}`,
       step2Key: 'portInUse.windowsStep2',
       killCmd: 'taskkill /PID <PID> /F',
+      // Windows 保留端口（Hyper-V / WSL 预留的动态端口范围）可能导致固定端口无法绑定，
+      // 重启 winnat 服务可重置动态端口保留，需管理员权限。
+      extraStepKey: 'portInUse.windowsWinnatStep',
+      extraCmd: 'net stop winnat && net start winnat',
     },
     {
       titleKey: 'portInUse.macosTitle',
@@ -137,6 +144,25 @@ export function PortInUseDialog({ open, port, onOpenChange }: PortInUseDialogPro
                       </Button>
                     </div>
                   </div>
+                  {section.extraStepKey && section.extraCmd && (
+                    <div>
+                      <p className="text-muted-foreground text-[11px]">{t(section.extraStepKey)}</p>
+                      <div className="mt-0.5 flex items-center gap-1">
+                        <code className="flex-1 truncate rounded bg-muted px-1.5 py-0.5 text-[11px] font-mono">
+                          {section.extraCmd}
+                        </code>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-6 shrink-0"
+                          onClick={() => void copyToClipboard(section.extraCmd!)}
+                          title={t('portInUse.copyCmd')}
+                        >
+                          <i className="fa-solid fa-copy text-[10px]" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )
