@@ -769,6 +769,8 @@
       "gatewayStarted": "閘道器已啟動：{{host}}:{{port}}",
       "gatewayStopped": "閘道器已停止",
       "gatewayStartFailed": "閘道器啟動失敗",
+      "gatewayPortInUseTitle": "閘道器啟動失敗",
+      "gatewayPortInUseDesc": "無法在連接埠 {{port}} 上啟動閘道器，監聽連接埠不可用（被佔用 / 權限不足 / 被系統保留）。請按以下步驟排查：",
       "statusRunning": "執行中",
       "statusStopped": "已停止",
       "unboundAddress": "未繫結地址",

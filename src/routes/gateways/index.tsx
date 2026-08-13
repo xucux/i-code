@@ -10,6 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ProviderList } from '@/modules/ai-gateway/ui/provider-list'
 import { ModelList } from '@/modules/ai-gateway/ui/model-list'
+import { PortInUseDialog } from '@/modules/ai-gateway/ui/port-in-use-dialog'
+import { toIcodeError } from '@/core/errors'
 import { VirtualProviderList } from '@/modules/virtual-provider/ui/virtual-provider-list'
 import { ScriptTemplateList } from '@/modules/script-template/ui/script-template-list'
 import { GatewayBasicSettings, GatewayAuthKeyManager, CallbackServerManager } from '@/modules/ai-gateway/ui/gateway-settings'
@@ -40,6 +42,8 @@ function GatewaysIndexPage() {
   // 当网关监听 0.0.0.0 / :: 时，解析本机 LAN 地址用于展示、复制与接口文档
   const resolved = useLocalIps(status.boundHost, status.boundPort)
   const [apiDocsOpen, setApiDocsOpen] = useState(false)
+  // 网关启动失败（端口被占用/权限不足等）时弹出帮助弹窗
+  const [portInUsePort, setPortInUsePort] = useState<number | null>(null)
 
   /** 切换网关启动/停止 */
   const handleToggleGateway = async () => {
@@ -59,7 +63,14 @@ function GatewaysIndexPage() {
           toast.error(result.error ?? t('gatewayOverview.gatewayStartFailed'))
         }
       } catch (err) {
-        toast.error(String(err))
+        const error = toIcodeError(err)
+        // 绑定失败（端口被占用 / 权限不足 / 地址不可用）时复用端口帮助弹窗，
+        // 而不是只展示一条启动失败 toast
+        if (error.details?.reason && typeof error.details.port === 'number') {
+          setPortInUsePort(error.details.port)
+        } else {
+          toast.error(error.message)
+        }
       }
     }
   }
@@ -213,6 +224,15 @@ function GatewaysIndexPage() {
                 hosts={resolved.hosts}
                 defaultHost={resolved.displayHost}
                 port={status.boundPort}
+              />
+
+              {/* 网关启动失败帮助弹窗：端口被占用/权限不足时复用端口排查指引 */}
+              <PortInUseDialog
+                open={portInUsePort !== null}
+                port={portInUsePort}
+                onOpenChange={(v) => !v && setPortInUsePort(null)}
+                title={t('gatewayOverview.gatewayPortInUseTitle')}
+                description={t('gatewayOverview.gatewayPortInUseDesc', { port: portInUsePort ?? '' })}
               />
 
               <div className="space-y-4">

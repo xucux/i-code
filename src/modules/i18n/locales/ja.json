@@ -769,6 +769,8 @@
       "gatewayStarted": "ゲートウェイを起動しました：{{host}}:{{port}}",
       "gatewayStopped": "ゲートウェイを停止しました",
       "gatewayStartFailed": "ゲートウェイの起動に失敗しました",
+      "gatewayPortInUseTitle": "ゲートウェイの起動に失敗しました",
+      "gatewayPortInUseDesc": "ポート {{port}} でゲートウェイを起動できません。リッスンポートが使用できない状態です（使用中 / 権限不足 / システムに予約済み）。以下の手順で確認してください：",
       "statusRunning": "実行中",
       "statusStopped": "停止済み",
       "unboundAddress": "未バインドのアドレス",

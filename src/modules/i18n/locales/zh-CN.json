@@ -769,6 +769,8 @@
       "gatewayStarted": "网关已启动：{{host}}:{{port}}",
       "gatewayStopped": "网关已停止",
       "gatewayStartFailed": "网关启动失败",
+      "gatewayPortInUseTitle": "网关启动失败",
+      "gatewayPortInUseDesc": "无法在端口 {{port}} 上启动网关，监听端口不可用（被占用 / 权限不足 / 被系统保留）。请按以下步骤排查：",
       "statusRunning": "运行中",
       "statusStopped": "已停止",
       "unboundAddress": "未绑定地址",

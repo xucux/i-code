@@ -769,6 +769,8 @@
       "gatewayStarted": "Gateway started: {{host}}:{{port}}",
       "gatewayStopped": "Gateway stopped",
       "gatewayStartFailed": "Failed to start gateway",
+      "gatewayPortInUseTitle": "Gateway failed to start",
+      "gatewayPortInUseDesc": "Unable to start gateway on port {{port}}: the listening port is unavailable (occupied / permission denied / reserved by the system). Follow the steps below to troubleshoot:",
       "statusRunning": "Running",
       "statusStopped": "Stopped",
       "unboundAddress": "Unbound address",

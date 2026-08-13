@@ -9,6 +9,10 @@ interface PortInUseDialogProps {
   /** 被占用的端口号 */
   port: number | null
   onOpenChange: (open: boolean) => void
+  /** 覆盖标题，默认使用 i18n `portInUse.title` */
+  title?: string
+  /** 覆盖描述，默认使用 i18n `portInUse.description`（含端口插值） */
+  description?: string
 }
 
 /**
@@ -27,7 +31,7 @@ function detectPlatform(): 'windows' | 'macos' | 'linux' {
  *
  * 当 OAuth 回调服务器的固定端口被占用时，展示分平台的进程清理指引。
  */
-export function PortInUseDialog({ open, port, onOpenChange }: PortInUseDialogProps) {
+export function PortInUseDialog({ open, port, onOpenChange, title, description }: PortInUseDialogProps) {
   const { t } = useTranslation('aiGateway')
   const platform = detectPlatform()
 
@@ -85,10 +89,10 @@ export function PortInUseDialog({ open, port, onOpenChange }: PortInUseDialogPro
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
             <i className="fa-solid fa-triangle-exclamation text-amber-500" />
-            {t('portInUse.title')}
+            {title ?? t('portInUse.title')}
           </DialogTitle>
           <DialogDescription className="text-xs">
-            {t('portInUse.description', { port: portStr })}
+            {description ?? t('portInUse.description', { port: portStr })}
           </DialogDescription>
         </DialogHeader>
 

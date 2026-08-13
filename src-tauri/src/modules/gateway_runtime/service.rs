@@ -242,7 +242,7 @@ impl GatewayRuntimeService {
         let (tx, rx) = oneshot::channel::<()>();
         let listener = tokio::net::TcpListener::bind(addr)
             .await
-            .map_err(|e| IcodeError::internal(format!("绑定 {addr} 失败: {e}")))?;
+            .map_err(|e| gateway_bind_error(&host, port, e))?;
 
         // 实际绑定的地址（端口为 0 时由 OS 分配）
         let bound_addr = listener.local_addr().map_err(|e| {
@@ -441,4 +441,22 @@ fn check_database_connection() -> bool {
         },
         Err(_) => false,
     }
+}
+
+/// 将网关监听端口绑定错误转换为 IcodeError
+///
+/// 端口被占用、权限不足或地址不可用（Windows 上常见的"以一种访问权限不允许的方式做了
+/// 一个访问套接字的尝试"，多为保留端口 / 端口被占用 / 权限不足所致）时，返回带
+/// `reason` 与 `port` 的 details，前端据此复用端口帮助弹窗给用户排查指引；
+/// 其他错误返回 `INTERNAL`。
+fn gateway_bind_error(host: &str, port: u16, e: std::io::Error) -> IcodeError {
+    let reason = match e.kind() {
+        std::io::ErrorKind::AddrInUse => "port_in_use",
+        std::io::ErrorKind::PermissionDenied => "permission_denied",
+        std::io::ErrorKind::AddrNotAvailable => "addr_not_available",
+        _ => return IcodeError::internal(format!("绑定 {host}:{port} 失败: {e}")),
+    };
+    let msg = format!("无法在 {host}:{port} 启动网关：{e}");
+    IcodeError::conflict(msg)
+        .with_details(serde_json::json!({ "port": port, "host": host, "reason": reason }))
 }
