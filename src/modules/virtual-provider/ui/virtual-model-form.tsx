@@ -46,6 +46,8 @@ interface VirtualModelDialogProps {
   onOpenChange: (open: boolean) => void
   /** 所属虚拟供应商 ID */
   virtualProviderId: string
+  /** 虚拟供应商策略；load_balance 时显示 weight 输入 */
+  strategy?: 'fallback' | 'on_all' | 'load_balance'
   /** 传入 model 表示编辑模式；不传表示新建模式 */
   model?: VirtualModel | null
   onSuccess?: () => void
@@ -61,6 +63,7 @@ export function VirtualModelDialog({
   open,
   onOpenChange,
   virtualProviderId,
+  strategy,
   model,
   onSuccess,
 }: VirtualModelDialogProps) {
@@ -126,10 +129,16 @@ export function VirtualModelDialog({
         setRouteDetails(
           result.map((route) => ({
             key: `${route.targetProviderId}/${route.targetModelId}`,
+            routeId: route.id,
             priority: Number(route.priority),
+            enabled: route.enabled,
             isHealthy: route.isHealthy,
             maxRetries: Number(route.maxRetries),
             retryIntervalMs: Number(route.retryIntervalMs),
+            timeoutMs: route.timeoutMs != null ? Number(route.timeoutMs) : undefined,
+            extraHeadersJson: route.extraHeadersJson ?? '',
+            extraBodyJson: route.extraBodyJson ?? '',
+            weight: Number(route.weight ?? 1),
           }))
         )
       })
@@ -171,9 +180,14 @@ export function VirtualModelDialog({
         return {
           key,
           priority: route ? Number(route.priority) : index,
+          enabled: route ? route.enabled : true,
           isHealthy: route ? route.isHealthy : true,
           maxRetries: route ? Number(route.maxRetries) : 3,
           retryIntervalMs: route ? Number(route.retryIntervalMs) : 1000,
+          timeoutMs: route?.timeoutMs != null ? Number(route.timeoutMs) : undefined,
+          extraHeadersJson: route?.extraHeadersJson ?? '',
+          extraBodyJson: route?.extraBodyJson ?? '',
+          weight: route ? Number(route.weight ?? 1) : 1,
         }
       })
     })
@@ -189,14 +203,34 @@ export function VirtualModelDialog({
         const targetProviderId = slashIdx >= 0 ? key.slice(0, slashIdx) : key
         const targetModelId = slashIdx >= 0 ? key.slice(slashIdx + 1) : ''
         const detail = routeDetails.find((d) => d.key === key)
+
+        // 解析 extraHeaders / extraBody JSON 字符串；空串或非法 JSON 跳过
+        const parseJsonObj = (raw?: string): Record<string, unknown> | undefined => {
+          const trimmed = (raw ?? '').trim()
+          if (!trimmed) return undefined
+          try {
+            const parsed = JSON.parse(trimmed)
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+              return parsed as Record<string, unknown>
+            }
+          } catch {
+            // 非法 JSON 直接跳过；前端可在此前置校验提示用户
+          }
+          return undefined
+        }
+
         return {
           targetProviderId,
           targetModelId,
           priority: detail?.priority ?? index,
-          enabled: true,
+          enabled: detail?.enabled ?? true,
           isHealthy: detail?.isHealthy ?? true,
           maxRetries: detail?.maxRetries ?? 3,
           retryIntervalMs: detail?.retryIntervalMs ?? 1000,
+          timeoutMs: detail?.timeoutMs,
+          extraHeaders: parseJsonObj(detail?.extraHeadersJson),
+          extraBody: parseJsonObj(detail?.extraBodyJson),
+          weight: detail?.weight ?? 1,
         }
       })
 
@@ -319,6 +353,7 @@ export function VirtualModelDialog({
                     onDetailChange={setRouteDetails}
                     providerModels={allModels}
                     realProviders={realProviders}
+                    strategy={strategy}
                   />
                 )}
               </div>

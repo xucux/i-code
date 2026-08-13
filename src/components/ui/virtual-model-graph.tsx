@@ -3,6 +3,12 @@
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 /**
  * 模型特性标记
@@ -42,6 +48,18 @@ export interface VirtualModelTargetNode {
   contextConfig?: string | Record<string, unknown>
   /** 模型特性 */
   features?: VirtualModelFeatures
+  /** 上次健康检查通过时间（RFC3339 字符串） */
+  lastHealthyAt?: string
+  /** 上次探活时间戳（RFC3339 字符串） */
+  lastCheckAt?: string
+  /** 连续探活失败次数 */
+  consecutiveFailures?: number
+  /** 上次探活失败原因 */
+  lastErrorText?: string
+  /** 上次探活耗时（毫秒） */
+  lastCheckDurationMs?: number
+  /** 负载均衡权重（仅在 load_balance 策略下生效） */
+  weight?: number
 }
 
 export interface VirtualModelGraphProps {
@@ -182,13 +200,15 @@ export function VirtualModelGraph({
     return () => clearTimeout(timer)
   }, [recalculatePaths, editMode])
 
-  const enabledCount = targets.filter((t) => t.enabled !== false).length
+  // 「路由」仅指子级真实模型路由，父级虚拟模型只是入口不算路由
+  const enabledCount = childTargets.filter((t) => t.enabled !== false).length
 
   // 动态分配左右比例：父级少则收窄左侧
   const parentFlex = parentTargets.length <= 1 ? "w-[28%]" : "w-[35%]"
   const childFlex = parentTargets.length <= 1 ? "w-[72%]" : "w-[65%]"
 
   return (
+    <TooltipProvider delayDuration={300}>
     <div
       ref={containerRef}
       className={cn("relative w-full overflow-hidden rounded-md border bg-card p-2.5", className)}
@@ -216,7 +236,7 @@ export function VirtualModelGraph({
         <i className="fa-solid fa-circle-nodes size-3 text-primary" />
         <span>{virtualModel}</span>
         <span className="ml-auto text-[10px] font-normal text-muted-foreground">
-          {targets.length} 条路由 · 已启用 {enabledCount}
+          {childTargets.length} 条路由 · 已启用 {enabledCount}
         </span>
       </div>
 
@@ -259,6 +279,7 @@ export function VirtualModelGraph({
         </div>
       </div>
     </div>
+    </TooltipProvider>
   )
 }
 
@@ -356,78 +377,155 @@ const ChildNode = React.forwardRef<HTMLButtonElement, ChildNodeProps>(
           : "border-b-2 border-primary/40"
 
     return (
-      <button
-        type="button"
-        ref={ref}
-        onClick={onClick}
-        className={cn(
-          "flex rounded-md border bg-background px-2 py-1.5 text-left shadow-sm transition-all",
-          "hover:shadow-md focus:outline-none focus:ring-2 focus:ring-ring",
-          healthBorderClass(target.healthy, target.enabled),
-          selected && "ring-2 ring-primary",
-          target.enabled === false && "opacity-60"
-        )}
-      >
-        {/* 主体内容 */}
-        <div className="min-w-0 flex-1">
-          {/* 第一行：供应商 + 模型 + 优先级(底色) + 额度 */}
-          <div className="flex items-baseline gap-1.5">
-            <i className="fa-solid fa-building size-2.5 shrink-0 text-muted-foreground" />
-            <span className="truncate text-[10px] text-muted-foreground">{target.provider}</span>
-            <span className="shrink-0 text-muted-foreground/50">·</span>
-            <span className="truncate text-xs font-semibold">{target.model}</span>
-            <span className={cn("ml-auto shrink-0 text-[9px] tabular-nums text-muted-foreground", priorityUnderlineClass)}>
-              P{target.priority}
-            </span>
-            {target.quotaPercent !== undefined && (
-              <span className="shrink-0 text-[9px] tabular-nums text-muted-foreground">
-                {target.quotaPercent}%
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            ref={ref}
+            onClick={onClick}
+            className={cn(
+              "flex rounded-md border bg-background px-2 py-1.5 text-left shadow-sm transition-all",
+              "hover:shadow-md focus:outline-none focus:ring-2 focus:ring-ring",
+              healthBorderClass(target.healthy, target.enabled),
+              selected && "ring-2 ring-primary",
+              target.enabled === false && "opacity-60"
+            )}
+          >
+            {/* 主体内容 */}
+            <div className="min-w-0 flex-1">
+              {/* 第一行：供应商 + 模型 + 优先级(底色) + 额度 */}
+              <div className="flex items-baseline gap-1.5">
+                <i className="fa-solid fa-building size-2.5 shrink-0 text-muted-foreground" />
+                <span className="truncate text-[10px] text-muted-foreground">{target.provider}</span>
+                <span className="shrink-0 text-muted-foreground/50">·</span>
+                <span className="truncate text-xs font-semibold">{target.model}</span>
+                <span className={cn("ml-auto shrink-0 text-[9px] tabular-nums text-muted-foreground", priorityUnderlineClass)}>
+                  P{target.priority}
+                </span>
+                {target.quotaPercent !== undefined && (
+                  <span className="shrink-0 text-[9px] tabular-nums text-muted-foreground">
+                    {target.quotaPercent}%
+                  </span>
+                )}
+              </div>
+
+              {/* 第二行：上下文配置 + 特性标签 + 探活信息 */}
+              {(contextPairs.length > 0 || hasFeatures || (target.consecutiveFailures && target.consecutiveFailures > 0)) && (
+                <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                  {contextPairs.map(([key, val]) => (
+                    <span key={key} className="text-[9px] text-muted-foreground">
+                      <span className="font-medium text-foreground/70">{key}</span>:{val}
+                    </span>
+                  ))}
+                  {target.features?.toolCalling && (
+                    <span className="inline-flex items-center gap-0.5 rounded bg-muted px-1 py-px text-[8px]">
+                      <i className="fa-solid fa-wrench size-2" />工具
+                    </span>
+                  )}
+                  {target.features?.imageInput && (
+                    <span className="inline-flex items-center gap-0.5 rounded bg-muted px-1 py-px text-[8px]">
+                      <i className="fa-solid fa-image size-2" />图像
+                    </span>
+                  )}
+                  {target.features?.functionCalling && (
+                    <span className="inline-flex items-center gap-0.5 rounded bg-muted px-1 py-px text-[8px]">
+                      <i className="fa-solid fa-code size-2" />函数
+                    </span>
+                  )}
+                  {target.features?.streaming && (
+                    <span className="inline-flex items-center gap-0.5 rounded bg-muted px-1 py-px text-[8px]">
+                      <i className="fa-solid fa-bolt size-2" />流式
+                    </span>
+                  )}
+                  {target.consecutiveFailures && target.consecutiveFailures > 0 && (
+                    <span
+                      className="inline-flex items-center gap-0.5 rounded bg-destructive/10 px-1 py-px text-[8px] text-destructive"
+                      title={target.lastErrorText}
+                    >
+                      <i className="fa-solid fa-triangle-exclamation size-2" />
+                      ×{target.consecutiveFailures}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* 额度进度条 */}
+              {target.quotaPercent !== undefined && (
+                <div className="mt-1 h-0.5 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all"
+                    style={{ width: `${Math.min(100, Math.max(0, target.quotaPercent))}%` }}
+                  />
+                </div>
+              )}
+            </div>
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-[280px] p-2 text-xs">
+          {/* 结构化 Tooltip：优先级 / 权重 / 健康状态 / 探活信息 / 失败原因 */}
+          <div className="space-y-0.5">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-muted-foreground">优先级</span>
+              <span className="font-medium tabular-nums">P{target.priority}</span>
+            </div>
+            {target.weight !== undefined && (
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">权重</span>
+                <span className="font-medium tabular-nums">{target.weight}</span>
+              </div>
+            )}
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-muted-foreground">健康</span>
+              <span className={cn(
+                "font-medium",
+                target.enabled === false
+                  ? "text-muted-foreground"
+                  : target.healthy === true
+                    ? "text-emerald-500"
+                    : target.healthy === false
+                      ? "text-destructive"
+                      : "text-primary"
+              )}>
+                {target.enabled === false
+                  ? "已禁用"
+                  : target.healthy === true
+                    ? "健康"
+                    : target.healthy === false
+                      ? "不健康"
+                      : "未知"}
               </span>
+            </div>
+            {target.lastCheckAt && (
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">上次探活</span>
+                <span className="tabular-nums text-muted-foreground">
+                  {new Date(target.lastCheckAt).toLocaleString()}
+                </span>
+              </div>
+            )}
+            {target.lastCheckDurationMs !== undefined && (
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">探活耗时</span>
+                <span className="tabular-nums text-muted-foreground">{target.lastCheckDurationMs}ms</span>
+              </div>
+            )}
+            {target.consecutiveFailures !== undefined && target.consecutiveFailures > 0 && (
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">连续失败</span>
+                <span className="font-medium tabular-nums text-destructive">
+                  {target.consecutiveFailures} 次
+                </span>
+              </div>
+            )}
+            {target.lastErrorText && (
+              <div className="border-t pt-1 mt-1">
+                <div className="text-muted-foreground mb-0.5">失败原因</div>
+                <div className="text-destructive break-all text-[11px]">{target.lastErrorText}</div>
+              </div>
             )}
           </div>
-
-          {/* 第二行：上下文配置 + 特性标签 */}
-          {(contextPairs.length > 0 || hasFeatures) && (
-            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-              {contextPairs.map(([key, val]) => (
-                <span key={key} className="text-[9px] text-muted-foreground">
-                  <span className="font-medium text-foreground/70">{key}</span>:{val}
-                </span>
-              ))}
-              {target.features?.toolCalling && (
-                <span className="inline-flex items-center gap-0.5 rounded bg-muted px-1 py-px text-[8px]">
-                  <i className="fa-solid fa-wrench size-2" />工具
-                </span>
-              )}
-              {target.features?.imageInput && (
-                <span className="inline-flex items-center gap-0.5 rounded bg-muted px-1 py-px text-[8px]">
-                  <i className="fa-solid fa-image size-2" />图像
-                </span>
-              )}
-              {target.features?.functionCalling && (
-                <span className="inline-flex items-center gap-0.5 rounded bg-muted px-1 py-px text-[8px]">
-                  <i className="fa-solid fa-code size-2" />函数
-                </span>
-              )}
-              {target.features?.streaming && (
-                <span className="inline-flex items-center gap-0.5 rounded bg-muted px-1 py-px text-[8px]">
-                  <i className="fa-solid fa-bolt size-2" />流式
-                </span>
-              )}
-            </div>
-          )}
-
-          {/* 额度进度条 */}
-          {target.quotaPercent !== undefined && (
-            <div className="mt-1 h-0.5 w-full overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full rounded-full bg-primary transition-all"
-                style={{ width: `${Math.min(100, Math.max(0, target.quotaPercent))}%` }}
-              />
-            </div>
-          )}
-        </div>
-      </button>
+        </TooltipContent>
+      </Tooltip>
     )
   }
 )

@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { ScrollPage } from '@/components/ui/scroll-page'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog'
 import {
   Select,
@@ -26,6 +27,7 @@ import {
 } from '@/components/ui/select'
 import { VirtualProviderDialog } from './virtual-provider-create-dialog'
 import { VirtualModelDialog } from './virtual-model-form'
+import { RouteHistoryTab } from './route-history-tab'
 import {
   VirtualModelGraph,
   type VirtualModelTargetNode,
@@ -190,6 +192,12 @@ export function VirtualProviderList() {
         priority: Number(route.priority),
         enabled: route.enabled,
         healthy: route.isHealthy,
+        lastHealthyAt: route.lastHealthyAt,
+        lastCheckAt: route.lastCheckAt,
+        consecutiveFailures: route.consecutiveFailures,
+        lastErrorText: route.lastErrorText,
+        lastCheckDurationMs: route.lastCheckDurationMs,
+        weight: route.weight,
       }
     })
 
@@ -285,71 +293,93 @@ export function VirtualProviderList() {
         </Card>
       )}
 
-      {/* 可滚动主内容区 */}
-      <ScrollPage variant="borderless" scrollbarVisible="auto" className="flex-1">
-        <div className="space-y-4 p-4">
-          {!selectedProvider && !providersLoading && (
-            <div className="text-muted-foreground flex h-40 items-center justify-center text-sm">
-              {t('noProvider')}
-            </div>
-          )}
+      {/* 主内容区：未选择供应商时展示占位；选中后展示「模型列表 / 路由历史」Tab */}
+      <div className="min-h-0 flex-1">
+        {!selectedProvider && !providersLoading && (
+          <div className="text-muted-foreground flex h-40 items-center justify-center text-sm">
+            {t('noProvider')}
+          </div>
+        )}
 
-          {selectedProvider && (
-            <>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-xs font-medium">{t('modelList')}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <VirtualModelGraph
-                    virtualModel={selectedProvider.name}
-                    targets={graphTargets}
-                    selectedId={selectedModelId ?? undefined}
-                    editMode
-                    onSelectParent={handleSelectParent}
-                    renderParentActions={(target) => {
-                      const model = models.find((m) => m.id === target.id)
-                      if (!model) return null
-                      return (
-                        <>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="size-6"
-                            onClick={() => openEditModel(model)}
-                          >
-                            <i className="fa-solid fa-pen text-[10px]" />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="size-6 text-destructive hover:text-destructive"
-                            onClick={() => openDelete({ type: 'model', item: model })}
-                          >
-                            <i className="fa-solid fa-trash text-[10px]" />
-                          </Button>
-                        </>
-                      )
-                    }}
-                  />
-                </CardContent>
-              </Card>
+        {(providersLoading || modelsLoading || routesLoading) && !selectedProvider && (
+          <div className="text-muted-foreground py-4 text-center text-xs">{t('loading')}</div>
+        )}
 
-              {models.length === 0 && !modelsLoading && (
-                <div className="text-muted-foreground py-6 text-center text-xs">
-                  {t('noModels')}
+        {selectedProvider && (
+          <Tabs defaultValue="models" className="flex h-full flex-col gap-2">
+            <TabsList className="h-8 w-fit">
+              <TabsTrigger value="models" className="text-xs">{t('tabModelList')}</TabsTrigger>
+              <TabsTrigger value="history" className="text-xs">{t('tabRouteHistory')}</TabsTrigger>
+            </TabsList>
+
+            {/* 模型列表 Tab */}
+            <TabsContent value="models" className="min-h-0 flex-1">
+              <ScrollPage variant="borderless" scrollbarVisible="auto" className="h-full">
+                <div className="space-y-4 p-4">
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-xs font-medium">{t('modelList')}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <VirtualModelGraph
+                        virtualModel={selectedProvider.name}
+                        targets={graphTargets}
+                        selectedId={selectedModelId ?? undefined}
+                        editMode
+                        onSelectParent={handleSelectParent}
+                        renderParentActions={(target) => {
+                          const model = models.find((m) => m.id === target.id)
+                          if (!model) return null
+                          return (
+                            <>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="size-6"
+                                onClick={() => openEditModel(model)}
+                              >
+                                <i className="fa-solid fa-pen text-[10px]" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="size-6 text-destructive hover:text-destructive"
+                                onClick={() => openDelete({ type: 'model', item: model })}
+                              >
+                                <i className="fa-solid fa-trash text-[10px]" />
+                              </Button>
+                            </>
+                          )
+                        }}
+                      />
+                    </CardContent>
+                  </Card>
+
+                  {models.length === 0 && !modelsLoading && (
+                    <div className="text-muted-foreground py-6 text-center text-xs">
+                      {t('noModels')}
+                    </div>
+                  )}
+
+                  {(modelsLoading || routesLoading) && (
+                    <div className="text-muted-foreground py-4 text-center text-xs">{t('loading')}</div>
+                  )}
                 </div>
-              )}
-            </>
-          )}
+              </ScrollPage>
+            </TabsContent>
 
-          {(providersLoading || modelsLoading || routesLoading) && (
-            <div className="text-muted-foreground py-4 text-center text-xs">{t('loading')}</div>
-          )}
-        </div>
-      </ScrollPage>
+            {/* 路由历史 Tab */}
+            <TabsContent value="history" className="min-h-0 flex-1">
+              <RouteHistoryTab
+                virtualProviderId={selectedProviderId}
+                providerMap={providerById}
+              />
+            </TabsContent>
+          </Tabs>
+        )}
+      </div>
 
       <VirtualProviderDialog
         open={providerDialogOpen}
@@ -373,6 +403,7 @@ export function VirtualProviderList() {
         open={modelDialogOpen}
         onOpenChange={setModelDialogOpen}
         virtualProviderId={selectedProviderId ?? ''}
+        strategy={selectedProvider?.strategy as ('fallback' | 'on_all' | 'load_balance') | undefined}
         model={editingModel}
         onSuccess={() => {
           void refetchModels()

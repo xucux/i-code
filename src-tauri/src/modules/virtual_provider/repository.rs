@@ -10,9 +10,9 @@ use crate::error::{IcodeError, IcodeResult};
 
 use super::types::{
     CreateVirtualModelInput, CreateVirtualModelRouteInput, CreateVirtualProviderInput,
-    ExposedVirtualModel, SaveVirtualModelInput, UpdateVirtualModelInput,
+    ExposedVirtualModel, RouteAttemptStats, SaveVirtualModelInput, UpdateVirtualModelInput,
     UpdateVirtualModelRouteInput, UpdateVirtualProviderInput, VirtualModel, VirtualModelRoute,
-    VirtualProvider, VirtualProviderStrategy,
+    VirtualProvider, VirtualProviderStrategy, VirtualRouteAttempt,
 };
 
 fn get_conn() -> IcodeResult<DbConn> {
@@ -227,11 +227,23 @@ pub fn save_model(input: &SaveVirtualModelInput) -> IcodeResult<VirtualModel> {
         let route_id = new_id();
         let enabled_i: i64 = if route.enabled { 1 } else { 0 };
         let is_healthy_i: i64 = if route.is_healthy { 1 } else { 0 };
+        // 路由级 extra_headers / extra_body 序列化为 JSON 字符串存储
+        let extra_headers_json: Option<String> = route
+            .extra_headers
+            .as_ref()
+            .map(|v| v.to_string());
+        let extra_body_json: Option<String> = route
+            .extra_body
+            .as_ref()
+            .map(|v| v.to_string());
+        // weight 默认 1，写入时取 max(0) 防止负值
+        let weight = route.weight.max(0);
         tx.execute(
             "INSERT INTO virtual_model_routes
                 (id, virtual_model_id, target_provider_id, target_model_id, priority,
-                 enabled, max_retries, retry_interval_ms, timeout_ms, is_healthy, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+                 enabled, max_retries, retry_interval_ms, timeout_ms, is_healthy,
+                 extra_headers_json, extra_body_json, weight, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
             rusqlite::params![
                 route_id,
                 virtual_model_id,
@@ -241,8 +253,11 @@ pub fn save_model(input: &SaveVirtualModelInput) -> IcodeResult<VirtualModel> {
                 enabled_i,
                 route.max_retries.max(0),
                 route.retry_interval_ms.max(0),
-                None::<i64>,
+                route.timeout_ms,
                 is_healthy_i,
+                extra_headers_json,
+                extra_body_json,
+                weight,
                 now,
                 now,
             ],
@@ -604,7 +619,11 @@ const ROUTE_SELECT_SQL: &str = "SELECT
     virtual_model_routes.target_model_id, virtual_model_routes.priority, virtual_model_routes.enabled,
     virtual_model_routes.max_retries, virtual_model_routes.retry_interval_ms, virtual_model_routes.timeout_ms,
     virtual_model_routes.is_healthy, virtual_model_routes.last_healthy_at, virtual_model_routes.extra_headers_json,
-    virtual_model_routes.extra_body_json, virtual_model_routes.created_at, virtual_model_routes.updated_at
+    virtual_model_routes.extra_body_json,
+    virtual_model_routes.consecutive_failures, virtual_model_routes.last_error_text,
+    virtual_model_routes.last_check_duration_ms, virtual_model_routes.last_check_at,
+    virtual_model_routes.weight,
+    virtual_model_routes.created_at, virtual_model_routes.updated_at
 FROM virtual_model_routes";
 
 fn route_row_mapper(row: &rusqlite::Row<'_>) -> rusqlite::Result<VirtualModelRoute> {
@@ -624,8 +643,13 @@ fn route_row_mapper(row: &rusqlite::Row<'_>) -> rusqlite::Result<VirtualModelRou
         last_healthy_at: row.get(10)?,
         extra_headers_json: row.get(11)?,
         extra_body_json: row.get(12)?,
-        created_at: row.get(13)?,
-        updated_at: row.get(14)?,
+        consecutive_failures: row.get(13)?,
+        last_error_text: row.get(14)?,
+        last_check_duration_ms: row.get(15)?,
+        last_check_at: row.get(16)?,
+        weight: row.get(17)?,
+        created_at: row.get(18)?,
+        updated_at: row.get(19)?,
     })
 }
 
@@ -638,4 +662,256 @@ pub fn mark_route_unhealthy(id: &str) -> IcodeResult<()> {
         rusqlite::params![now, id],
     )?;
     Ok(())
+}
+
+/// 探活成功：置健康，重置连续失败计数，更新 last_healthy_at / last_check_at / last_check_duration_ms
+///
+/// 不会清空 last_error_text，保留最近一次失败原因供 UI 展示。
+pub fn mark_route_healthy(id: &str, check_duration_ms: u64) -> IcodeResult<()> {
+    let conn = get_conn()?;
+    let now = now();
+    conn.execute(
+        "UPDATE virtual_model_routes
+         SET is_healthy = 1,
+             last_healthy_at = ?1,
+             last_check_at = ?1,
+             last_check_duration_ms = ?2,
+             consecutive_failures = 0,
+             updated_at = ?1
+         WHERE id = ?3",
+        rusqlite::params![now, check_duration_ms as i64, id],
+    )?;
+    Ok(())
+}
+
+/// 探活失败：递增 consecutive_failures，记录 last_error_text / last_check_duration_ms / last_check_at
+///
+/// 当 consecutive_failures 达到恢复阈值（由 Service 层判定）时，将 is_healthy 置 0。
+pub fn mark_route_check_failed(
+    id: &str,
+    error_text: &str,
+    check_duration_ms: u64,
+    degrade: bool,
+) -> IcodeResult<()> {
+    let conn = get_conn()?;
+    let now = now();
+    if degrade {
+        // 失败次数已达阈值，置不健康
+        conn.execute(
+            "UPDATE virtual_model_routes
+             SET is_healthy = 0,
+                 consecutive_failures = consecutive_failures + 1,
+                 last_error_text = ?1,
+                 last_check_duration_ms = ?2,
+                 last_check_at = ?3,
+                 updated_at = ?3
+             WHERE id = ?4",
+            rusqlite::params![error_text, check_duration_ms as i64, now, id],
+        )?;
+    } else {
+        // 仅记录失败次数与原因
+        conn.execute(
+            "UPDATE virtual_model_routes
+             SET consecutive_failures = consecutive_failures + 1,
+                 last_error_text = ?1,
+                 last_check_duration_ms = ?2,
+                 last_check_at = ?3,
+                 updated_at = ?3
+             WHERE id = ?4",
+            rusqlite::params![error_text, check_duration_ms as i64, now, id],
+        )?;
+    }
+    Ok(())
+}
+
+/// 列出待探活路由
+///
+/// 返回所有启用且（is_healthy=0 OR consecutive_failures>0）的路由，
+/// 即已降级或最近失败过的路由，调度器需要周期性探活以恢复健康。
+pub fn list_routes_for_health_check() -> IcodeResult<Vec<VirtualModelRoute>> {
+    let conn = get_conn()?;
+    let sql = format!(
+        "{ROUTE_SELECT_SQL}
+         WHERE enabled = 1 AND (is_healthy = 0 OR consecutive_failures > 0)
+         ORDER BY (last_check_at IS NULL) DESC, last_check_at ASC, created_at ASC"
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map([], route_row_mapper)?;
+    let mut result = Vec::new();
+    for row in rows {
+        result.push(row?);
+    }
+    Ok(result)
+}
+
+/// 列出所有启用路由（不论健康状态）
+///
+/// 调度器在探活开关刚开启时使用，对所有启用路由做一次初始探活。
+#[allow(dead_code)]
+pub fn list_all_enabled_routes() -> IcodeResult<Vec<VirtualModelRoute>> {
+    let conn = get_conn()?;
+    let sql = format!(
+        "{ROUTE_SELECT_SQL}
+         WHERE enabled = 1
+         ORDER BY created_at ASC"
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map([], route_row_mapper)?;
+    let mut result = Vec::new();
+    for row in rows {
+        result.push(row?);
+    }
+    Ok(result)
+}
+
+// ===== virtual_route_attempts =====
+
+/// 写入一条路由尝试历史
+///
+/// 由 `VirtualForwarder` 在每条路由尝试结束后通过 `tauri::async_runtime::spawn` 异步调用。
+pub fn insert_route_attempt(
+    virtual_route_id: &str,
+    virtual_provider_id: &str,
+    request_id: &str,
+    attempt_index: usize,
+    success: bool,
+    status_code: Option<u16>,
+    error_message: Option<&str>,
+    duration_ms: u64,
+) -> IcodeResult<()> {
+    let conn = get_conn()?;
+    let id = new_id();
+    let now = now();
+    let success_i: i64 = if success { 1 } else { 0 };
+    conn.execute(
+        "INSERT INTO virtual_route_attempts
+            (id, virtual_route_id, virtual_provider_id, request_id, attempt_index,
+             success, status_code, error_message, duration_ms, attempted_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+        rusqlite::params![
+            id,
+            virtual_route_id,
+            virtual_provider_id,
+            request_id,
+            attempt_index as i64,
+            success_i,
+            status_code.map(|s| s as i64),
+            error_message,
+            duration_ms as i64,
+            now,
+        ],
+    )?;
+    Ok(())
+}
+
+/// 查询指定路由的最近 N 次尝试
+pub fn list_recent_attempts_by_route(
+    route_id: &str,
+    limit: u32,
+) -> IcodeResult<Vec<VirtualRouteAttempt>> {
+    let conn = get_conn()?;
+    let mut stmt = conn.prepare(
+        "SELECT id, virtual_route_id, virtual_provider_id, request_id, attempt_index,
+                success, status_code, error_message, duration_ms, attempted_at
+         FROM virtual_route_attempts
+         WHERE virtual_route_id = ?1
+         ORDER BY attempted_at DESC
+         LIMIT ?2",
+    )?;
+    let rows = stmt.query_map(rusqlite::params![route_id, limit], |row| {
+        let success: i64 = row.get(5)?;
+        Ok(VirtualRouteAttempt {
+            id: row.get(0)?,
+            virtual_route_id: row.get(1)?,
+            virtual_provider_id: row.get(2)?,
+            request_id: row.get(3)?,
+            attempt_index: row.get(4)?,
+            success: success != 0,
+            status_code: row.get(6)?,
+            error_message: row.get(7)?,
+            duration_ms: row.get(8)?,
+            attempted_at: row.get(9)?,
+        })
+    })?;
+    let mut result = Vec::new();
+    for row in rows {
+        result.push(row?);
+    }
+    Ok(result)
+}
+
+/// 查询指定供应商下所有路由的尝试统计
+///
+/// 返回每条路由的总数 / 成功数 / 失败数 / 成功率 / 平均耗时 / 最近失败原因 / 最近尝试时间。
+pub fn list_route_attempt_stats_by_provider(
+    virtual_provider_id: &str,
+) -> IcodeResult<Vec<RouteAttemptStats>> {
+    let conn = get_conn()?;
+    let mut stmt = conn.prepare(
+        "SELECT
+            virtual_route_id,
+            COUNT(*) AS total,
+            SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) AS success_count,
+            SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) AS failure_count,
+            CASE WHEN COUNT(*) > 0
+                 THEN CAST(SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) * 100 / COUNT(*) AS INTEGER)
+                 ELSE 0 END AS success_rate,
+            CASE WHEN COUNT(*) > 0
+                 THEN CAST(AVG(duration_ms) AS INTEGER)
+                 ELSE 0 END AS avg_duration_ms,
+            (SELECT error_message FROM virtual_route_attempts a2
+             WHERE a2.virtual_route_id = virtual_route_attempts.virtual_route_id
+               AND a2.success = 0
+             ORDER BY a2.attempted_at DESC LIMIT 1) AS last_error,
+            MAX(attempted_at) AS last_attempted_at
+         FROM virtual_route_attempts
+         WHERE virtual_provider_id = ?1
+         GROUP BY virtual_route_id
+         ORDER BY last_attempted_at DESC",
+    )?;
+    let rows = stmt.query_map([virtual_provider_id], |row| {
+        Ok(RouteAttemptStats {
+            virtual_route_id: row.get(0)?,
+            total: row.get(1)?,
+            success_count: row.get(2)?,
+            failure_count: row.get(3)?,
+            success_rate: row.get(4)?,
+            avg_duration_ms: row.get(5)?,
+            last_error: row.get(6)?,
+            last_attempted_at: row.get(7)?,
+        })
+    })?;
+    let mut result = Vec::new();
+    for row in rows {
+        result.push(row?);
+    }
+    Ok(result)
+}
+
+/// 清理 N 天前的路由尝试历史
+///
+/// 由调度器每天 0 点调用，默认保留 30 天。
+pub fn cleanup_old_attempts(days_to_keep: u32) -> IcodeResult<u64> {
+    let conn = get_conn()?;
+    let cutoff = (Utc::now() - chrono::Duration::days(days_to_keep as i64)).to_rfc3339();
+    let affected = conn.execute(
+        "DELETE FROM virtual_route_attempts WHERE attempted_at < ?1",
+        [&cutoff],
+    )?;
+    Ok(affected as u64)
+}
+
+/// 统计 CLI 模型映射中 gateway_model_id 以指定前缀（`{alias}/`）开头的记录数
+///
+/// 用于 alias 变更影响检查：修改虚拟供应商 alias 后，
+/// 所有使用 `{old_alias}/` 前缀的 CLI 模型映射将失效。
+pub fn count_cli_model_mappings_by_alias_prefix(alias: &str) -> IcodeResult<i64> {
+    let conn = get_conn()?;
+    let prefix = format!("{alias}/");
+    let count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM cli_model_mappings WHERE gateway_model_id LIKE ?1",
+        [format!("{prefix}%")],
+        |row| row.get(0),
+    )?;
+    Ok(count)
 }

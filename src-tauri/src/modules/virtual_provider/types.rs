@@ -107,6 +107,19 @@ pub struct VirtualModelRoute {
     pub extra_headers_json: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub extra_body_json: Option<String>,
+    /// 连续探活失败次数（探活成功后清零）
+    pub consecutive_failures: i64,
+    /// 上次探活失败原因（探活成功后清空）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_error_text: Option<String>,
+    /// 上次探活耗时（毫秒）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_check_duration_ms: Option<i64>,
+    /// 上次探活时间戳
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_check_at: Option<String>,
+    /// 负载均衡权重（默认 1，0 表示不参与轮询）；仅在 load_balance 策略下生效
+    pub weight: i64,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -216,6 +229,11 @@ fn default_route_enabled() -> bool {
     true
 }
 
+/// 路由权重默认值（load_balance 策略下生效）
+fn default_route_weight() -> i64 {
+    1
+}
+
 fn default_route_retry_interval_ms() -> i64 {
     1000
 }
@@ -255,10 +273,23 @@ pub struct SaveVirtualModelRouteInput {
     pub target_provider_id: String,
     pub target_model_id: String,
     pub priority: i64,
+    /// 是否启用该路由（原硬编码 true，改为前端传入以支持单独禁用）
     pub enabled: bool,
     pub is_healthy: bool,
     pub max_retries: i64,
     pub retry_interval_ms: i64,
+    /// 路由级超时（毫秒），覆盖供应商级配置；None 表示继承
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timeout_ms: Option<i64>,
+    /// 路由级附加请求头（JSON 对象），覆盖供应商级同名头
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub extra_headers: Option<serde_json::Value>,
+    /// 路由级附加请求体参数（JSON 对象），浅合并到请求体
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub extra_body: Option<serde_json::Value>,
+    /// 负载均衡权重（默认 1，0 表示不参与轮询）；仅在 load_balance 策略下生效
+    #[serde(default = "default_route_weight")]
+    pub weight: i64,
 }
 
 /// 路由解析结果
@@ -273,6 +304,88 @@ pub struct ResolvedVirtualRoute {
     pub target_model_id: String,
     /// 当前是第几条路由（用于日志）
     pub route_index: usize,
+}
+
+/// 虚拟路由尝试历史 DTO
+///
+/// 对应 `virtual_route_attempts` 表，由 `VirtualForwarder` 在每条路由尝试结束后异步写入。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VirtualRouteAttempt {
+    pub id: String,
+    pub virtual_route_id: String,
+    pub virtual_provider_id: String,
+    pub request_id: String,
+    /// 第几条尝试（0-based）
+    pub attempt_index: i64,
+    pub success: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status_code: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_message: Option<String>,
+    pub duration_ms: i64,
+    pub attempted_at: String,
+}
+
+/// 路由维度统计聚合
+///
+/// 由 repository 聚合查询返回，供 UI 展示每条路由的成功率/平均耗时。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RouteAttemptStats {
+    pub virtual_route_id: String,
+    /// 总尝试次数
+    pub total: i64,
+    /// 成功次数
+    pub success_count: i64,
+    /// 失败次数
+    pub failure_count: i64,
+    /// 成功率（0-100，整数百分比）
+    pub success_rate: i64,
+    /// 平均耗时（毫秒）
+    pub avg_duration_ms: i64,
+    /// 最近一次失败原因
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_error: Option<String>,
+    /// 最近一次尝试时间
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_attempted_at: Option<String>,
+}
+
+/// 单条路由测试结果
+///
+/// 由 `virtual_provider_route_test` 命令返回，供前端 toast 展示。
+/// 不写入 `virtual_route_attempts`（避免污染统计）。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RouteTestResult {
+    /// 是否成功（2xx）
+    pub success: bool,
+    /// HTTP 状态码（网络错误时为 None）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status_code: Option<u16>,
+    /// 请求耗时（毫秒）
+    pub duration_ms: u64,
+    /// 错误信息（失败时提供）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_message: Option<String>,
+}
+
+/// alias 变更影响检查结果
+///
+/// 由 `virtual_provider_check_alias_impact` 命令返回，
+/// 供前端在用户修改 alias 时展示影响范围警告。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AliasImpactResult {
+    /// 旧 alias
+    pub old_alias: String,
+    /// 新 alias
+    pub new_alias: String,
+    /// 受影响的 CLI 模型映射数量（gateway_model_id 以旧 alias 为前缀）
+    pub affected_cli_model_mappings: i64,
+    /// 是否有影响（任一受影响计数 > 0）
+    pub has_impact: bool,
 }
 
 #[cfg(test)]

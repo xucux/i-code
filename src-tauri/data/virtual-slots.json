@@ -1,0 +1,78 @@
+{
+  "$comment": "虚拟供应商一键生成 · 数据源参考 JSON",
+  "schemaVersion": 1,
+  "id": "virtual-slots-assistant",
+  "name": "智能助手三模型套件",
+  "description": "定义虚拟供应商元信息与三个虚拟模型槽位（规划 / 写代码 / 工具调用）的实体模型匹配规则。程序从「已开启显示的模型列表」中按优先级规则匹配实体模型，自动生成虚拟供应商 + 三个虚拟模型及其子级路由。",
+  "version": "0.1.0",
+
+  "provider": {
+    "alias": "assistant",
+    "name": "智能助手",
+    "displayName": "智能助手",
+    "strategy": "fallback",
+    "maxRetries": 3,
+    "retryIntervalMs": 1000,
+    "isEnabled": true
+  },
+
+  "slots": [
+    {
+      "key": "virtual_opus",
+      "modelId": "virtual_opus",
+      "displayName": "Opus · 规划",
+      "role": "planning",
+      "description": "面向复杂规划、架构设计、长上下文推理，优先选择能力最强、上下文最大的模型。",
+      "routeDefaults": {
+        "maxRetries": 3,
+        "retryIntervalMs": 1000
+      },
+      "matches": [
+        { "priority": 1, "type": "exact", "modelId": "claude-opus-4-1", "providerSlugs": ["anthropic"] },
+        { "priority": 2, "type": "prefix", "modelId": "claude-opus", "providerSlugs": ["anthropic"] },
+        { "priority": 3, "type": "exact", "modelId": "gpt-5", "providerSlugs": ["openai"] },
+        { "priority": 4, "type": "regex", "pattern": "^o3(-mini)?$|^o4(-mini)?$", "providerSlugs": ["openai"] },
+        { "priority": 5, "type": "prefix", "modelId": "gemini-2.5-pro", "providerSlugs": ["google", "gemini"] },
+        { "priority": 6, "type": "exact", "modelId": "deepseek-reasoner", "providerSlugs": ["deepseek"] }
+      ]
+    },
+    {
+      "key": "virtual_sonnet",
+      "modelId": "virtual_sonnet",
+      "displayName": "Sonnet · 写代码",
+      "role": "coding",
+      "description": "面向代码生成、补全与重构，优先选择编码能力均衡、工具支持完善的模型。",
+      "routeDefaults": {
+        "maxRetries": 3,
+        "retryIntervalMs": 1000
+      },
+      "matches": [
+        { "priority": 1, "type": "prefix", "modelId": "claude-sonnet-4", "providerSlugs": ["anthropic"] },
+        { "priority": 2, "type": "prefix", "modelId": "claude-sonnet", "providerSlugs": ["anthropic"] },
+        { "priority": 3, "type": "exact", "modelId": "gpt-5-codex", "providerSlugs": ["openai"] },
+        { "priority": 4, "type": "exact", "modelId": "gpt-5", "providerSlugs": ["openai"] },
+        { "priority": 5, "type": "prefix", "modelId": "gemini-2.5-pro", "providerSlugs": ["google", "gemini"] },
+        { "priority": 6, "type": "exact", "modelId": "deepseek-chat", "providerSlugs": ["deepseek"] }
+      ]
+    },
+    {
+      "key": "virtual_haiku",
+      "modelId": "virtual_haiku",
+      "displayName": "Haiku · 工具调用",
+      "role": "tool_use",
+      "description": "面向高频工具调用、简单问答与低延迟场景，优先选择轻量、快速、廉价的模型。",
+      "routeDefaults": {
+        "maxRetries": 3,
+        "retryIntervalMs": 1000
+      },
+      "matches": [
+        { "priority": 1, "type": "prefix", "modelId": "claude-haiku-4", "providerSlugs": ["anthropic"] },
+        { "priority": 2, "type": "prefix", "modelId": "claude-haiku", "providerSlugs": ["anthropic"] },
+        { "priority": 3, "type": "exact", "modelId": "gpt-5-mini", "providerSlugs": ["openai"] },
+        { "priority": 4, "type": "exact", "modelId": "gpt-4.1-mini", "providerSlugs": ["openai"] },
+        { "priority": 5, "type": "prefix", "modelId": "gemini-2.5-flash", "providerSlugs": ["google", "gemini"] },
+        { "priority": 6, "type": "exact", "modelId": "deepseek-chat", "providerSlugs": ["deepseek"] }
+      ]
+    }
+  ]
+}

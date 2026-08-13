@@ -117,10 +117,13 @@ pub fn resolve_route(
             )));
         }
 
+        let strategy = crate::modules::virtual_provider::types::VirtualProviderStrategy::from_str(&vp.strategy)
+            .unwrap_or(crate::modules::virtual_provider::types::VirtualProviderStrategy::Fallback);
+
         let routes = shared
             .virtual_provider_handle
             .service()
-            .resolve_fallback_routes(&vp.id, &upstream_model_id)?;
+            .resolve_routes_by_strategy(&vp.id, &upstream_model_id, &strategy)?;
 
         if routes.is_empty() {
             return Err(IcodeError::not_found(
@@ -145,6 +148,12 @@ pub fn resolve_route(
 /// 根据虚拟路由构造 `ForwardContext`
 ///
 /// 由 `VirtualForwarder` 在尝试某条路由时调用。
+///
+/// 路由级字段处理：
+/// - `extra_headers_json`：反序列化后追加到 `ctx.upstream.extra_headers`，
+///   追加在供应商级头之后，由 client 层 `build_headers` 以"后写覆盖先写"语义应用。
+/// - `extra_body_json`：解析后存入 `ctx.route_extra_body`，由 `prepare_body` 浅合并到请求体。
+/// - `timeout_ms`：存入 `ctx.route_timeout_ms`，实际应用待后续阶段。
 pub fn build_virtual_context(
     shared: &GatewaySharedState,
     route: &VirtualModelRoute,
@@ -170,12 +179,30 @@ pub fn build_virtual_context(
         .service()
         .resolve_auth_for_request(&provider)?;
 
-    let extra_headers = shared
+    let mut extra_headers = shared
         .ai_gateway_handle
         .service()
         .resolve_extra_headers_for_request(&provider.id)?;
 
-    Ok(ForwardContext::virtual_route(
+    // 路由级 extra_headers 追加在供应商级头之后；client 层遍历时后写覆盖先写
+    if let Some(json) = &route.extra_headers_json {
+        if let Ok(map) = serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(json) {
+            for (k, v) in map {
+                // 仅接受字符串值，跳过非字符串以避免运行时类型错误
+                if let Some(s) = v.as_str() {
+                    extra_headers.push((k, s.to_string()));
+                }
+            }
+        }
+    }
+
+    // 路由级 extra_body 解析；prepare_body 阶段浅合并到请求体
+    let route_extra_body: Option<serde_json::Value> = route
+        .extra_body_json
+        .as_deref()
+        .and_then(|s| serde_json::from_str(s).ok());
+
+    let mut ctx = ForwardContext::virtual_route(
         provider,
         route.target_model_id.clone(),
         request_id.to_string(),
@@ -185,5 +212,10 @@ pub fn build_virtual_context(
         route.id.clone(),
         gateway_protocol,
         gateway_model_id,
-    ))
+    );
+
+    ctx.route_extra_body = route_extra_body;
+    ctx.route_timeout_ms = route.timeout_ms;
+
+    Ok(ctx)
 }

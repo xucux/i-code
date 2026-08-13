@@ -576,7 +576,7 @@ impl ForwardPipeline {
         }
     }
 
-    /// 前置准备：替换 model_id、设置 stream、注入 stream_options
+    /// 前置准备：替换 model_id、设置 stream、注入 stream_options、合并路由级 extra_body
     fn prepare_body(ctx: &mut ForwardContext, body: &mut Value) {
         // 替换 model 为真实上游 model_id
         if let Some(obj) = body.as_object_mut() {
@@ -602,6 +602,16 @@ impl ForwardPipeline {
                     "stream_options".to_string(),
                     serde_json::json!({"include_usage": true}),
                 );
+            }
+        }
+
+        // 虚拟路由级 extra_body 浅合并到请求体（覆盖同名字段）
+        // 仅当路由级配置了 extra_body 且请求体是对象时生效
+        if let Some(extra) = ctx.route_extra_body.take() {
+            if let (Some(extra_obj), Some(body_obj)) = (extra.as_object(), body.as_object_mut()) {
+                for (k, v) in extra_obj {
+                    body_obj.insert(k.clone(), v.clone());
+                }
             }
         }
     }

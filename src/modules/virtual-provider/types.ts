@@ -106,10 +106,20 @@ export interface VirtualModelRoute {
   isHealthy: boolean
   /** 上次健康检查通过时间 */
   lastHealthyAt?: Timestamp
-  /** 该路由专属的额外请求头（覆盖目标供应商级别配置） */
-  extraHeaders?: Record<string, string>
-  /** 该路由专属的额外请求体参数 */
-  extraBody?: Record<string, unknown>
+  /** 该路由专属的额外请求头（JSON 字符串，运行时由网关合并；与后端 extra_headers_json 对齐） */
+  extraHeadersJson?: string
+  /** 该路由专属的额外请求体参数（JSON 字符串，运行时由网关合并；与后端 extra_body_json 对齐） */
+  extraBodyJson?: string
+  /** 连续探活失败次数（探活成功后清零） */
+  consecutiveFailures: number
+  /** 上次探活失败原因（探活成功后保留最近一次失败原因供 UI 展示） */
+  lastErrorText?: string
+  /** 上次探活耗时（毫秒） */
+  lastCheckDurationMs?: number
+  /** 上次探活时间戳 */
+  lastCheckAt?: Timestamp
+  /** 负载均衡权重（默认 1，0 表示不参与轮询）；仅在 load_balance 策略下生效 */
+  weight: number
   createdAt: Timestamp
   updatedAt: Timestamp
 }
@@ -268,10 +278,19 @@ export interface SaveVirtualModelRouteInput {
   targetProviderId: string
   targetModelId: string
   priority: number
+  /** 是否启用该路由（原硬编码 true，改为前端传入以支持单独禁用） */
   enabled: boolean
   isHealthy: boolean
   maxRetries: number
   retryIntervalMs: number
+  /** 路由级超时（毫秒），覆盖供应商级配置；undefined 表示继承 */
+  timeoutMs?: number
+  /** 路由级附加请求头（JSON 对象），覆盖供应商级同名头 */
+  extraHeaders?: Record<string, unknown>
+  /** 路由级附加请求体参数（JSON 对象），浅合并到请求体 */
+  extraBody?: Record<string, unknown>
+  /** 负载均衡权重（默认 1，0 表示不参与轮询）；仅在 load_balance 策略下生效 */
+  weight?: number
 }
 
 /**
@@ -301,4 +320,89 @@ export interface HealthCheckStatus {
   lastCheckDurationMs?: number
   /** 连续失败次数 */
   consecutiveFailures: number
+}
+
+/**
+ * 虚拟路由尝试历史记录
+ * 对应数据库表 `virtual_route_attempts`，由网关 VirtualForwarder 在每条路由尝试结束后异步写入。
+ *
+ * 与 `RouteAttempt` 区别：
+ * - `RouteAttempt`：内存中的路由解析尝试结果（用于 VirtualProviderResolveResult）
+ * - `VirtualRouteAttempt`：持久化到数据库的尝试历史，支持统计与回溯
+ */
+export interface VirtualRouteAttempt {
+  id: string
+  /** 关联 virtual_model_routes.id */
+  virtualRouteId: string
+  /** 冗余 virtual_provider_id，便于按供应商维度查询 */
+  virtualProviderId: string
+  /** 关联 call_records 的 request_id，便于交叉跳转 */
+  requestId: string
+  /** 第几条尝试（0-based） */
+  attemptIndex: number
+  /** 是否成功 */
+  success: boolean
+  /** HTTP 状态码（构造失败等场景可能缺失） */
+  statusCode?: number
+  /** 失败原因 */
+  errorMessage?: string
+  /** 该路由耗时（毫秒） */
+  durationMs: number
+  /** 尝试时间戳（RFC3339 字符串） */
+  attemptedAt: string
+}
+
+/**
+ * 路由维度尝试统计聚合
+ * 由后端聚合查询返回，供 UI 展示每条路由的成功率 / 平均耗时 / 最近失败原因。
+ */
+export interface RouteAttemptStats {
+  /** 关联 virtual_model_routes.id */
+  virtualRouteId: string
+  /** 总尝试次数 */
+  total: number
+  /** 成功次数 */
+  successCount: number
+  /** 失败次数 */
+  failureCount: number
+  /** 成功率（0-100，整数百分比） */
+  successRate: number
+  /** 平均耗时（毫秒） */
+  avgDurationMs: number
+  /** 最近一次失败原因 */
+  lastError?: string
+  /** 最近一次尝试时间（RFC3339 字符串） */
+  lastAttemptedAt?: string
+}
+
+/**
+ * 单条路由测试结果
+ * 由后端 `virtual_provider_route_test` 命令返回，供前端 toast 展示。
+ * 不写入 `virtual_route_attempts`（避免污染统计）。
+ */
+export interface RouteTestResult {
+  /** 是否成功（2xx） */
+  success: boolean
+  /** HTTP 状态码（网络错误时为 undefined） */
+  statusCode?: number
+  /** 请求耗时（毫秒） */
+  durationMs: number
+  /** 错误信息（失败时提供） */
+  errorMessage?: string
+}
+
+/**
+ * alias 变更影响检查结果
+ * 由后端 `virtual_provider_check_alias_impact` 命令返回，
+ * 供前端在用户修改 alias 时展示影响范围警告。
+ */
+export interface AliasImpactResult {
+  /** 旧 alias */
+  oldAlias: string
+  /** 新 alias */
+  newAlias: string
+  /** 受影响的 CLI 模型映射数量（gateway_model_id 以旧 alias 为前缀） */
+  affectedCliModelMappings: number
+  /** 是否有影响（任一受影响计数 > 0） */
+  hasImpact: boolean
 }

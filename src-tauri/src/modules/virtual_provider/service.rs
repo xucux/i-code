@@ -8,12 +8,15 @@
 //! 2. `gateway_runtime/upstream.rs` 先在真实供应商中查找；未找到时调用
 //!    [`VirtualProviderService::resolve_virtual_route`]。
 //! 3. Service 根据 `virtual_providers.strategy` 选择路由：
-//!    - `fallback`：按 `priority` 升序返回第一条启用且健康的路由。
-//!    - `on_all` / `load_balance`：v0.1 直接返回未实现错误。
+//!    - `fallback`：按 `priority` 升序返回健康优先的候选路由列表。
+//!    - `load_balance`：加权随机选择 1 条健康路由（weight=0 不参与轮询）。
+//!    - `on_all`：当前降级为 fallback 顺序尝试（并发实现留待后续迭代）。
 //! 4. upstream.rs 拿到 `ResolvedVirtualRoute` 后，通过 `ai_gateway` 加载目标真实供应商，
 //!    并将请求体中的 `model` 替换为 `target_model_id` 进行转发。
 
 use std::sync::Arc;
+
+use rand::Rng;
 
 use crate::error::{IcodeError, IcodeResult};
 
@@ -31,6 +34,105 @@ const DEFAULT_PROVIDER_MAX_RETRIES: i64 = 3;
 /// 虚拟供应商级默认重试间隔（毫秒）
 #[expect(dead_code)]
 const DEFAULT_PROVIDER_RETRY_INTERVAL_MS: i64 = 1000;
+
+/// 路由选择器 trait
+///
+/// 按虚拟供应商的策略从候选路由中选择尝试顺序。
+/// `select` 返回的 Vec 长度决定 VirtualForwarder 尝试多少次：
+/// - Fallback：返回全部候选路由（健康在前，priority 升序）
+/// - LoadBalance：返回 1 条加权随机选择的路由
+/// - OnAll：当前降级为 fallback 顺序，未来可扩展为返回全部交由 forwarder 并发执行
+pub trait RouteSelector: Send + Sync {
+    /// 选择路由尝试顺序
+    fn select<'a>(&self, routes: &'a [VirtualModelRoute]) -> Vec<&'a VirtualModelRoute>;
+}
+
+/// Fallback 选择器
+///
+/// 返回按健康度（健康在前）+ priority 升序排列的候选路由列表。
+/// VirtualForwarder 按顺序逐条尝试，失败降级后继续下一条。
+pub struct FallbackSelector;
+
+impl RouteSelector for FallbackSelector {
+    fn select<'a>(&self, routes: &'a [VirtualModelRoute]) -> Vec<&'a VirtualModelRoute> {
+        let mut sorted: Vec<&VirtualModelRoute> = routes.iter().collect();
+        sorted.sort_by(|a, b| {
+            // 健康路由在前
+            let health_cmp = b.is_healthy.cmp(&a.is_healthy);
+            if health_cmp != std::cmp::Ordering::Equal {
+                return health_cmp;
+            }
+            // 同健康组内按 priority 升序，再按创建时间升序
+            a.priority.cmp(&b.priority).then_with(|| a.created_at.cmp(&b.created_at))
+        });
+        sorted
+    }
+}
+
+/// LoadBalance 选择器
+///
+/// 加权随机选择 1 条启用且健康的路由；weight=0 不参与轮询。
+/// 若所有路由 weight=0 或全部不健康，回退为 fallback 选择第一条。
+pub struct LoadBalanceSelector;
+
+impl RouteSelector for LoadBalanceSelector {
+    fn select<'a>(&self, routes: &'a [VirtualModelRoute]) -> Vec<&'a VirtualModelRoute> {
+        // 仅参与启用且健康、weight>0 的路由
+        let candidates: Vec<&VirtualModelRoute> = routes
+            .iter()
+            .filter(|r| r.enabled && r.is_healthy && r.weight > 0)
+            .collect();
+
+        if candidates.is_empty() {
+            // 全部候选路由不可用，回退到 fallback 顺序（让 forwarder 尝试 + 失败降级更新健康度）
+            return FallbackSelector.select(routes);
+        }
+
+        // 加权随机
+        let weights: Vec<u32> = candidates.iter().map(|r| r.weight as u32).collect();
+        let total: u32 = weights.iter().sum();
+        if total == 0 {
+            return FallbackSelector.select(routes);
+        }
+
+        let mut rng = rand::thread_rng();
+        let mut picked: Option<usize> = None;
+        let mut remaining = rng.gen_range(0..total);
+        for (i, w) in weights.iter().enumerate() {
+            if remaining < *w {
+                picked = Some(i);
+                break;
+            }
+            remaining -= *w;
+        }
+        // 安全兜底：理论上不会触发
+        let idx = picked.unwrap_or(0);
+        vec![candidates[idx]]
+    }
+}
+
+/// OnAll 选择器
+///
+/// 当前降级为 fallback 顺序尝试（与 Fallback 一致）。
+/// 真正的并发实现需要 VirtualForwarder 改造为并发路径，留待后续迭代。
+pub struct OnAllSelector;
+
+impl RouteSelector for OnAllSelector {
+    fn select<'a>(&self, routes: &'a [VirtualModelRoute]) -> Vec<&'a VirtualModelRoute> {
+        FallbackSelector.select(routes)
+    }
+}
+
+impl VirtualProviderService {
+    /// 根据策略返回对应的选择器
+    pub fn selector_for(strategy: &VirtualProviderStrategy) -> Box<dyn RouteSelector> {
+        match strategy {
+            VirtualProviderStrategy::Fallback => Box::new(FallbackSelector),
+            VirtualProviderStrategy::LoadBalance => Box::new(LoadBalanceSelector),
+            VirtualProviderStrategy::OnAll => Box::new(OnAllSelector),
+        }
+    }
+}
 
 /// 虚拟供应商 Service 在 Tauri State 中的句柄
 ///
@@ -187,6 +289,30 @@ impl VirtualProviderService {
             }
             if route.target_model_id.trim().is_empty() {
                 return Err(IcodeError::validation("路由目标模型 ID 不能为空"));
+            }
+            // timeout_ms 不允许负值；None 表示继承
+            if let Some(t) = route.timeout_ms {
+                if t < 0 {
+                    return Err(IcodeError::validation(format!(
+                        "路由 timeout_ms 不能为负值：{}",
+                        t
+                    )));
+                }
+            }
+            // extra_headers / extra_body 必须是 JSON 对象（非数组、非原始值）
+            if let Some(v) = &route.extra_headers {
+                if !v.is_object() {
+                    return Err(IcodeError::validation(
+                        "路由 extra_headers 必须是 JSON 对象",
+                    ));
+                }
+            }
+            if let Some(v) = &route.extra_body {
+                if !v.is_object() {
+                    return Err(IcodeError::validation(
+                        "路由 extra_body 必须是 JSON 对象",
+                    ));
+                }
             }
         }
 
@@ -506,9 +632,225 @@ impl VirtualProviderService {
         Ok(routes)
     }
 
+    /// 按指定策略解析候选路由
+    ///
+    /// 在 `resolve_fallback_routes` 取得全部启用路由后，调用 `RouteSelector` 进行策略选择：
+    /// - `fallback`：返回全部，按健康优先 + priority 升序
+    /// - `load_balance`：返回 1 条加权随机选择的路由
+    /// - `on_all`：当前降级为 fallback 顺序（并发实现留待后续迭代）
+    pub fn resolve_routes_by_strategy(
+        &self,
+        virtual_provider_id: &str,
+        model_id: &str,
+        strategy: &VirtualProviderStrategy,
+    ) -> IcodeResult<Vec<VirtualModelRoute>> {
+        let routes = self.resolve_fallback_routes(virtual_provider_id, model_id)?;
+        let selector = Self::selector_for(strategy);
+        let selected = selector.select(&routes);
+        // 把 &VirtualModelRoute 转换为 owned，保留 selector 选择顺序
+        Ok(selected.into_iter().cloned().collect())
+    }
+
     /// 将指定路由标记为不健康（网关层重试耗尽后降级）
     pub fn degrade_route_health(&self, route_id: &str) -> IcodeResult<()> {
         repository::mark_route_unhealthy(route_id)
+    }
+
+    /// 探活成功：置健康，重置连续失败计数，更新 last_healthy_at / last_check_at / last_check_duration_ms
+    ///
+    /// 由调度器在探活请求成功后调用。
+    pub fn mark_route_healthy(&self, route_id: &str, check_duration_ms: u64) -> IcodeResult<()> {
+        repository::mark_route_healthy(route_id, check_duration_ms)
+    }
+
+    /// 探活失败：递增 consecutive_failures，记录 last_error_text / last_check_duration_ms
+    ///
+    /// `degrade=true` 时同时置 is_healthy=0；调度器根据当前 consecutive_failures 是否达到
+    /// 恢复阈值（默认 3）来决定是否传入 degrade=true。
+    pub fn mark_route_check_failed(
+        &self,
+        route_id: &str,
+        error_text: &str,
+        check_duration_ms: u64,
+        degrade: bool,
+    ) -> IcodeResult<()> {
+        repository::mark_route_check_failed(route_id, error_text, check_duration_ms, degrade)
+    }
+
+    /// 列出待探活路由：is_healthy=0 OR consecutive_failures>0
+    ///
+    /// 调度器周期性调用，对每条候选路由发起轻量探活请求。
+    pub fn list_routes_for_health_check(&self) -> IcodeResult<Vec<VirtualModelRoute>> {
+        repository::list_routes_for_health_check()
+    }
+
+    // ===== 路由尝试历史 =====
+
+    /// 异步写入一条路由尝试历史
+    ///
+    /// 由 `VirtualForwarder` 在每条路由尝试结束后调用。
+    /// 写入失败仅记录日志，不影响主流程。
+    pub fn record_route_attempt(
+        &self,
+        virtual_route_id: &str,
+        virtual_provider_id: &str,
+        request_id: &str,
+        attempt_index: usize,
+        success: bool,
+        status_code: Option<u16>,
+        error_message: Option<&str>,
+        duration_ms: u64,
+    ) {
+        if let Err(e) = repository::insert_route_attempt(
+            virtual_route_id,
+            virtual_provider_id,
+            request_id,
+            attempt_index,
+            success,
+            status_code,
+            error_message,
+            duration_ms,
+        ) {
+            tracing::warn!(
+                "写入路由尝试历史失败: route_id={}, error={}",
+                virtual_route_id,
+                e.message
+            );
+        }
+    }
+
+    /// 查询指定路由的最近 N 次尝试
+    pub fn list_recent_attempts_by_route(
+        &self,
+        route_id: &str,
+        limit: u32,
+    ) -> IcodeResult<Vec<super::types::VirtualRouteAttempt>> {
+        repository::list_recent_attempts_by_route(route_id, limit)
+    }
+
+    /// 查询指定供应商下所有路由的尝试统计
+    pub fn list_route_attempt_stats_by_provider(
+        &self,
+        virtual_provider_id: &str,
+    ) -> IcodeResult<Vec<super::types::RouteAttemptStats>> {
+        repository::list_route_attempt_stats_by_provider(virtual_provider_id)
+    }
+
+    /// 测试单条路由：对目标供应商发起轻量探活请求（GET /v1/models，5s 超时）
+    ///
+    /// 与调度器的健康检查逻辑一致，但不写入 `virtual_route_attempts`（避免污染统计）。
+    /// 由前端「测试」按钮调用，结果用 toast 展示。
+    ///
+    /// 需要 `AiGatewayService` 来解析目标供应商的认证配置与附加请求头。
+    pub async fn test_route(
+        &self,
+        route_id: &str,
+        ai_gateway: &crate::modules::ai_gateway::AiGatewayService,
+    ) -> IcodeResult<super::types::RouteTestResult> {
+        use std::time::Instant;
+
+        // 加载路由
+        let route = repository::find_route_by_id(route_id)?;
+
+        // 加载目标真实供应商
+        let provider = ai_gateway.get_provider(&route.target_provider_id)?;
+        if !provider.is_enabled {
+            return Ok(super::types::RouteTestResult {
+                success: false,
+                status_code: None,
+                duration_ms: 0,
+                error_message: Some(format!("目标供应商 '{}' 已禁用", provider.display_name)),
+            });
+        }
+
+        // 解析认证配置
+        let auth_config = ai_gateway
+            .resolve_auth_for_request(&provider)
+            .ok()
+            .flatten();
+        let extra_headers = ai_gateway
+            .resolve_extra_headers_for_request(&provider.id)
+            .unwrap_or_default();
+
+        // 构造探活客户端（5s 超时）
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(5))
+            .build()
+            .map_err(|e| {
+                crate::error::IcodeError::internal(format!("构造探活 HTTP 客户端失败: {e}"))
+            })?;
+
+        let url = format!("{}/v1/models", provider.base_url.trim_end_matches('/'));
+        let mut req = client.get(&url);
+
+        // 注入认证头
+        if let Some(auth) = &auth_config {
+            match crate::modules::gateway_runtime::auth_resolver::resolve_auth(auth) {
+                Ok(resolution) => {
+                    if let Some(cred) = &resolution.credential {
+                        match cred {
+                            crate::modules::gateway_runtime::auth_resolver::AuthCredential::Bearer(t) => {
+                                req = req.header("Authorization", format!("Bearer {t}"));
+                            }
+                            crate::modules::gateway_runtime::auth_resolver::AuthCredential::ApiKey(k) => {
+                                req = req.header("Authorization", format!("Bearer {k}"));
+                            }
+                        }
+                    }
+                    for (k, v) in &resolution.extra_headers {
+                        req = req.header(k, v);
+                    }
+                }
+                Err(e) => {
+                    return Ok(super::types::RouteTestResult {
+                        success: false,
+                        status_code: None,
+                        duration_ms: 0,
+                        error_message: Some(format!("认证解析失败: {}", e.message)),
+                    });
+                }
+            }
+        }
+        // 注入供应商级 extra_headers（覆盖同名 auth 头）
+        for (k, v) in &extra_headers {
+            req = req.header(k, v);
+        }
+
+        let start = Instant::now();
+        match req.send().await {
+            Ok(resp) => {
+                let duration_ms = start.elapsed().as_millis() as u64;
+                let status = resp.status().as_u16();
+                let success = resp.status().is_success();
+                let error_message = if success {
+                    None
+                } else {
+                    Some(format!("HTTP {}", status))
+                };
+                Ok(super::types::RouteTestResult {
+                    success,
+                    status_code: Some(status),
+                    duration_ms,
+                    error_message,
+                })
+            }
+            Err(e) => {
+                let duration_ms = start.elapsed().as_millis() as u64;
+                let msg = if e.is_timeout() {
+                    format!("请求超时（5s）")
+                } else if e.is_connect() {
+                    format!("连接失败: {}", provider.slug)
+                } else {
+                    format!("网络错误: {e}")
+                };
+                Ok(super::types::RouteTestResult {
+                    success: false,
+                    status_code: None,
+                    duration_ms,
+                    error_message: Some(msg),
+                })
+            }
+        }
     }
 
     /// 获取虚拟供应商级重试配置
@@ -523,6 +865,40 @@ impl VirtualProviderService {
         let max_retries = provider.max_retries.max(0) as u32;
         let retry_interval_ms = provider.retry_interval_ms.max(0) as u64;
         Ok((max_retries, retry_interval_ms))
+    }
+
+    /// 检查 alias 变更的影响范围
+    ///
+    /// 当用户修改虚拟供应商 alias 时，所有使用 `{old_alias}/` 前缀的
+    /// CLI 模型映射（`cli_model_mappings.gateway_model_id`）将失效。
+    /// 此方法返回受影响的记录数，供前端展示警告。
+    pub fn check_alias_impact(
+        &self,
+        virtual_provider_id: &str,
+        new_alias: &str,
+    ) -> IcodeResult<super::types::AliasImpactResult> {
+        let provider = repository::find_provider_by_id(virtual_provider_id)?;
+        let old_alias = provider.alias.clone();
+
+        // alias 未变更时无影响
+        if old_alias == new_alias {
+            return Ok(super::types::AliasImpactResult {
+                old_alias,
+                new_alias: new_alias.to_string(),
+                affected_cli_model_mappings: 0,
+                has_impact: false,
+            });
+        }
+
+        // 统计以旧 alias 为前缀的 CLI 模型映射
+        let affected = repository::count_cli_model_mappings_by_alias_prefix(&old_alias)?;
+
+        Ok(super::types::AliasImpactResult {
+            old_alias,
+            new_alias: new_alias.to_string(),
+            affected_cli_model_mappings: affected,
+            has_impact: affected > 0,
+        })
     }
 }
 

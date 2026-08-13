@@ -787,6 +787,10 @@ fn main() {
             modules::virtual_provider::commands::virtual_provider_route_create,
             modules::virtual_provider::commands::virtual_provider_route_update,
             modules::virtual_provider::commands::virtual_provider_route_delete,
+            modules::virtual_provider::commands::virtual_provider_route_attempts_list,
+            modules::virtual_provider::commands::virtual_provider_route_attempt_stats_list,
+            modules::virtual_provider::commands::virtual_provider_route_test,
+            modules::virtual_provider::commands::virtual_provider_check_alias_impact,
             // ===== Call Records 模块 =====
             modules::call_records::commands::call_records_list,
             modules::call_records::commands::call_records_get,
@@ -984,6 +988,8 @@ fn main() {
             let virtual_provider_handle = modules::virtual_provider::VirtualProviderHandle::new();
             tracing::info!("Virtual Provider 模块初始化完成");
             app.manage(virtual_provider_handle.clone());
+            // 提前克隆一份供 scheduler 使用：gateway_runtime 会 move 一份
+            let virtual_provider_handle_for_scheduler = virtual_provider_handle.clone();
 
             // ===== 初始化 Call Records 模块 =====
             // Call Records 直接操作数据库，无需额外依赖。
@@ -1023,10 +1029,12 @@ fn main() {
             app.manage(chat_handle);
 
             // ===== 初始化 Scheduler 模块 =====
-            // 定时任务调度器，当前内置 OAuth token 续期任务。
-            // 依赖 AI Gateway（refresh_oauth_token）。
-            let scheduler_handle =
-                modules::scheduler::SchedulerHandle::new(ai_gateway_handle_for_scheduler);
+            // 定时任务调度器，当前内置 OAuth token 续期、虚拟路由主动健康检查任务。
+            // 依赖 AI Gateway（refresh_oauth_token / 探活所需 auth 解析）与 Virtual Provider。
+            let scheduler_handle = modules::scheduler::SchedulerHandle::new(
+                ai_gateway_handle_for_scheduler,
+                virtual_provider_handle_for_scheduler,
+            );
             app.manage(scheduler_handle);
 
             // 创建系统托盘菜单

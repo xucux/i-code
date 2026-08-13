@@ -3,6 +3,8 @@ import type {
   VirtualProvider,
   VirtualModel,
   VirtualModelRoute,
+  RouteTestResult,
+  AliasImpactResult,
   CreateVirtualProviderInput,
   UpdateVirtualProviderInput,
   CreateVirtualModelInput,
@@ -132,4 +134,30 @@ export async function deleteVirtualModelRoutes(ids: string[]): Promise<void> {
   for (const id of ids) {
     await deleteVirtualModelRoute(id)
   }
+}
+
+/**
+ * 测试单条路由
+ *
+ * 对目标供应商发起轻量探活请求（GET /v1/models，5s 超时），
+ * 返回成功/失败、状态码、耗时与错误信息。不写入路由尝试历史。
+ */
+export async function testRoute(routeId: string): Promise<RouteTestResult> {
+  return invokeCommand<RouteTestResult>('virtual_provider_route_test', { routeId })
+}
+
+/**
+ * 检查修改虚拟供应商 alias 的影响范围
+ *
+ * 返回受影响的 CLI 模型映射数量（gateway_model_id 以旧 alias 为前缀）。
+ * 前端在用户修改 alias 时调用，展示警告提示。
+ */
+export async function checkAliasImpact(
+  virtualProviderId: string,
+  newAlias: string,
+): Promise<AliasImpactResult> {
+  return invokeCommand<AliasImpactResult>('virtual_provider_check_alias_impact', {
+    virtualProviderId,
+    newAlias,
+  })
 }

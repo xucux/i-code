@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -27,10 +27,11 @@ import {
 import {
   createVirtualProvider,
   updateVirtualProvider,
+  checkAliasImpact,
 } from '@/hooks/use-virtual-provider-mutation'
 import { toast } from 'sonner'
 import { toIcodeError } from '@/core/errors'
-import type { FailoverStrategy, VirtualProvider } from '@/modules/virtual-provider/types'
+import type { FailoverStrategy, VirtualProvider, AliasImpactResult } from '@/modules/virtual-provider/types'
 
 const schema = z.object({
   name: z.string().min(1, '名称不能为空'),
@@ -67,6 +68,10 @@ export function VirtualProviderDialog({
   const { t } = useTranslation('virtualProvider')
   const isEdit = Boolean(provider)
   const [submitting, setSubmitting] = useState(false)
+  // alias 变更影响检查结果（仅编辑模式下有值）
+  const [aliasImpact, setAliasImpact] = useState<AliasImpactResult | null>(null)
+  const [aliasChecking, setAliasChecking] = useState(false)
+  const aliasCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -84,6 +89,7 @@ export function VirtualProviderDialog({
   // 打开弹窗或切换 provider 时重置表单
   useEffect(() => {
     if (!open) return
+    setAliasImpact(null)
     if (provider) {
       form.reset({
         name: provider.name,
@@ -106,6 +112,38 @@ export function VirtualProviderDialog({
       })
     }
   }, [open, provider, form])
+
+  // 编辑模式下监听 alias 变化，防抖调用影响检查
+  const watchedAlias = form.watch('alias')
+  useEffect(() => {
+    if (!isEdit || !provider || !open) return
+    // alias 未变化时清除影响
+    if (watchedAlias === provider.alias) {
+      setAliasImpact(null)
+      return
+    }
+    // alias 格式校验通过才检查
+    if (!watchedAlias || !/^[a-z0-9-]+$/.test(watchedAlias)) {
+      setAliasImpact(null)
+      return
+    }
+    // 防抖 300ms
+    if (aliasCheckTimer.current) clearTimeout(aliasCheckTimer.current)
+    setAliasChecking(true)
+    aliasCheckTimer.current = setTimeout(async () => {
+      try {
+        const result = await checkAliasImpact(provider.id, watchedAlias)
+        setAliasImpact(result)
+      } catch {
+        setAliasImpact(null)
+      } finally {
+        setAliasChecking(false)
+      }
+    }, 300)
+    return () => {
+      if (aliasCheckTimer.current) clearTimeout(aliasCheckTimer.current)
+    }
+  }, [watchedAlias, isEdit, provider, open])
 
   const errors = form.formState.errors
 
@@ -184,6 +222,21 @@ export function VirtualProviderDialog({
               />
               {errors.alias && (
                 <p className="text-destructive text-[10px]">{errors.alias.message}</p>
+              )}
+              {/* alias 变更影响提示（仅编辑模式下 alias 有变化时展示） */}
+              {aliasChecking && (
+                <p className="text-muted-foreground text-[10px]">
+                  <i className="fa-solid fa-circle-notch fa-spin mr-1" />
+                  {t('aliasImpactChecking')}
+                </p>
+              )}
+              {aliasImpact?.hasImpact && !aliasChecking && (
+                <div className="flex items-start gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-[10px] text-amber-700 dark:text-amber-400">
+                  <i className="fa-solid fa-triangle-exclamation mt-px shrink-0" />
+                  <span>
+                    {t('aliasImpactWarning', { count: aliasImpact.affectedCliModelMappings })}
+                  </span>
+                </div>
               )}
             </div>
           </div>

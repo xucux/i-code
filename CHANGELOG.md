@@ -14,6 +14,32 @@ editRules:
 
 ### 🔄变更
 
+## [0.2.2] - 2026-08-14
+
+> [!IMPORTANT]
+> 本次更新包含数据库结构变更（V007 虚拟路由迭代：健康检查元数据列、路由权重列、路由尝试历史表），升级后自动应用迁移。
+
+### 🚀新增
+
+- **虚拟路由字段补全**：`virtual_model_routes` 的 `timeout_ms` / `extra_headers_json` / `extra_body_json` 列真正可用；网关转发时合并路由级额外请求头与请求体（路由级覆盖供应商级）；表单支持单独禁用某条路由、配置超时与高级 JSON 编辑器
+- **虚拟路由主动健康检查**：调度器新增 `health_check_loop`，每 60 秒对已降级或最近失败的路由发起轻量探活（GET /v1/models，5s 超时）；探活成功恢复健康，连续失败 3 次自动降级；路由列表展示连续失败次数与失败原因 badge
+- **load_balance 策略实现**：新增 `RouteSelector` trait 与 `FallbackSelector` / `LoadBalanceSelector` / `OnAllSelector` 三个实现；`load_balance` 策略按 `weight` 字段加权随机选择 1 条健康路由；`on_all` 暂降级为 fallback 顺序尝试（并发实现留待后续迭代）；路由表单在 load_balance 策略下显示权重输入框
+- **虚拟路由尝试历史落库与可视化**：新增 `virtual_route_attempts` 表记录每次路由尝试（成功/失败、状态码、耗时、错误原因）；`VirtualForwarder` 在每条路由尝试结束后异步写入历史；调度器每 24 小时自动清理 30 天前历史；虚拟供应商详情页新增「路由历史」Tab，展示路由维度统计（成功率/平均耗时/最近失败原因）与选中路由的最近 50 次尝试明细
+- **虚拟模型图节点 Tooltip**：子级路由节点 hover 展示 Radix Tooltip，结构化显示优先级 / 权重 / 健康状态（颜色编码：健康=绿/不健康=红/禁用=灰/未知=主色）/ 上次探活时间 / 探活耗时 / 连续失败次数 / 失败原因
+- **单条路由测试**：`RouteSettingsList` 每行新增「测试」按钮（fa-bolt 图标），调用新增 `virtual_provider_route_test` Command 对目标供应商发起轻量探活请求（GET /v1/models，5s 超时），结果用 toast 展示（HTTP 状态码 + 耗时 + 错误信息）；不写入 `virtual_route_attempts` 避免污染统计
+- **alias 变更影响检查**：新增 `virtual_provider_check_alias_impact` Command，统计 `cli_model_mappings` 中 `gateway_model_id` 以旧别名为前缀的记录数；编辑虚拟供应商时别名变化后防抖 300ms 自动检查，有影响时在字段下方展示黄色警告提示
+- **路由拖拽排序**：`RouteSettingsList` 引入 @dnd-kit（core + sortable + utilities，合计约 19KB gzip）实现拖拽排序；行首新增 grip 拖拽把手（仅把手响应拖拽，避免与行内输入框/开关冲突），拖拽结束后按新顺序自动重算 `priority`
+
+### 🐞修复
+
+- **虚拟模型路由图统计修复**：「N 条路由 · 已启用 N」改为仅统计子级真实路由，不再误把父级虚拟模型节点计入路由数
+
+### 🔄变更
+
+- 数据库 schema 升级至 V007；本次迭代三块 schema 变更（探活元数据列、路由权重列、路由尝试历史表）合并为单个迁移 `V007__virtual_route_iteration.sql`
+- `VirtualForwarder::run` 路由解析入口由 `resolve_fallback_routes` 改为 `resolve_routes_by_strategy`，按虚拟供应商策略选择路由
+- `SaveVirtualModelRouteInput` 新增 `timeoutMs` / `extraHeaders` / `extraBody` / `weight` 字段；`enabled` 由前端传入（原硬编码 true）
+
 ## [0.2.1] - 2026-08-13
 
 ### 🚀新增

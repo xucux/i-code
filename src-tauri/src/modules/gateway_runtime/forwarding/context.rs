@@ -86,6 +86,17 @@ pub struct ForwardContext {
     pub gateway_protocol: GatewayProtocol,
     /// 客户端原始 model 字段（`{prefix}/{model_id}`）
     pub gateway_model_id: String,
+    /// 虚拟路由级附加请求体参数（仅虚拟路由有值）
+    ///
+    /// 由 `route_resolver::build_virtual_context` 从 `virtual_model_routes.extra_body_json`
+    /// 解析得到；`prepare_body` 阶段浅合并到请求体，覆盖请求体同名字段。
+    pub route_extra_body: Option<Value>,
+    /// 虚拟路由级超时（毫秒），覆盖供应商级配置
+    ///
+    /// 当前仅做字段连通，实际应用需要改造 `http_client_for` 接收路由级 timeout，
+    /// 留待后续阶段（与主动健康检查调度器一起做）。
+    #[allow(dead_code)]
+    pub route_timeout_ms: Option<i64>,
 }
 
 impl ForwardContext {
@@ -118,6 +129,8 @@ impl ForwardContext {
             virtual_route_id: None,
             gateway_protocol,
             gateway_model_id: gateway_model_id_str,
+            route_extra_body: None,
+            route_timeout_ms: None,
         }
     }
 
@@ -151,6 +164,8 @@ impl ForwardContext {
             virtual_route_id: Some(virtual_route_id),
             gateway_protocol,
             gateway_model_id: gateway_model_id_str,
+            route_extra_body: None,
+            route_timeout_ms: None,
         }
     }
 

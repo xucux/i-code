@@ -37,4 +37,4 @@ pub mod seed;
 pub mod service;
 pub mod types;
 
-pub use service::AiGatewayServiceHandle;
+pub use service::{AiGatewayService, AiGatewayServiceHandle};

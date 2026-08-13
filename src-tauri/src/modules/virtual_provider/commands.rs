@@ -21,16 +21,26 @@
 //! - `virtual_provider_routes_by_provider`：列出指定虚拟供应商下所有路由
 //! - `virtual_provider_route_create`：创建路由
 //! - `virtual_provider_route_delete`：删除路由
+//!
+//! ### 路由尝试历史
+//! - `virtual_provider_route_attempts_list`：查询指定路由最近 N 次尝试
+//! - `virtual_provider_route_attempt_stats_list`：查询指定供应商下所有路由的尝试统计
+//! - `virtual_provider_route_test`：测试单条路由（探活请求，不写入历史）
+//!
+//! ### alias 变更影响检查
+//! - `virtual_provider_check_alias_impact`：检查修改 alias 对 CLI 模型映射的影响
 
 use tauri::State;
 
 use crate::error::IcodeResult;
+use crate::modules::ai_gateway::AiGatewayServiceHandle;
 
 use super::service::VirtualProviderHandle;
 use super::types::{
-    CreateVirtualModelInput, CreateVirtualModelRouteInput, CreateVirtualProviderInput,
-    SaveVirtualModelInput, UpdateVirtualModelInput, UpdateVirtualModelRouteInput,
-    UpdateVirtualProviderInput, VirtualModel, VirtualModelRoute, VirtualProvider,
+    AliasImpactResult, CreateVirtualModelInput, CreateVirtualModelRouteInput,
+    CreateVirtualProviderInput, RouteAttemptStats, RouteTestResult, SaveVirtualModelInput,
+    UpdateVirtualModelInput, UpdateVirtualModelRouteInput, UpdateVirtualProviderInput,
+    VirtualModel, VirtualModelRoute, VirtualProvider, VirtualRouteAttempt,
 };
 
 // ===== 虚拟供应商命令 =====
@@ -200,4 +210,64 @@ pub async fn virtual_provider_route_delete(
     id: String,
 ) -> IcodeResult<()> {
     state.service().delete_route(&id)
+}
+
+// ===== 路由尝试历史命令 =====
+
+/// 查询指定路由的最近 N 次尝试历史
+///
+/// 默认返回最近 50 条，最大 200 条。
+#[tauri::command]
+pub async fn virtual_provider_route_attempts_list(
+    state: State<'_, VirtualProviderHandle>,
+    route_id: String,
+    limit: Option<u32>,
+) -> IcodeResult<Vec<VirtualRouteAttempt>> {
+    // 限制最大 200 条，默认 50 条
+    let limit = limit.unwrap_or(50).min(200);
+    state
+        .service()
+        .list_recent_attempts_by_route(&route_id, limit)
+}
+
+/// 查询指定供应商下所有路由的尝试统计
+///
+/// 返回每条路由的总数 / 成功数 / 失败数 / 成功率 / 平均耗时 / 最近失败原因 / 最近尝试时间，
+/// 用于前端「路由历史」Tab 展示。
+#[tauri::command]
+pub async fn virtual_provider_route_attempt_stats_list(
+    state: State<'_, VirtualProviderHandle>,
+    virtual_provider_id: String,
+) -> IcodeResult<Vec<RouteAttemptStats>> {
+    state
+        .service()
+        .list_route_attempt_stats_by_provider(&virtual_provider_id)
+}
+
+/// 测试单条路由：对目标供应商发起轻量探活请求（GET /v1/models，5s 超时）
+///
+/// 与调度器健康检查逻辑一致，但不写入 `virtual_route_attempts`（避免污染统计）。
+/// 结果用 toast 展示，供用户手动验证路由配置是否可用。
+#[tauri::command]
+pub async fn virtual_provider_route_test(
+    state: State<'_, VirtualProviderHandle>,
+    ai_gateway: State<'_, AiGatewayServiceHandle>,
+    route_id: String,
+) -> IcodeResult<RouteTestResult> {
+    state.service().test_route(&route_id, ai_gateway.service()).await
+}
+
+/// 检查修改虚拟供应商 alias 的影响范围
+///
+/// 返回受影响的 CLI 模型映射数量（`cli_model_mappings.gateway_model_id` 以旧 alias 为前缀）。
+/// 前端在用户修改 alias 时调用，展示警告提示，用户确认后才允许提交。
+#[tauri::command]
+pub async fn virtual_provider_check_alias_impact(
+    state: State<'_, VirtualProviderHandle>,
+    virtual_provider_id: String,
+    new_alias: String,
+) -> IcodeResult<AliasImpactResult> {
+    state
+        .service()
+        .check_alias_impact(&virtual_provider_id, &new_alias)
 }

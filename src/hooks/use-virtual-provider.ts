@@ -2,9 +2,11 @@ import { useCallback, useEffect, useState } from 'react'
 import { invokeCommand } from '@/hooks/use-command'
 import type { ExposedModel } from '@/modules/ai-gateway/types'
 import type {
+  RouteAttemptStats,
   VirtualProvider,
   VirtualModel,
   VirtualModelRoute,
+  VirtualRouteAttempt,
 } from '@/modules/virtual-provider/types'
 
 /**
@@ -257,4 +259,93 @@ export function useProviderGatewayModels(providerId: string | null): {
   }, [providerId])
 
   return { models, loading, refetch: load }
+}
+
+/**
+ * 获取指定路由的最近 N 次尝试历史
+ *
+ * 调用后端 `virtual_provider_route_attempts_list` 命令。
+ *
+ * @param routeId 路由 ID，传 null 时不加载
+ * @param limit 返回条数，默认 50，最大 200
+ */
+export function useVirtualRouteAttempts(
+  routeId: string | null,
+  limit: number = 50,
+): {
+  attempts: VirtualRouteAttempt[]
+  loading: boolean
+  refetch: () => void
+} {
+  const [attempts, setAttempts] = useState<VirtualRouteAttempt[]>([])
+  const [loading, setLoading] = useState(false)
+
+  const load = useCallback(async () => {
+    if (!routeId) {
+      setAttempts([])
+      return
+    }
+    setLoading(true)
+    try {
+      const result = await invokeCommand<VirtualRouteAttempt[]>(
+        'virtual_provider_route_attempts_list',
+        { routeId, limit },
+      )
+      setAttempts(result)
+    } catch {
+      setAttempts([])
+    } finally {
+      setLoading(false)
+    }
+  }, [routeId, limit])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  return { attempts, loading, refetch: load }
+}
+
+/**
+ * 获取指定虚拟供应商下所有路由的尝试统计
+ *
+ * 调用后端 `virtual_provider_route_attempt_stats_list` 命令。
+ * 用于「路由历史」Tab 展示每条路由的成功率 / 平均耗时。
+ *
+ * @param virtualProviderId 虚拟供应商 ID，传 null 时不加载
+ */
+export function useVirtualRouteAttemptStats(
+  virtualProviderId: string | null,
+): {
+  stats: RouteAttemptStats[]
+  loading: boolean
+  refetch: () => void
+} {
+  const [stats, setStats] = useState<RouteAttemptStats[]>([])
+  const [loading, setLoading] = useState(false)
+
+  const load = useCallback(async () => {
+    if (!virtualProviderId) {
+      setStats([])
+      return
+    }
+    setLoading(true)
+    try {
+      const result = await invokeCommand<RouteAttemptStats[]>(
+        'virtual_provider_route_attempt_stats_list',
+        { virtualProviderId },
+      )
+      setStats(result)
+    } catch {
+      setStats([])
+    } finally {
+      setLoading(false)
+    }
+  }, [virtualProviderId])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  return { stats, loading, refetch: load }
 }

@@ -57,6 +57,13 @@ const V005__PROVIDER_REMARK: &str = include_str!("./migrations/V005__provider_re
 const V006__GATEWAY_SETTINGS_DEEPSEEK_FIX: &str =
     include_str!("./migrations/V006__gateway_settings_deepseek_fix.sql");
 
+/// 虚拟路由迭代：virtual_model_routes 表新增健康检查元数据列
+/// （consecutive_failures / last_error_text / last_check_duration_ms / last_check_at）
+/// 与负载均衡权重列（weight），并新增 virtual_route_attempts 路由尝试历史表。
+/// 原 V007/V008/V009 三份迁移合并生成，本次迭代统一为一个版本。
+const V007__VIRTUAL_ROUTE_ITERATION: &str =
+    include_str!("./migrations/V007__virtual_route_iteration.sql");
+
 /// 内置迁移列表：(版本号, 描述, SQL 内容)
 ///
 /// 增量迁移模式：V001 为基线，V002+ 为增量变更。
@@ -68,6 +75,7 @@ const BUILTIN_MIGRATIONS: &[(u32, &str, &str)] = &[
     (4, "gateway_settings_auth_enabled", V004__GATEWAY_SETTINGS_AUTH_ENABLED),
     (5, "provider_remark", V005__PROVIDER_REMARK),
     (6, "gateway_settings_deepseek_fix", V006__GATEWAY_SETTINGS_DEEPSEEK_FIX),
+    (7, "virtual_route_iteration", V007__VIRTUAL_ROUTE_ITERATION),
 ];
 
 /// 执行所有未应用的迁移
