@@ -16,7 +16,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { invokeCommand } from '@/hooks/use-command'
 import { useTranslation } from '@/modules/i18n/use-translation'
-import { parseAuthConfig, type Provider } from '@/modules/ai-gateway/types'
+import { resolveDefaultGatewayKey } from '@/hooks/use-catalog'
+import type { CatalogProvider } from '@/modules/gateway-runtime/types'
 import { toIcodeError } from '@/core/errors'
 
 /**
@@ -50,7 +51,7 @@ interface ClaudeModelMappingProps {
   /** 兜底模型变更回调 */
   onFallbackChange?: (value: string) => void
   /** 当前绑定的 Gateway 供应商，用于拉取模型与导入 API Key */
-  gatewayProvider?: Provider
+  gatewayProvider?: CatalogProvider
   /** 当前 CLI 供应商路由模式：1=走本地网关；0=直连上游 */
   routeMode?: number
   /** Anthropic API Key（明文） */
@@ -259,7 +260,20 @@ export function ClaudeModelMapping({
       toast.error(t('cli.claude.modelMapping.noProvider'))
       return
     }
-    const auth = parseAuthConfig(gatewayProvider)
+    // 虚拟供应商无独立凭证，统一使用网关默认授权 Key 明文
+    if (gatewayProvider.isVirtual) {
+      const key = await resolveDefaultGatewayKey()
+      if (!key) {
+        toast.error(t('cli.claude.modelMapping.noApiKeyInProvider'))
+        return
+      }
+      onApiKeyChange?.(key)
+      toast.success(t('cli.claude.modelMapping.apiKeyImported'))
+      return
+    }
+    const auth = gatewayProvider.authJson
+      ? (JSON.parse(gatewayProvider.authJson) as { method?: string; apiKey?: string } | undefined)
+      : undefined
     if (auth?.method !== 'api-key' || !auth.apiKey) {
       toast.error(t('cli.claude.modelMapping.noApiKeyInProvider'))
       return

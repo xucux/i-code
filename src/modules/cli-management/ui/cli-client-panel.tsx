@@ -20,8 +20,7 @@ import {
   updateCliModelMapping,
   updateCliProvider,
 } from '@/hooks/use-cli-mutation'
-import { useProviderList } from '@/hooks/use-provider-list'
-import { useExposedModels } from '@/hooks/use-virtual-provider'
+import { useCatalogModels, useCatalogProviders } from '@/hooks/use-catalog'
 import { useTranslation } from '@/modules/i18n/use-translation'
 import {
   ModelMappingEditor,
@@ -43,8 +42,8 @@ export interface CliClientPanelProps {
 /** 单个固定 CLI 客户端的供应商与模型映射工作台。 */
 export function CliClientPanel({ profile, height }: CliClientPanelProps) {
   const { t } = useTranslation()
-  const { providers: gatewayProviders } = useProviderList()
-  const { models: exposedModels } = useExposedModels()
+  const { providers: gatewayProviders } = useCatalogProviders()
+  const { models: exposedModels } = useCatalogModels()
   const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null)
   const { providers, loading: providersLoading, refetch: refetchProviders } = useCliProviders(
     profile?.id ?? null

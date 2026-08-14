@@ -38,7 +38,7 @@ import { toast } from 'sonner'
 import { useTranslation } from '@/modules/i18n/use-translation'
 import { useAvailableHeight } from '@/hooks/use-available-height'
 import { useChatSession, useChatSessions, exportChatHtml, revealChatFile } from '@/hooks/use-chat'
-import { useExposedModels } from '@/hooks/use-virtual-provider'
+import { useCatalogModels } from '@/hooks/use-catalog'
 import { useGatewayStatus } from '@/hooks/use-gateway-status'
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog'
 import {
@@ -75,7 +75,7 @@ interface PendingSend {
 export function ChatPage() {
   const { t } = useTranslation('chat')
   const { status: gatewayStatus } = useGatewayStatus()
-  const { models: exposedModels } = useExposedModels()
+  const { models: exposedModels } = useCatalogModels()
   const {
     sessions,
     loading: sessionsLoading,

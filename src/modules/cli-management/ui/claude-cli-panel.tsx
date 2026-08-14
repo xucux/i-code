@@ -30,8 +30,7 @@ import {
   updateCliModelMapping,
   updateCliProvider,
 } from '@/hooks/use-cli-mutation'
-import { useProviderList } from '@/hooks/use-provider-list'
-import { useExposedModels } from '@/hooks/use-virtual-provider'
+import { useCatalogModels, useCatalogProviders, resolveDefaultGatewayKey } from '@/hooks/use-catalog'
 import { useTranslation } from '@/modules/i18n/use-translation'
 import type { CliModelMapping, CliProfile, CliProvider } from '@/modules/cli-management/types'
 import {
@@ -73,8 +72,8 @@ export interface ClaudeCliPanelProps {
  */
 export function ClaudeCliPanel({ profile, height }: ClaudeCliPanelProps) {
   const { t } = useTranslation()
-  const { providers: gatewayProviders } = useProviderList()
-  const { models: exposedModels } = useExposedModels()
+  const { providers: gatewayProviders } = useCatalogProviders()
+  const { models: exposedModels } = useCatalogModels()
 
   // ── 选中与已应用状态 ──
   const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null)
@@ -192,6 +191,19 @@ export function ClaudeCliPanel({ profile, height }: ClaudeCliPanelProps) {
       setApiKey('')
     }
   }, [selectedProvider?.authJson])
+
+  // 虚拟供应商无独立凭证：选中时预填网关默认授权 Key 明文
+  useEffect(() => {
+    // 仅当绑定的是虚拟供应商（providerId 以 virtual: 前缀标识）时触发
+    if (!selectedProvider?.providerId?.startsWith('virtual:')) return
+    let cancelled = false
+    void resolveDefaultGatewayKey().then((key) => {
+      if (!cancelled && key) setApiKey(key)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [selectedProvider?.providerId])
 
   // ── 高度计算 ──
   const listHeight = Math.max(0, height - 76)

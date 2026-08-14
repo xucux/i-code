@@ -32,8 +32,10 @@ import {
 } from '@/components/ui/tooltip'
 import { useTranslation } from '@/modules/i18n/use-translation'
 import type { CliConfigFileContent, CliProfile } from '@/modules/cli-management/types'
-import type { BuiltinModel, Provider, ProviderShareConfig, ProviderType } from '@/modules/ai-gateway/types'
+import type { BuiltinModel, ProviderShareConfig, ProviderType } from '@/modules/ai-gateway/types'
 import { exportProvider } from '@/hooks/use-ai-gateway-mutation'
+import type { CatalogProvider } from '@/modules/gateway-runtime/types'
+import { resolveDefaultGatewayKey } from '@/hooks/use-catalog'
 import {
   Select,
   SelectContent,
@@ -327,7 +329,7 @@ export function OpenCodePanel({ profile, height }: OpenCodePanelProps) {
   })
 
   // ── 已创建的 Gateway Provider（用于快速导入到 OpenCode） ──
-  const [gatewayProviders, setGatewayProviders] = useState<Provider[]>([])
+  const [gatewayProviders, setGatewayProviders] = useState<CatalogProvider[]>([])
   const [gatewayProvidersLoading, setGatewayProvidersLoading] = useState(false)
   const [selectedGatewayProviderId, setSelectedGatewayProviderId] = useState<string>('')
 
@@ -442,11 +444,11 @@ export function OpenCodePanel({ profile, height }: OpenCodePanelProps) {
     }
   }, [importData, t])
 
-  /** 加载已创建的 Gateway Provider 列表 */
+  /** 加载目录供应商列表（真实 + 生效虚拟供应商） */
   const loadGatewayProviders = useCallback(async () => {
     setGatewayProvidersLoading(true)
     try {
-      const result = await invokeCommand<Provider[]>('gateway_provider_list')
+      const result = await invokeCommand<CatalogProvider[]>('gateway_catalog_providers')
       setGatewayProviders(result)
     } catch (err) {
       setGatewayProviders([])
@@ -460,13 +462,35 @@ export function OpenCodePanel({ profile, height }: OpenCodePanelProps) {
   /**
    * 从选中的 Gateway Provider 导入配置到 OpenCode Provider 表单
    *
-   * 通过 gateway_provider_export（includeSecrets=true）一次性获取：
-   * 供应商基础信息、已解密的认证凭据、关联模型及其完整配置。
+   * 真实供应商：通过 gateway_provider_export 获取完整配置。
+   * 虚拟供应商：直接从目录条目构造基础配置（无独立模型，apiKey 用网关默认 Key）。
    */
   const applyGatewayProviderToForm = useCallback(async (providerId: string) => {
     setSelectedGatewayProviderId(providerId)
     if (!providerId) {
       // 选择「手动创建」时重置表单，保留用户当前输入不被覆盖
+      return
+    }
+
+    // 虚拟供应商处理
+    const selected = gatewayProviders.find((p) => p.id === providerId)
+    if (selected?.isVirtual) {
+      let apiKey = ''
+      try {
+        const key = await resolveDefaultGatewayKey()
+        if (key) apiKey = key
+      } catch {
+        // 无默认 Key 时 apiKey 留空
+      }
+      setProviderForm({
+        id: selected.slug,
+        name: selected.displayName,
+        npm: 'openai', // 虚拟供应商统一走 OpenAI 兼容协议
+        baseURL: 'http://127.0.0.1:54321',
+        apiKey,
+        models: {},
+      })
+      toast.success(t('cli.opencode.importProviderSuccess', { name: selected.displayName }))
       return
     }
 
@@ -527,7 +551,7 @@ export function OpenCodePanel({ profile, height }: OpenCodePanelProps) {
       const error = toIcodeError(err)
       toast.error(t('cli.opencode.importProviderFailed', { message: error.message }))
     }
-  }, [t])
+  }, [t, gatewayProviders])
 
   /** 打开添加 Provider 弹窗 */
   const openAddProvider = useCallback(() => {

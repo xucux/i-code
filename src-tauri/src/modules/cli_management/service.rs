@@ -11,7 +11,8 @@
 //!
 //! ## 跨模块调用
 //!
-//! - 依赖 [`ai_gateway`](crate::modules::ai_gateway) 校验 `provider_id` 存在性。
+//! - 依赖 [`ai_gateway`](crate::modules::ai_gateway) 校验真实 `provider_id` 存在性
+//! - 依赖 [`virtual_provider`](crate::modules::virtual_provider) 校验虚拟供应商 `virtual:{id}` 存在性
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -24,6 +25,7 @@ use std::collections::HashMap;
 use crate::core::id::generate_id;
 use crate::error::{IcodeError, IcodeResult};
 use crate::modules::ai_gateway::AiGatewayServiceHandle;
+use crate::modules::virtual_provider::VirtualProviderHandle;
 
 use super::repository::CliManagementRepository;
 use super::types::{
@@ -49,12 +51,17 @@ impl CliManagementServiceHandle {
     /// 创建 CLI 管理服务句柄
     ///
     /// # 参数
-    /// - `ai_gateway_handle`：AI Gateway 服务句柄，用于校验 provider_id 存在性
-    pub fn new(ai_gateway_handle: AiGatewayServiceHandle) -> Self {
+    /// - `ai_gateway_handle`：AI Gateway 服务句柄，用于校验真实 provider_id 存在性
+    /// - `virtual_provider_handle`：Virtual Provider 服务句柄，用于校验 `virtual:{id}`
+    pub fn new(
+        ai_gateway_handle: AiGatewayServiceHandle,
+        virtual_provider_handle: VirtualProviderHandle,
+    ) -> Self {
         Self {
             inner: Arc::new(CliManagementService {
                 repo: CliManagementRepository::new(),
                 ai_gateway_handle,
+                virtual_provider_handle,
             }),
         }
     }
@@ -69,6 +76,7 @@ impl CliManagementServiceHandle {
 pub struct CliManagementService {
     repo: CliManagementRepository,
     ai_gateway_handle: AiGatewayServiceHandle,
+    virtual_provider_handle: VirtualProviderHandle,
 }
 
 impl CliManagementService {
@@ -344,20 +352,36 @@ impl CliManagementService {
             .ok_or_else(|| IcodeError::not_found("CLI 供应商绑定", Some(id)))
     }
 
+    /// 校验 CLI 绑定的 provider_id 存在性
+    ///
+    /// 兼容两种形态：
+    /// - 真实供应商 ID → 校验 `providers` 表
+    /// - `virtual:{virtual_provider_id}` → 校验 `virtual_providers` 表
+    fn validate_provider_id(&self, provider_id: &str) -> IcodeResult<()> {
+        if let Some(vp_id) = provider_id.strip_prefix("virtual:") {
+            self.virtual_provider_handle
+                .service()
+                .get_provider(vp_id)
+                .map_err(|_| IcodeError::not_found("虚拟供应商", Some(vp_id)))?;
+            return Ok(());
+        }
+        self.ai_gateway_handle
+            .service()
+            .get_provider(provider_id)
+            .map_err(|_| IcodeError::not_found("AI Gateway 供应商", Some(provider_id)))?;
+        Ok(())
+    }
+
     /// 创建 CLI 供应商绑定
     ///
     /// 校验：
     /// - cli_profile_id 存在
-    /// - provider_id 若提供，则在 providers 表中存在
+    /// - provider_id 若提供，则在 providers / virtual_providers 表中存在
     /// - route_mode = 0 时必须提供 direct_base_url
     pub fn create_provider(&self, input: CreateCliProviderInput) -> IcodeResult<CliProvider> {
         let _ = self.get_profile(&input.cli_profile_id)?;
         if let Some(provider_id) = &input.provider_id {
-            let _ = self
-                .ai_gateway_handle
-                .service()
-                .get_provider(provider_id)
-                .map_err(|_| IcodeError::not_found("AI Gateway 供应商", Some(provider_id)))?;
+            self.validate_provider_id(provider_id)?;
         }
         if input.route_mode == 0 && input.direct_base_url.is_none() {
             return Err(IcodeError::validation(
@@ -373,11 +397,7 @@ impl CliManagementService {
     pub fn update_provider(&self, id: &str, input: UpdateCliProviderInput) -> IcodeResult<CliProvider> {
         let existing = self.get_provider(id)?;
         if let Some(provider_id) = &input.provider_id {
-            let _ = self
-                .ai_gateway_handle
-                .service()
-                .get_provider(provider_id)
-                .map_err(|_| IcodeError::not_found("AI Gateway 供应商", Some(provider_id)))?;
+            self.validate_provider_id(provider_id)?;
         }
         let route_mode = input.route_mode.unwrap_or(existing.route_mode);
         let direct_base_url = input.direct_base_url.as_ref().or(existing.direct_base_url.as_ref());

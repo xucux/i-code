@@ -21,7 +21,10 @@ use crate::error::IcodeResult;
 use crate::modules::logger::types::ForwardLogConfig;
 
 use super::service::GatewayRuntimeHandle;
-use super::types::{GatewayRuntimeState, HealthCheckResult, StartGatewayInput, StartGatewayResult};
+use super::types::{
+    CatalogModel, CatalogProvider, GatewayRuntimeState, HealthCheckResult, StartGatewayInput,
+    StartGatewayResult,
+};
 
 /// 启动网关 HTTP Server
 ///
@@ -108,4 +111,36 @@ pub async fn gateway_set_forward_log_config(
 ) -> IcodeResult<ForwardLogConfig> {
     state.service().set_forward_log_config(config);
     Ok(state.service().get_forward_log_config())
+}
+
+/// 获取目录模型列表（真实 + 虚拟供应商合并）
+///
+/// 供聊天、CLI 配置管理等前端拉取「内部供应商/模型列表」时使用。
+#[tauri::command]
+pub async fn gateway_catalog_models(
+    state: State<'_, GatewayRuntimeHandle>,
+) -> IcodeResult<Vec<CatalogModel>> {
+    state.service().catalog_models()
+}
+
+/// 获取目录供应商列表（真实 + 虚拟供应商合并）
+///
+/// 供 CLI 配置管理「添加供应商」绑定下拉使用。
+/// 虚拟供应商条目 `id` 使用 `virtual:{virtual_provider_id}` 前缀标识。
+#[tauri::command]
+pub async fn gateway_catalog_providers(
+    state: State<'_, GatewayRuntimeHandle>,
+) -> IcodeResult<Vec<CatalogProvider>> {
+    state.service().catalog_providers()
+}
+
+/// 解析网关默认授权 Key 明文
+///
+/// 虚拟供应商无独立凭证，统一使用网关默认 Key。
+/// 未配置默认 Key 时返回 `null`。
+#[tauri::command]
+pub async fn gateway_resolve_default_key(
+    state: State<'_, GatewayRuntimeHandle>,
+) -> IcodeResult<Option<String>> {
+    state.service().resolve_default_gateway_key()
 }

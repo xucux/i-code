@@ -86,10 +86,26 @@ export interface VirtualModelGraphProps {
 /**
  * 根据健康状态返回节点边框颜色
  */
+/**
+ * 健康状态基础边框色
+ */
 function healthBorderClass(healthy?: boolean, enabled = true): string {
   if (!enabled) return "border-muted-foreground/30"
   if (healthy === undefined) return "border-primary/60"
   return healthy ? "border-emerald-500/60" : "border-destructive/60"
+}
+
+/**
+ * 父级节点交替强调色：奇偶父级使用不同主色，方便区分连线和分组
+ */
+const PARENT_ACCENT_COLORS = [
+  { border: "border-sky-500/60", stroke: "hsl(199 89% 48%)" },     // sky-500
+  { border: "border-violet-500/60", stroke: "hsl(258 90% 66%)" },   // violet-500
+  { border: "border-amber-500/60", stroke: "hsl(38 92% 50%)" },     // amber-500
+] as const
+
+function parentAccentColor(index: number) {
+  return PARENT_ACCENT_COLORS[index % PARENT_ACCENT_COLORS.length]
 }
 
 /**
@@ -135,7 +151,7 @@ export function VirtualModelGraph({
   const containerRef = React.useRef<HTMLDivElement>(null)
   const parentRefs = React.useRef<Record<string, HTMLElement | null>>({})
   const childRefs = React.useRef<Record<string, HTMLElement | null>>({})
-  const [paths, setPaths] = React.useState<{ id: string; d: string }[]>([])
+  const [paths, setPaths] = React.useState<{ id: string; d: string; stroke: string }[]>([])
   const [dimensions, setDimensions] = React.useState({ width: 0, height: 0 })
 
   // 按 parentId 拆分父级与子级
@@ -148,6 +164,13 @@ export function VirtualModelGraph({
     [targets]
   )
 
+  // 建立父级 id → 序号的映射，用于连线和边框取交替色
+  const parentIndexMap = React.useMemo(() => {
+    const map: Record<string, number> = {}
+    parentTargets.forEach((p, idx) => { map[p.id] = idx })
+    return map
+  }, [parentTargets])
+
   // 测量容器与节点位置，计算父子连线路径
   const recalculatePaths = React.useCallback(() => {
     const container = containerRef.current
@@ -157,7 +180,7 @@ export function VirtualModelGraph({
     }
 
     const containerRect = container.getBoundingClientRect()
-    const nextPaths: { id: string; d: string }[] = []
+    const nextPaths: { id: string; d: string; stroke: string }[] = []
 
     childTargets.forEach((child) => {
       const parentEl = parentRefs.current[child.parentId!]
@@ -176,12 +199,13 @@ export function VirtualModelGraph({
       const midX = (sourceX + targetX) / 2
       const d = `M ${sourceX} ${sourceY} C ${midX} ${sourceY}, ${midX} ${targetY}, ${targetX} ${targetY}`
 
-      nextPaths.push({ id: child.id, d })
+      const accent = parentAccentColor(parentIndexMap[child.parentId!] ?? 0)
+      nextPaths.push({ id: child.id, d, stroke: accent.stroke })
     })
 
     setPaths(nextPaths)
     setDimensions({ width: containerRect.width, height: containerRect.height })
-  }, [parentTargets, childTargets])
+  }, [parentTargets, childTargets, parentIndexMap])
 
   React.useEffect(() => {
     recalculatePaths()
@@ -224,9 +248,9 @@ export function VirtualModelGraph({
             key={path.id}
             d={path.d}
             fill="none"
-            stroke="hsl(var(--primary))"
+            stroke={path.stroke}
             strokeWidth={1.5}
-            strokeOpacity={0.4}
+            strokeOpacity={0.55}
           />
         ))}
       </svg>
@@ -241,17 +265,18 @@ export function VirtualModelGraph({
       </div>
 
       {/* 主体两栏 */}
-      <div className="relative z-10 flex gap-3">
+      <div className="relative z-10 flex gap-6">
         {/* 左侧：父级节点 */}
         <div className={cn("flex flex-col gap-1.5", parentFlex)}>
           <div className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground/70">父级</div>
           {parentTargets.length === 0 && (
             <div className="text-[10px] text-muted-foreground">暂无</div>
           )}
-          {parentTargets.map((target) => (
+          {parentTargets.map((target, index) => (
             <ParentNode
               key={target.id}
               target={target}
+              index={index}
               selected={selectedId === target.id}
               editMode={editMode}
               actions={editMode ? renderParentActions?.(target) : undefined}
@@ -271,6 +296,7 @@ export function VirtualModelGraph({
             <ChildNode
               key={target.id}
               target={target}
+              parentIndex={parentIndexMap[target.parentId!] ?? 0}
               selected={selectedId === target.id}
               ref={(el) => { childRefs.current[target.id] = el }}
               onClick={() => (onSelectChild ?? onSelect)?.(target.id)}
@@ -287,6 +313,7 @@ export function VirtualModelGraph({
 
 interface ParentNodeProps {
   target: VirtualModelTargetNode
+  index: number
   selected?: boolean
   editMode?: boolean
   actions?: React.ReactNode
@@ -294,7 +321,8 @@ interface ParentNodeProps {
 }
 
 const ParentNode = React.forwardRef<HTMLElement, ParentNodeProps>(
-  ({ target, selected, editMode, actions, onClick }, ref) => {
+  ({ target, index, selected, editMode, actions, onClick }, ref) => {
+    const accent = parentAccentColor(index)
     return (
       <div
         ref={ref as React.Ref<HTMLDivElement>}
@@ -310,7 +338,7 @@ const ParentNode = React.forwardRef<HTMLElement, ParentNodeProps>(
         className={cn(
           "group relative flex items-center gap-2 rounded-md border bg-background px-2 py-1.5 text-left shadow-sm transition-all",
           "hover:shadow-md focus:outline-none focus:ring-2 focus:ring-ring",
-          healthBorderClass(target.healthy, target.enabled),
+          target.enabled !== false ? accent.border : healthBorderClass(target.healthy, target.enabled),
           selected && "ring-2 ring-primary",
           target.enabled === false && "opacity-60",
           editMode && "pr-16"
@@ -325,14 +353,6 @@ const ParentNode = React.forwardRef<HTMLElement, ParentNodeProps>(
             <span className="truncate text-[10px] text-muted-foreground">{target.provider}</span>
           </div>
           <div className="truncate text-xs font-semibold">{target.model}</div>
-        </div>
-
-        {/* 右侧元信息 */}
-        <div className="shrink-0 text-right text-[9px] text-muted-foreground">
-          <div>P{target.priority}</div>
-          {target.quotaPercent !== undefined && (
-            <div className="tabular-nums">{target.quotaPercent}%</div>
-          )}
         </div>
 
         {/* 编辑模式操作按钮 */}
@@ -355,26 +375,27 @@ ParentNode.displayName = "ParentNode"
 
 interface ChildNodeProps {
   target: VirtualModelTargetNode
+  parentIndex: number
   selected?: boolean
   onClick?: () => void
 }
 
 const ChildNode = React.forwardRef<HTMLButtonElement, ChildNodeProps>(
-  ({ target, selected, onClick }, ref) => {
+  ({ target, parentIndex, selected, onClick }, ref) => {
     const contextPairs = parseContextConfig(target.contextConfig)
     const hasFeatures = target.features && (
       target.features.toolCalling || target.features.imageInput ||
       target.features.functionCalling || target.features.streaming
     )
 
-    // 优先级底部着色：按健康状态分配颜色
-    const priorityUnderlineClass = target.enabled === false
-      ? "border-b-2 border-muted-foreground/30"
+    const accent = parentAccentColor(parentIndex)
+
+    // 优先级标签：按健康状态分配背景与文字色
+    const priorityBadgeClass = target.enabled === false
+      ? "bg-muted-foreground/20 text-muted-foreground"
       : target.healthy === false
-        ? "border-b-2 border-destructive/60"
-        : target.healthy === true
-          ? "border-b-2 border-emerald-500/60"
-          : "border-b-2 border-primary/40"
+        ? "bg-destructive/20 text-destructive"
+        : "bg-emerald-500/20 text-emerald-600"
 
     return (
       <Tooltip>
@@ -386,31 +407,26 @@ const ChildNode = React.forwardRef<HTMLButtonElement, ChildNodeProps>(
             className={cn(
               "flex rounded-md border bg-background px-2 py-1.5 text-left shadow-sm transition-all",
               "hover:shadow-md focus:outline-none focus:ring-2 focus:ring-ring",
-              healthBorderClass(target.healthy, target.enabled),
+              target.enabled !== false ? accent.border : healthBorderClass(target.healthy, target.enabled),
               selected && "ring-2 ring-primary",
               target.enabled === false && "opacity-60"
             )}
           >
             {/* 主体内容 */}
             <div className="min-w-0 flex-1">
-              {/* 第一行：供应商 + 模型 + 优先级(底色) + 额度 */}
+              {/* 第一行：供应商 + 模型 + 优先级(底色) */}
               <div className="flex items-baseline gap-1.5">
                 <i className="fa-solid fa-building size-2.5 shrink-0 text-muted-foreground" />
                 <span className="truncate text-[10px] text-muted-foreground">{target.provider}</span>
                 <span className="shrink-0 text-muted-foreground/50">·</span>
                 <span className="truncate text-xs font-semibold">{target.model}</span>
-                <span className={cn("ml-auto shrink-0 text-[9px] tabular-nums text-muted-foreground", priorityUnderlineClass)}>
+                <span className={cn("ml-auto shrink-0 rounded px-1 py-px text-[9px] tabular-nums", priorityBadgeClass)}>
                   P{target.priority}
                 </span>
-                {target.quotaPercent !== undefined && (
-                  <span className="shrink-0 text-[9px] tabular-nums text-muted-foreground">
-                    {target.quotaPercent}%
-                  </span>
-                )}
               </div>
 
               {/* 第二行：上下文配置 + 特性标签 + 探活信息 */}
-              {(contextPairs.length > 0 || hasFeatures || (target.consecutiveFailures && target.consecutiveFailures > 0)) && (
+              {/* {(contextPairs.length > 0 || hasFeatures || (target.consecutiveFailures && target.consecutiveFailures > 0)) && (
                 <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                   {contextPairs.map(([key, val]) => (
                     <span key={key} className="text-[9px] text-muted-foreground">
@@ -447,17 +463,7 @@ const ChildNode = React.forwardRef<HTMLButtonElement, ChildNodeProps>(
                     </span>
                   )}
                 </div>
-              )}
-
-              {/* 额度进度条 */}
-              {target.quotaPercent !== undefined && (
-                <div className="mt-1 h-0.5 w-full overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-primary transition-all"
-                    style={{ width: `${Math.min(100, Math.max(0, target.quotaPercent))}%` }}
-                  />
-                </div>
-              )}
+              )} */}
             </div>
           </button>
         </TooltipTrigger>

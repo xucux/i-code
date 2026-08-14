@@ -36,7 +36,10 @@ use crate::modules::secret::SecretServiceHandle;
 use crate::modules::virtual_provider::VirtualProviderHandle;
 
 use super::router;
-use super::types::{GatewayRuntimeState, HealthCheckResult, StartGatewayInput, StartGatewayResult};
+use super::types::{
+    CatalogModel, CatalogProvider, GatewayRuntimeState, HealthCheckResult, StartGatewayInput,
+    StartGatewayResult,
+};
 
 /// Gateway Runtime Service 在 Tauri State 中的句柄
 ///
@@ -158,6 +161,116 @@ impl GatewayRuntimeService {
     #[allow(dead_code)]
     pub fn inner_cli_api_key(&self) -> &str {
         &self.shared.inner_cli_api_key
+    }
+
+    // ===== 目录（真实 + 虚拟合并）=====
+
+    /// 合并真实暴露模型与生效虚拟模型，构造统一目录
+    ///
+    /// 供聊天、CLI 配置管理等前端拉取「内部供应商/模型列表」时使用。
+    /// - 真实模型：`ai_gateway.list_exposed_models()`（供应商已启用且模型已暴露）
+    /// - 虚拟模型：`virtual_provider.list_exposed_virtual_models()`（虚拟供应商与虚拟模型均启用）
+    ///   对外 ID 为 `{alias}/{model_id}`，`provider_slug` 取虚拟供应商 alias。
+    pub fn catalog_models(&self) -> IcodeResult<Vec<CatalogModel>> {
+        let real = self
+            .shared
+            .ai_gateway_handle
+            .service()
+            .list_exposed_models()?;
+        let virtual_models = self
+            .shared
+            .virtual_provider_handle
+            .service()
+            .list_exposed_virtual_models()?;
+
+        let mut out: Vec<CatalogModel> = real
+            .into_iter()
+            .map(|m| CatalogModel {
+                id: m.id,
+                provider_slug: m.provider_slug,
+                model_id: m.model_id,
+                display_name: m.display_name,
+                is_virtual: false,
+            })
+            .collect();
+        for vm in virtual_models {
+            out.push(CatalogModel {
+                id: vm.id,
+                provider_slug: vm.alias,
+                model_id: vm.model_id,
+                display_name: vm.display_name,
+                is_virtual: true,
+            });
+        }
+        Ok(out)
+    }
+
+    /// 合并真实供应商与生效虚拟供应商，构造统一目录
+    ///
+    /// 供 CLI 配置管理「添加供应商」绑定下拉使用。
+    /// 虚拟供应商条目 `id` 使用 `virtual:{virtual_provider_id}` 前缀，
+    /// `slug` 取虚拟供应商 alias，且仅返回已启用的虚拟供应商。
+    pub fn catalog_providers(&self) -> IcodeResult<Vec<CatalogProvider>> {
+        let real = self
+            .shared
+            .ai_gateway_handle
+            .service()
+            .list_providers()?;
+        let virtual_providers = self
+            .shared
+            .virtual_provider_handle
+            .service()
+            .list_providers()?;
+
+        let mut out: Vec<CatalogProvider> = real
+            .into_iter()
+            .map(|p| CatalogProvider {
+                id: p.id,
+                slug: p.slug,
+                display_name: p.display_name,
+                is_enabled: p.is_enabled,
+                is_virtual: false,
+                base_url: Some(p.base_url),
+                auth_json: p.auth_json,
+            })
+            .collect();
+        for vp in virtual_providers {
+            // 仅纳入生效虚拟供应商
+            if !vp.is_enabled {
+                continue;
+            }
+            out.push(CatalogProvider {
+                id: format!("virtual:{}", vp.id),
+                slug: vp.alias,
+                display_name: vp.display_name.unwrap_or(vp.name),
+                is_enabled: true,
+                is_virtual: true,
+                base_url: None,
+                auth_json: None,
+            });
+        }
+        Ok(out)
+    }
+
+    /// 解析网关默认授权 Key 明文
+    ///
+    /// 供虚拟供应商在 CLI 配置中预填 apiKey 使用（虚拟供应商无独立凭证，
+    /// 统一使用网关默认授权 Key）。未配置默认 Key 时返回 `None`。
+    pub fn resolve_default_gateway_key(&self) -> IcodeResult<Option<String>> {
+        let settings = self
+            .shared
+            .ai_gateway_handle
+            .service()
+            .get_gateway_settings()?;
+        let Some(id) = settings
+            .default_api_key_secret_id
+            .filter(|s| !s.trim().is_empty())
+        else {
+            return Ok(None);
+        };
+        let plain = super::auth::resolve_default_key(&id, &self.shared.secret_handle)
+            .map_err(|code| IcodeError::internal(format!("解析网关默认 Key 失败: {code}")))?;
+        Ok(Some(plain))
     }
 
     /// 广播网关状态变更事件

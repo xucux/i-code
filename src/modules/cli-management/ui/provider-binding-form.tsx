@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import type { CliProvider } from '@/modules/cli-management/types'
-import type { Provider } from '@/modules/ai-gateway/types'
+import type { CatalogProvider } from '@/modules/gateway-runtime/types'
 
 const schema = z
   .object({
@@ -52,7 +52,7 @@ interface ProviderBindingFormProps {
   onOpenChange: (open: boolean) => void
   profileId: string
   binding?: CliProvider | null
-  providers: Provider[]
+  providers: CatalogProvider[]
   onSubmit: (values: FormValues) => void
 }
 
@@ -108,6 +108,15 @@ export function ProviderBindingForm({
 
   const routeMode = form.watch('routeMode')
   const providerId = form.watch('providerId')
+
+  /** 当前选中的目录供应商（虚拟供应商仅支持网关路由） */
+  const selectedProviderIsVirtual = providers.find((p) => p.id === providerId)?.isVirtual ?? false
+
+  // 选中虚拟供应商时强制走网关路由（route_mode=1），并同步 baseUrl 默认值
+  useEffect(() => {
+    if (!selectedProviderIsVirtual) return
+    form.setValue('routeMode', 1)
+  }, [selectedProviderIsVirtual, form])
 
   /**
    * 当选择直连模式且已选供应商时，直连 Base URL 跟随所选 Gateway 供应商的 baseUrl 同步调整。
@@ -168,7 +177,9 @@ export function ProviderBindingForm({
               <SelectContent>
                 <SelectGroup>
                   <SelectItem value="1" className="text-xs">{t('cli.route.gateway')}</SelectItem>
-                  <SelectItem value="0" className="text-xs">{t('cli.route.direct')}</SelectItem>
+                  <SelectItem value="0" className="text-xs" disabled={selectedProviderIsVirtual}>
+                    {t('cli.route.direct')}
+                  </SelectItem>
                 </SelectGroup>
               </SelectContent>
             </Select>

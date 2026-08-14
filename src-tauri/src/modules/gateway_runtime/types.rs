@@ -59,6 +59,47 @@ pub struct StartGatewayResult {
     pub error: Option<String>,
 }
 
+/// 目录模型条目（真实供应商 + 虚拟供应商合并）
+///
+/// 供聊天、CLI 配置管理等前端拉取「内部供应商/模型列表」时使用，
+/// 将真实暴露模型与生效虚拟模型统一呈现，字段与前端 `ExposedModel` 兼容。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CatalogModel {
+    /// 对外路由 ID：`{slug|alias}/{model_id}`
+    pub id: String,
+    /// 真实供应商 slug 或虚拟供应商 alias
+    pub provider_slug: String,
+    pub model_id: String,
+    pub display_name: String,
+    /// 是否虚拟供应商模型
+    pub is_virtual: bool,
+}
+
+/// 目录供应商条目（真实供应商 + 虚拟供应商合并）
+///
+/// 供 CLI 配置管理「添加供应商」绑定下拉使用。
+/// 虚拟供应商的 `id` 使用 `virtual:{virtual_provider_id}` 前缀标识，
+/// 前端据此区分并走网关路由。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CatalogProvider {
+    /// 真实供应商 ID 或虚拟供应商 `virtual:{virtual_provider_id}`
+    pub id: String,
+    /// 真实供应商 slug 或虚拟供应商 alias
+    pub slug: String,
+    pub display_name: String,
+    pub is_enabled: bool,
+    /// 是否虚拟供应商
+    pub is_virtual: bool,
+    /// 网关地址（虚拟供应商始终指向本地网关，此处为空由前端填默认值）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub base_url: Option<String>,
+    /// 真实供应商的认证配置 JSON（含 `$SECRET:` 引用），虚拟供应商为 None
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auth_json: Option<String>,
+}
+
 /// 健康检查结果
 ///
 /// 对应 `GET /health` 与 `GET /readyz` 接口

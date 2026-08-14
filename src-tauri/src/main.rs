@@ -826,6 +826,9 @@ fn main() {
             modules::gateway_runtime::commands::gateway_list_local_ips,
             modules::gateway_runtime::commands::gateway_get_forward_log_config,
             modules::gateway_runtime::commands::gateway_set_forward_log_config,
+            modules::gateway_runtime::commands::gateway_catalog_models,
+            modules::gateway_runtime::commands::gateway_catalog_providers,
+            modules::gateway_runtime::commands::gateway_resolve_default_key,
         ])
         .on_window_event(|window, event| {
             // 主窗口关闭时隐藏到系统托盘，而非退出进程
@@ -962,10 +965,23 @@ fn main() {
             tracing::info!("AI Gateway 模块初始化完成");
             app.manage(ai_gateway_handle.clone());
 
+            // ===== 初始化 Virtual Provider 模块 =====
+            // Virtual Provider 无启动期依赖，直接构造句柄。
+            // 需在 CLI Management 之前初始化，供其校验 `virtual:{id}`。
+            let virtual_provider_handle = modules::virtual_provider::VirtualProviderHandle::new();
+            tracing::info!("Virtual Provider 模块初始化完成");
+            app.manage(virtual_provider_handle.clone());
+            // 提前克隆一份供 scheduler 使用：gateway_runtime 会 move 一份
+            let virtual_provider_handle_for_scheduler = virtual_provider_handle.clone();
+
             // ===== 初始化 CLI Management 模块 =====
-            // CLI Management 依赖 AI Gateway 校验 provider_id 存在性。
+            // CLI Management 依赖 AI Gateway 校验真实 provider_id 存在性，
+            // 依赖 Virtual Provider 校验虚拟供应商 `virtual:{id}`。
             let cli_management_handle =
-                modules::cli_management::CliManagementServiceHandle::new(ai_gateway_handle.clone());
+                modules::cli_management::CliManagementServiceHandle::new(
+                    ai_gateway_handle.clone(),
+                    virtual_provider_handle.clone(),
+                );
             tracing::info!("CLI Management 模块初始化完成");
             // 克隆句柄给 workspace 模块使用（原句柄注册为 Tauri State）
             let cli_management_handle_for_workspace = cli_management_handle.clone();
@@ -985,14 +1001,6 @@ fn main() {
                 modules::script_template::ScriptTemplateHandle::new(ai_gateway_handle.clone());
             tracing::info!("Script Template 模块初始化完成");
             app.manage(script_template_handle);
-
-            // ===== 初始化 Virtual Provider 模块 =====
-            // Virtual Provider 无启动期依赖，直接构造句柄。
-            let virtual_provider_handle = modules::virtual_provider::VirtualProviderHandle::new();
-            tracing::info!("Virtual Provider 模块初始化完成");
-            app.manage(virtual_provider_handle.clone());
-            // 提前克隆一份供 scheduler 使用：gateway_runtime 会 move 一份
-            let virtual_provider_handle_for_scheduler = virtual_provider_handle.clone();
 
             // ===== 初始化 Call Records 模块 =====
             // Call Records 直接操作数据库，无需额外依赖。

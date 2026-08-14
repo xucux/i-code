@@ -42,11 +42,9 @@ import {
   updateCliModelMapping,
   updateCliProvider,
 } from '@/hooks/use-cli-mutation'
-import { useProviderList } from '@/hooks/use-provider-list'
-import { useExposedModels } from '@/hooks/use-virtual-provider'
+import { useCatalogModels, useCatalogProviders, resolveDefaultGatewayKey } from '@/hooks/use-catalog'
 import { useTranslation } from '@/modules/i18n/use-translation'
 import { invokeCommand } from '@/hooks/use-command'
-import { parseAuthConfig } from '@/modules/ai-gateway/types'
 import { toIcodeError } from '@/core/errors'
 import type { CliModelMapping, CliProfile, CliProvider } from '@/modules/cli-management/types'
 import { ProviderBindingForm } from './provider-binding-form'
@@ -77,8 +75,8 @@ export interface CodexPanelProps {
  */
 export function CodexPanel({ profile, height }: CodexPanelProps) {
   const { t } = useTranslation()
-  const { providers: gatewayProviders } = useProviderList()
-  const { models: exposedModels } = useExposedModels()
+  const { providers: gatewayProviders } = useCatalogProviders()
+  const { models: exposedModels } = useCatalogModels()
 
   // ── 选中与已应用状态 ──
   const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null)
@@ -340,7 +338,20 @@ export function CodexPanel({ profile, height }: CodexPanelProps) {
       toast.error(t('cli.claude.modelMapping.noProvider'))
       return
     }
-    const auth = parseAuthConfig(selectedGatewayProvider)
+    // 虚拟供应商无独立凭证，统一使用网关默认授权 Key
+    if (selectedGatewayProvider.isVirtual) {
+      const key = await resolveDefaultGatewayKey()
+      if (!key) {
+        toast.error(t('cli.claude.modelMapping.noApiKeyInProvider'))
+        return
+      }
+      setApiKey(key)
+      toast.success(t('cli.claude.modelMapping.apiKeyImported'))
+      return
+    }
+    const auth = selectedGatewayProvider.authJson
+      ? (JSON.parse(selectedGatewayProvider.authJson) as { method?: string; apiKey?: string } | undefined)
+      : undefined
     if (auth?.method !== 'api-key' || !auth.apiKey) {
       toast.error(t('cli.claude.modelMapping.noApiKeyInProvider'))
       return

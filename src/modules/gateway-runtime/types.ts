@@ -134,3 +134,41 @@ export interface GatewayAttemptRecord {
   /** 该路由耗时（毫秒） */
   durationMs: number
 }
+
+/**
+ * 目录模型条目（真实供应商 + 虚拟供应商合并）
+ *
+ * 供聊天、CLI 配置管理等前端拉取「内部供应商/模型列表」时使用。
+ * 字段与 ai-gateway 的 `ExposedModel` 兼容，额外带 `isVirtual` 标识。
+ */
+export interface CatalogModel {
+  /** 对外路由 ID：`{slug|alias}/{model_id}` */
+  id: string
+  /** 真实供应商 slug 或虚拟供应商 alias */
+  providerSlug: string
+  modelId: string
+  displayName: string
+  /** 是否虚拟供应商模型 */
+  isVirtual: boolean
+}
+
+/**
+ * 目录供应商条目（真实供应商 + 虚拟供应商合并）
+ *
+ * 供 CLI 配置管理「添加供应商」绑定下拉使用。
+ * 虚拟供应商的 `id` 使用 `virtual:{virtual_provider_id}` 前缀标识。
+ */
+export interface CatalogProvider {
+  /** 真实供应商 ID 或虚拟供应商 `virtual:{virtual_provider_id}` */
+  id: string
+  /** 真实供应商 slug 或虚拟供应商 alias */
+  slug: string
+  displayName: string
+  isEnabled: boolean
+  /** 是否虚拟供应商 */
+  isVirtual: boolean
+  /** 网关地址（虚拟供应商始终指向本地网关，为空由前端填默认值） */
+  baseUrl?: string
+  /** 真实供应商的认证配置 JSON（含 `$SECRET:` 引用），虚拟供应商无此字段 */
+  authJson?: string
+}

@@ -197,7 +197,7 @@ fn extract_bearer_key(request: &Request) -> Option<String> {
 /// 兼容两种存储形态：
 /// - `$SECRET:{snowflake_id}$` 或裸雪花 ID → 从 Secret 模块读取明文
 /// - 其他字符串 → 视为明文直接返回
-fn resolve_default_key(
+pub(crate) fn resolve_default_key(
     value: &str,
     secret_service: &SecretServiceHandle,
 ) -> Result<String, StatusCode> {
