@@ -117,18 +117,18 @@ function statusDotClass(healthy?: boolean, enabled = true): string {
   return healthy ? "bg-emerald-500" : "bg-destructive"
 }
 
-/**
- * 将上下文配置格式化为紧凑键值对数组
- */
-function parseContextConfig(config?: string | Record<string, unknown>): [string, string][] {
-  if (!config) return []
-  try {
-    const obj = typeof config === "string" ? (JSON.parse(config) as Record<string, unknown>) : config
-    return Object.entries(obj).map(([key, value]) => [key, String(value)])
-  } catch {
-    return []
-  }
-}
+// /**
+//  * 将上下文配置格式化为紧凑键值对数组
+//  */
+// function parseContextConfig(config?: string | Record<string, unknown>): [string, string][] {
+//   if (!config) return []
+//   try {
+//     const obj = typeof config === "string" ? (JSON.parse(config) as Record<string, unknown>) : config
+//     return Object.entries(obj).map(([key, value]) => [key, String(value)])
+//   } catch {
+//     return []
+//   }
+// }
 
 /**
  * 虚拟模型关系图组件（左侧父级 / 右侧子级）
@@ -382,11 +382,11 @@ interface ChildNodeProps {
 
 const ChildNode = React.forwardRef<HTMLButtonElement, ChildNodeProps>(
   ({ target, parentIndex, selected, onClick }, ref) => {
-    const contextPairs = parseContextConfig(target.contextConfig)
-    const hasFeatures = target.features && (
-      target.features.toolCalling || target.features.imageInput ||
-      target.features.functionCalling || target.features.streaming
-    )
+    // const contextPairs = parseContextConfig(target.contextConfig)
+    // const hasFeatures = target.features && (
+    //   target.features.toolCalling || target.features.imageInput ||
+    //   target.features.functionCalling || target.features.streaming
+    // )
 
     const accent = parentAccentColor(parentIndex)
 
