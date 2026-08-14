@@ -3,8 +3,8 @@
   "schemaVersion": 1,
   "id": "virtual-slots-assistant",
   "name": "智能助手三模型套件",
-  "description": "定义虚拟供应商元信息与三个虚拟模型槽位（规划 / 写代码 / 工具调用）的实体模型匹配规则。程序从「已开启显示的模型列表」中按优先级规则匹配实体模型，自动生成虚拟供应商 + 三个虚拟模型及其子级路由。",
-  "version": "0.1.0",
+  "description": "定义虚拟供应商元信息与三个虚拟模型槽位（规划 / 写代码 / 工具调用）的实体模型匹配规则。程序从「已开启显示的模型列表」中按优先级规则匹配实体模型（仅按模型 ID 匹配，不限定供应商 slug，兼容中转站与多变渠道），自动生成虚拟供应商 + 三个虚拟模型及其子级路由。",
+  "version": "0.2.0",
 
   "provider": {
     "alias": "assistant",
@@ -28,12 +28,23 @@
         "retryIntervalMs": 1000
       },
       "matches": [
-        { "priority": 1, "type": "exact", "modelId": "claude-opus-4-1", "providerSlugs": ["anthropic"] },
-        { "priority": 2, "type": "prefix", "modelId": "claude-opus", "providerSlugs": ["anthropic"] },
-        { "priority": 3, "type": "exact", "modelId": "gpt-5", "providerSlugs": ["openai"] },
-        { "priority": 4, "type": "regex", "pattern": "^o3(-mini)?$|^o4(-mini)?$", "providerSlugs": ["openai"] },
-        { "priority": 5, "type": "prefix", "modelId": "gemini-2.5-pro", "providerSlugs": ["google", "gemini"] },
-        { "priority": 6, "type": "exact", "modelId": "deepseek-reasoner", "providerSlugs": ["deepseek"] }
+        { "priority": 1, "type": "exact", "modelId": "glm-5.2" },
+        { "priority": 2, "type": "exact", "modelId": "deepseek-v4-pro-0813" },
+        { "priority": 3, "type": "exact", "modelId": "deepseek-v4-flash-0731" },
+        { "priority": 4, "type": "exact", "modelId": "grok-4.6" },
+        { "priority": 5, "type": "exact", "modelId": "grok-4.5" },
+        { "priority": 6, "type": "exact", "modelId": "claude-opus-4.8" },
+        { "priority": 7, "type": "exact", "modelId": "claude-opus-5" },
+        { "priority": 8, "type": "exact", "modelId": "gpt-5.5" },
+        { "priority": 9, "type": "exact", "modelId": "gpt-5.6-sol" },
+        { "priority": 10, "type": "exact", "modelId": "claude-fable-5" },
+        { "priority": 11, "type": "exact", "modelId": "kimi-k3" },
+        { "priority": 12, "type": "exact", "modelId": "claude-opus-4-1" },
+        { "priority": 13, "type": "prefix", "modelId": "claude-opus" },
+        { "priority": 14, "type": "exact", "modelId": "gpt-5" },
+        { "priority": 15, "type": "regex", "pattern": "^o3(-mini)?$|^o4(-mini)?$" },
+        { "priority": 16, "type": "prefix", "modelId": "gemini-2.5-pro" },
+        { "priority": 17, "type": "exact", "modelId": "deepseek-reasoner" }
       ]
     },
     {
@@ -47,12 +58,27 @@
         "retryIntervalMs": 1000
       },
       "matches": [
-        { "priority": 1, "type": "prefix", "modelId": "claude-sonnet-4", "providerSlugs": ["anthropic"] },
-        { "priority": 2, "type": "prefix", "modelId": "claude-sonnet", "providerSlugs": ["anthropic"] },
-        { "priority": 3, "type": "exact", "modelId": "gpt-5-codex", "providerSlugs": ["openai"] },
-        { "priority": 4, "type": "exact", "modelId": "gpt-5", "providerSlugs": ["openai"] },
-        { "priority": 5, "type": "prefix", "modelId": "gemini-2.5-pro", "providerSlugs": ["google", "gemini"] },
-        { "priority": 6, "type": "exact", "modelId": "deepseek-chat", "providerSlugs": ["deepseek"] }
+        { "priority": 1, "type": "exact", "modelId": "glm-5.1" },
+        { "priority": 2, "type": "exact", "modelId": "deepseek-v4-flash-0731" },
+        { "priority": 3, "type": "exact", "modelId": "grok-4.5" },
+        { "priority": 4, "type": "exact", "modelId": "gpt-5.5" },
+        { "priority": 5, "type": "exact", "modelId": "gpt-5.6-terra" },
+        { "priority": 6, "type": "exact", "modelId": "kimi-k2.7-code" },
+        { "priority": 7, "type": "exact", "modelId": "kimi-k2.6" },
+        { "priority": 8, "type": "exact", "modelId": "claude-opus-4.8" },
+        { "priority": 9, "type": "exact", "modelId": "glm-5.2" },
+        { "priority": 10, "type": "exact", "modelId": "opus-4.6" },
+        { "priority": 11, "type": "exact", "modelId": "gpt-5.6-luna" },
+        { "priority": 12, "type": "exact", "modelId": "claude-sonnet-5" },
+        { "priority": 13, "type": "exact", "modelId": "claude-sonnet-4.6" },
+        { "priority": 14, "type": "exact", "modelId": "deepseek-v4-pro" },
+        { "priority": 15, "type": "exact", "modelId": "minimax-m3" },
+        { "priority": 16, "type": "prefix", "modelId": "claude-sonnet-4" },
+        { "priority": 17, "type": "prefix", "modelId": "claude-sonnet" },
+        { "priority": 18, "type": "exact", "modelId": "gpt-5-codex" },
+        { "priority": 19, "type": "exact", "modelId": "gpt-5" },
+        { "priority": 20, "type": "prefix", "modelId": "gemini-2.5-pro" },
+        { "priority": 21, "type": "exact", "modelId": "deepseek-chat" }
       ]
     },
     {
@@ -66,12 +92,18 @@
         "retryIntervalMs": 1000
       },
       "matches": [
-        { "priority": 1, "type": "prefix", "modelId": "claude-haiku-4", "providerSlugs": ["anthropic"] },
-        { "priority": 2, "type": "prefix", "modelId": "claude-haiku", "providerSlugs": ["anthropic"] },
-        { "priority": 3, "type": "exact", "modelId": "gpt-5-mini", "providerSlugs": ["openai"] },
-        { "priority": 4, "type": "exact", "modelId": "gpt-4.1-mini", "providerSlugs": ["openai"] },
-        { "priority": 5, "type": "prefix", "modelId": "gemini-2.5-flash", "providerSlugs": ["google", "gemini"] },
-        { "priority": 6, "type": "exact", "modelId": "deepseek-chat", "providerSlugs": ["deepseek"] }
+        { "priority": 1, "type": "exact", "modelId": "deepseek-v4-flash" },
+        { "priority": 2, "type": "exact", "modelId": "deepseek-v4-flash-0731" },
+        { "priority": 3, "type": "exact", "modelId": "claude-opus-4.5" },
+        { "priority": 4, "type": "exact", "modelId": "kimi-k2.5" },
+        { "priority": 5, "type": "exact", "modelId": "gpt-5.4" },
+        { "priority": 6, "type": "exact", "modelId": "minimax-2.7" },
+        { "priority": 7, "type": "prefix", "modelId": "claude-haiku-4" },
+        { "priority": 8, "type": "prefix", "modelId": "claude-haiku" },
+        { "priority": 9, "type": "exact", "modelId": "gpt-5-mini" },
+        { "priority": 10, "type": "exact", "modelId": "gpt-4.1-mini" },
+        { "priority": 11, "type": "prefix", "modelId": "gemini-2.5-flash" },
+        { "priority": 12, "type": "exact", "modelId": "deepseek-chat" }
       ]
     }
   ]

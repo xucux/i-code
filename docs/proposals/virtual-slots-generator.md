@@ -87,7 +87,7 @@
   "id": "virtual-slots-assistant",
   "name": "智能助手三模型套件", // 展示名（生成时可用于 provider.displayName）
   "description": "…",
-  "version": "0.1.0",
+  "version": "0.2.0",
 
   "provider": {                 // 虚拟供应商元信息
     "alias": "assistant",       // 对外路由前缀 {alias}/{modelId}，须唯一
@@ -115,8 +115,7 @@
           "priority": 1,        // 越小越优先；同时作为生成路由的 priority
           "type": "exact",      // exact | prefix | regex
           "modelId": "claude-opus-4-1",   // exact/prefix 时的目标模型 ID
-          "pattern": "^o3(-mini)?$",      // regex 时的正则表达式（大小写不敏感）
-          "providerSlugs": ["anthropic"]  // 限定供应商 slug；空数组=不限
+          "pattern": "^o3(-mini)?$"       // regex 时的正则表达式（大小写不敏感）
         }
       ]
     }
@@ -128,11 +127,13 @@
 
 | type | 说明 | 示例 |
 |------|------|------|
-| `exact` | `modelId` 与真实模型 `modelId` 完全相等 | `claude-opus-4-1` |
+| `exact` | `modelId` 与真实模型 `modelId` 完全相等 | `glm-5.2` |
 | `prefix` | 真实模型 `modelId` 以 `modelId` 开头（鲁棒，可匹配供应商的版本后缀） | `claude-opus` → `claude-opus-4-1` / `claude-opus-4-5` |
 | `regex` | 正则表达式匹配（大小写不敏感），用于不便用前缀表达的场景 | `^o3(-mini)?$` |
 
-匹配时同时受 `providerSlugs` 约束（非空时，真实模型所属供应商 slug 必须在其中）。同一槽位内按 `priority` 升序逐条尝试。
+**匹配规则约束**：不限定供应商 slug（完全移除了 `providerSlugs` 约束），仅按 `modelId` 匹配，兼容中转站与多变渠道，减少配置维护复杂度。
+
+同一槽位内按 `priority` 升序逐条尝试。
 
 ### 3.4 数据源获取方式（后续开发）
 
@@ -155,7 +156,7 @@
 1. 初始化结果集 `matched: Map<"providerId/modelId", {rule, model}>`（按 `targetProviderId + targetModelId` 去重）。
 2. 按 `matches` 的 `priority` 升序遍历规则：
    - `exact` / `prefix` / `regex` 分别与每个 `exposedModel.modelId` 做匹配（`regex` 忽略大小写）。
-   - 若规则 `providerSlugs` 非空，则仅当 `exposedModel.providerSlug ∈ providerSlugs` 时参与匹配。
+   - 不再限定供应商 slug（任意供应商均可匹配）。
 3. 命中后记录：路由 `target_provider_id = exposedModel.providerId`、`target_model_id = exposedModel.modelId`、`priority = 规则 priority`、`enabled = true`、`is_healthy = true`，并套用 `routeDefaults`（未命中则用虚拟供应商级默认值）。
 4. 同一槽位内生成的路由按 `priority ASC, target_model_id ASC` 排序。
 
@@ -254,5 +255,5 @@
 
 1. **数据源仓库/URL**：用户指定的 GitHub 仓库地址与文件路径（当前默认指向内置 JSON，评审后回填）。
 2. **alias 命名**：参考 JSON 使用 `assistant`；可按用户习惯改为 `claude` / `ai` 等（注意避免与真实供应商 slug 冲突）。
-3. **匹配规则粒度**：当前以 `prefix` 为主兼顾 `exact` / `regex`，模型 ID 随用户真实供应商集合调整。
+3. **匹配规则粒度**：用户指定模型 ID 以 `exact` 置顶优先，兜底保留 `prefix` / `exact` / `regex` 通用规则；**不限定供应商 slug**（已移除 `providerSlugs`，兼容中转站与多变渠道），模型 ID 随用户真实供应商集合调整。
 4. **失败时是否仍创建空模型**：当前方案「创建空模型 + 提示」；可改为「失败槽位不创建，仅提示」。
