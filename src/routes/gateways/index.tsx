@@ -132,11 +132,11 @@ function GatewaysIndexPage() {
         <TabsContent value="gateway" className="h-screen overflow-auto">
           <ScrollPage variant="borderless" scrollbarVisible="auto" className="h-full">
             <div className="flex flex-col gap-4 p-4 pb-20">
-              {/* 三幅全宽图：实时请求流量 → Token 消耗 → Token 累计消耗 → 请求趋势
-                  三者均使用明细表实时聚合数据，按窗口自适应粒度 */}
+              {/* 三幅全宽图：Token 累计消耗 → 实时请求流量 → Token 消耗 → 请求趋势
+                  均使用明细表实时聚合数据，按窗口自适应粒度 */}
+              <GatewayTokenCumulativeChart />
               <GatewayTrafficChart />
               <GatewayTokenChart />
-              <GatewayTokenCumulativeChart />
               <GatewayTrendChart />
             </div>
           </ScrollPage>

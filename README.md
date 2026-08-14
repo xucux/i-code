@@ -52,7 +52,7 @@
 - **Backup & Restore**: Local and WebDAV backup support with SQLite Online Backup API.
 - **In-App Diagnostics**: Dual logging system for development traces and operational event logs.
 - **Script Templates & Marketplace**: Create and manage Rhai balance-monitoring script templates with a draft/active/disabled lifecycle, a CodeMirror editor with built-in snippets and system-variable docs, sandboxed trial runs, and an in-app marketplace to browse the public template repository and apply templates with one click.
-- **Cline Free Model Proxy**: Built-in Cline Free provider preset with an automatic `x-client-type: cline-cli` header and default free models (GLM-5.2 / DeepSeek V4 Flash), proxied through the local gateway.
+- **Cline Free Model Proxy**: Built-in Cline Free provider preset with an automatic `x-client-type: cline-cli` header and default free models (DeepSeek V4 Flash), proxied through the local gateway.
 
 ## Screenshots
 
@@ -191,6 +191,10 @@ Interceptors log to logger + call-records
 - Secret encryption and decryption happen **only in the Rust backend**.
 - The frontend receives plaintext input once and does not cache secrets.
 - Internal CLI requests must include the `inner-cli-api` header; otherwise, a valid `Authorization: Bearer {gateway_key}` is required.
+
+## Disclaimer
+
+This tool is limited to proxying the APIs of providers you already have; request bodies are passed through almost verbatim, and it involves no reverse engineering or cracking. The author assumes no responsibility if your provider account experiences issues such as bans, rate limiting, or subscription cancellation during use.
 
 ## Roadmap
 
