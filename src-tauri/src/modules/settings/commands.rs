@@ -4,12 +4,14 @@
 //! Commands 层仅做参数校验与 Service 调用，不包含业务逻辑。
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::core::atomic_filter::AtomicLevelFilter;
 use crate::core::trace_id_layer::enter_operation_async;
 use crate::error::{IcodeError, IcodeResult};
+use crate::modules::shared;
 
 use super::service::SettingsServiceHandle;
 use super::types::{AppSettingsDto, UpdateSettingsInput};
@@ -113,4 +115,63 @@ pub async fn settings_config_dir(app_handle: AppHandle) -> IcodeResult<String> {
         .to_string_lossy()
         .into_owned();
     Ok(config_dir)
+}
+
+/// 获取 GitHub 仓库 CHANGELOG.md 原始内容（「关于」页面的历史更新展示）
+///
+/// 请求遵循全局代理配置（直连 / 系统代理 / HTTP / SOCKS），
+/// 限制超时 15s 与响应体积 512KB，避免阻塞 UI 与内存占用。
+/// 返回原始 Markdown 文本，由前端 marked 渲染。
+#[tauri::command]
+pub async fn settings_fetch_changelog() -> IcodeResult<String> {
+    const CHANGELOG_URL: &str =
+        "https://raw.githubusercontent.com/xucux/i-code/main/CHANGELOG.md";
+    const MAX_BYTES: usize = 512 * 1024;
+
+    let client = shared::apply_global_proxy(reqwest::Client::builder().timeout(Duration::from_secs(15)))
+        .build()
+        .map_err(|e| IcodeError::internal(format!("创建 HTTP 客户端失败: {e}")))?;
+
+    let resp = client.get(CHANGELOG_URL).send().await.map_err(|e| {
+        if e.is_timeout() {
+            IcodeError::gateway(format!("获取更新日志超时: {e}"))
+        } else if e.is_connect() {
+            IcodeError::gateway(format!("无法连接 GitHub: {e}"))
+        } else {
+            IcodeError::gateway(format!("获取更新日志失败: {e}"))
+        }
+    })?;
+
+    if !resp.status().is_success() {
+        return Err(IcodeError::gateway(format!(
+            "获取更新日志失败: HTTP {}",
+            resp.status().as_u16()
+        )));
+    }
+
+    let bytes = resp.bytes().await.map_err(|e| {
+        IcodeError::gateway(format!("读取更新日志响应失败: {e}"))
+    })?;
+    if bytes.len() > MAX_BYTES {
+        return Err(IcodeError::validation(format!(
+            "更新日志过大（{} > {} 字节）",
+            bytes.len(),
+            MAX_BYTES
+        )));
+    }
+    let text = String::from_utf8(bytes.to_vec())
+        .map_err(|_| IcodeError::validation("更新日志不是合法 UTF-8 文本"))?;
+    Ok(text)
+}
+
+/// 通过系统文件浏览器打开目录（如设置页「配置目录」）
+///
+/// 使用 `tauri-plugin-opener` 的 `open_path`：Windows 用资源管理器、
+/// macOS 用 Finder、Linux 用系统默认文件管理器（xdg-open），
+/// 未指定程序时底层会先校验路径存在，不存在则返回 IO 错误。
+#[tauri::command]
+pub async fn settings_open_directory(path: String) -> IcodeResult<()> {
+    tauri_plugin_opener::open_path(&path, None::<&str>)
+        .map_err(|e| IcodeError::internal(format!("打开目录失败: {e}")))?;
+    Ok(())
 }

@@ -32,3 +32,12 @@ export async function getLogDir(): Promise<string> {
 export async function getConfigDir(): Promise<string> {
   return invokeCommand<string>('settings_config_dir', {})
 }
+
+/**
+ * 通过系统文件浏览器打开目录
+ *
+ * 跨平台：Windows 资源管理器 / macOS Finder / Linux 系统文件管理器。
+ */
+export async function openDirectory(path: string): Promise<void> {
+  return invokeCommand<void>('settings_open_directory', { path })
+}

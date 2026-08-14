@@ -627,6 +627,8 @@ fn main() {
             modules::settings::commands::settings_update,
             modules::settings::commands::settings_log_dir,
             modules::settings::commands::settings_config_dir,
+            modules::settings::commands::settings_fetch_changelog,
+            modules::settings::commands::settings_open_directory,
             // ===== Balance 模块 =====
             modules::balance::commands::balance_refresh,
             modules::ai_gateway::commands::balance_refresh_provider,

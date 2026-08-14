@@ -28,7 +28,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
-import { getSettings, getLogDir, getConfigDir, updateSettings } from '@/hooks/use-settings'
+import { getSettings, getLogDir, getConfigDir, updateSettings, openDirectory } from '@/hooks/use-settings'
 import { getSlotsConfig, setSlotsConfig } from '@/hooks/use-virtual-provider-mutation'
 import { clearCallStats } from '@/hooks/use-call-records-mutation'
 import { toIcodeError } from '@/core/errors'
@@ -43,6 +43,7 @@ import { enable as autostartEnable, disable as autostartDisable } from '@tauri-a
 import { DateTimeRangePicker } from '@/components/ui/date-time-range-picker'
 import type { DateRange } from 'react-day-picker'
 import { UpdateCheck } from '@/modules/settings/ui/update-check'
+import { ChangelogButton } from '@/modules/settings/ui/changelog-dialog'
 
 /**
  * 设置页面
@@ -688,7 +689,10 @@ function SettingsPage() {
             </div>
             <Separator />
             <div className="flex items-center justify-between">
-              <Label className="text-sm">{t('settings.about.version')}</Label>
+              <div className="flex items-baseline gap-1">
+                <Label className="text-sm">{t('settings.about.version')}</Label>
+                <ChangelogButton />
+              </div>
               <div className="flex items-center gap-1">
                 <span className="text-xs text-muted-foreground tabular-nums">0.2.2</span>
                 <UpdateCheck />
@@ -726,19 +730,35 @@ function SettingsPage() {
                   {configDir || t('settings.about.configDirEmpty')}
                 </span>
                 {configDir && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 shrink-0 px-1.5 text-[11px]"
-                    onClick={() => {
-                      navigator.clipboard?.writeText(configDir)
-                      toast.success(t('settings.about.configDirCopied'))
-                    }}
-                    title={t('settings.about.configDirCopy')}
-                  >
-                    <i className="fa-regular fa-copy" />
-                  </Button>
+                  <div className="flex shrink-0 items-center gap-0.5">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-1.5 text-[11px]"
+                      onClick={() => {
+                        navigator.clipboard?.writeText(configDir)
+                        toast.success(t('settings.about.configDirCopied'))
+                      }}
+                      title={t('settings.about.configDirCopy')}
+                    >
+                      <i className="fa-regular fa-copy" />
+                    </Button>
+                    <Separator orientation="vertical" className="mx-0.5 h-3" />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-1.5 text-[11px]"
+                      onClick={() => {
+                        openDirectory(configDir)
+                          .catch((err) => toast.error(toIcodeError(err).message))
+                      }}
+                      title={t('settings.about.configDirOpen')}
+                    >
+                      <i className="fa-regular fa-folder-open" />
+                    </Button>
+                  </div>
                 )}
               </div>
             </div>
