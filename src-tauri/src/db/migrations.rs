@@ -88,7 +88,14 @@ const BUILTIN_MIGRATIONS: &[(u32, &str, &str)] = &[
 pub fn run_migrations() -> IcodeResult<()> {
     let pool = get_db_pool()?;
     let mut conn = pool.get()?;
-    run_migrations_with_conn(&mut conn)
+    // 迁移阶段临时关闭外键：部分迁移（如 V007 重建 cli_providers）需要 DROP/RENAME 表，
+    // 若外键开启，DROP 会触发对引用表的级联删除。迁移完成后恢复。
+    conn.execute_batch("PRAGMA foreign_keys = OFF;")
+        .map_err(|e| IcodeError::database(format!("关闭外键约束失败：{e}")))?;
+    let result = run_migrations_with_conn(&mut conn);
+    conn.execute_batch("PRAGMA foreign_keys = ON;")
+        .map_err(|e| IcodeError::database(format!("恢复外键约束失败：{e}")))?;
+    result
 }
 
 /// 在指定连接上执行迁移

@@ -61,3 +61,47 @@ CREATE INDEX IF NOT EXISTS idx_attempts_provider_time
 -- 按时间清理：scheduler 每天 0 点删除 30 天前的记录
 CREATE INDEX IF NOT EXISTS idx_attempts_time
   ON virtual_route_attempts(attempted_at);
+
+-- ===================== CLI 绑定虚拟供应商 =====================
+-- 重建 cli_providers 表：
+-- 1. 去掉 provider_id 对 providers 的外键约束：虚拟供应商绑定 provider_id 使用
+--    `virtual:{virtual_provider_id}` 前缀，无法命中 providers 表，保留外键会导致插入失败。
+-- 2. 去掉 cli_profile_id 对 cli_profiles 的外键约束：CLI 档案删除时不级联删除绑定，
+--    便于虚拟供应商等非强关联场景的干净清理。
+-- SQLite 不支持 ALTER ... DROP CONSTRAINT，需重建表。
+-- 前置条件：迁移执行器（run_migrations）已临时关闭外键（PRAGMA foreign_keys=OFF），
+-- 因此 DROP TABLE 不会触发对 cli_model_mappings 的级联删除。
+
+CREATE TABLE cli_providers_new (
+  id TEXT PRIMARY KEY,
+  cli_profile_id TEXT NOT NULL,
+  provider_id TEXT,
+  display_name TEXT NOT NULL,
+  route_mode INTEGER NOT NULL DEFAULT 0,
+  gateway_base_url TEXT,
+  direct_base_url TEXT,
+  auth_json TEXT,
+  balance_json TEXT,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  is_default INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+INSERT INTO cli_providers_new (
+  id, cli_profile_id, provider_id, display_name, route_mode,
+  gateway_base_url, direct_base_url, auth_json, balance_json,
+  sort_order, is_default, created_at, updated_at
+)
+SELECT
+  id, cli_profile_id, provider_id, display_name, route_mode,
+  gateway_base_url, direct_base_url, auth_json, balance_json,
+  sort_order, is_default, created_at, updated_at
+FROM cli_providers;
+
+DROP TABLE cli_providers;
+
+ALTER TABLE cli_providers_new RENAME TO cli_providers;
+
+-- 重建原索引（DROP TABLE 时随表一并删除）
+CREATE INDEX IF NOT EXISTS idx_cli_providers_cli ON cli_providers(cli_profile_id, sort_order);
