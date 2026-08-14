@@ -388,6 +388,166 @@ pub struct AliasImpactResult {
     pub has_impact: bool,
 }
 
+// ===== 一键生成（三模型槽位）=====
+
+/// 一键生成数据源 JSON 的虚拟供应商元信息
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VirtualSlotsProvider {
+    /// 虚拟供应商别名（唯一）
+    pub alias: String,
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+    /// 路由策略：fallback / on_all / load_balance
+    #[serde(default)]
+    pub strategy: String,
+    #[serde(default)]
+    pub max_retries: i64,
+    #[serde(default)]
+    pub retry_interval_ms: i64,
+    #[serde(default)]
+    pub is_enabled: bool,
+}
+
+/// 一键生成数据源 JSON 中单个槽位的匹配规则
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VirtualSlotsMatchRule {
+    /// 匹配优先级（越小越优先）；同时作为生成路由的 priority
+    pub priority: i64,
+    /// 匹配类型：exact / prefix / regex
+    #[serde(default = "default_match_type")]
+    pub r#type: String,
+    /// exact / prefix 时的目标模型 ID
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model_id: Option<String>,
+    /// regex 时的正则表达式
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pattern: Option<String>,
+}
+
+fn default_match_type() -> String {
+    "exact".to_string()
+}
+
+/// 一键生成数据源 JSON 中单个槽位的路由默认值
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VirtualSlotsRouteDefaults {
+    #[serde(default)]
+    pub max_retries: Option<i64>,
+    #[serde(default)]
+    pub retry_interval_ms: Option<i64>,
+}
+
+/// 一键生成数据源 JSON 中单个虚拟模型槽位
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VirtualSlotsSlot {
+    /// 槽位标识（程序内部引用，不直接落库）
+    pub key: String,
+    /// 虚拟模型对外 ID
+    pub model_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+    /// 用途：planning / coding / tool_use
+    #[serde(default)]
+    pub role: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub route_defaults: Option<VirtualSlotsRouteDefaults>,
+    /// 实体模型匹配规则，按 priority 升序
+    pub matches: Vec<VirtualSlotsMatchRule>,
+}
+
+/// 一键生成数据源 JSON（远程或内置）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VirtualSlotsConfig {
+    /// 数据源 schema 版本
+    pub schema_version: i64,
+    #[serde(default)]
+    pub id: String,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub version: String,
+    pub provider: VirtualSlotsProvider,
+    pub slots: Vec<VirtualSlotsSlot>,
+}
+
+/// 一键生成输入
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GenerateVirtualProviderInput {
+    /// 可选，覆盖设置中的自定义数据源 URL；空/省略时读取已配置的 URL（为空则回退内置 JSON）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub data_source_url: Option<String>,
+    /// 可选，覆盖数据源 JSON 中的策略
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub strategy: Option<String>,
+    /// 可选，覆盖数据源 JSON 中的重试次数
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_retries: Option<i64>,
+    /// 可选，覆盖数据源 JSON 中的重试间隔
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retry_interval_ms: Option<i64>,
+}
+
+/// 单个槽位生成结果
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SlotGenerationResult {
+    /// 槽位标识
+    pub key: String,
+    /// 生成的虚拟模型 ID
+    pub model_id: String,
+    /// 展示名称
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+    /// 命中并生成的子级路由数量
+    pub route_count: i64,
+    /// 未命中任何实体模型时标记
+    #[serde(default)]
+    pub empty: bool,
+}
+
+/// 一键生成结果
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GenerateVirtualProviderResult {
+    /// 本次生成或复用的虚拟供应商
+    pub provider: VirtualProvider,
+    /// 三个槽位的生成明细
+    pub slots: Vec<SlotGenerationResult>,
+}
+
+/// 数据源配置读取结果
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VirtualSlotsConfigDto {
+    /// 用户已保存的自定义数据源 URL（可能为空字符串）
+    pub data_source_url: String,
+    /// 内置默认数据源 URL
+    pub default_url: String,
+    /// 实际生效的数据源 URL（dataSourceUrl 非空时为其，否则为 defaultUrl）
+    pub effective_url: String,
+    /// 是否使用默认 URL（用户未自定义）
+    pub use_default: bool,
+}
+
+/// 数据源配置写入输入
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VirtualSlotsConfigSetInput {
+    /// 自定义数据源 URL；空字符串表示清空（恢复默认）
+    pub data_source_url: String,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

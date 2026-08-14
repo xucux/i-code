@@ -104,6 +104,16 @@
       "label": "自動起動",
       "description": "アプリはシステム起動時に自動実行されます。有効にすると、前回ゲートウェイが実行中だった場合、ゲートウェイサービスが自動的に再開されます。"
     },
+    "virtualSlots": {
+      "title": "仮想プロバイダーデータソース",
+      "description": "「3モデル一括生成」で使用するデータソース JSON の URL を設定します。空欄の場合は組み込みのデフォルトを使用します。http(s):// と file:// プロトコルに対応しています。",
+      "dataSourceUrl": "データソース URL",
+      "defaultUrl": "デフォルト URL",
+      "effectiveUrl": "現在有効な URL",
+      "restoreDefault": "デフォルトに戻す",
+      "saveSuccess": "データソース設定を保存しました",
+      "restoreSuccess": "デフォルトのデータソースに戻しました"
+    },
     "dataManagement": {
       "title": "データ管理",
       "description": "モデル呼び出しの統計データを管理します。クリア操作は元に戻せません。ご注意ください。",

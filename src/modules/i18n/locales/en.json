@@ -104,6 +104,16 @@
       "label": "Auto-start on boot",
       "description": "Run the app automatically when the system starts. If the gateway was running last time, it will be restored automatically."
     },
+    "virtualSlots": {
+      "title": "Virtual Provider Data Source",
+      "description": "Configure the data source JSON URL used by \"Generate Three Models\". Leave blank to use the built-in default. Supports http(s):// and file:// protocols.",
+      "dataSourceUrl": "Data source URL",
+      "defaultUrl": "Default URL",
+      "effectiveUrl": "Effective URL",
+      "restoreDefault": "Restore default",
+      "saveSuccess": "Data source configuration saved",
+      "restoreSuccess": "Default data source restored"
+    },
     "dataManagement": {
       "title": "Data Management",
       "description": "Manage model call statistics data. Clear operations are irreversible.",

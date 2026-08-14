@@ -10,6 +10,7 @@ import {
   deleteVirtualProvider,
   deleteVirtualModel,
   updateVirtualProvider,
+  generatePreset,
 } from '@/hooks/use-virtual-provider-mutation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -18,6 +19,14 @@ import { Switch } from '@/components/ui/switch'
 import { ScrollPage } from '@/components/ui/scroll-page'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {
   Select,
   SelectContent,
@@ -35,6 +44,7 @@ import {
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { toIcodeError } from '@/core/errors'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import type { VirtualProvider, VirtualModel } from '@/modules/virtual-provider/types'
 import type { Provider } from '@/modules/ai-gateway/types'
 
@@ -76,6 +86,10 @@ export function VirtualProviderList() {
   // ===== 删除确认状态 =====
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null)
+
+  // ===== 一键生成状态 =====
+  const [presetDialogOpen, setPresetDialogOpen] = useState(false)
+  const [generating, setGenerating] = useState(false)
 
   const selectedProvider = providers.find((p) => p.id === selectedProviderId)
 
@@ -169,6 +183,37 @@ export function VirtualProviderList() {
       })
     : ''
 
+  /** 一键生成虚拟供应商 + 三个虚拟模型 */
+  const handleGeneratePreset = async () => {
+    setGenerating(true)
+    try {
+      const result = await generatePreset({})
+      // 刷新列表并自动选中新生成的供应商
+      await refetchProviders()
+      setSelectedProviderId(result.provider.id)
+      setSelectedModelId(null)
+      // 构造结果消息
+      const slotMsgs = result.slots
+        .map((s) => {
+          const status = s.empty ? t('generatePresetSlotEmpty', { modelId: s.modelId }) : `${s.routeCount} 条路由`
+          return `${s.displayName || s.modelId}（${status}）`
+        })
+        .join('、')
+      toast.success(t('generatePresetSuccess', { name: result.provider.name, details: slotMsgs }))
+      setPresetDialogOpen(false)
+    } catch (err) {
+      const icodeErr = toIcodeError(err)
+      // alias 冲突单独提示
+      if (icodeErr.code === 'CONFLICT' || String(icodeErr.message).includes('已存在')) {
+        toast.error(t('generatePresetAliasConflict'))
+      } else {
+        toast.error(icodeErr.message)
+      }
+    } finally {
+      setGenerating(false)
+    }
+  }
+
   /** 把路由数据转换为 VirtualModelGraph 节点 */
   const graphTargets: VirtualModelTargetNode[] = useMemo(() => {
     const parents: VirtualModelTargetNode[] = models.map((model) => ({
@@ -230,21 +275,35 @@ export function VirtualProviderList() {
             </SelectContent>
           </Select>
 
-          <Button size="sm" className="h-8 text-xs" onClick={openCreateProvider}>
-            <i className={cn('fa-solid fa-plus', 'mr-1.5')} />
-            {t('newProvider')}
-          </Button>
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="icon" className="size-8" onClick={openCreateProvider}>
+                  <i className="fa-solid fa-plus" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-[11px]">
+                {t('newProvider')}
+              </TooltipContent>
+            </Tooltip>
 
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-8 text-xs"
-            disabled={!selectedProvider}
-            onClick={openEditProvider}
-          >
-            <i className={cn('fa-solid fa-pen', 'mr-1.5')} />
-            {t('editProvider')}
-          </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="outline"
+                  className="size-8"
+                  disabled={!selectedProvider}
+                  onClick={openEditProvider}
+                >
+                  <i className="fa-solid fa-pen" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-[11px]">
+                {t('editProvider')}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
           <Button
             size="sm"
@@ -257,16 +316,28 @@ export function VirtualProviderList() {
           </Button>
         </div>
 
-        <Button
-          size="sm"
-          variant="secondary"
-          className="h-8 text-xs"
-          disabled={!selectedProvider}
-          onClick={openCreateModel}
-        >
-          <i className={cn('fa-solid fa-plus', 'mr-1.5')} />
-          {t('newModel')}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 text-xs"
+            onClick={() => setPresetDialogOpen(true)}
+          >
+            <i className={cn('fa-solid fa-wand-magic-sparkles', 'mr-1.5')} />
+            {t('generatePreset')}
+          </Button>
+
+          <Button
+            size="sm"
+            variant="secondary"
+            className="h-8 text-xs"
+            disabled={!selectedProvider}
+            onClick={openCreateModel}
+          >
+            <i className={cn('fa-solid fa-plus', 'mr-1.5')} />
+            {t('newModel')}
+          </Button>
+        </div>
       </div>
 
       {/* 供应商信息卡 */}
@@ -418,6 +489,44 @@ export function VirtualProviderList() {
         description={deleteDescription}
         onConfirm={handleConfirmDelete}
       />
+
+      {/* 一键生成确认弹窗 */}
+      <Dialog open={presetDialogOpen} onOpenChange={setPresetDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('generatePresetTitle')}</DialogTitle>
+            <DialogDescription>{t('generatePresetDesc')}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 text-xs">
+            <p className="text-muted-foreground">{t('generatePresetSlots')}</p>
+            <ul className="text-muted-foreground list-inside list-disc space-y-1">
+              <li>
+                <span className="text-foreground font-mono">virtual_opus</span> — {t('generatePresetSlotOpus')}
+              </li>
+              <li>
+                <span className="text-foreground font-mono">virtual_sonnet</span> — {t('generatePresetSlotSonnet')}
+              </li>
+              <li>
+                <span className="text-foreground font-mono">virtual_haiku</span> — {t('generatePresetSlotHaiku')}
+              </li>
+            </ul>
+            <p className="text-muted-foreground">{t('generatePresetMatchHint')}</p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPresetDialogOpen(false)}
+              disabled={generating}
+            >
+              {t('cancel', { ns: 'common' })}
+            </Button>
+            <Button size="sm" onClick={() => void handleGeneratePreset()} disabled={generating}>
+              {generating ? t('generating') : t('generatePresetConfirm')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

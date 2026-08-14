@@ -10,6 +10,10 @@ import type {
   CreateVirtualModelInput,
   UpdateVirtualModelInput,
   SaveVirtualModelInput,
+  GenerateVirtualProviderInput,
+  GenerateVirtualProviderResult,
+  VirtualSlotsConfigDto,
+  VirtualSlotsConfigSetInput,
 } from '@/modules/virtual-provider/types'
 
 /**
@@ -160,4 +164,32 @@ export async function checkAliasImpact(
     virtualProviderId,
     newAlias,
   })
+}
+
+// ===== 一键生成（三模型槽位）=====
+
+/**
+ * 一键生成虚拟供应商 + 三个虚拟模型（Opus / Sonnet / Haiku）
+ *
+ * 后端从数据源 JSON（远程优先，失败回退内置）读取槽位规则，
+ * 从已开启显示的模型列表中按优先级匹配实体模型并创建子级路由。
+ */
+export async function generatePreset(
+  input: GenerateVirtualProviderInput,
+): Promise<GenerateVirtualProviderResult> {
+  return invokeCommand<GenerateVirtualProviderResult>('virtual_provider_generate_preset', {
+    input,
+  })
+}
+
+/** 读取数据源 URL 配置 */
+export async function getSlotsConfig(): Promise<VirtualSlotsConfigDto> {
+  return invokeCommand<VirtualSlotsConfigDto>('virtual_slots_config_get', {})
+}
+
+/** 保存数据源 URL 配置（空字符串表示恢复默认） */
+export async function setSlotsConfig(
+  input: VirtualSlotsConfigSetInput,
+): Promise<VirtualSlotsConfigDto> {
+  return invokeCommand<VirtualSlotsConfigDto>('virtual_slots_config_set', { input })
 }

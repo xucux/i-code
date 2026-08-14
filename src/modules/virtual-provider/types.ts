@@ -406,3 +406,45 @@ export interface AliasImpactResult {
   /** 是否有影响（任一受影响计数 > 0） */
   hasImpact: boolean
 }
+
+// ===== 一键生成（三模型槽位）=====
+
+/** 一键生成输入 */
+export interface GenerateVirtualProviderInput {
+  /** 可选，覆盖设置中的自定义数据源 URL */
+  dataSourceUrl?: string
+  /** 可选，覆盖数据源 JSON 中的策略 */
+  strategy?: string
+  /** 可选，覆盖数据源 JSON 中的重试次数 */
+  maxRetries?: number
+  /** 可选，覆盖数据源 JSON 中的重试间隔 */
+  retryIntervalMs?: number
+}
+
+/** 单个槽位生成结果 */
+export interface SlotGenerationResult {
+  key: string
+  modelId: string
+  displayName?: string
+  routeCount: number
+  empty: boolean
+}
+
+/** 一键生成结果 */
+export interface GenerateVirtualProviderResult {
+  provider: VirtualProvider
+  slots: SlotGenerationResult[]
+}
+
+/** 数据源配置读取结果 */
+export interface VirtualSlotsConfigDto {
+  dataSourceUrl: string
+  defaultUrl: string
+  effectiveUrl: string
+  useDefault: boolean
+}
+
+/** 数据源配置写入输入 */
+export interface VirtualSlotsConfigSetInput {
+  dataSourceUrl: string
+}

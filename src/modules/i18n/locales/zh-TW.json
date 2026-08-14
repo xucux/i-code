@@ -104,6 +104,16 @@
       "label": "開機自啟",
       "description": "應用隨系統啟動自動執行。開啟後，如果上次閘道器處於執行狀態，將自動恢復閘道器服務。"
     },
+    "virtualSlots": {
+      "title": "虛擬供應商資料源",
+      "description": "設定「一鍵生成三模型」使用的資料源 JSON 位址。留空使用內建預設位址。支援 http(s):// 與 file:// 協定。",
+      "dataSourceUrl": "資料源位址",
+      "defaultUrl": "預設位址",
+      "effectiveUrl": "當前生效位址",
+      "restoreDefault": "恢復預設",
+      "saveSuccess": "資料源配置已儲存",
+      "restoreSuccess": "已恢復預設資料源"
+    },
     "dataManagement": {
       "title": "資料管理",
       "description": "管理模型呼叫統計資料。清空操作不可恢復，請謹慎操作。",

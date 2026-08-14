@@ -29,6 +29,11 @@
 //!
 //! ### alias 变更影响检查
 //! - `virtual_provider_check_alias_impact`：检查修改 alias 对 CLI 模型映射的影响
+//!
+//! ### 一键生成（三模型槽位）
+//! - `virtual_provider_generate_preset`：一键生成虚拟供应商 + 三个虚拟模型（按数据源 JSON 匹配实体模型）
+//! - `virtual_slots_config_get`：读取数据源 URL 配置
+//! - `virtual_slots_config_set`：保存数据源 URL 配置
 
 use tauri::State;
 
@@ -38,9 +43,10 @@ use crate::modules::ai_gateway::AiGatewayServiceHandle;
 use super::service::VirtualProviderHandle;
 use super::types::{
     AliasImpactResult, CreateVirtualModelInput, CreateVirtualModelRouteInput,
-    CreateVirtualProviderInput, RouteAttemptStats, RouteTestResult, SaveVirtualModelInput,
-    UpdateVirtualModelInput, UpdateVirtualModelRouteInput, UpdateVirtualProviderInput,
-    VirtualModel, VirtualModelRoute, VirtualProvider, VirtualRouteAttempt,
+    CreateVirtualProviderInput, GenerateVirtualProviderInput, GenerateVirtualProviderResult,
+    RouteAttemptStats, RouteTestResult, SaveVirtualModelInput, UpdateVirtualModelInput,
+    UpdateVirtualModelRouteInput, UpdateVirtualProviderInput, VirtualModel, VirtualModelRoute,
+    VirtualProvider, VirtualRouteAttempt, VirtualSlotsConfigDto, VirtualSlotsConfigSetInput,
 };
 
 // ===== 虚拟供应商命令 =====
@@ -270,4 +276,40 @@ pub async fn virtual_provider_check_alias_impact(
     state
         .service()
         .check_alias_impact(&virtual_provider_id, &new_alias)
+}
+
+// ===== 一键生成（三模型槽位）=====
+
+/// 一键生成虚拟供应商 + 三个虚拟模型
+///
+/// 从数据源 JSON（远程优先，失败回退内置）读取虚拟供应商元信息与三个槽位规则，
+/// 从「已开启显示的模型列表」中按优先级匹配实体模型，自动创建虚拟供应商与子级路由。
+#[tauri::command]
+pub async fn virtual_provider_generate_preset(
+    state: State<'_, VirtualProviderHandle>,
+    ai_gateway: State<'_, AiGatewayServiceHandle>,
+    input: GenerateVirtualProviderInput,
+) -> IcodeResult<GenerateVirtualProviderResult> {
+    state.service().generate_preset(ai_gateway.service(), input).await
+}
+
+/// 读取数据源 URL 配置
+///
+/// 返回用户已保存的值、内置默认值、实际生效值。
+#[tauri::command]
+pub async fn virtual_slots_config_get(
+    state: State<'_, VirtualProviderHandle>,
+) -> IcodeResult<VirtualSlotsConfigDto> {
+    state.service().get_slots_config()
+}
+
+/// 保存数据源 URL 配置
+///
+/// 传空字符串表示清空（恢复默认）。非法 URL 返回 `VALIDATION`。
+#[tauri::command]
+pub async fn virtual_slots_config_set(
+    state: State<'_, VirtualProviderHandle>,
+    input: VirtualSlotsConfigSetInput,
+) -> IcodeResult<VirtualSlotsConfigDto> {
+    state.service().set_slots_config(&input)
 }

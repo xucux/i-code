@@ -43,3 +43,40 @@ pub fn get_global_config(conn: &DbConn, group: &str, key: &str) -> IcodeResult<O
         ))),
     }
 }
+
+/// 写入或更新单个全局配置值
+///
+/// 使用 `INSERT OR REPLACE` 实现 upsert，基于 `(group, key)` 唯一约束。
+/// 若 `value` 为空字符串则删除该配置项。
+///
+/// # 参数
+/// - `conn`：数据库连接
+/// - `group`：配置分组
+/// - `key`：配置键
+/// - `value`：配置值；空字符串时删除该记录
+pub fn set_global_config(conn: &DbConn, group: &str, key: &str, value: &str) -> IcodeResult<()> {
+    use crate::core::id::generate_id;
+
+    if value.is_empty() {
+        conn.execute(
+            &format!(
+                "DELETE FROM {table} WHERE \"group\" = ?1 AND key = ?2",
+                table = table::GLOBAL_CONFIGS
+            ),
+            rusqlite::params![group, key],
+        )?;
+    } else {
+        conn.execute(
+            &format!(
+                "INSERT OR REPLACE INTO {table} (id, \"group\", key, value, created_at)
+                 VALUES (?1, ?2, ?3, ?4, COALESCE(
+                     (SELECT created_at FROM {table} WHERE \"group\" = ?2 AND key = ?3),
+                     datetime('now')
+                 ))",
+                table = table::GLOBAL_CONFIGS
+            ),
+            rusqlite::params![generate_id(), group, key, value],
+        )?;
+    }
+    Ok(())
+}

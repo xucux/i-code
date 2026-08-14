@@ -17,7 +17,7 @@
 
 实现方式：以一份**数据源 JSON**（`virtual-slots.json`）描述「虚拟供应商元信息 + 每个槽位对应的一批固定实体模型 ID（带优先级）」。程序读取该 JSON，从**已开启显示的模型列表**（`gateway_exposed_models`，即 `is_exposed=1` 且供应商启用的模型）中按优先级规则匹配实体模型，自动生成 1 个虚拟供应商 + 3 个虚拟模型及各自的子级路由。
 
-数据源 JSON 后续由用户推送到 GitHub 仓库，程序运行时直接以该仓库 JSON 文件为匹配数据源（离线时回退本地内置副本）。
+数据源 JSON 已由用户推送到 GitHub 仓库，程序运行时以该仓库 JSON 文件为匹配数据源（离线时回退本地内置副本）。**数据源 URL 可在设置页配置，用户可替换为自己的 JSON 地址**（详见 §3.4）。
 
 > **本提案不涉及数据库迁移**：生成结果复用现有 `virtual_providers` / `virtual_models` / `virtual_model_routes` 三表与现有 `virtual_provider_create` / `virtual_model_save` 命令，生成后与手工创建的虚拟供应商完全等价、可自由编辑。
 
@@ -135,15 +135,56 @@
 
 同一槽位内按 `priority` 升序逐条尝试。
 
-### 3.4 数据源获取方式（后续开发）
+### 3.4 数据源获取方式（用户可配置）
 
 用户将 `virtual-slots.json` 推送到 GitHub 仓库后，程序按以下顺序解析数据源：
 
-1. **远程优先**：从「设置」中可配置的数据源 URL（默认指向用户 GitHub 仓库的 raw JSON 地址）拉取；拉取成功则作为当前匹配依据。
-2. **本地内置兜底**：远程拉取失败（离线 / 网络错误 / JSON 解析失败）时回退使用内置 `src-tauri/data/virtual-slots.json`。
-3. **缓存**：远程拉取成功后按需缓存到本地（例如应用数据目录），供离线重复使用；下次启动可重新拉取校验版本。
+1. **远程优先**：从「设置」中可配置的数据源 URL 拉取，默认指向用户 GitHub 仓库的 raw JSON 地址（`https://raw.githubusercontent.com/xucux/i-code/main/src-tauri/data/virtual-slots.json`）。用户可在设置页修改该地址，替换为自己的 JSON 地址（如自建仓库、企业内网 CDN 等）。
+2. **本地内置兜底**：远程拉取失败（离线 / 网络错误 / JSON 解析失败 / 用户清空 URL 配置）时，回退使用内置 `src-tauri/data/virtual-slots.json`。
+3. **缓存策略**：远程拉取成功后按需缓存到本地（应用数据目录 `virtual-slots-cache.json`），供离线重复使用；下次启动时先尝试远程拉取，远程不可用时使用缓存，缓存也不可用时回退内置。
 
-> 数据源 URL 属于「外部数据配置」，纳入全局设置管理（`settings` 模块），默认值在提案评审时由用户提供 GitHub 仓库地址后确定。
+#### 3.4.1 配置项设计
+
+在 `settings` 模块中新增一个可配置项：
+
+| 配置项 | 存储位置 | 类型 | 默认值 |
+|--------|---------|------|--------|
+| 虚拟供应商数据源 URL | `global_configs` 表，`group='virtual_provider', key='preset_data_source_url'` | 字符串（URL 或空字符串） | `https://raw.githubusercontent.com/xucux/i-code/main/src-tauri/data/virtual-slots.json` |
+
+- 空字符串或清空后，程序仅使用本地内置兜底。
+- 该配置项通过 `global_configs` 键值表存储，无需新增迁移或表结构变更。
+- 前端通过新增 `settings_virtual_slots_data_source_url` / `settings_set_virtual_slots_data_source_url` 两个命令读写（或复用 `global_configs` 的通用读写命令）。
+
+#### 3.4.2 设置页 UI
+
+在 `settings.tsx` 的「AI Gateway」或「虚拟供应商」相关 Card 中新增一个输入行：
+
+- 标签 i18n：`settings.virtualSlotsDataSourceUrl`（「虚拟供应商数据源 URL」）
+- Input 控件：`<Input type="url" />`，placeholder 显示默认值
+- 右侧含「重置默认」按钮（清空用户输入，回退默认值）
+- 保存时调用 `updateSettings` 或专用命令写入 `global_configs`
+- 保存后即生效（下次「一键生成」时使用新 URL）
+
+#### 3.4.3 数据源获取流程
+
+```text
+[一键生成] 按钮点击
+    │
+    ▼
+读取 global_configs.virtual_provider.preset_data_source_url
+    │
+    ├── 非空 → 尝试远程 HTTP GET 拉取
+    │       ├── 成功 → 解析 JSON → 校验 schemaVersion → 使用
+    │       └── 失败 → 读本地缓存 (virtual-slots-cache.json)
+    │               ├── 成功 → 使用缓存数据
+    │               └── 失败 → 回退内置 JSON
+    │
+    └── 空字符串 → 直接回退内置 JSON
+```
+
+- 远程拉取使用 `reqwest`（已存在于项目依赖），超时 10s。
+- 缓存文件存储于 `app_config_dir`（与 `i-code.db` 同目录），文件名 `virtual-slots-cache.json`。
+- 远程拉取成功后自动覆盖本地缓存。
 
 ---
 
@@ -175,14 +216,15 @@
 `virtual_provider_generate_preset(input: GenerateVirtualProviderInput) -> GenerateVirtualProviderResult`
 
 - `GenerateVirtualProviderInput`：
-  - `dataSourceUrl?: string`：数据源 URL（缺省用全局设置默认值；空串或不可用时回退内置 JSON）
+  - `dataSourceUrl?: string`：可选，覆盖设置中的数据源 URL；传空或省略时从 `global_configs` 读取已配置的 URL（配置为空时回退内置 JSON）
   - `strategy` / `maxRetries` / `retryIntervalMs`：可选，覆盖 JSON 中的 `provider` 字段
 - 后端 `service::generate_preset(input)` 编排：
-  1. 获取数据源 JSON（远程 → 内置兜底）并解析为 `VirtualSlotsConfig`（校验 `schemaVersion`）。
-  2. 通过 `ai_gateway` 的 `list_exposed_models()` 获取已开启显示的模型列表（跨模块只读数据通过对方 Service 暴露的接口，符合 §3.3 分层规则）。
-  3. 校验 `alias` 唯一性：已存在同名虚拟供应商时返回 `CONFLICT` 并提示（或由前端确认后复用）。
-  4. 在事务中：`create_provider` + 对每个 slot 调用 `save_model`（含匹配到的路由）。`save_model` 已是事务内「创建/更新模型 + 重建路由」，可直接复用。
-  5. 返回结果：创建的 provider、每个 slot 的虚拟模型与命中路由数、未命中槽位列表。
+  1. 确定数据源 URL：`input.dataSourceUrl` → `global_configs` 中已配置的 URL → 内置 JSON（按 §3.4.3 流程）。
+  2. 获取数据源 JSON（远程 → 缓存 → 内置）并解析为 `VirtualSlotsConfig`（校验 `schemaVersion`）。
+  3. 通过 `ai_gateway` 的 `list_exposed_models()` 获取已开启显示的模型列表（跨模块只读数据通过对方 Service 暴露的接口，符合 §3.3 分层规则）。
+  4. 校验 `alias` 唯一性：已存在同名虚拟供应商时返回 `CONFLICT` 并提示（或由前端确认后复用）。
+  5. 在事务中：`create_provider` + 对每个 slot 调用 `save_model`（含匹配到的路由）。`save_model` 已是事务内「创建/更新模型 + 重建路由」，可直接复用。
+  6. 返回结果：创建的 provider、每个 slot 的虚拟模型与命中路由数、未命中槽位列表。
 
 ### 5.2 路由数据源说明
 
@@ -192,6 +234,15 @@
 
 - `alias` 冲突：返回 `CONFLICT`，由前端提示「已存在同名虚拟供应商」，让用户选择取消或复用现有供应商（复用时不重建路由，仅提示）。
 - 重复点击：前端按钮 loading 防抖；后端不要求幂等（一次生成一份数据，重复生成视为用户意图）。
+
+### 5.4 数据源 URL 配置命令
+
+数据源 URL 存于 `global_configs`（`group='virtual_provider'`, `key='preset_data_source_url'`），新增两个读写命令（归属 `settings` 或 `virtual_provider` 模块均可，建议归属 `virtual_provider` 以保持特性内聚）：
+
+- `virtual_slots_config_get() -> VirtualSlotsConfigDto`：读取当前数据源配置
+  - 字段：`dataSourceUrl`（已保存的用户值，可能为空）、`defaultUrl`（内置默认）、`effectiveUrl`（实际生效 URL，即 `dataSourceUrl || defaultUrl`）、`useDefault`（是否回退默认/内置）
+- `virtual_slots_config_set(input: { dataSourceUrl?: string })`：保存用户自定义数据源 URL（写 `global_configs`）；传空字符串表示清空、恢复默认
+- 校验：`dataSourceUrl` 非空时必须为合法 URL（`http(s)` 或 `file://`），否则返回 `VALIDATION`
 
 ---
 
@@ -222,14 +273,28 @@
 新增键（`virtualProvider` 命名空间，同步 `zh-CN` / `en` / `zh-TW` / `ja`）：
 `generatePreset` / `generatePresetDesc` / `generatePresetConfirm` / `generatePresetSuccess` / `generatePresetSlotEmpty` / `generatePresetAliasConflict` 等。
 
+### 6.5 设置页：数据源 URL 配置
+
+在「设置」页（`src/routes/settings.tsx`）新增一个 Card（或并入「AI Gateway」分组）：
+
+- 标题 i18n：`settings.virtualSlotsDataSource`（「虚拟供应商数据源」）
+- 内容：
+  - 说明文案：数据源 JSON 用于一键生成虚拟供应商时匹配实体模型；默认使用内置 GitHub 仓库地址，可替换为自己的 JSON 地址。
+  - URL 输入框：`<Input type="url" />`，`value` 绑定已保存的 `dataSourceUrl`，`placeholder` 显示默认 URL；输入 blob 地址（`/blob/main/...`）时程序自动转 raw。
+  - 「恢复默认」按钮：清空输入回到默认 URL。
+  - 保存调用 `virtual_slots_config_set`，成功后 toast「数据源已保存」。
+- 保存即生效：下次「一键生成三模型」使用新 URL（§3.4.3 流程）。
+
 ---
 
 ## 7. 边界与失败处理
 
 | 场景 | 处理 |
 |------|------|
-| 数据源 URL 拉取失败且内置 JSON 缺失/损坏 | 返回 `VALIDATION` 错误，前端提示「数据源不可用」 |
-| JSON `schemaVersion` 不兼容 | 返回 `VALIDATION`，提示升级应用或更换数据源 |
+| 用户配置的数据源 URL 非法（非 `http(s)` / `file://`） | 保存时 `VALIDATION` 拒绝，提示正确格式，保留原值 |
+| 远程 URL 拉取失败（离线 / 网络错误 / 非 200） | 依次回退本地缓存 → 内置 JSON；生成仍可进行，结果提示「使用本地/内置数据源」 |
+| 远程与本地内置均不可用 | 返回 `VALIDATION` 错误，前端提示「数据源不可用」 |
+| 远程 JSON `schemaVersion` 不兼容 | 回退本地缓存 / 内置 JSON；均不兼容则 `VALIDATION` 提示升级应用或更换数据源 |
 | alias 已存在 | `CONFLICT`，前端提示用户取消或复用 |
 | 某槽位未匹配到任何实体模型 | 仍创建虚拟模型（空路由），结果中标记提醒 |
 | 已开启显示模型列表为空 | 提示「无已开启显示的模型，请先在供应商管理开启模型显示」 |
@@ -239,21 +304,23 @@
 
 ## 8. 实施清单（开发阶段参考）
 
-- [ ] `src-tauri/data/virtual-slots.json`：内置兜底数据源（已提供参考版本）
-- [ ] 后端 `types.rs`：`GenerateVirtualProviderInput` / `GenerateVirtualProviderResult` / `VirtualSlotsConfig`（slot / match / provider 元信息）
-- [ ] 后端 `service.rs`：`generate_preset`（拉取数据源 → 匹配暴露模型 → 事务创建）
-- [ ] 后端 `commands.rs` + `main.rs`：注册 `virtual_provider_generate_preset`
+- [x] `src-tauri/data/virtual-slots.json`：内置兜底数据源（已提供并同步 GitHub 仓库）
+- [ ] 后端 `types.rs`：`GenerateVirtualProviderInput` / `GenerateVirtualProviderResult` / `VirtualSlotsConfig`（slot / match / provider 元信息）/ `VirtualSlotsConfigDto`
+- [ ] 后端 `service.rs`：`generate_preset`（拉取数据源 → 匹配暴露模型 → 事务创建）+ 数据源 URL 读取 / 缓存写入
+- [ ] 后端 `commands.rs` + `main.rs`：注册 `virtual_provider_generate_preset` / `virtual_slots_config_get` / `virtual_slots_config_set`
+- [ ] 后端：数据源 URL 读写 `global_configs`（`group='virtual_provider', key='preset_data_source_url'`）+ blob→raw URL 归一化
 - [ ] 前端 `types.ts` 同步 DTO
 - [ ] 前端 `virtual-provider-list.tsx`：一键按钮 + 确认弹窗 + 结果 toast
-- [ ] `settings` 模块：数据源 URL 配置项（含默认值）
+- [ ] 前端 `settings.tsx`：数据源 URL Card（输入 + 恢复默认 + 保存）
 - [ ] i18n 四语同步；`cargo check` / `pnpm type-check` 验证
-- [ ] 评审后确定 GitHub 数据源仓库地址并回填默认 URL
 
 ---
 
 ## 9. 决策点（待评审确认）
 
-1. **数据源仓库/URL**：用户指定的 GitHub 仓库地址与文件路径（当前默认指向内置 JSON，评审后回填）。
+1. **数据源仓库/URL**：**已确认**——用户仓库 `https://github.com/xucux/i-code`，默认数据源 URL = `https://raw.githubusercontent.com/xucux/i-code/main/src-tauri/data/virtual-slots.json`；**可在设置页替换为任意用户自有的 JSON 地址**（详见 §3.4）。
 2. **alias 命名**：参考 JSON 使用 `assistant`；可按用户习惯改为 `claude` / `ai` 等（注意避免与真实供应商 slug 冲突）。
 3. **匹配规则粒度**：用户指定模型 ID 以 `exact` 置顶优先，兜底保留 `prefix` / `exact` / `regex` 通用规则；**不限定供应商 slug**（已移除 `providerSlugs`，兼容中转站与多变渠道），模型 ID 随用户真实供应商集合调整。
 4. **失败时是否仍创建空模型**：当前方案「创建空模型 + 提示」；可改为「失败槽位不创建，仅提示」。
+5. **数据源 URL 存储位置**：当前方案存 `global_configs`（免迁移）；备选方案为 `app_settings` 新增列（需迁移，不采用）。
+6. **远程数据源缓存**：当前方案支持本地缓存（`virtual-slots-cache.json`）；可简化去掉缓存、仅「远程失败→内置」两级回退。

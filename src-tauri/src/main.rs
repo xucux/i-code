@@ -791,6 +791,9 @@ fn main() {
             modules::virtual_provider::commands::virtual_provider_route_attempt_stats_list,
             modules::virtual_provider::commands::virtual_provider_route_test,
             modules::virtual_provider::commands::virtual_provider_check_alias_impact,
+            modules::virtual_provider::commands::virtual_provider_generate_preset,
+            modules::virtual_provider::commands::virtual_slots_config_get,
+            modules::virtual_provider::commands::virtual_slots_config_set,
             // ===== Call Records 模块 =====
             modules::call_records::commands::call_records_list,
             modules::call_records::commands::call_records_get,

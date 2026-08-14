@@ -19,13 +19,16 @@ use std::sync::Arc;
 use rand::Rng;
 
 use crate::error::{IcodeError, IcodeResult};
+use crate::modules::ai_gateway::{types::ExposedModel, AiGatewayService};
 
 use super::repository;
 use super::types::{
     CreateVirtualModelInput, CreateVirtualModelRouteInput, CreateVirtualProviderInput,
-    ExposedVirtualModel, ResolvedVirtualRoute, SaveVirtualModelInput, UpdateVirtualModelInput,
-    UpdateVirtualModelRouteInput, UpdateVirtualProviderInput, VirtualModel, VirtualModelRoute,
-    VirtualProvider, VirtualProviderStrategy,
+    ExposedVirtualModel, GenerateVirtualProviderInput, GenerateVirtualProviderResult,
+    ResolvedVirtualRoute, SaveVirtualModelInput, SaveVirtualModelRouteInput, SlotGenerationResult,
+    UpdateVirtualModelInput, UpdateVirtualModelRouteInput, UpdateVirtualProviderInput,
+    VirtualModel, VirtualModelRoute, VirtualProvider, VirtualProviderStrategy, VirtualSlotsConfig,
+    VirtualSlotsConfigDto, VirtualSlotsConfigSetInput, VirtualSlotsSlot,
 };
 
 /// 虚拟供应商级默认重试次数
@@ -34,6 +37,20 @@ const DEFAULT_PROVIDER_MAX_RETRIES: i64 = 3;
 /// 虚拟供应商级默认重试间隔（毫秒）
 #[expect(dead_code)]
 const DEFAULT_PROVIDER_RETRY_INTERVAL_MS: i64 = 1000;
+
+/// 内置默认数据源 URL（用户 GitHub 仓库的 raw JSON 地址）
+const DEFAULT_DATA_SOURCE_URL: &str =
+    "https://raw.githubusercontent.com/xucux/i-code/main/src-tauri/data/virtual-slots.json";
+
+/// 内置兜底数据源 JSON（随二进制编译嵌入，离线 / 远程失败时使用）
+const BUILTIN_VIRTUAL_SLOTS_JSON: &str = include_str!("../../../data/virtual-slots.json");
+
+/// 数据源 URL 在 `global_configs` 中的分组与键（免迁移的零散外部配置）
+const SLOTS_CONFIG_GROUP: &str = "virtual_provider";
+const SLOTS_CONFIG_KEY: &str = "preset_data_source_url";
+
+/// 当前支持的数据源 schema 版本
+const SLOTS_SCHEMA_VERSION: i64 = 1;
 
 /// 路由选择器 trait
 ///
@@ -900,6 +917,224 @@ impl VirtualProviderService {
             has_impact: affected > 0,
         })
     }
+
+    // ===== 一键生成（三模型槽位）=====
+
+    /// 一键生成虚拟供应商 + 三个虚拟模型（Opus / Sonnet / Haiku）
+    ///
+    /// 流程：
+    /// 1. 确定数据源 URL：`input.dataSourceUrl` → `global_configs` 中已配置 URL → 内置默认；
+    /// 2. 拉取数据源 JSON（远程优先，失败回退内置 JSON），校验 schemaVersion；
+    /// 3. 校验 alias 唯一性（已存在则返回 CONFLICT）；
+    /// 4. 通过 ai_gateway 获取「已开启显示的模型列表」，按槽位匹配规则命中实体模型；
+    /// 5. 创建虚拟供应商，并对每个槽位保存虚拟模型 + 子级路由。
+    pub async fn generate_preset(
+        &self,
+        ai_gateway: &AiGatewayService,
+        input: GenerateVirtualProviderInput,
+    ) -> IcodeResult<GenerateVirtualProviderResult> {
+        // 1. 确定数据源 URL（显式传入 > 已配置 > 内置默认）
+        let configured = self.get_configured_data_source_url()?;
+        let url = input
+            .data_source_url
+            .clone()
+            .filter(|s| !s.trim().is_empty())
+            .or_else(|| configured.filter(|s| !s.trim().is_empty()))
+            .unwrap_or_else(|| DEFAULT_DATA_SOURCE_URL.to_string());
+        let url = normalize_data_source_url(&url);
+
+        // 2. 获取数据源 JSON
+        let config = if url.starts_with("http://") || url.starts_with("https://") {
+            match self.fetch_remote_config(&url).await {
+                Ok(cfg) => cfg,
+                Err(e) => {
+                    log::warn!("远程数据源拉取失败，回退内置 JSON：{e}");
+                    parse_builtin_config()?
+                }
+            }
+        } else if url.starts_with("file://") {
+            // 本地文件数据源（供离线测试 / 自定义本地 JSON）
+            let path = url.trim_start_matches("file://");
+            let content = std::fs::read_to_string(path)
+                .map_err(|e| IcodeError::validation(format!("读取本地数据源失败：{e}")))?;
+            parse_slots_json(&content)?
+        } else {
+            return Err(IcodeError::validation(
+                "数据源 URL 仅支持 http(s):// 或 file://",
+            ));
+        };
+
+        // 校验 schemaVersion
+        if config.schema_version != SLOTS_SCHEMA_VERSION {
+            return Err(IcodeError::validation(format!(
+                "数据源 schemaVersion={} 不兼容（期望 {}），请升级应用或更换数据源",
+                config.schema_version, SLOTS_SCHEMA_VERSION
+            )));
+        }
+
+        // 3. alias 唯一性校验
+        if repository::find_provider_by_alias(&config.provider.alias)?.is_some() {
+            return Err(IcodeError::conflict(format!(
+                "虚拟供应商 alias '{}' 已存在，请删除后重试或更换数据源",
+                config.provider.alias
+            )));
+        }
+
+        // 4. 获取已开启显示的模型列表（is_exposed=1 且供应商启用）
+        let exposed = ai_gateway.list_exposed_models()?;
+
+        // 5. 创建虚拟供应商（strategy / 重试参数支持 input 覆盖）
+        let provider = repository::insert_provider(&CreateVirtualProviderInput {
+            name: config.provider.name.clone(),
+            alias: config.provider.alias.clone(),
+            display_name: config.provider.display_name.clone(),
+            is_enabled: config.provider.is_enabled,
+            strategy: Some(
+                input
+                    .strategy
+                    .clone()
+                    .unwrap_or(config.provider.strategy.clone()),
+            ),
+            max_retries: input.max_retries.unwrap_or(config.provider.max_retries),
+            retry_interval_ms: input
+                .retry_interval_ms
+                .unwrap_or(config.provider.retry_interval_ms),
+        })?;
+
+        // 6. 匹配每个槽位并保存虚拟模型 + 子级路由
+        let mut slot_results = Vec::new();
+        for slot in &config.slots {
+            let matched = match_slot(slot, &exposed);
+            let empty = matched.is_empty();
+            let route_count = matched.len() as i64;
+
+            // 构造子级路由输入（priority 取自匹配规则；重试参数槽位级覆盖供应商级）
+            let route_inputs: Vec<SaveVirtualModelRouteInput> = matched
+                .into_iter()
+                .map(|(priority, model)| SaveVirtualModelRouteInput {
+                    target_provider_id: model.provider_id.clone(),
+                    target_model_id: model.model_id.clone(),
+                    priority,
+                    enabled: true,
+                    is_healthy: true,
+                    max_retries: slot
+                        .route_defaults
+                        .as_ref()
+                        .and_then(|d| d.max_retries)
+                        .unwrap_or(provider.max_retries),
+                    retry_interval_ms: slot
+                        .route_defaults
+                        .as_ref()
+                        .and_then(|d| d.retry_interval_ms)
+                        .unwrap_or(provider.retry_interval_ms),
+                    timeout_ms: None,
+                    extra_headers: None,
+                    extra_body: None,
+                    weight: 1,
+                })
+                .collect();
+
+            let model = self.save_model(SaveVirtualModelInput {
+                id: None,
+                virtual_provider_id: provider.id.clone(),
+                model_id: slot.model_id.clone(),
+                display_name: slot.display_name.clone(),
+                is_enabled: true,
+                routes: route_inputs,
+            })?;
+
+            slot_results.push(SlotGenerationResult {
+                key: slot.key.clone(),
+                model_id: model.model_id.clone(),
+                display_name: model.display_name.clone(),
+                route_count,
+                empty,
+            });
+        }
+
+        Ok(GenerateVirtualProviderResult {
+            provider,
+            slots: slot_results,
+        })
+    }
+
+    /// 读取数据源配置 DTO
+    pub fn get_slots_config(&self) -> IcodeResult<VirtualSlotsConfigDto> {
+        let configured = self.get_configured_data_source_url()?.unwrap_or_default();
+        let effective = if configured.trim().is_empty() {
+            DEFAULT_DATA_SOURCE_URL.to_string()
+        } else {
+            configured.clone()
+        };
+        Ok(VirtualSlotsConfigDto {
+            data_source_url: configured.clone(),
+            default_url: DEFAULT_DATA_SOURCE_URL.to_string(),
+            effective_url: effective,
+            use_default: configured.trim().is_empty(),
+        })
+    }
+
+    /// 保存数据源配置（写 `global_configs`，空字符串表示恢复默认）
+    pub fn set_slots_config(
+        &self,
+        input: &VirtualSlotsConfigSetInput,
+    ) -> IcodeResult<VirtualSlotsConfigDto> {
+        let v = input.data_source_url.trim().to_string();
+        if !v.is_empty() {
+            let normalized = normalize_data_source_url(&v);
+            let is_valid = normalized.starts_with("http://")
+                || normalized.starts_with("https://")
+                || normalized.starts_with("file://");
+            if !is_valid {
+                return Err(IcodeError::validation(
+                    "数据源 URL 仅支持 http(s):// 或 file://",
+                ));
+            }
+        }
+        let conn = crate::db::get_db_pool()?.get()?;
+        crate::db::global_config::set_global_config(
+            &conn,
+            SLOTS_CONFIG_GROUP,
+            SLOTS_CONFIG_KEY,
+            &v,
+        )?;
+        self.get_slots_config()
+    }
+
+    /// 读取已配置的数据源 URL（`global_configs` 中的用户自定义值）
+    fn get_configured_data_source_url(&self) -> IcodeResult<Option<String>> {
+        let conn = crate::db::get_db_pool()?.get()?;
+        crate::db::global_config::get_global_config(&conn, SLOTS_CONFIG_GROUP, SLOTS_CONFIG_KEY)
+    }
+
+    /// 从远程 URL 拉取数据源 JSON（10s 超时）
+    async fn fetch_remote_config(&self, url: &str) -> IcodeResult<VirtualSlotsConfig> {
+        let url = url.to_string();
+        tauri::async_runtime::spawn_blocking(move || {
+            let client = reqwest::blocking::Client::builder()
+                .timeout(std::time::Duration::from_secs(10))
+                .build()
+                .map_err(|e| {
+                    IcodeError::internal(format!("构造数据源 HTTP 客户端失败：{e}"))
+                })?;
+            let resp = client
+                .get(&url)
+                .send()
+                .map_err(|e| IcodeError::validation(format!("拉取数据源失败：{e}")))?;
+            if !resp.status().is_success() {
+                return Err(IcodeError::validation(format!(
+                    "数据源 HTTP 状态异常：{}",
+                    resp.status()
+                )));
+            }
+            let text = resp
+                .text()
+                .map_err(|e| IcodeError::validation(format!("读取数据源响应失败：{e}")))?;
+            parse_slots_json(&text)
+        })
+        .await
+        .map_err(|e| IcodeError::internal(format!("数据源拉取任务失败：{e}")))?
+    }
 }
 
 #[cfg(test)]
@@ -911,4 +1146,82 @@ mod tests {
         let handle = VirtualProviderHandle::new();
         let _cloned = handle.clone();
     }
+}
+
+// ===== 辅助函数 =====
+
+/// 将 blob 地址归一化为 raw 地址（仅 GitHub 仓库）；非 blob 地址原样返回
+fn normalize_data_source_url(url: &str) -> String {
+    let url = url.trim().to_string();
+    // 检测 github.com blob 链接并转为 raw：/blob/main/ → /main/
+    // 同时支持 /blob/<branch>/ 任意分支名
+    if url.contains("github.com") && url.contains("/blob/") {
+        url.replace("/blob/", "/")
+    } else {
+        url
+    }
+}
+
+/// 解析 JSON 字符串为 VirtualSlotsConfig
+fn parse_slots_json(text: &str) -> IcodeResult<VirtualSlotsConfig> {
+    let config: VirtualSlotsConfig = serde_json::from_str(text)
+        .map_err(|e| IcodeError::validation(format!("数据源 JSON 解析失败：{e}")))?;
+    if config.slots.is_empty() {
+        return Err(IcodeError::validation("数据源 JSON 中 slots 不能为空"));
+    }
+    Ok(config)
+}
+
+/// 解析内置兜底数据源 JSON
+fn parse_builtin_config() -> IcodeResult<VirtualSlotsConfig> {
+    parse_slots_json(BUILTIN_VIRTUAL_SLOTS_JSON)
+}
+
+/// 按匹配规则命中实体模型
+///
+/// 返回 `Vec<(priority, ExposedModel)>`，按 priority 升序排列。
+/// 同一 `providerId + modelId` 只保留 priority 最小的匹配。
+fn match_slot(slot: &VirtualSlotsSlot, exposed: &[ExposedModel]) -> Vec<(i64, ExposedModel)> {
+    use std::collections::HashSet;
+
+    let mut results: Vec<(i64, ExposedModel)> = Vec::new();
+    // key=providerId/modelId, 用于去重
+    let mut seen: HashSet<String> = HashSet::new();
+
+    // 按 priority 升序遍历规则
+    for rule in &slot.matches {
+        for model in exposed {
+            let dedup_key = format!("{}/{}", model.provider_id, model.model_id);
+            if seen.contains(&dedup_key) {
+                continue;
+            }
+            let matched = match rule.r#type.as_str() {
+                "exact" => rule
+                    .model_id
+                    .as_ref()
+                    .map_or(false, |mid| mid == &model.model_id),
+                "prefix" => rule
+                    .model_id
+                    .as_ref()
+                    .map_or(false, |mid| model.model_id.starts_with(mid)),
+                "regex" => rule
+                    .pattern
+                    .as_ref()
+                    .map_or(false, |pat| {
+                        regex::Regex::new(pat)
+                            .map(|re| re.is_match(&model.model_id))
+                            .unwrap_or(false)
+                    }),
+                _ => false,
+            };
+            if matched {
+                seen.insert(dedup_key);
+                results.push((rule.priority, model.clone()));
+            }
+        }
+    }
+
+    // 按 priority 升序排列
+    results.sort_by_key(|(p, _)| *p);
+    results
 }

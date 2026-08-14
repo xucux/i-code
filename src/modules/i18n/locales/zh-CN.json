@@ -104,6 +104,16 @@
       "label": "开机自启",
       "description": "应用随系统启动自动运行。开启后，如果上次网关处于运行状态，将自动恢复网关服务。"
     },
+    "virtualSlots": {
+      "title": "虚拟供应商数据源",
+      "description": "配置「一键生成三模型」使用的数据源 JSON 地址。留空使用内置默认地址。支持 http(s):// 与 file:// 协议。",
+      "dataSourceUrl": "数据源地址",
+      "defaultUrl": "默认地址",
+      "effectiveUrl": "当前生效地址",
+      "restoreDefault": "恢复默认",
+      "saveSuccess": "数据源配置已保存",
+      "restoreSuccess": "已恢复默认数据源"
+    },
     "dataManagement": {
       "title": "数据管理",
       "description": "管理模型调用统计数据。清空操作不可恢复，请谨慎操作。",
@@ -935,7 +945,20 @@
     "aliasImpactWarning": "修改别名将影响 {{count}} 个 CLI 模型映射（gateway_model_id 以旧别名为前缀），这些映射将失效需要手动更新",
     "aliasImpactTitle": "别名变更影响",
     "aliasImpactChecking": "正在检查影响范围...",
-    "dragToReorder": "拖拽排序（拖拽后自动重算优先级）"
+    "dragToReorder": "拖拽排序（拖拽后自动重算优先级）",
+    "generatePreset": "一键生成三模型",
+    "generatePresetTitle": "一键生成三模型",
+    "generatePresetDesc": "将根据数据源 JSON 从已开启显示的模型中匹配实体模型，自动生成一个虚拟供应商与三个虚拟模型",
+    "generatePresetSlots": "将生成：",
+    "generatePresetSlotOpus": "规划（Opus）",
+    "generatePresetSlotSonnet": "写代码（Sonnet）",
+    "generatePresetSlotHaiku": "工具调用（Haiku）",
+    "generatePresetMatchHint": "未匹配到实体模型的槽位会创建空虚拟模型，可在生成后手动添加路由",
+    "generatePresetConfirm": "生成",
+    "generatePresetSuccess": "已生成 {{name}}：{{details}}",
+    "generatePresetSlotEmpty": "未匹配模型",
+    "generatePresetAliasConflict": "数据源中的 alias 已存在同名虚拟供应商，请先删除或更换数据源",
+    "generating": "生成中…"
   },
   "cli": {
     "title": "CLI 管理",

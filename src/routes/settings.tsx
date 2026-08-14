@@ -29,9 +29,12 @@ import {
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { getSettings, getLogDir, getConfigDir, updateSettings } from '@/hooks/use-settings'
+import { getSlotsConfig, setSlotsConfig } from '@/hooks/use-virtual-provider-mutation'
 import { clearCallStats } from '@/hooks/use-call-records-mutation'
+import { toIcodeError } from '@/core/errors'
 import { UniversalPasswordCard } from '@/modules/secret/ui/universal-password-card'
 import type { AppSettingsDto, GlobalProxyConfig, LogLevel, TitleBarInfoConfig } from '@/modules/settings/types'
+import type { VirtualSlotsConfigDto } from '@/modules/virtual-provider/types'
 import { DEFAULT_TITLEBAR_INFO_CONFIG, LOG_LEVEL_OPTIONS } from '@/modules/settings/types'
 import type { BackupSettings } from '@/modules/backup/types'
 import { ScrollPage } from '@/components/ui/scroll-page'
@@ -65,6 +68,10 @@ function SettingsPage() {
   const [logDir, setLogDir] = useState('')
   const [configDir, setConfigDir] = useState('')
   const [clearDateRange, setClearDateRange] = useState<DateRange | undefined>(undefined)
+
+  // 虚拟供应商一键生成数据源配置
+  const [slotsConfig, setSlotsConfigState] = useState<VirtualSlotsConfigDto | null>(null)
+  const [slotsUrl, setSlotsUrl] = useState('')
 
   // 测量页面可用高度
   const [pageHeight, pageRef] = useAvailableHeight()
@@ -123,6 +130,17 @@ function SettingsPage() {
     getConfigDir()
       .then((dir) => {
         if (!cancelled) setConfigDir(dir)
+      })
+      .catch(() => {
+        // web 预览模式下 Tauri 命令不可用，保持为空
+      })
+
+    // 读取虚拟供应商一键生成数据源配置；web 预览模式下静默忽略
+    getSlotsConfig()
+      .then((cfg) => {
+        if (cancelled) return
+        setSlotsConfigState(cfg)
+        setSlotsUrl(cfg.dataSourceUrl)
       })
       .catch(() => {
         // web 预览模式下 Tauri 命令不可用，保持为空
@@ -192,6 +210,30 @@ function SettingsPage() {
       setSavedProxyType(proxyType)
       setSavedProxyUrl(proxyUrl)
       toast.success(t('settings.proxySaveSuccess'))
+    }
+  }
+
+  // 保存虚拟供应商一键生成数据源 URL（空字符串表示清空，恢复默认）
+  const handleSaveSlotsConfig = async () => {
+    try {
+      const cfg = await setSlotsConfig({ dataSourceUrl: slotsUrl.trim() })
+      setSlotsConfigState(cfg)
+      setSlotsUrl(cfg.dataSourceUrl)
+      toast.success(t('settings.virtualSlots.saveSuccess'))
+    } catch (err) {
+      toast.error(toIcodeError(err).message)
+    }
+  }
+
+  // 恢复默认数据源（写入空字符串）
+  const handleRestoreSlotsConfig = async () => {
+    try {
+      const cfg = await setSlotsConfig({ dataSourceUrl: '' })
+      setSlotsConfigState(cfg)
+      setSlotsUrl('')
+      toast.success(t('settings.virtualSlots.restoreSuccess'))
+    } catch (err) {
+      toast.error(toIcodeError(err).message)
     }
   }
 
@@ -470,6 +512,64 @@ function SettingsPage() {
                 checked={autoStartEnabled}
                 onCheckedChange={(v) => void handleToggleAutoStart(v)}
               />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 虚拟供应商一键生成数据源 */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">
+              <i className={cn('fa-solid fa-wand-magic-sparkles mr-2 text-muted-foreground')} />
+              {t('settings.virtualSlots.title')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-muted-foreground text-xs">
+              {t('settings.virtualSlots.description')}
+            </p>
+            <div className="space-y-2">
+              <Label className="text-sm">{t('settings.virtualSlots.dataSourceUrl')}</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  className="h-8 flex-1 font-mono text-xs"
+                  placeholder={slotsConfig?.defaultUrl ?? ''}
+                  value={slotsUrl}
+                  onChange={(e) => setSlotsUrl(e.target.value)}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 shrink-0 text-xs"
+                  disabled={!slotsConfig || slotsConfig.useDefault}
+                  onClick={() => void handleRestoreSlotsConfig()}
+                  title={t('settings.virtualSlots.restoreDefault')}
+                >
+                  <i className="fa-solid fa-rotate-left mr-1.5 text-xs" />
+                  {t('settings.virtualSlots.restoreDefault')}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-8 shrink-0 text-xs"
+                  disabled={!slotsConfig || slotsUrl.trim() === slotsConfig.dataSourceUrl}
+                  onClick={() => void handleSaveSlotsConfig()}
+                >
+                  <i className="fa-solid fa-floppy-disk mr-1.5 text-xs" />
+                  {t('common.save')}
+                </Button>
+              </div>
+              {slotsConfig && !slotsConfig.useDefault && (
+                <p className="text-muted-foreground text-xs break-all">
+                  {t('settings.virtualSlots.defaultUrl')}：{slotsConfig.defaultUrl}
+                </p>
+              )}
+              {slotsConfig && (
+                <p className="text-muted-foreground text-xs break-all">
+                  {t('settings.virtualSlots.effectiveUrl')}：{slotsConfig.effectiveUrl}
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
