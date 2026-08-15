@@ -1758,7 +1758,8 @@
       "placeholder": "コメントを書く…（1000 文字以内、Ctrl+Enter で送信）",
       "placeholderReply": "{{name}} に返信…（1000 文字以内）",
       "replyTo": "{{name}} に返信",
-      "cancelReply": "返信をキャンセル"
+      "cancelReply": "返信をキャンセル",
+      "replyTitle": "返信"
     },
     "profile": {
       "setupTitle": "ニックネームとアバターの設定",

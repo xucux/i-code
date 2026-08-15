@@ -1771,7 +1771,8 @@
       "placeholder": "发表评论…（1000 字以内，Ctrl+Enter 发送）",
       "placeholderReply": "回复 {{name}}…（1000 字以内）",
       "replyTo": "回复 {{name}}",
-      "cancelReply": "取消回复"
+      "cancelReply": "取消回复",
+      "replyTitle": "回复"
     },
     "profile": {
       "setupTitle": "设置昵称与头像",

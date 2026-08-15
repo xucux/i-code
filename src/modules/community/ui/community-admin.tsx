@@ -376,7 +376,13 @@ function AdminReportsTab({ token, height }: { token: string; height: number }) {
               <span className="text-muted-foreground ml-auto tabular-nums">
                 {formatCommunityTime(report.createdAt, t)}
               </span>
-              <Button variant="outline" size="sm" className="h-6 shrink-0 px-2 text-[11px]" disabled={acting} onClick={() => void handleResolve(report.reportId)}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-muted-foreground h-6 shrink-0 px-2 text-[11px]"
+                disabled={acting}
+                onClick={() => void handleResolve(report.reportId)}
+              >
                 <i className="fa-solid fa-check mr-1 size-2.5" />
                 {t('admin.resolve')}
               </Button>

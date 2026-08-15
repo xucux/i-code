@@ -12,7 +12,6 @@ import { Link } from '@tanstack/react-router'
 import { toast } from 'sonner'
 import { useTranslation } from '@/modules/i18n/use-translation'
 import { Button } from '@/components/ui/button'
-import { ScrollPage } from '@/components/ui/scroll-page'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAvailableHeight } from '@/hooks/use-available-height'
 import {
@@ -165,7 +164,7 @@ export function CommunityPage() {
             <Button
               variant="ghost"
               size="icon"
-              className="size-7"
+              className="text-muted-foreground size-7"
               title={t('action.refresh')}
               disabled={loading}
               onClick={() =>
@@ -185,12 +184,16 @@ export function CommunityPage() {
 
         <Tabs value={view} onValueChange={(v) => setView(v as CommunityView)}>
           <TabsList className="h-7">
-            <TabsTrigger value="latest" className="h-5 px-2 text-xs">
+            <TabsTrigger value="latest" className="text-muted-foreground h-5 px-2 text-xs data-[state=active]:text-foreground">
               <i className="fa-solid fa-clock mr-1 size-2.5" />
               {t('tab.latest')}
             </TabsTrigger>
             {COMMUNITY_SECTIONS.map((s) => (
-              <TabsTrigger key={s} value={s} className="h-5 px-2 text-xs">
+              <TabsTrigger
+                key={s}
+                value={s}
+                className="text-muted-foreground h-5 px-2 text-xs data-[state=active]:text-foreground"
+              >
                 {t(`section.${s}`)}
               </TabsTrigger>
             ))}
@@ -198,10 +201,10 @@ export function CommunityPage() {
         </Tabs>
       </div>
 
-      {/* 主体：左列列表 + 右侧个人栏 */}
-      <div className="flex min-h-0 flex-1 gap-3">
+      {/* 主体：左列列表（原生滚动）+ 右侧个人栏 */}
+      <div className="flex h-[80vh] gap-3">
         <div className="min-w-0 flex-1">
-          <ScrollPage style={{ height: listHeight || undefined }} variant="borderless">
+          <div className="overflow-y-auto pr-2" style={{ height: listHeight || undefined }}>
             {view === 'myPosts' || view === 'myReplies' ? (
               <MyContentList kind={view === 'myPosts' ? 'posts' : 'replies'} />
             ) : (
@@ -214,7 +217,7 @@ export function CommunityPage() {
                 onLoadMore={() => void loadMore()}
               />
             )}
-          </ScrollPage>
+          </div>
         </div>
 
         <div className="w-56 shrink-0">

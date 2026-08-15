@@ -2,8 +2,9 @@
  * 帖子详情 + 评论区（楼中楼，§8.4）
  *
  * 结构：帖子头（标题/作者/正文）→ 顶层评论列表（每条含楼中楼，深度限 2 层）
- *      → 底部固定回复输入框（目标可为帖子或某条回复，发送后整页刷新）。
+ *      → 底部固定「回复」按钮，点击弹窗输入回复（目标可为帖子或某条回复）。
  * 「楼主」Badge：评论作者 == 发帖人。
+ * 滚动：帖子 + 评论区整体使用原生滚动（overflow-y-auto），底部回复栏固定。
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -13,7 +14,13 @@ import { useTranslation } from '@/modules/i18n/use-translation'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { ScrollPage } from '@/components/ui/scroll-page'
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { MarkdownContent } from '@/components/ui/markdown-content'
 import { SectionBadge } from '@/modules/community/ui/section-badge'
 import { useAvailableHeight } from '@/hooks/use-available-height'
@@ -38,7 +45,8 @@ export function PostDetail({ postId, currentUserId }: PostDetailProps) {
   const [refreshing, setRefreshing] = useState(false)
   const [notFound, setNotFound] = useState(false)
 
-  // 回复目标：null = 顶层评论；否则为楼中楼（指向某条回复）
+  // 回复弹层：目标 null = 顶层评论；否则为楼中楼（指向某条回复）
+  const [replyDialogOpen, setReplyDialogOpen] = useState(false)
   const [replyTarget, setReplyTarget] = useState<{ replyId: number; nickname: string } | null>(null)
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
@@ -46,10 +54,8 @@ export function PostDetail({ postId, currentUserId }: PostDetailProps) {
   // 举报弹层状态
   const [reportTarget, setReportTarget] = useState<{ type: 'post' | 'reply'; id: number; preview: string } | null>(null)
 
-  /** 实测页面总高度（含固定输入区，用于推导滚动区高度） */
+  /** 实测页面总高度（用于推导滚动区高度） */
   const [pageHeight, pageRef] = useAvailableHeight()
-  /** 底部输入区实际高度 */
-  const [inputHeight, inputRef] = useAvailableHeight()
 
   const load = useCallback(async (silent = false) => {
     if (silent) setRefreshing(true)
@@ -71,16 +77,20 @@ export function PostDetail({ postId, currentUserId }: PostDetailProps) {
     setData(null)
     setReplyTarget(null)
     setDraft('')
+    setReplyDialogOpen(false)
     void load()
   }, [load])
 
-  /** 评论滚动区高度 = 页面高度 - 输入区 - 上下内边距（p-4 = 32px） */
-  const scrollHeight = useMemo(
-    () => Math.max(0, pageHeight - inputHeight - 32),
-    [pageHeight, inputHeight]
-  )
+  /** 滚动区高度 = 页面高度 - 上下内边距（p-4 = 32px），整页原生滚动 */
+  const scrollHeight = useMemo(() => Math.max(0, pageHeight - 32), [pageHeight])
 
-  /** 发送回复（顶层或楼中楼），成功后整页刷新保证 reply_count / 楼层一致 */
+  /** 打开回复弹层（可携带楼中楼目标） */
+  const openReplyDialog = (target?: { replyId: number; nickname: string }) => {
+    setReplyTarget(target ?? null)
+    setReplyDialogOpen(true)
+  }
+
+  /** 发送回复（顶层或楼中楼），成功后关弹窗并整页刷新保证 reply_count / 楼层一致 */
   const handleSend = async () => {
     const content = draft.trim()
     if (!content || sending) return
@@ -93,6 +103,7 @@ export function PostDetail({ postId, currentUserId }: PostDetailProps) {
       toast.success(t('success.reply'))
       setDraft('')
       setReplyTarget(null)
+      setReplyDialogOpen(false)
       await load(true)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e))
@@ -127,9 +138,9 @@ export function PostDetail({ postId, currentUserId }: PostDetailProps) {
 
   return (
     <div ref={pageRef} className="flex h-full flex-col p-4">
-      {/* 帖子 + 评论区（整体滚动） */}
-      <ScrollPage style={{ height: scrollHeight || undefined }} variant="borderless">
-        <div className="space-y-4 pr-2">
+      {/* 帖子 + 评论区（原生滚动） */}
+      <div className="min-h-0 overflow-y-auto pr-2" style={{ height: scrollHeight || undefined }}>
+        <div className="space-y-4">
           {/* 帖子头 */}
           <div className="rounded-lg border bg-card p-3">
             <div className="flex items-center justify-between gap-2">
@@ -144,7 +155,7 @@ export function PostDetail({ postId, currentUserId }: PostDetailProps) {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="size-7"
+                  className="text-muted-foreground size-7"
                   title={t('action.refresh')}
                   disabled={refreshing}
                   onClick={() => void load(true)}
@@ -188,8 +199,19 @@ export function PostDetail({ postId, currentUserId }: PostDetailProps) {
 
           {/* 评论区 */}
           <div className="space-y-2">
-            <div className="text-muted-foreground px-1 text-xs">
-              {t('comment.sectionTitle', { count: comments.items.length })}
+            {/* 标题行：「评论（N）」+ 右侧纯文字「回复」入口（弹窗输入） */}
+            <div className="flex items-center justify-between px-1">
+              <span className="text-muted-foreground text-xs">
+                {t('comment.sectionTitle', { count: comments.items.length })}
+              </span>
+              <button
+                type="button"
+                className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs transition-colors"
+                onClick={() => openReplyDialog()}
+              >
+                <i className="fa-solid fa-reply size-2.5" />
+                {t('action.reply')}
+              </button>
             </div>
             {comments.items.length === 0 && (
               <div className="text-muted-foreground flex h-20 items-center justify-center text-xs">
@@ -202,35 +224,41 @@ export function PostDetail({ postId, currentUserId }: PostDetailProps) {
                 comment={comment}
                 postAuthorId={post.author.userId}
                 currentUserId={currentUserId}
-                onReply={(replyId, nickname) => setReplyTarget({ replyId, nickname })}
+                onReply={(replyId, nickname) => openReplyDialog({ replyId, nickname })}
                 onReport={(type, id, preview) => setReportTarget({ type, id, preview })}
               />
             ))}
           </div>
         </div>
-      </ScrollPage>
+      </div>
 
-      {/* 底部回复输入区（固定） */}
-      <div ref={inputRef} className="mt-3 shrink-0 space-y-1.5">
-        {replyTarget && (
-          <div className="flex items-center justify-between text-[11px]">
-            <span className="text-primary truncate">
-              <i className="fa-solid fa-reply mr-1 size-2.5" />
-              {t('comment.replyTo', { name: replyTarget.nickname })}
-            </span>
-            <button
-              type="button"
-              className="text-muted-foreground hover:text-foreground shrink-0"
-              onClick={() => setReplyTarget(null)}
-            >
-              {t('comment.cancelReply')}
-            </button>
-          </div>
-        )}
-        <div className="flex items-end gap-2">
+      {/* 回复弹层 */}
+      <Dialog open={replyDialogOpen} onOpenChange={setReplyDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm">{t('comment.replyTitle')}</DialogTitle>
+          </DialogHeader>
+
+          {replyTarget && (
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-primary truncate">
+                <i className="fa-solid fa-reply mr-1 size-2.5" />
+                {t('comment.replyTo', { name: replyTarget.nickname })}
+              </span>
+              <button
+                type="button"
+                className="text-muted-foreground hover:text-foreground shrink-0"
+                onClick={() => setReplyTarget(null)}
+              >
+                {t('comment.cancelReply')}
+              </button>
+            </div>
+          )}
+
           <Textarea
             value={draft}
             maxLength={REPLY_MAX}
+            autoFocus
             placeholder={
               replyTarget
                 ? t('comment.placeholderReply', { name: replyTarget.nickname })
@@ -241,15 +269,24 @@ export function PostDetail({ postId, currentUserId }: PostDetailProps) {
               // Ctrl/Cmd + Enter 快捷发送
               if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') void handleSend()
             }}
-            className="min-h-10 resize-none text-xs leading-relaxed"
-            rows={2}
+            className="min-h-32 resize-none text-xs leading-relaxed"
+            rows={5}
           />
-          <Button size="sm" className="h-9 shrink-0 text-xs" disabled={!canSend} onClick={handleSend}>
-            {sending && <i className="fa-solid fa-spinner fa-spin mr-1.5 size-3" />}
-            {t('action.reply')}
-          </Button>
-        </div>
-      </div>
+
+          <DialogFooter>
+            <span className="text-muted-foreground mr-auto text-[10px] tabular-nums">
+              {draft.length}/{REPLY_MAX}
+            </span>
+            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setReplyDialogOpen(false)}>
+              {t('post.cancel')}
+            </Button>
+            <Button size="sm" className="h-8 text-xs" disabled={!canSend} onClick={handleSend}>
+              {sending && <i className="fa-solid fa-spinner fa-spin mr-1.5 size-3" />}
+              {t('action.reply')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* 举报弹层 */}
       <ReportDialog

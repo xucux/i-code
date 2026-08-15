@@ -41,7 +41,7 @@ export function PostList({ posts, loading, loadingMore, hasMore, onRefresh, onLo
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 overflow-y-auto">
       {posts.map((post) => (
         <button
           key={post.postId}

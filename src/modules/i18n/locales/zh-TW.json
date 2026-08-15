@@ -1758,7 +1758,8 @@
       "placeholder": "發表評論…（1000 字以內，Ctrl+Enter 送出）",
       "placeholderReply": "回覆 {{name}}…（1000 字以內）",
       "replyTo": "回覆 {{name}}",
-      "cancelReply": "取消回覆"
+      "cancelReply": "取消回覆",
+      "replyTitle": "回覆"
     },
     "profile": {
       "setupTitle": "設定暱稱與頭像",

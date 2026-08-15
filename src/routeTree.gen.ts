@@ -62,9 +62,9 @@ const GatewaysIndexRoute = GatewaysIndexRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const CommunityIndexRoute = CommunityIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => CommunityRoute,
+  id: '/community/',
+  path: '/community/',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const CliIndexRoute = CliIndexRouteImport.update({
   id: '/cli/',
@@ -231,6 +231,7 @@ export interface RootRouteChildren {
   BackupsIndexRoute: typeof BackupsIndexRoute
   ChatIndexRoute: typeof ChatIndexRoute
   CliIndexRoute: typeof CliIndexRoute
+  CommunityIndexRoute: typeof CommunityIndexRoute
   GatewaysIndexRoute: typeof GatewaysIndexRoute
   LogsIndexRoute: typeof LogsIndexRoute
   WorkspacesIndexRoute: typeof WorkspacesIndexRoute
@@ -290,10 +291,10 @@ declare module '@tanstack/react-router' {
     }
     '/community/': {
       id: '/community/'
-      path: '/'
+      path: '/community'
       fullPath: '/community/'
       preLoaderRoute: typeof CommunityIndexRouteImport
-      parentRoute: typeof CommunityRoute
+      parentRoute: typeof rootRouteImport
     }
     '/cli/': {
       id: '/cli/'
@@ -366,6 +367,7 @@ const rootRouteChildren: RootRouteChildren = {
   BackupsIndexRoute: BackupsIndexRoute,
   ChatIndexRoute: ChatIndexRoute,
   CliIndexRoute: CliIndexRoute,
+  CommunityIndexRoute: CommunityIndexRoute,
   GatewaysIndexRoute: GatewaysIndexRoute,
   LogsIndexRoute: LogsIndexRoute,
   WorkspacesIndexRoute: WorkspacesIndexRoute,

@@ -67,7 +67,13 @@ export function CommunityProfilePanel({
               </span>
             </div>
           </div>
-          <Button variant="ghost" size="icon" className="size-7" title={t('action.editProfile')} onClick={onEditProfile}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-muted-foreground size-7"
+            title={t('action.editProfile')}
+            onClick={onEditProfile}
+          >
             <i className="fa-solid fa-pen size-3" />
           </Button>
         </div>
@@ -116,10 +122,8 @@ export function CommunityProfilePanel({
         />
       </div>
 
-      <div className="flex-1" />
-
       {/* 关闭社区（二次确认，防误触） */}
-      <div className="rounded-lg border bg-card p-2">
+      <div className="rounded-lg border bg-card p-1">
         {confirmClose ? (
           <div className="space-y-1.5">
             <p className="text-muted-foreground text-[11px]">{t('gate.closeConfirm')}</p>
@@ -166,7 +170,7 @@ function EntryButton({
       onClick={onClick}
       className={cn(
         'flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-accent',
-        active ? 'text-primary font-medium' : 'text-foreground'
+        active ? 'text-primary font-medium' : 'text-muted-foreground hover:text-foreground'
       )}
     >
       <i className={cn(icon, 'size-3.5')} />

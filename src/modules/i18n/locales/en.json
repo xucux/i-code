@@ -1758,7 +1758,8 @@
       "placeholder": "Write a comment… (max 1000 chars, Ctrl+Enter to send)",
       "placeholderReply": "Reply to {{name}}… (max 1000 chars)",
       "replyTo": "Reply to {{name}}",
-      "cancelReply": "Cancel reply"
+      "cancelReply": "Cancel reply",
+      "replyTitle": "Reply"
     },
     "profile": {
       "setupTitle": "Set nickname & avatar",

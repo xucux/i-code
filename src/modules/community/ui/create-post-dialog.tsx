@@ -81,7 +81,7 @@ export function CreatePostDialog({ open, onOpenChange, defaultSection, onSubmit 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg h-[98vh]">
         <DialogHeader>
           <DialogTitle className="text-sm">{t('post.createTitle')}</DialogTitle>
           <DialogDescription className="text-xs">{t('post.createDesc')}</DialogDescription>
@@ -143,11 +143,11 @@ export function CreatePostDialog({ open, onOpenChange, defaultSection, onSubmit 
             </div>
             <Tabs defaultValue="edit">
               <TabsList className="h-6">
-                <TabsTrigger value="edit" className="h-4 px-2 text-[11px]">
+                <TabsTrigger value="edit" className="text-muted-foreground h-4 px-2 text-[11px] data-[state=active]:text-foreground">
                   <i className="fa-solid fa-pen mr-1 size-2.5" />
                   {t('post.editTab')}
                 </TabsTrigger>
-                <TabsTrigger value="preview" className="h-4 px-2 text-[11px]">
+                <TabsTrigger value="preview" className="text-muted-foreground h-4 px-2 text-[11px] data-[state=active]:text-foreground">
                   <i className="fa-solid fa-eye mr-1 size-2.5" />
                   {t('post.previewTab')}
                 </TabsTrigger>
@@ -159,12 +159,12 @@ export function CreatePostDialog({ open, onOpenChange, defaultSection, onSubmit 
                   maxLength={CONTENT_MAX}
                   placeholder={t('post.contentPlaceholder')}
                   onChange={(e) => setContent(e.target.value)}
-                  className="min-h-40 font-mono text-xs leading-relaxed"
+                  className="h-[50vh] font-mono text-xs leading-relaxed"
                 />
               </TabsContent>
               <TabsContent value="preview" className="mt-1.5">
                 {/* 预览区与编辑区等高，内容超高时内部滚动 */}
-                <div className="min-h-40 overflow-y-auto rounded-md border p-3">
+                <div className="h-[50vh] overflow-y-auto rounded-md border p-3">
                   {content.trim() ? (
                     <MarkdownContent content={content} />
                   ) : (
