@@ -59,6 +59,7 @@ export function CommunityPage() {
     hasMore,
     refresh: refreshPosts,
     loadMore,
+    invalidate: invalidatePostsCache,
   } = useCommunityPosts(activeSection)
 
   const [profileDialogOpen, setProfileDialogOpen] = useState(false)
@@ -117,11 +118,13 @@ export function CommunityPage() {
     }
   }
 
-  /** 发帖成功：跳到对应板块并刷新列表（板块未变时手动刷新） */
+  /** 发帖成功：清空列表缓存并跳到对应板块（保证新帖可见），同板块则直接刷新 */
   const handleCreatePost = async (title: string, content: string, section: CommunitySection) => {
     await createCommunityPost({ title, content, section })
     toast.success(t('success.post'))
     setCreateOpen(false)
+    // 清空缓存：目标板块（及 latest）下次加载强制重拉，新帖立即可见
+    invalidatePostsCache()
     if (view !== section) {
       // 切到发帖板块：useCommunityPosts 检测到 section 变化自动重拉
       setView(section)

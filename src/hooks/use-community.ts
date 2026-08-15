@@ -177,10 +177,32 @@ export function useCommunityState(): {
 }
 
 /**
+ * 帖子列表第一页缓存条目
+ */
+interface FirstPageCacheEntry {
+  posts: PostListData['posts']
+  nextCursor: string | null
+  cachedAt: number
+}
+
+/**
+ * 模块级第一页缓存：key = section（null → 'latest'）
+ *
+ * 板块 Tab 切换复用新鲜缓存、不发请求，过期才后台重拉，
+ * 大幅降低列表请求频率（避免触达 Worker 读限流 60 次/60 秒）。
+ */
+const firstPageCache = new Map<string, FirstPageCacheEntry>()
+
+/** 缓存有效期（ms）：30 秒内切回同一板块直接使用缓存 */
+const FIRST_PAGE_TTL = 30_000
+
+/**
  * 帖子列表（游标分页，支持刷新与加载更多）
  *
- * `section` 变化时自动重新加载（null = 最近 / 全部板块）；
- * 切回已加载过的板块会重新拉取第一页（实现简单，列表规模小可接受）。
+ * `section` 变化时自动加载对应板块（null = 最近 / 全部）：
+ * - 命中新鲜缓存（< 30s）→ 直接展示，不发请求；
+ * - 无缓存 / 已过期 → 请求第一页并写入缓存。
+ * `refresh` 总是强制请求并更新缓存；`invalidate` 清空全部缓存（发帖后调用）。
  */
 export function useCommunityPosts(
   section: CommunitySection | null = null,
@@ -193,6 +215,8 @@ export function useCommunityPosts(
   error: string | null
   refresh: () => Promise<void>
   loadMore: () => Promise<void>
+  /** 清空全部板块缓存（下次切换/刷新强制重拉），发帖后调用保证新帖可见 */
+  invalidate: () => void
 } {
   const [posts, setPosts] = useState<PostListData['posts']>([])
   const [cursor, setCursor] = useState<string | null>(null)
@@ -205,6 +229,9 @@ export function useCommunityPosts(
   const initialized = useRef(false)
   const loadedSection = useRef<CommunitySection | null>(section)
 
+  /** 当前板块缓存 key（null → 'latest'） */
+  const cacheKey = section ?? 'latest'
+
   const refresh = useCallback(async () => {
     setLoading(true)
     setError(null)
@@ -213,20 +240,35 @@ export function useCommunityPosts(
       setPosts(data.posts)
       setCursor(data.nextCursor)
       setHasMore(data.nextCursor != null)
+      // 写入第一页缓存（Tab 切回时复用）
+      firstPageCache.set(cacheKey, {
+        posts: data.posts,
+        nextCursor: data.nextCursor,
+        cachedAt: Date.now(),
+      })
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
       setLoading(false)
     }
-  }, [pageSize, section])
+  }, [pageSize, section, cacheKey])
 
   useEffect(() => {
     // 已初始化且板块未变化时跳过（防 StrictMode 双执行）；板块变化时重新加载
     if (initialized.current && loadedSection.current === section) return
     initialized.current = true
     loadedSection.current = section
+    // 命中新鲜缓存：直接展示，不发请求（避免频繁切 Tab 触发限流）
+    const cached = firstPageCache.get(cacheKey)
+    if (cached && Date.now() - cached.cachedAt < FIRST_PAGE_TTL) {
+      setPosts(cached.posts)
+      setCursor(cached.nextCursor)
+      setHasMore(cached.nextCursor != null)
+      setError(null)
+      return
+    }
     void refresh()
-  }, [refresh, section])
+  }, [refresh, section, cacheKey])
 
   const loadMore = useCallback(async () => {
     if (!cursor || loadingMore) return
@@ -243,7 +285,12 @@ export function useCommunityPosts(
     }
   }, [cursor, loadingMore, pageSize, section])
 
-  return { posts, loading, loadingMore, hasMore, error, refresh, loadMore }
+  /** 清空全部板块缓存（模块级 Map），发帖后调用保证新帖可见 */
+  const invalidate = useCallback(() => {
+    firstPageCache.clear()
+  }, [])
+
+  return { posts, loading, loadingMore, hasMore, error, refresh, loadMore, invalidate }
 }
 
 /**
