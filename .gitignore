@@ -49,3 +49,6 @@ report.*.json
 doc/
 old_docs/
 scripts/*.json
+
+# 社区 Worker 独立 Git 仓库（docs/proposals/community.md D7），主仓不跟踪
+i-code-community-worker/

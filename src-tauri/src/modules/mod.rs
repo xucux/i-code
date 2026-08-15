@@ -31,6 +31,7 @@ pub mod backup;
 pub mod call_records;
 pub mod chat;
 pub mod cli_management;
+pub mod community;
 pub mod gateway_runtime;
 pub mod logger;
 pub mod scheduler;

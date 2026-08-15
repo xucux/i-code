@@ -121,6 +121,7 @@ types.rs     → DTO / 领域类型
 | `docs/proposals/balance-script-templates.md` | 额度监控脚本模板（Rhai）CRUD、运行时、编辑体验 |
 | `docs/proposals/` | 待实现/演进提案 |
 | `docs/fix-bug.md` | 已知问题与修复记录 |
+| `docs/mimo-free-reference.md` | 小米 MiMo 免费通道（`mimo-auto`）参考项目协议调研：bootstrap/JWT、特殊请求头、guard prompt、限流 |
 | `参考项目/vscode-unify-chat-provider-7.12.3/` | 类型与 well-known 数据参考源 |
 
 ---

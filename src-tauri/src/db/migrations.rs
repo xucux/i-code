@@ -64,6 +64,11 @@ const V006__GATEWAY_SETTINGS_DEEPSEEK_FIX: &str =
 const V007__VIRTUAL_ROUTE_ITERATION: &str =
     include_str!("./migrations/V007__virtual_route_iteration.sql");
 
+/// 社区本地状态：app_settings 表新增 community_json 列
+/// （存社区门禁开关 / base_url / 设备身份 / 昵称头像缓存）
+const V008__COMMUNITY_LOCAL_STATE: &str =
+    include_str!("./migrations/V008__community_local_state.sql");
+
 /// 内置迁移列表：(版本号, 描述, SQL 内容)
 ///
 /// 增量迁移模式：V001 为基线，V002+ 为增量变更。
@@ -76,6 +81,7 @@ const BUILTIN_MIGRATIONS: &[(u32, &str, &str)] = &[
     (5, "provider_remark", V005__PROVIDER_REMARK),
     (6, "gateway_settings_deepseek_fix", V006__GATEWAY_SETTINGS_DEEPSEEK_FIX),
     (7, "virtual_route_iteration", V007__VIRTUAL_ROUTE_ITERATION),
+    (8, "community_local_state", V008__COMMUNITY_LOCAL_STATE),
 ];
 
 /// 执行所有未应用的迁移

@@ -820,6 +820,25 @@ fn main() {
             modules::chat::commands::chat_prompt_get,
             modules::chat::commands::chat_export_html,
             modules::chat::commands::chat_reveal_file,
+            // ===== Community 模块 =====
+            modules::community::commands::community_get_posts,
+            modules::community::commands::community_get_post,
+            modules::community::commands::community_create_post,
+            modules::community::commands::community_create_reply,
+            modules::community::commands::community_get_profile,
+            modules::community::commands::community_update_profile,
+            modules::community::commands::community_check_in,
+            modules::community::commands::community_get_my_posts,
+            modules::community::commands::community_get_my_replies,
+            modules::community::commands::community_report,
+            modules::community::commands::community_get_local_state,
+            modules::community::commands::community_set_enabled,
+            modules::community::commands::community_admin_login,
+            modules::community::commands::community_admin_get_users,
+            modules::community::commands::community_admin_ban,
+            modules::community::commands::community_admin_unban,
+            modules::community::commands::community_admin_get_reports,
+            modules::community::commands::community_admin_resolve_report,
             // ===== Gateway Runtime 模块 =====
             modules::gateway_runtime::commands::gateway_start,
             modules::gateway_runtime::commands::gateway_stop,
@@ -1040,6 +1059,12 @@ fn main() {
             .expect("Chat 服务初始化失败");
             tracing::info!("Chat 模块初始化完成");
             app.manage(chat_handle);
+
+            // ===== 初始化 Community 模块 =====
+            // 社区客户端无启动期依赖（门禁/身份按需生成），直接构造句柄。
+            let community_handle = modules::community::CommunityHandle::new();
+            tracing::info!("Community 模块初始化完成");
+            app.manage(community_handle);
 
             // ===== 初始化 Scheduler 模块 =====
             // 定时任务调度器，当前内置 OAuth token 续期、虚拟路由主动健康检查任务。

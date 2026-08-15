@@ -107,6 +107,8 @@ tiktoken = "3"
 rhai = { version = "1", default-features = false, features = ["sync", "serde"] }
 # 本机网卡地址枚举：网关监听 0.0.0.0 时用于列出可访问本机的 LAN 地址
 local-ip-address = "0.6"
+# 系统机器标识读取（社区设备身份：Windows MachineGuid / macOS IOPlatformUUID / Linux machine-id）
+machine-uid = "0.5"
 
 [dev-dependencies]
 # 测试用临时目录（SizeAwareFileAppender 单元测试用）
