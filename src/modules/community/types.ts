@@ -38,6 +38,8 @@ export interface UserBrief {
   userId: string
   nickname: string
   avatarIndex: number
+  /** 当前是否被禁言（D12：懒删除，到期自动视为未禁言） */
+  muted: boolean
 }
 
 /** 帖子列表项 */
@@ -128,6 +130,12 @@ export interface ProfileUser {
   avatarIndex: number
   banned: boolean
   banReason?: string | null
+  /** 当前是否被禁言（D12） */
+  muted: boolean
+  /** 禁言到期时间（UTC ISO）；null = 未禁言或永久禁言 */
+  muteUntil?: string | null
+  /** 禁言原因 */
+  muteReason?: string | null
 }
 
 /** 签到 / 数据统计（纯计数 + 连续天数） */
@@ -215,9 +223,23 @@ export interface AdminUserItem {
   avatarIndex: number
   banned: boolean
   banReason?: string | null
+  /** 是否处于禁言状态（D12） */
+  muted: boolean
+  /** 禁言到期时间（UTC ISO）；null = 未禁言或永久禁言 */
+  muteUntil?: string | null
+  /** 禁言原因 */
+  muteReason?: string | null
   postCount: number
   replyCount: number
   createdAt: string
+}
+
+/** 管理员禁言输入（D12：设置时长 / 永久 + 原因） */
+export interface AdminMuteInput {
+  /** 到期时间（UTC ISO 字符串）；省略 = 永久禁言 */
+  until?: string | null
+  /** 禁言原因（可选） */
+  reason?: string
 }
 
 /** 管理员举报列表项 */

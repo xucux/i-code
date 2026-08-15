@@ -41,9 +41,11 @@ import {
   communityAdminGetReports,
   communityAdminGetUsers,
   communityAdminLogin,
+  communityAdminMuteUser,
   communityAdminResolveReport,
   communityAdminSetPostLocked,
   communityAdminUnbanUser,
+  communityAdminUnmuteUser,
   communityAdminUpdateGovernance,
   communityAdminUpdatePost,
   communityAdminUpdateReply,
@@ -61,6 +63,7 @@ import {
   type ReplyItem,
   type SiteGovernance,
 } from '@/modules/community/types'
+import { MuteBadge } from '@/modules/community/ui/mute-badge'
 import { SectionBadge } from '@/modules/community/ui/section-badge'
 
 export function CommunityAdmin() {
@@ -72,10 +75,40 @@ export function CommunityAdmin() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
 
-  // 登录态重置（退出登录）
+  // ===== adminToken 6h 持久化（D12：避免频繁重复登录）=====
+  // 存 localStorage + 过期时间戳；读取时校验，过期则清除。
+  const TOKEN_KEY = 'community.adminToken'
+  const TOKEN_EXPIRY_KEY = 'community.adminTokenExpiry'
+  /** 前端缓存时长 6 小时（服务端 TTL 7h，留有缓冲，避免时钟偏差提前 401） */
+  const TOKEN_CACHE_MS = 6 * 60 * 60 * 1000
+
+  // 初始化：尝试从 localStorage 恢复会话
+  useEffect(() => {
+    try {
+      const cached = localStorage.getItem(TOKEN_KEY)
+      const expiry = Number(localStorage.getItem(TOKEN_EXPIRY_KEY) ?? 0)
+      if (cached && expiry > Date.now()) {
+        setToken(cached)
+      } else {
+        localStorage.removeItem(TOKEN_KEY)
+        localStorage.removeItem(TOKEN_EXPIRY_KEY)
+      }
+    } catch {
+      // localStorage 不可用（隐私模式等）时按未登录处理，不影响功能
+    }
+  }, [])
+
+  // 登录态重置（退出登录）：清内存 + 清 localStorage
   const logout = useCallback(() => {
     setToken(null)
     setPassword('')
+    try {
+      localStorage.removeItem(TOKEN_KEY)
+      localStorage.removeItem(TOKEN_EXPIRY_KEY)
+    } catch {
+      // ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleLogin = async () => {
@@ -84,6 +117,12 @@ export function CommunityAdmin() {
     try {
       const data = await communityAdminLogin(username.trim(), password)
       setToken(data.adminToken)
+      try {
+        localStorage.setItem(TOKEN_KEY, data.adminToken)
+        localStorage.setItem(TOKEN_EXPIRY_KEY, String(Date.now() + TOKEN_CACHE_MS))
+      } catch {
+        // ignore
+      }
       toast.success(t('admin.loginSuccess'))
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e))
@@ -304,7 +343,7 @@ function AdminGovernanceTab({ token }: { token: string }) {
   )
 }
 
-/** 用户列表 Tab：封禁 / 解封 */
+/** 用户列表 Tab：封禁 / 解封 + 禁言 / 解禁 */
 function AdminUsersTab({ token, height }: { token: string; height: number }) {
   const { t } = useTranslation('community')
   const [users, setUsers] = useState<AdminUserItem[]>([])
@@ -312,6 +351,8 @@ function AdminUsersTab({ token, height }: { token: string; height: number }) {
   // 待确认封禁的用户（展开原因输入）
   const [banningId, setBanningId] = useState<string | null>(null)
   const [banReason, setBanReason] = useState('')
+  // 禁言弹窗目标用户
+  const [muteTarget, setMuteTarget] = useState<AdminUserItem | null>(null)
   const [acting, setActing] = useState(false)
 
   const load = useCallback(async () => {
@@ -359,6 +400,21 @@ function AdminUsersTab({ token, height }: { token: string; height: number }) {
     }
   }
 
+  /** 解除禁言 */
+  const handleUnmute = async (userId: string) => {
+    if (acting) return
+    setActing(true)
+    try {
+      await communityAdminUnmuteUser(token, userId)
+      toast.success(t('admin.unmuteDone'))
+      await load()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e))
+    } finally {
+      setActing(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="text-muted-foreground flex h-20 items-center justify-center gap-2 text-xs">
@@ -389,6 +445,7 @@ function AdminUsersTab({ token, height }: { token: string; height: number }) {
                   {t('admin.normal')}
                 </Badge>
               )}
+              <MuteBadge muted={user.muted} until={user.muteUntil} />
               <span className="text-muted-foreground ml-auto text-[11px] tabular-nums">
                 <i className="fa-solid fa-file-lines mr-0.5 size-2.5" />
                 {user.postCount}
@@ -398,6 +455,24 @@ function AdminUsersTab({ token, height }: { token: string; height: number }) {
               <span className="text-muted-foreground shrink-0 text-[11px] tabular-nums">
                 {formatCommunityTime(user.createdAt, t)}
               </span>
+              {user.muted ? (
+                <Button variant="outline" size="sm" className="h-6 shrink-0 px-2 text-[11px]" disabled={acting} onClick={() => void handleUnmute(user.userId)}>
+                  <i className="fa-solid fa-volume-high mr-1 size-2.5" />
+                  {t('admin.unmute')}
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground hover:text-amber-500 h-6 shrink-0 px-2 text-[11px]"
+                  disabled={user.banned}
+                  title={user.banned ? t('admin.muteDisabledWhenBanned') : undefined}
+                  onClick={() => setMuteTarget(user)}
+                >
+                  <i className="fa-solid fa-volume-xmark mr-1 size-2.5" />
+                  {t('admin.mute')}
+                </Button>
+              )}
               {user.banned ? (
                 <Button variant="outline" size="sm" className="h-6 shrink-0 px-2 text-[11px]" disabled={acting} onClick={() => void handleUnban(user.userId)}>
                   {t('admin.unban')}
@@ -419,6 +494,9 @@ function AdminUsersTab({ token, height }: { token: string; height: number }) {
             </div>
             {user.banned && user.banReason && (
               <p className="text-destructive mt-1.5 text-[11px]">{t('profile.banReason', { reason: user.banReason })}</p>
+            )}
+            {user.muted && user.muteReason && (
+              <p className="text-amber-600 mt-1.5 text-[11px]">{t('profile.muteReason', { reason: user.muteReason })}</p>
             )}
             {banningId === user.userId && !user.banned && (
               <div className="mt-2 flex items-center gap-1.5">
@@ -445,7 +523,142 @@ function AdminUsersTab({ token, height }: { token: string; height: number }) {
           </div>
         ))}
       </div>
+      {/* 禁言弹窗（设置时长 / 永久 + 原因） */}
+      <MuteUserDialog
+        token={token}
+        user={muteTarget}
+        onOpenChange={(open) => !open && setMuteTarget(null)}
+        onSaved={() => void load()}
+      />
     </ScrollPage>
+  )
+}
+
+/**
+ * 禁言弹窗（D12）：选择时长（预设小时 / 永久）+ 输入原因
+ *
+ * 提交后调用禁言接口（until 为 UTC ISO 或 null=永久），成功回调 onSaved 刷新列表。
+ */
+function MuteUserDialog({
+  token,
+  user,
+  onOpenChange,
+  onSaved,
+}: {
+  token: string
+  user: AdminUserItem | null
+  onOpenChange: (open: boolean) => void
+  onSaved: () => void
+}) {
+  const { t } = useTranslation('community')
+  const [hours, setHours] = useState<number>(24)
+  const [permanent, setPermanent] = useState(false)
+  const [reason, setReason] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  const isOpen = user != null
+  // 打开时重置表单
+  useEffect(() => {
+    if (isOpen) {
+      setHours(24)
+      setPermanent(false)
+      setReason('')
+    }
+  }, [isOpen])
+
+  /** 预设时长选项（小时）；0 表示切换到「永久」 */
+  const presets = [1, 6, 24, 72, 168, 720]
+
+  const handleSubmit = async () => {
+    if (!user || submitting) return
+    setSubmitting(true)
+    try {
+      // until：永久 → null；否则 now + hours 的 RFC3339 字符串（与 Worker 校验一致）
+      const until = permanent
+        ? null
+        : new Date(Date.now() + hours * 60 * 60 * 1000).toISOString()
+      await communityAdminMuteUser(token, user.userId, {
+        until: until ?? null,
+        reason: reason.trim() || undefined,
+      })
+      toast.success(t('admin.muteDone'))
+      onOpenChange(false)
+      onSaved()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="text-sm">{t('admin.muteTitle')}</DialogTitle>
+          <DialogDescription className="text-xs">
+            {user ? t('admin.muteDesc', { name: user.nickname }) : ''}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3 py-1">
+          {/* 时长选择：预设按钮组 + 永久开关 */}
+          <div className="space-y-1">
+            <Label className="text-xs">{t('admin.muteDuration')}</Label>
+            <div className="flex flex-wrap gap-1.5">
+              {presets.map((h) => (
+                <button
+                  key={h}
+                  type="button"
+                  disabled={permanent}
+                  className={cn(
+                    'h-7 rounded-md border px-2 text-xs transition-colors',
+                    !permanent && hours === h
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'bg-background text-muted-foreground hover:bg-muted hover:text-foreground'
+                  )}
+                  onClick={() => {
+                    setHours(h)
+                    setPermanent(false)
+                  }}
+                >
+                  {t('admin.muteHours', { hours: h })}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-2 pt-1">
+              <Switch checked={permanent} onCheckedChange={(v) => setPermanent(v)} />
+              <span className="text-muted-foreground text-xs">{t('admin.mutePermanent')}</span>
+            </div>
+          </div>
+
+          {/* 原因 */}
+          <div className="space-y-1">
+            <Label htmlFor="mute-reason" className="text-xs">
+              {t('admin.muteReason')}
+            </Label>
+            <Input
+              id="mute-reason"
+              value={reason}
+              maxLength={100}
+              placeholder={t('admin.muteReasonPlaceholder')}
+              onChange={(e) => setReason(e.target.value)}
+              className="h-8 text-xs"
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => onOpenChange(false)}>
+            {t('post.cancel')}
+          </Button>
+          <Button size="sm" className="h-8 text-xs" disabled={submitting} onClick={handleSubmit}>
+            {submitting && <i className="fa-solid fa-spinner fa-spin mr-1.5 size-3" />}
+            {t('admin.save')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -659,6 +872,7 @@ function AdminPostsTab({ token, height }: { token: string; height: number }) {
               <div className="flex items-center gap-2">
                 <span className="text-lg leading-none">{getCommunityAvatar(post.author.avatarIndex)}</span>
                 <span className="max-w-40 truncate text-xs font-medium">{post.author.nickname}</span>
+                <MuteBadge muted={post.author.muted} />
                 <SectionBadge section={post.section} />
                 {post.locked && (
                   <Badge variant="outline" className="h-4 px-1 text-[10px]">
@@ -941,6 +1155,7 @@ function AdminPostDetail({
             <div className="flex items-center gap-2">
               <span className="text-lg leading-none">{getCommunityAvatar(post.author.avatarIndex)}</span>
               <span className="max-w-40 truncate text-xs font-medium">{post.author.nickname}</span>
+              <MuteBadge muted={post.author.muted} />
               <SectionBadge section={post.section} />
               <span className="text-muted-foreground ml-auto text-[11px] tabular-nums">
                 {formatCommunityTime(post.createdAt, t)}
@@ -1042,6 +1257,7 @@ function AdminReplyCard({
       <div className="flex items-center gap-2">
         <span className="text-base leading-none">{getCommunityAvatar(reply.author.avatarIndex)}</span>
         <span className="max-w-40 truncate text-xs font-medium">{reply.author.nickname}</span>
+        <MuteBadge muted={reply.author.muted} />
         <span className="text-muted-foreground ml-auto text-[11px] tabular-nums">
           {formatCommunityTime(reply.createdAt, t)}
         </span>

@@ -17,10 +17,10 @@ use crate::error::{IcodeError, IcodeResult};
 use crate::modules::shared;
 
 use super::types::{
-    AdminLoginData, AdminLoginInput, AdminPostListData, AdminReportItem, AdminUpdateGovernanceInput,
-    AdminUpdatePostInput, AdminUserItem, CheckInStats, CreatePostInput, CreateReplyInput,
-    MyPostsData, MyRepliesData, PostDetailData, PostListData, ProfileData, ProfileUser,
-    ReportInput, SiteGovernance, UpdateProfileInput,
+    AdminLoginData, AdminLoginInput, AdminMuteInput, AdminPostListData, AdminReportItem,
+    AdminUpdateGovernanceInput, AdminUpdatePostInput, AdminUserItem, CheckInStats, CreatePostInput,
+    CreateReplyInput, MyPostsData, MyRepliesData, PostDetailData, PostListData, ProfileData,
+    ProfileUser, ReportInput, SiteGovernance, UpdateProfileInput,
 };
 
 /// App Token：与 Worker 侧 `APP_TOKEN`（wrangler.toml `[vars]`）保持一致，
@@ -516,6 +516,47 @@ pub async fn admin_unban_user(
         base_url,
         Method::POST,
         &format!("admin/users/{user_id}/unban"),
+        None,
+        None,
+        Some(admin_token),
+        None,
+        true,
+    )
+    .await?;
+    Ok(())
+}
+
+/// 禁言用户（D12：设置时长 / 永久 + 原因）
+pub async fn admin_mute_user(
+    base_url: &str,
+    admin_token: &str,
+    user_id: &str,
+    input: &AdminMuteInput,
+) -> IcodeResult<()> {
+    send::<serde_json::Value>(
+        base_url,
+        Method::POST,
+        &format!("admin/users/{user_id}/mute"),
+        None,
+        None,
+        Some(admin_token),
+        Some(serde_json::to_value(input)?),
+        true,
+    )
+    .await?;
+    Ok(())
+}
+
+/// 解除用户禁言
+pub async fn admin_unmute_user(
+    base_url: &str,
+    admin_token: &str,
+    user_id: &str,
+) -> IcodeResult<()> {
+    send::<serde_json::Value>(
+        base_url,
+        Method::POST,
+        &format!("admin/users/{user_id}/unmute"),
         None,
         None,
         Some(admin_token),

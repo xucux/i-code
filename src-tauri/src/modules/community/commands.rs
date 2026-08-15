@@ -10,10 +10,11 @@ use crate::error::IcodeResult;
 
 use super::service::CommunityHandle;
 use super::types::{
-    AdminLoginData, AdminLoginInput, AdminPostListData, AdminReportItem, AdminUpdateGovernanceInput,
-    AdminUpdatePostInput, AdminUserItem, CheckInStats, CommunityLocalState, CreatePostInput,
-    CreateReplyInput, MyPostsData, MyRepliesData, PostDetailData, PostListData, ProfileData,
-    ProfileUser, ReportInput, SiteGovernance, UpdateProfileInput,
+    AdminLoginData, AdminLoginInput, AdminMuteInput, AdminPostListData, AdminReportItem,
+    AdminUpdateGovernanceInput, AdminUpdatePostInput, AdminUserItem, CheckInStats,
+    CommunityLocalState, CreatePostInput, CreateReplyInput, MyPostsData, MyRepliesData,
+    PostDetailData, PostListData, ProfileData, ProfileUser, ReportInput, SiteGovernance,
+    UpdateProfileInput,
 };
 
 /// 列表分页上限（与 Worker 侧 MAX_LIST_LIMIT 对齐）
@@ -197,6 +198,27 @@ pub async fn community_admin_unban(
     user_id: String,
 ) -> IcodeResult<()> {
     state.service().admin_unban_user(&admin_token, &user_id).await
+}
+
+/// 禁言用户（D12：设置时长 / 永久 + 原因）
+#[tauri::command]
+pub async fn community_admin_mute_user(
+    state: State<'_, CommunityHandle>,
+    admin_token: String,
+    user_id: String,
+    input: AdminMuteInput,
+) -> IcodeResult<()> {
+    state.service().admin_mute_user(&admin_token, &user_id, input).await
+}
+
+/// 解除用户禁言
+#[tauri::command]
+pub async fn community_admin_unmute_user(
+    state: State<'_, CommunityHandle>,
+    admin_token: String,
+    user_id: String,
+) -> IcodeResult<()> {
+    state.service().admin_unmute_user(&admin_token, &user_id).await
 }
 
 /// 举报列表

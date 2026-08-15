@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/dialog'
 import { MarkdownContent } from '@/components/ui/markdown-content'
 import { SectionBadge } from '@/modules/community/ui/section-badge'
+import { MuteBadge } from '@/modules/community/ui/mute-badge'
 import { useAvailableHeight } from '@/hooks/use-available-height'
 import { createCommunityReply, formatCommunityTime, getCommunityPost, getCommunitySiteGovernance } from '@/hooks/use-community'
 import { getCommunityAvatar } from '@/modules/community/avatars'
@@ -216,6 +217,7 @@ export function PostDetail({ postId, currentUserId }: PostDetailProps) {
             <div className="text-muted-foreground mt-1.5 flex items-center gap-1.5 text-[11px]">
               <span className="text-sm leading-none">{getCommunityAvatar(post.author.avatarIndex)}</span>
               <span className="max-w-32 truncate">{post.author.nickname}</span>
+              <MuteBadge muted={post.author.muted} />
               <span>{formatCommunityTime(post.createdAt, t)}</span>
               <span className="ml-auto flex items-center gap-1 tabular-nums">
                 <i className="fa-solid fa-comment size-2.5" />
@@ -431,6 +433,7 @@ function ReplyMeta({
         {getCommunityAvatar(reply.author.avatarIndex)}
       </span>
       <span className="max-w-32 truncate text-xs font-medium">{reply.author.nickname}</span>
+      <MuteBadge muted={reply.author.muted} />
       {isOp && (
         <Badge variant="secondary" className="h-4 px-1 text-[10px]">
           {t('comment.op')}

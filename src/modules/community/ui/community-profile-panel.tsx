@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
 import { getCommunityAvatar } from '@/modules/community/avatars'
+import { MuteBadge } from '@/modules/community/ui/mute-badge'
 import type { CommunityView, ProfileData } from '@/modules/community/types'
 
 export interface CommunityProfilePanelProps {
@@ -54,6 +55,7 @@ export function CommunityProfilePanel({
                   {t('profile.banned')}
                 </Badge>
               )}
+              <MuteBadge muted={user.muted} until={user.muteUntil} />
             </div>
             {/* 统计：帖子 / 回复 */}
             <div className="text-muted-foreground mt-0.5 flex items-center gap-2 text-[11px] tabular-nums">
@@ -80,6 +82,9 @@ export function CommunityProfilePanel({
 
         {user.banned && user.banReason && (
           <p className="text-destructive mt-2 text-[11px]">{t('profile.banReason', { reason: user.banReason })}</p>
+        )}
+        {user.muted && user.muteReason && (
+          <p className="text-amber-600 mt-2 text-[11px]">{t('profile.muteReason', { reason: user.muteReason })}</p>
         )}
 
         <Separator className="my-3" />

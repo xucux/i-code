@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { useNavigate } from '@tanstack/react-router'
 import { getCommunityAvatar } from '@/modules/community/avatars'
 import { SectionBadge } from '@/modules/community/ui/section-badge'
+import { MuteBadge } from '@/modules/community/ui/mute-badge'
 import { formatCommunityTime } from '@/hooks/use-community'
 import type { PostSummary } from '@/modules/community/types'
 
@@ -68,6 +69,7 @@ export function PostList({ posts, loading, loadingMore, hasMore, onRefresh, onLo
           <div className="text-muted-foreground mt-2 flex items-center gap-1.5 text-[11px]">
             <span className="text-sm leading-none">{getCommunityAvatar(post.author.avatarIndex)}</span>
             <span className="max-w-28 truncate">{post.author.nickname}</span>
+            <MuteBadge muted={post.author.muted} />
             <span className="ml-auto flex items-center gap-1 tabular-nums">
               <i className="fa-solid fa-comment size-2.5" />
               {post.replyCount}

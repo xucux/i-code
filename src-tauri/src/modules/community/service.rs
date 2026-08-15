@@ -17,10 +17,11 @@ use crate::error::{IcodeError, IcodeResult};
 use super::client;
 use super::repository;
 use super::types::{
-    AdminLoginData, AdminLoginInput, AdminPostListData, AdminReportItem, AdminUpdateGovernanceInput,
-    AdminUpdatePostInput, AdminUserItem, CheckInStats, CommunityLocalState, CreatePostInput,
-    CreateReplyInput, MyPostsData, MyRepliesData, PostDetailData, PostListData, ProfileData,
-    ProfileUser, ReportInput, SiteGovernance, UpdateProfileInput,
+    AdminLoginData, AdminLoginInput, AdminMuteInput, AdminPostListData, AdminReportItem,
+    AdminUpdateGovernanceInput, AdminUpdatePostInput, AdminUserItem, CheckInStats,
+    CommunityLocalState, CreatePostInput, CreateReplyInput, MyPostsData, MyRepliesData,
+    PostDetailData, PostListData, ProfileData, ProfileUser, ReportInput, SiteGovernance,
+    UpdateProfileInput,
 };
 
 /// 社区 Service 句柄（Tauri State）
@@ -246,6 +247,33 @@ impl CommunityService {
     ) -> IcodeResult<()> {
         let base_url = self.require_enabled_base()?;
         client::admin_unban_user(&base_url, admin_token, user_id).await
+    }
+
+    /// 禁言用户（D12：服务端校验 until 格式，委托 Worker 落库）
+    pub async fn admin_mute_user(
+        &self,
+        admin_token: &str,
+        user_id: &str,
+        input: AdminMuteInput,
+    ) -> IcodeResult<()> {
+        let base_url = self.require_enabled_base()?;
+        // until：None = 永久；Some 时须为合法 ISO 时间字符串（此处提前拦截，Worker 仍兜底）
+        if let Some(until) = input.until.as_deref() {
+            if chrono::DateTime::parse_from_rfc3339(until).is_err() {
+                return Err(IcodeError::validation("until 须为合法 ISO 时间字符串"));
+            }
+        }
+        client::admin_mute_user(&base_url, admin_token, user_id, &input).await
+    }
+
+    /// 解除用户禁言
+    pub async fn admin_unmute_user(
+        &self,
+        admin_token: &str,
+        user_id: &str,
+    ) -> IcodeResult<()> {
+        let base_url = self.require_enabled_base()?;
+        client::admin_unmute_user(&base_url, admin_token, user_id).await
     }
 
     pub async fn admin_list_reports(

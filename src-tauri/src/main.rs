@@ -837,6 +837,8 @@ fn main() {
             modules::community::commands::community_admin_get_users,
             modules::community::commands::community_admin_ban,
             modules::community::commands::community_admin_unban,
+            modules::community::commands::community_admin_mute_user,
+            modules::community::commands::community_admin_unmute_user,
             modules::community::commands::community_admin_get_reports,
             modules::community::commands::community_admin_resolve_report,
             modules::community::commands::community_admin_get_posts,

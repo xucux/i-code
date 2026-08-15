@@ -76,6 +76,9 @@ pub struct UserBrief {
     pub user_id: String,
     pub nickname: String,
     pub avatar_index: i64,
+    /// 当前是否被禁言（D12：懒删除，到期自动视为未禁言）
+    #[serde(default)]
+    pub muted: bool,
 }
 
 /// 帖子列表项
@@ -200,6 +203,15 @@ pub struct ProfileUser {
     pub banned: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ban_reason: Option<String>,
+    /// 当前是否被禁言（D12）
+    #[serde(default)]
+    pub muted: bool,
+    /// 禁言到期时间（UTC ISO）；None = 未禁言或永久禁言
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mute_until: Option<String>,
+    /// 禁言原因
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mute_reason: Option<String>,
 }
 
 /// 签到 / 数据统计（§8.3：纯计数 + 连续天数）
@@ -323,9 +335,30 @@ pub struct AdminUserItem {
     pub banned: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ban_reason: Option<String>,
+    /// 是否处于禁言状态（D12）
+    #[serde(default)]
+    pub muted: bool,
+    /// 禁言到期时间（UTC ISO）；None = 未禁言或永久禁言
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mute_until: Option<String>,
+    /// 禁言原因
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mute_reason: Option<String>,
     pub post_count: i64,
     pub reply_count: i64,
     pub created_at: String,
+}
+
+/// 管理员禁言输入（D12：设置时长 / 永久 + 原因）
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AdminMuteInput {
+    /// 到期时间（UTC ISO 字符串）；None = 永久禁言
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub until: Option<String>,
+    /// 禁言原因（可选）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
 }
 
 /// 举报人摘要（管理员视角）

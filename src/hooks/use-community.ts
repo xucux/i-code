@@ -10,6 +10,7 @@ import { toast } from 'sonner'
 import { invokeCommand } from '@/hooks/use-command'
 import type {
   AdminLoginData,
+  AdminMuteInput,
   AdminPostListData,
   AdminReportItem,
   AdminUpdateGovernanceInput,
@@ -128,6 +129,20 @@ export async function communityAdminBanUser(adminToken: string, userId: string, 
 /** 管理员：解封用户 */
 export async function communityAdminUnbanUser(adminToken: string, userId: string): Promise<void> {
   return invokeCommand<void>('community_admin_unban', { adminToken, userId })
+}
+
+/** 管理员：禁言用户（D12：设置时长 / 永久 + 原因） */
+export async function communityAdminMuteUser(
+  adminToken: string,
+  userId: string,
+  input: AdminMuteInput
+): Promise<void> {
+  return invokeCommand<void>('community_admin_mute_user', { adminToken, userId, input })
+}
+
+/** 管理员：解除用户禁言 */
+export async function communityAdminUnmuteUser(adminToken: string, userId: string): Promise<void> {
+  return invokeCommand<void>('community_admin_unmute_user', { adminToken, userId })
 }
 
 /** 管理员：举报列表 */
