@@ -12,6 +12,7 @@ import type {
   AdminLoginData,
   AdminPostListData,
   AdminReportItem,
+  AdminUpdateGovernanceInput,
   AdminUpdatePostInput,
   AdminUserItem,
   CheckInStats,
@@ -26,6 +27,7 @@ import type {
   ProfileData,
   ProfileUser,
   ReportInput,
+  SiteGovernance,
   UpdateProfileInput,
 } from '@/modules/community/types'
 
@@ -97,6 +99,11 @@ export async function getCommunityMyReplies(cursor?: string, limit?: number): Pr
 /** 举报帖子 / 回复 */
 export async function reportCommunityContent(input: ReportInput): Promise<number> {
   return invokeCommand<number>('community_report', { input })
+}
+
+/** 全站治理开关（D11：用户端只读，用于禁用发帖 / 回复入口） */
+export async function getCommunitySiteGovernance(): Promise<SiteGovernance> {
+  return invokeCommand<SiteGovernance>('community_get_site_governance')
 }
 
 // ===== 管理员 =====
@@ -177,6 +184,30 @@ export async function communityAdminUpdateReply(adminToken: string, replyId: num
 /** 管理员：删除回复（顶层评论级联楼中楼） */
 export async function communityAdminDeleteReply(adminToken: string, replyId: number): Promise<void> {
   return invokeCommand<void>('community_admin_delete_reply', { adminToken, replyId })
+}
+
+// ===== 管理员：站点治理（D11）=====
+
+/** 管理员：读取全站治理开关 */
+export async function communityAdminGetGovernance(adminToken: string): Promise<SiteGovernance> {
+  return invokeCommand<SiteGovernance>('community_admin_get_governance', { adminToken })
+}
+
+/** 管理员：更新全站治理开关（muteAll / postLocked / replyLocked 至少一项） */
+export async function communityAdminUpdateGovernance(
+  adminToken: string,
+  input: AdminUpdateGovernanceInput,
+): Promise<SiteGovernance> {
+  return invokeCommand<SiteGovernance>('community_admin_update_governance', { adminToken, input })
+}
+
+/** 管理员：锁定 / 解锁帖子（locked=1 时该帖禁止新增评论回复） */
+export async function communityAdminSetPostLocked(
+  adminToken: string,
+  postId: number,
+  locked: boolean,
+): Promise<void> {
+  return invokeCommand<void>('community_admin_set_post_locked', { adminToken, postId, locked })
 }
 
 // ===== 通用 hooks =====

@@ -1847,7 +1847,29 @@
       "save": "保存",
       "editPostTitle": "编辑帖子",
       "editPostDesc": "修改后保存将覆盖原内容",
-      "editReplyPlaceholder": "编辑回复内容…（1000 字以内）"
+      "editReplyPlaceholder": "编辑回复内容…（1000 字以内）",
+      "governance": "站点治理",
+      "governanceHint": "全站禁言优先级最高：开启后发帖与评论回复一并禁止；帖子级锁定请在「帖子管理」中操作",
+      "governanceUpdated": "治理开关已更新",
+      "governanceLoadFailed": "治理开关加载失败",
+      "muteAll": "全站禁言",
+      "muteAllDesc": "禁止所有用户发帖与评论回复（最高优先级）",
+      "postLocked": "禁止发帖",
+      "postLockedDesc": "禁止所有用户发布新帖子，存量帖子正常展示",
+      "replyLocked": "禁止评论回复",
+      "replyLockedDesc": "禁止所有用户发表评论与回复，存量内容正常展示",
+      "locked": "已锁定",
+      "lockPost": "锁定",
+      "unlockPost": "解锁",
+      "postLockedDone": "帖子已锁定，禁止新增评论回复",
+      "postUnlockedDone": "帖子已解锁"
+    },
+    "governance": {
+      "postDisabledTip": "管理员已暂停发帖",
+      "postLockedTip": "该帖已锁定，暂无法评论",
+      "muteAllTip": "全站禁言中，暂无法回复",
+      "replyLockedTip": "管理员已暂停评论回复",
+      "lockedBadge": "已锁定"
     },
     "success": {
       "post": "发布成功",

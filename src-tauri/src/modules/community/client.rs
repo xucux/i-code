@@ -17,9 +17,10 @@ use crate::error::{IcodeError, IcodeResult};
 use crate::modules::shared;
 
 use super::types::{
-    AdminLoginData, AdminLoginInput, AdminPostListData, AdminReportItem, AdminUpdatePostInput,
-    AdminUserItem, CheckInStats, CreatePostInput, CreateReplyInput, MyPostsData, MyRepliesData,
-    PostDetailData, PostListData, ProfileData, ProfileUser, ReportInput, UpdateProfileInput,
+    AdminLoginData, AdminLoginInput, AdminPostListData, AdminReportItem, AdminUpdateGovernanceInput,
+    AdminUpdatePostInput, AdminUserItem, CheckInStats, CreatePostInput, CreateReplyInput,
+    MyPostsData, MyRepliesData, PostDetailData, PostListData, ProfileData, ProfileUser,
+    ReportInput, SiteGovernance, UpdateProfileInput,
 };
 
 /// App Token：与 Worker 侧 `APP_TOKEN`（wrangler.toml `[vars]`）保持一致，
@@ -426,6 +427,24 @@ pub async fn report(
     Ok(data.report_id)
 }
 
+/// 全站治理开关（D11：用户端只读，用于前端禁用发帖 / 回复入口）
+pub async fn get_site_governance(
+    base_url: &str,
+    user_id: &str,
+) -> IcodeResult<SiteGovernance> {
+    send(
+        base_url,
+        Method::GET,
+        "site-settings",
+        None,
+        Some(user_id),
+        None,
+        None,
+        false,
+    )
+    .await
+}
+
 // ===== 管理员接口（§5.3：凭据由用户手动输入，客户端只持短期 adminToken）=====
 
 /// 管理员登录，返回 adminToken
@@ -675,6 +694,67 @@ pub async fn admin_delete_reply(
         None,
         Some(admin_token),
         None,
+        true,
+    )
+    .await?;
+    Ok(())
+}
+
+// ===== 站点治理（D11：全站禁言 / 禁发帖 / 禁回复 + 帖子级锁定；端点不限流 D9）=====
+
+/// 管理员读取全站治理开关
+pub async fn admin_get_governance(
+    base_url: &str,
+    admin_token: &str,
+) -> IcodeResult<SiteGovernance> {
+    send(
+        base_url,
+        Method::GET,
+        "admin/site-settings",
+        None,
+        None,
+        Some(admin_token),
+        None,
+        false,
+    )
+    .await
+}
+
+/// 管理员更新全站治理开关（部分更新，返回最新完整状态）
+pub async fn admin_update_governance(
+    base_url: &str,
+    admin_token: &str,
+    input: &AdminUpdateGovernanceInput,
+) -> IcodeResult<SiteGovernance> {
+    send(
+        base_url,
+        Method::PUT,
+        "admin/site-settings",
+        None,
+        None,
+        Some(admin_token),
+        Some(serde_json::to_value(input)?),
+        true,
+    )
+    .await
+}
+
+/// 管理员锁定 / 解锁帖子（locked=1 时该帖禁止新增评论回复）
+pub async fn admin_set_post_locked(
+    base_url: &str,
+    admin_token: &str,
+    post_id: i64,
+    locked: bool,
+) -> IcodeResult<()> {
+    let body = serde_json::json!({ "locked": locked });
+    send::<serde_json::Value>(
+        base_url,
+        Method::POST,
+        &format!("admin/posts/{post_id}/lock"),
+        None,
+        None,
+        Some(admin_token),
+        Some(body),
         true,
     )
     .await?;

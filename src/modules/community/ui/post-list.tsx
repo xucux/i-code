@@ -51,6 +51,12 @@ export function PostList({ posts, loading, loadingMore, hasMore, onRefresh, onLo
         >
           <div className="flex items-start justify-between gap-2">
             <span className="flex min-w-0 items-center gap-1.5">
+              {post.locked && (
+                <i
+                  className="fa-solid fa-lock text-muted-foreground shrink-0 size-2.5"
+                  title={t('governance.lockedBadge')}
+                />
+              )}
               <span className="line-clamp-1 text-sm font-medium">{post.title}</span>
             </span>
             <span className="text-muted-foreground mt-0.5 flex shrink-0 items-center gap-1.5 text-[11px] tabular-nums">

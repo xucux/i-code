@@ -24,9 +24,9 @@ import {
 import { MarkdownContent } from '@/components/ui/markdown-content'
 import { SectionBadge } from '@/modules/community/ui/section-badge'
 import { useAvailableHeight } from '@/hooks/use-available-height'
-import { createCommunityReply, formatCommunityTime, getCommunityPost } from '@/hooks/use-community'
+import { createCommunityReply, formatCommunityTime, getCommunityPost, getCommunitySiteGovernance } from '@/hooks/use-community'
 import { getCommunityAvatar } from '@/modules/community/avatars'
-import type { PostDetailData, ReplyItem } from '@/modules/community/types'
+import type { PostDetailData, ReplyItem, SiteGovernance } from '@/modules/community/types'
 import { ReportDialog } from './report-dialog'
 
 /** 回复字数上限（与 Worker / Rust 侧一致） */
@@ -53,6 +53,23 @@ export function PostDetail({ postId, currentUserId }: PostDetailProps) {
 
   // 举报弹层状态
   const [reportTarget, setReportTarget] = useState<{ type: 'post' | 'reply'; id: number; preview: string } | null>(null)
+
+  // 站点治理开关（D11）：null = 加载中/失败按全关处理，不阻塞浏览
+  const [governance, setGovernance] = useState<SiteGovernance | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    getCommunitySiteGovernance()
+      .then((gov) => {
+        if (!cancelled) setGovernance(gov)
+      })
+      .catch(() => {
+        // 治理开关拉取失败按全关处理（Worker 侧仍兜底拦截）
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   /** 实测页面总高度（用于推导滚动区高度） */
   const [pageHeight, pageRef] = useAvailableHeight()
@@ -135,6 +152,14 @@ export function PostDetail({ postId, currentUserId }: PostDetailProps) {
 
   const { post, comments } = data
   const canSend = draft.trim().length > 0 && draft.length <= REPLY_MAX && !sending
+  // 回复禁用（D11）：帖子锁定 > 全站禁言 > 全站禁回复，任一命中即禁止
+  const replyDisabled =
+    post.locked || (governance != null && (governance.muteAll || governance.replyLocked))
+  const replyDisabledTip = post.locked
+    ? t('governance.postLockedTip')
+    : governance?.muteAll
+      ? t('governance.muteAllTip')
+      : t('governance.replyLockedTip')
 
   return (
     <div ref={pageRef} className="flex h-full flex-col p-4">
@@ -180,6 +205,12 @@ export function PostDetail({ postId, currentUserId }: PostDetailProps) {
 
             <div className="mt-2 flex items-start gap-2">
               <h1 className="min-w-0 flex-1 text-base font-semibold leading-snug">{post.title}</h1>
+              {post.locked && (
+                <Badge variant="outline" className="mt-0.5 h-5 shrink-0 gap-1 px-1.5 text-[10px]">
+                  <i className="fa-solid fa-lock size-2" />
+                  {t('governance.lockedBadge')}
+                </Badge>
+              )}
               <SectionBadge section={post.section} className="mt-0.5 shrink-0" />
             </div>
             <div className="text-muted-foreground mt-1.5 flex items-center gap-1.5 text-[11px]">
@@ -199,19 +230,26 @@ export function PostDetail({ postId, currentUserId }: PostDetailProps) {
 
           {/* 评论区 */}
           <div className="space-y-2">
-            {/* 标题行：「评论（N）」+ 右侧纯文字「回复」入口（弹窗输入） */}
+            {/* 标题行：「评论（N）」+ 右侧「回复」入口（弹窗输入；D11 锁定时替换为提示） */}
             <div className="flex items-center justify-between px-1">
               <span className="text-muted-foreground text-xs">
                 {t('comment.sectionTitle', { count: comments.items.length })}
               </span>
-              <button
-                type="button"
-                className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs transition-colors"
-                onClick={() => openReplyDialog()}
-              >
-                <i className="fa-solid fa-reply size-2.5" />
-                {t('action.reply')}
-              </button>
+              {replyDisabled ? (
+                <span className="text-muted-foreground flex items-center gap-1 text-xs">
+                  <i className="fa-solid fa-lock size-2.5" />
+                  {replyDisabledTip}
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs transition-colors"
+                  onClick={() => openReplyDialog()}
+                >
+                  <i className="fa-solid fa-reply size-2.5" />
+                  {t('action.reply')}
+                </button>
+              )}
             </div>
             {comments.items.length === 0 && (
               <div className="text-muted-foreground flex h-20 items-center justify-center text-xs">
@@ -224,6 +262,7 @@ export function PostDetail({ postId, currentUserId }: PostDetailProps) {
                 comment={comment}
                 postAuthorId={post.author.userId}
                 currentUserId={currentUserId}
+                replyDisabled={replyDisabled}
                 onReply={(replyId, nickname) => openReplyDialog({ replyId, nickname })}
                 onReport={(type, id, preview) => setReportTarget({ type, id, preview })}
               />
@@ -307,12 +346,15 @@ function CommentBlock({
   comment,
   postAuthorId,
   currentUserId,
+  replyDisabled,
   onReply,
   onReport,
 }: {
   comment: PostDetailData['comments']['items'][number]
   postAuthorId: string
   currentUserId: string | null
+  /** D11 治理：帖子锁定 / 全站禁言 / 禁回复时隐藏回复入口 */
+  replyDisabled: boolean
   onReply: (replyId: number, nickname: string) => void
   onReport: (type: 'post' | 'reply', id: number, preview: string) => void
 }) {
@@ -324,6 +366,7 @@ function CommentBlock({
         reply={comment}
         isOp={comment.author.userId === postAuthorId}
         currentUserId={currentUserId}
+        replyDisabled={replyDisabled}
         onReply={() => onReply(comment.replyId, comment.author.nickname)}
         onReport={() => onReport('reply', comment.replyId, comment.content)}
       />
@@ -338,6 +381,7 @@ function CommentBlock({
                 reply={sub}
                 isOp={sub.author.userId === postAuthorId}
                 currentUserId={currentUserId}
+                replyDisabled={replyDisabled}
                 compact
                 onReply={() => onReply(sub.replyId, sub.author.nickname)}
                 onReport={() => onReport('reply', sub.replyId, sub.content)}
@@ -365,6 +409,7 @@ function ReplyMeta({
   reply,
   isOp,
   currentUserId,
+  replyDisabled,
   compact,
   onReply,
   onReport,
@@ -372,6 +417,8 @@ function ReplyMeta({
   reply: ReplyItem
   isOp: boolean
   currentUserId: string | null
+  /** D11 治理：禁用时隐藏回复按钮（评论区标题行已有统一锁定提示） */
+  replyDisabled?: boolean
   compact?: boolean
   onReply: () => void
   onReport: () => void
@@ -392,16 +439,18 @@ function ReplyMeta({
       <span className="text-muted-foreground text-[11px] tabular-nums">
         {formatCommunityTime(reply.createdAt, t)}
       </span>
-      {/* 操作：回复 / 举报（自己的内容不显示举报） */}
+      {/* 操作：回复 / 举报（自己的内容不显示举报；治理锁定时不显示回复） */}
       <div className="ml-auto flex items-center gap-0.5">
-        <button
-          type="button"
-          className="text-muted-foreground hover:text-foreground px-1 text-[11px] transition-colors"
-          title={t('action.reply')}
-          onClick={onReply}
-        >
-          <i className="fa-solid fa-reply size-3" />
-        </button>
+        {!replyDisabled && (
+          <button
+            type="button"
+            className="text-muted-foreground hover:text-foreground px-1 text-[11px] transition-colors"
+            title={t('action.reply')}
+            onClick={onReply}
+          >
+            <i className="fa-solid fa-reply size-3" />
+          </button>
+        )}
         {reply.author.userId !== currentUserId && (
           <button
             type="button"

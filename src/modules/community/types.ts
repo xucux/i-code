@@ -49,6 +49,8 @@ export interface PostSummary {
   /** 正文截断摘要（Worker 侧取前 200 字） */
   excerpt: string
   replyCount: number
+  /** 帖子级锁定（D11：locked=1 时禁止新增评论回复，存量保留展示） */
+  locked: boolean
   createdAt: string
   author: UserBrief
 }
@@ -67,6 +69,8 @@ export interface PostDetail {
   /** 所属板块（chat / eggs / tech） */
   section: CommunitySection
   replyCount: number
+  /** 帖子级锁定（D11：locked=1 时禁止新增评论回复） */
+  locked: boolean
   createdAt: string
   author: UserBrief
 }
@@ -241,6 +245,8 @@ export interface AdminPostItem {
   /** 正文截断摘要（Worker 侧取前 200 字） */
   excerpt: string
   replyCount: number
+  /** 帖子级锁定（D11：locked=1 时禁止新增评论回复） */
+  locked: boolean
   createdAt: string
   /** 最后编辑时间（管理员识别被编辑过的帖子） */
   updatedAt: string
@@ -258,4 +264,23 @@ export interface AdminUpdatePostInput {
   title?: string
   content?: string
   section?: CommunitySection
+}
+
+// ===== 站点治理（D11：全站禁言 / 禁发帖 / 禁回复 + 帖子级锁定）=====
+
+/** 全站治理开关（存 Worker D1 `site_settings` 表，缺省全关） */
+export interface SiteGovernance {
+  /** 全站禁言：发帖 + 评论回复全部禁止（最高优先级） */
+  muteAll: boolean
+  /** 全站禁止发帖 */
+  postLocked: boolean
+  /** 全站禁止评论回复 */
+  replyLocked: boolean
+}
+
+/** 管理员更新全站治理开关输入（部分更新：至少一项） */
+export interface AdminUpdateGovernanceInput {
+  muteAll?: boolean
+  postLocked?: boolean
+  replyLocked?: boolean
 }

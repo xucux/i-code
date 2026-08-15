@@ -17,6 +17,7 @@ import { useAvailableHeight } from '@/hooks/use-available-height'
 import {
   communityCheckIn,
   createCommunityPost,
+  getCommunitySiteGovernance,
   updateCommunityProfile,
   useCommunityPosts,
   useCommunityProfile,
@@ -33,6 +34,7 @@ import {
   COMMUNITY_SECTIONS,
   type CommunitySection,
   type CommunityView,
+  type SiteGovernance,
 } from '@/modules/community/types'
 
 /** 判断视图是否为板块视图 */
@@ -66,6 +68,26 @@ export function CommunityPage() {
   const [profileDialogMode, setProfileDialogMode] = useState<'setup' | 'edit'>('setup')
   const [createOpen, setCreateOpen] = useState(false)
   const [checkInPending, setCheckInPending] = useState(false)
+
+  // 站点治理开关（D11）：开启社区后拉取，null = 加载中/失败（宽松处理，不阻塞浏览）
+  const [governance, setGovernance] = useState<SiteGovernance | null>(null)
+  // 禁言 / 禁发帖时禁用发帖入口（Worker 侧仍兜底拦截）
+  const postDisabled = governance != null && (governance.muteAll || governance.postLocked)
+
+  useEffect(() => {
+    if (!enabled) return
+    let cancelled = false
+    getCommunitySiteGovernance()
+      .then((gov) => {
+        if (!cancelled) setGovernance(gov)
+      })
+      .catch(() => {
+        // 治理开关拉取失败按全关处理，不阻塞社区浏览
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [enabled])
 
   // 布局高度：页头（标题 + Tabs）固定，左列滚动
   const [pageHeight, pageRef] = useAvailableHeight()
@@ -178,7 +200,13 @@ export function CommunityPage() {
             >
               <i className={loading ? 'fa-solid fa-spinner fa-spin size-3' : 'fa-solid fa-rotate size-3'} />
             </Button>
-            <Button size="sm" className="h-7 text-xs" onClick={() => setCreateOpen(true)}>
+            <Button
+              size="sm"
+              className="h-7 text-xs"
+              disabled={postDisabled}
+              title={postDisabled ? t('governance.postDisabledTip') : undefined}
+              onClick={() => setCreateOpen(true)}
+            >
               <i className="fa-solid fa-pen-to-square mr-1.5 size-3" />
               {t('action.newPost')}
             </Button>

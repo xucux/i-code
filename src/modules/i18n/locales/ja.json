@@ -1834,7 +1834,29 @@
       "save": "保存",
       "editPostTitle": "投稿を編集",
       "editPostDesc": "保存すると元の内容が上書きされます",
-      "editReplyPlaceholder": "返信を編集…（1000 字以内）"
+      "editReplyPlaceholder": "返信を編集…（1000 字以内）",
+      "governance": "サイト管理",
+      "governanceHint": "サイト全体のミュートが最優先：有効にすると投稿と返信の両方が禁止されます。投稿単位のロックは「投稿管理」で操作できます",
+      "governanceUpdated": "管理設定を更新しました",
+      "governanceLoadFailed": "管理設定の読み込みに失敗しました",
+      "muteAll": "サイト全体をミュート",
+      "muteAllDesc": "すべてのユーザーの投稿と返信を禁止（最優先）",
+      "postLocked": "投稿を禁止",
+      "postLockedDesc": "すべてのユーザーの新規投稿を禁止。既存の投稿はそのまま表示されます",
+      "replyLocked": "返信を禁止",
+      "replyLockedDesc": "すべてのユーザーのコメントと返信を禁止。既存の内容はそのまま表示されます",
+      "locked": "ロック中",
+      "lockPost": "ロック",
+      "unlockPost": "ロック解除",
+      "postLockedDone": "投稿をロックしました。新しい返信は禁止されます",
+      "postUnlockedDone": "投稿のロックを解除しました"
+    },
+    "governance": {
+      "postDisabledTip": "管理者により投稿は一時停止中です",
+      "postLockedTip": "この投稿はロック中のためコメントできません",
+      "muteAllTip": "サイト全体がミュート中のため返信できません",
+      "replyLockedTip": "管理者により返信は一時停止中です",
+      "lockedBadge": "ロック中"
     },
     "success": {
       "post": "投稿しました",

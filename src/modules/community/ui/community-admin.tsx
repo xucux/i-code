@@ -1,10 +1,11 @@
 /**
- * 社区管理员页面（§5.3 / D3 + D10）
+ * 社区管理员页面（§5.3 / D3 + D10 + D11）
  *
  * 登录 Worker 固定凭据 → 持有短期 adminToken（仅内存，不持久化，每次使用需重新登录）：
  * - 用户列表：封禁 / 解封
  * - 举报列表：查看目标预览并标记已处理
  * - 帖子管理（D10）：所有用户帖子分页列表，编辑 / 删除帖子；进入详情可编辑 / 删除任意回复
+ * - 站点治理（D11）：全站禁言 / 禁发帖 / 禁回复开关；帖子级锁定（禁止新增评论回复）
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -24,6 +25,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ScrollPage } from '@/components/ui/scroll-page'
+import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { MarkdownContent } from '@/components/ui/markdown-content'
@@ -33,13 +35,16 @@ import {
   communityAdminBanUser,
   communityAdminDeletePost,
   communityAdminDeleteReply,
+  communityAdminGetGovernance,
   communityAdminGetPost,
   communityAdminGetPosts,
   communityAdminGetReports,
   communityAdminGetUsers,
   communityAdminLogin,
   communityAdminResolveReport,
+  communityAdminSetPostLocked,
   communityAdminUnbanUser,
+  communityAdminUpdateGovernance,
   communityAdminUpdatePost,
   communityAdminUpdateReply,
   formatCommunityTime,
@@ -54,6 +59,7 @@ import {
   type CommunitySection,
   type PostDetailData,
   type ReplyItem,
+  type SiteGovernance,
 } from '@/modules/community/types'
 import { SectionBadge } from '@/modules/community/ui/section-badge'
 
@@ -165,15 +171,15 @@ export function CommunityAdmin() {
   )
 }
 
-/** 已登录面板：用户 / 举报 / 帖子管理 三个 Tab */
+/** 已登录面板：用户 / 举报 / 帖子管理 / 站点治理 四个 Tab */
 function AdminPanels({ token, listHeight }: { token: string; listHeight: number }) {
   const { t } = useTranslation('community')
-  const [tab, setTab] = useState<'users' | 'reports' | 'posts'>('users')
+  const [tab, setTab] = useState<'users' | 'reports' | 'posts' | 'governance'>('users')
 
   return (
     <Tabs
       value={tab}
-      onValueChange={(v) => setTab(v as 'users' | 'reports' | 'posts')}
+      onValueChange={(v) => setTab(v as 'users' | 'reports' | 'posts' | 'governance')}
       className="flex min-h-0 flex-1 flex-col"
     >
       <TabsList className="mb-2 self-start">
@@ -186,6 +192,9 @@ function AdminPanels({ token, listHeight }: { token: string; listHeight: number 
         <TabsTrigger value="posts" className="text-xs">
           {t('admin.posts')}
         </TabsTrigger>
+        <TabsTrigger value="governance" className="text-xs">
+          {t('admin.governance')}
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="users" className="min-h-0 flex-1">
@@ -197,7 +206,101 @@ function AdminPanels({ token, listHeight }: { token: string; listHeight: number 
       <TabsContent value="posts" className="min-h-0 flex-1">
         <AdminPostsTab token={token} height={listHeight} />
       </TabsContent>
+      <TabsContent value="governance" className="min-h-0 flex-1">
+        <AdminGovernanceTab token={token} />
+      </TabsContent>
     </Tabs>
+  )
+}
+
+/**
+ * 站点治理 Tab（D11）：全站禁言 / 禁发帖 / 禁回复 三个开关
+ *
+ * - muteAll 开启时语义上已覆盖发帖与回复（Worker 侧最高优先级拦截），UI 提示但不联动禁用子开关；
+ * - 每个开关独立提交（部分更新），成功后用返回值回填，避免并发下显示漂移。
+ */
+function AdminGovernanceTab({ token }: { token: string }) {
+  const { t } = useTranslation('community')
+  const [gov, setGov] = useState<SiteGovernance | null>(null)
+  const [loading, setLoading] = useState(true)
+  // 各开关独立 pending，防止切换期间重复提交
+  const [pendingKey, setPendingKey] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      setGov(await communityAdminGetGovernance(token))
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e))
+    } finally {
+      setLoading(false)
+    }
+  }, [token])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  /** 切换单个开关（提交后用服务端返回值回填） */
+  const handleToggle = async (key: 'muteAll' | 'postLocked' | 'replyLocked', value: boolean) => {
+    if (pendingKey) return
+    setPendingKey(key)
+    // 乐观更新，失败回滚由 load 保证（此处直接以返回值覆盖）
+    try {
+      const next = await communityAdminUpdateGovernance(token, { [key]: value })
+      setGov(next)
+      toast.success(t('admin.governanceUpdated'))
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e))
+    } finally {
+      setPendingKey(null)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="text-muted-foreground flex h-20 items-center justify-center gap-2 text-xs">
+        <i className="fa-solid fa-spinner fa-spin size-3.5" />
+        {t('loadError.loading')}
+      </div>
+    )
+  }
+
+  if (!gov) {
+    return <AdminEmpty text={t('admin.governanceLoadFailed')} />
+  }
+
+  /** 开关行配置（key 与 SiteGovernance 字段一一对应） */
+  const rows: { key: 'muteAll' | 'postLocked' | 'replyLocked'; icon: string }[] = [
+    { key: 'muteAll', icon: 'fa-volume-xmark' },
+    { key: 'postLocked', icon: 'fa-file-circle-xmark' },
+    { key: 'replyLocked', icon: 'fa-comments' },
+  ]
+
+  return (
+    <ScrollPage variant="borderless">
+      <div className="space-y-2 pr-2">
+        {/* 生效优先级说明 */}
+        <p className="text-muted-foreground text-[11px] leading-relaxed">
+          <i className="fa-solid fa-circle-info mr-1 size-2.5" />
+          {t('admin.governanceHint')}
+        </p>
+        {rows.map(({ key, icon }) => (
+          <div key={key} className="flex items-center gap-3 rounded-lg border bg-card p-3">
+            <i className={cn('text-muted-foreground size-4', `fa-solid ${icon}`)} />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium">{t(`admin.${key}`)}</p>
+              <p className="text-muted-foreground mt-0.5 text-[11px]">{t(`admin.${key}Desc`)}</p>
+            </div>
+            <Switch
+              checked={gov[key]}
+              disabled={pendingKey === key}
+              onCheckedChange={(v) => void handleToggle(key, v)}
+            />
+          </div>
+        ))}
+      </div>
+    </ScrollPage>
   )
 }
 
@@ -502,6 +605,22 @@ function AdminPostsTab({ token, height }: { token: string; height: number }) {
     }
   }
 
+  /** 锁定 / 解锁帖子（D11：锁定后禁止新增评论回复，存量保留） */
+  const handleToggleLock = async (postId: number, locked: boolean) => {
+    if (acting) return
+    setActing(true)
+    try {
+      await communityAdminSetPostLocked(token, postId, locked)
+      toast.success(locked ? t('admin.postLockedDone') : t('admin.postUnlockedDone'))
+      // 就地更新列表项，避免整页刷新闪烁
+      setPosts((prev) => prev.map((p) => (p.postId === postId ? { ...p, locked } : p)))
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e))
+    } finally {
+      setActing(false)
+    }
+  }
+
   // ===== 详情视图（帖子全文 + 回复治理）=====
   if (detailPostId != null) {
     return (
@@ -541,6 +660,12 @@ function AdminPostsTab({ token, height }: { token: string; height: number }) {
                 <span className="text-lg leading-none">{getCommunityAvatar(post.author.avatarIndex)}</span>
                 <span className="max-w-40 truncate text-xs font-medium">{post.author.nickname}</span>
                 <SectionBadge section={post.section} />
+                {post.locked && (
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    <i className="fa-solid fa-lock mr-0.5 size-2" />
+                    {t('admin.locked')}
+                  </Badge>
+                )}
                 <span className="text-muted-foreground ml-auto shrink-0 text-[11px] tabular-nums">
                   <i className="fa-solid fa-comment mr-0.5 size-2.5" />
                   {post.replyCount}
@@ -571,6 +696,22 @@ function AdminPostsTab({ token, height }: { token: string; height: number }) {
                 >
                   <i className="fa-solid fa-pen mr-1 size-2.5" />
                   {t('admin.edit')}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={cn(
+                    'h-6 px-2 text-[11px]',
+                    post.locked
+                      ? 'text-muted-foreground hover:text-foreground'
+                      : 'text-muted-foreground hover:text-amber-500'
+                  )}
+                  disabled={acting}
+                  title={post.locked ? t('admin.unlockPost') : t('admin.lockPost')}
+                  onClick={() => void handleToggleLock(post.postId, !post.locked)}
+                >
+                  <i className={cn('mr-1 size-2.5', post.locked ? 'fa-solid fa-lock-open' : 'fa-solid fa-lock')} />
+                  {post.locked ? t('admin.unlockPost') : t('admin.lockPost')}
                 </Button>
                 {deletingId === post.postId ? (
                   <Button
@@ -685,6 +826,22 @@ function AdminPostDetail({
     }
   }
 
+  /** 锁定 / 解锁帖子（D11）：就地更新详情，避免整页刷新 */
+  const handleToggleLock = async () => {
+    if (!detail || acting) return
+    setActing(true)
+    try {
+      const next = !detail.post.locked
+      await communityAdminSetPostLocked(token, postId, next)
+      toast.success(next ? t('admin.postLockedDone') : t('admin.postUnlockedDone'))
+      setDetail({ ...detail, post: { ...detail.post, locked: next } })
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e))
+    } finally {
+      setActing(false)
+    }
+  }
+
   /** 回复编辑 / 删除后局部刷新评论区（帖子本身不变，避免整页闪烁） */
   const refreshComments = async () => {
     try {
@@ -721,6 +878,21 @@ function AdminPostDetail({
               {t('admin.backToPosts')}
             </Button>
             <div className="ml-auto flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  'h-7 px-2 text-[11px]',
+                  detail.post.locked
+                    ? 'text-amber-500 hover:text-foreground'
+                    : 'text-muted-foreground hover:text-amber-500'
+                )}
+                disabled={acting}
+                onClick={() => void handleToggleLock()}
+              >
+                <i className={cn('mr-1 size-2.5', detail.post.locked ? 'fa-solid fa-lock' : 'fa-solid fa-lock-open')} />
+                {detail.post.locked ? t('admin.unlockPost') : t('admin.lockPost')}
+              </Button>
               <Button
                 variant="ghost"
                 size="sm"

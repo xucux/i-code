@@ -90,6 +90,9 @@ pub struct PostSummary {
     /// 正文截断摘要（Worker 侧取前 200 字）
     pub excerpt: String,
     pub reply_count: i64,
+    /// 帖子级锁定（D11：locked=1 时禁止新增评论回复）
+    #[serde(default)]
+    pub locked: bool,
     pub created_at: String,
     pub author: UserBrief,
 }
@@ -113,6 +116,9 @@ pub struct PostDetail {
     #[serde(default = "default_section")]
     pub section: String,
     pub reply_count: i64,
+    /// 帖子级锁定（D11：locked=1 时禁止新增评论回复）
+    #[serde(default)]
+    pub locked: bool,
     pub created_at: String,
     pub author: UserBrief,
 }
@@ -360,6 +366,9 @@ pub struct AdminPostItem {
     /// 正文截断摘要（Worker 侧取前 200 字）
     pub excerpt: String,
     pub reply_count: i64,
+    /// 帖子级锁定（D11：locked=1 时禁止新增评论回复）
+    #[serde(default)]
+    pub locked: bool,
     pub created_at: String,
     /// 最后编辑时间（管理员识别被编辑过的帖子）
     pub updated_at: String,
@@ -385,4 +394,30 @@ pub struct AdminUpdatePostInput {
     /// 所属板块（chat / eggs / tech）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub section: Option<String>,
+}
+
+// ===== 站点治理（D11，2026-08-15：全站禁言 / 禁发帖 / 禁回复 + 帖子级锁定）=====
+
+/// 全站治理开关（存 Worker D1 `site_settings` 表，缺省全关）
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SiteGovernance {
+    /// 全站禁言：发帖 + 评论回复全部禁止（最高优先级）
+    pub mute_all: bool,
+    /// 全站禁止发帖
+    pub post_locked: bool,
+    /// 全站禁止评论回复
+    pub reply_locked: bool,
+}
+
+/// 管理员更新全站治理开关输入（部分更新：至少一项）
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AdminUpdateGovernanceInput {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mute_all: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub post_locked: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reply_locked: Option<bool>,
 }

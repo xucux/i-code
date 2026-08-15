@@ -10,10 +10,10 @@ use crate::error::IcodeResult;
 
 use super::service::CommunityHandle;
 use super::types::{
-    AdminLoginData, AdminLoginInput, AdminPostListData, AdminReportItem, AdminUpdatePostInput,
-    AdminUserItem, CheckInStats, CommunityLocalState, CreatePostInput, CreateReplyInput,
-    MyPostsData, MyRepliesData, PostDetailData, PostListData, ProfileData, ProfileUser,
-    ReportInput, UpdateProfileInput,
+    AdminLoginData, AdminLoginInput, AdminPostListData, AdminReportItem, AdminUpdateGovernanceInput,
+    AdminUpdatePostInput, AdminUserItem, CheckInStats, CommunityLocalState, CreatePostInput,
+    CreateReplyInput, MyPostsData, MyRepliesData, PostDetailData, PostListData, ProfileData,
+    ProfileUser, ReportInput, SiteGovernance, UpdateProfileInput,
 };
 
 /// 列表分页上限（与 Worker 侧 MAX_LIST_LIMIT 对齐）
@@ -129,6 +129,14 @@ pub async fn community_report(
     input: ReportInput,
 ) -> IcodeResult<i64> {
     state.service().report(input).await
+}
+
+/// 全站治理开关（D11：用户端只读）
+#[tauri::command]
+pub async fn community_get_site_governance(
+    state: State<'_, CommunityHandle>,
+) -> IcodeResult<SiteGovernance> {
+    state.service().get_site_governance().await
 }
 
 // ===== 门禁与本地状态（不进 Worker）=====
@@ -275,4 +283,36 @@ pub async fn community_admin_delete_reply(
     reply_id: i64,
 ) -> IcodeResult<()> {
     state.service().admin_delete_reply(&admin_token, reply_id).await
+}
+
+// ===== 站点治理（D11：全站禁言 / 禁发帖 / 禁回复 + 帖子级锁定）=====
+
+/// 管理员读取全站治理开关
+#[tauri::command]
+pub async fn community_admin_get_governance(
+    state: State<'_, CommunityHandle>,
+    admin_token: String,
+) -> IcodeResult<SiteGovernance> {
+    state.service().admin_get_governance(&admin_token).await
+}
+
+/// 管理员更新全站治理开关（muteAll / postLocked / replyLocked 至少一项）
+#[tauri::command]
+pub async fn community_admin_update_governance(
+    state: State<'_, CommunityHandle>,
+    admin_token: String,
+    input: AdminUpdateGovernanceInput,
+) -> IcodeResult<SiteGovernance> {
+    state.service().admin_update_governance(&admin_token, input).await
+}
+
+/// 管理员锁定 / 解锁帖子（locked=1 时该帖禁止新增评论回复）
+#[tauri::command]
+pub async fn community_admin_set_post_locked(
+    state: State<'_, CommunityHandle>,
+    admin_token: String,
+    post_id: i64,
+    locked: bool,
+) -> IcodeResult<()> {
+    state.service().admin_set_post_locked(&admin_token, post_id, locked).await
 }

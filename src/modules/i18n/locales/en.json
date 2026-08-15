@@ -1834,7 +1834,29 @@
       "save": "Save",
       "editPostTitle": "Edit post",
       "editPostDesc": "Saving overwrites the original content",
-      "editReplyPlaceholder": "Edit reply… (max 1000 chars)"
+      "editReplyPlaceholder": "Edit reply… (max 1000 chars)",
+      "governance": "Governance",
+      "governanceHint": "Site mute has the highest priority: when enabled, both posting and replies are blocked; post-level locking is available in Posts",
+      "governanceUpdated": "Governance updated",
+      "governanceLoadFailed": "Failed to load governance settings",
+      "muteAll": "Site mute",
+      "muteAllDesc": "Block all users from posting and replying (highest priority)",
+      "postLocked": "Lock posting",
+      "postLockedDesc": "Block all users from creating new posts; existing posts remain visible",
+      "replyLocked": "Lock replies",
+      "replyLockedDesc": "Block all users from commenting; existing content remains visible",
+      "locked": "Locked",
+      "lockPost": "Lock",
+      "unlockPost": "Unlock",
+      "postLockedDone": "Post locked, new replies blocked",
+      "postUnlockedDone": "Post unlocked"
+    },
+    "governance": {
+      "postDisabledTip": "Posting is paused by the admin",
+      "postLockedTip": "This post is locked, replying is disabled",
+      "muteAllTip": "Site mute active, replying is disabled",
+      "replyLockedTip": "Replies are paused by the admin",
+      "lockedBadge": "Locked"
     },
     "success": {
       "post": "Published",

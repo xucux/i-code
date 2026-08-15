@@ -1834,7 +1834,29 @@
       "save": "儲存",
       "editPostTitle": "編輯貼文",
       "editPostDesc": "修改後儲存將覆蓋原內容",
-      "editReplyPlaceholder": "編輯回覆內容…（1000 字以內）"
+      "editReplyPlaceholder": "編輯回覆內容…（1000 字以內）",
+      "governance": "站點治理",
+      "governanceHint": "全站禁言優先級最高：開啟後發帖與評論回覆一併禁止；貼文級鎖定請在「貼文管理」中操作",
+      "governanceUpdated": "治理開關已更新",
+      "governanceLoadFailed": "治理開關載入失敗",
+      "muteAll": "全站禁言",
+      "muteAllDesc": "禁止所有用戶發帖與評論回覆（最高優先級）",
+      "postLocked": "禁止發帖",
+      "postLockedDesc": "禁止所有用戶發布新貼文，既有貼文正常展示",
+      "replyLocked": "禁止評論回覆",
+      "replyLockedDesc": "禁止所有用戶發表評論與回覆，既有內容正常展示",
+      "locked": "已鎖定",
+      "lockPost": "鎖定",
+      "unlockPost": "解鎖",
+      "postLockedDone": "貼文已鎖定，禁止新增評論回覆",
+      "postUnlockedDone": "貼文已解鎖"
+    },
+    "governance": {
+      "postDisabledTip": "管理員已暫停發帖",
+      "postLockedTip": "該貼文已鎖定，暫無法評論",
+      "muteAllTip": "全站禁言中，暫無法回覆",
+      "replyLockedTip": "管理員已暫停評論回覆",
+      "lockedBadge": "已鎖定"
     },
     "success": {
       "post": "發布成功",

@@ -17,10 +17,10 @@ use crate::error::{IcodeError, IcodeResult};
 use super::client;
 use super::repository;
 use super::types::{
-    AdminLoginData, AdminLoginInput, AdminPostListData, AdminReportItem, AdminUpdatePostInput,
-    AdminUserItem, CheckInStats, CommunityLocalState, CreatePostInput, CreateReplyInput,
-    MyPostsData, MyRepliesData, PostDetailData, PostListData, ProfileData, ProfileUser,
-    ReportInput, UpdateProfileInput,
+    AdminLoginData, AdminLoginInput, AdminPostListData, AdminReportItem, AdminUpdateGovernanceInput,
+    AdminUpdatePostInput, AdminUserItem, CheckInStats, CommunityLocalState, CreatePostInput,
+    CreateReplyInput, MyPostsData, MyRepliesData, PostDetailData, PostListData, ProfileData,
+    ProfileUser, ReportInput, SiteGovernance, UpdateProfileInput,
 };
 
 /// 社区 Service 句柄（Tauri State）
@@ -211,6 +211,12 @@ impl CommunityService {
         client::report(&state.base_url, &user_id, &input).await
     }
 
+    /// 全站治理开关（D11：用户端只读，前端据此禁用发帖 / 回复入口）
+    pub async fn get_site_governance(&self) -> IcodeResult<SiteGovernance> {
+        let (state, user_id) = self.require_ready()?;
+        client::get_site_governance(&state.base_url, &user_id).await
+    }
+
     // ===== 管理员 =====
 
     pub async fn admin_login(&self, input: AdminLoginInput) -> IcodeResult<AdminLoginData> {
@@ -352,6 +358,40 @@ impl CommunityService {
     pub async fn admin_delete_reply(&self, admin_token: &str, reply_id: i64) -> IcodeResult<()> {
         let base_url = self.require_enabled_base()?;
         client::admin_delete_reply(&base_url, admin_token, reply_id).await
+    }
+
+    // ===== 站点治理（D11）=====
+
+    /// 管理员读取全站治理开关
+    pub async fn admin_get_governance(&self, admin_token: &str) -> IcodeResult<SiteGovernance> {
+        let base_url = self.require_enabled_base()?;
+        client::admin_get_governance(&base_url, admin_token).await
+    }
+
+    /// 管理员更新全站治理开关（部分更新，返回最新完整状态）
+    pub async fn admin_update_governance(
+        &self,
+        admin_token: &str,
+        input: AdminUpdateGovernanceInput,
+    ) -> IcodeResult<SiteGovernance> {
+        let base_url = self.require_enabled_base()?;
+        if input.mute_all.is_none() && input.post_locked.is_none() && input.reply_locked.is_none() {
+            return Err(IcodeError::validation(
+                "请提供要修改的开关（muteAll / postLocked / replyLocked）",
+            ));
+        }
+        client::admin_update_governance(&base_url, admin_token, &input).await
+    }
+
+    /// 管理员锁定 / 解锁帖子（locked=1 时该帖禁止新增评论回复）
+    pub async fn admin_set_post_locked(
+        &self,
+        admin_token: &str,
+        post_id: i64,
+        locked: bool,
+    ) -> IcodeResult<()> {
+        let base_url = self.require_enabled_base()?;
+        client::admin_set_post_locked(&base_url, admin_token, post_id, locked).await
     }
 
     // ===== 内部辅助 =====
