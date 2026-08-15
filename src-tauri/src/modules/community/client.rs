@@ -17,9 +17,9 @@ use crate::error::{IcodeError, IcodeResult};
 use crate::modules::shared;
 
 use super::types::{
-    AdminLoginData, AdminLoginInput, AdminReportItem, AdminUserItem, CheckInStats, CreatePostInput,
-    CreateReplyInput, MyPostsData, MyRepliesData, PostDetailData, PostListData, ProfileData,
-    ProfileUser, ReportInput, UpdateProfileInput,
+    AdminLoginData, AdminLoginInput, AdminPostListData, AdminReportItem, AdminUpdatePostInput,
+    AdminUserItem, CheckInStats, CreatePostInput, CreateReplyInput, MyPostsData, MyRepliesData,
+    PostDetailData, PostListData, ProfileData, ProfileUser, ReportInput, UpdateProfileInput,
 };
 
 /// App Token：与 Worker 侧 `APP_TOKEN`（wrangler.toml `[vars]`）保持一致，
@@ -536,6 +536,141 @@ pub async fn admin_resolve_report(
         base_url,
         Method::POST,
         &format!("admin/reports/{report_id}/resolve"),
+        None,
+        None,
+        Some(admin_token),
+        None,
+        true,
+    )
+    .await?;
+    Ok(())
+}
+
+// ===== 管理员帖子管理（D10；Worker 端点不限流 D9）=====
+
+/// 管理员帖子列表（所有用户，游标分页；`section` = Some 时按板块过滤）
+pub async fn admin_list_posts(
+    base_url: &str,
+    admin_token: &str,
+    cursor: Option<String>,
+    limit: Option<u32>,
+    section: Option<&str>,
+) -> IcodeResult<AdminPostListData> {
+    let mut query = Vec::new();
+    if let Some(c) = cursor {
+        query.push(("cursor".to_string(), c));
+    }
+    if let Some(l) = limit {
+        query.push(("limit".to_string(), l.to_string()));
+    }
+    if let Some(s) = section {
+        query.push(("section".to_string(), s.to_string()));
+    }
+    send(
+        base_url,
+        Method::GET,
+        "admin/posts",
+        if query.is_empty() { None } else { Some(query) },
+        None,
+        Some(admin_token),
+        None,
+        false,
+    )
+    .await
+}
+
+/// 管理员帖子详情 + 评论区（定位待处置回复）
+pub async fn admin_get_post(
+    base_url: &str,
+    admin_token: &str,
+    post_id: i64,
+) -> IcodeResult<PostDetailData> {
+    send(
+        base_url,
+        Method::GET,
+        &format!("admin/posts/{post_id}"),
+        None,
+        None,
+        Some(admin_token),
+        None,
+        false,
+    )
+    .await
+}
+
+/// 管理员编辑帖子（title / content / section 至少一项）
+pub async fn admin_update_post(
+    base_url: &str,
+    admin_token: &str,
+    post_id: i64,
+    input: &AdminUpdatePostInput,
+) -> IcodeResult<()> {
+    send::<serde_json::Value>(
+        base_url,
+        Method::PUT,
+        &format!("admin/posts/{post_id}"),
+        None,
+        None,
+        Some(admin_token),
+        Some(serde_json::to_value(input)?),
+        true,
+    )
+    .await?;
+    Ok(())
+}
+
+/// 管理员删除帖子（Worker 级联删除其全部回复与相关举报）
+pub async fn admin_delete_post(
+    base_url: &str,
+    admin_token: &str,
+    post_id: i64,
+) -> IcodeResult<()> {
+    send::<serde_json::Value>(
+        base_url,
+        Method::DELETE,
+        &format!("admin/posts/{post_id}"),
+        None,
+        None,
+        Some(admin_token),
+        None,
+        true,
+    )
+    .await?;
+    Ok(())
+}
+
+/// 管理员编辑回复
+pub async fn admin_update_reply(
+    base_url: &str,
+    admin_token: &str,
+    reply_id: i64,
+    content: &str,
+) -> IcodeResult<()> {
+    let body = serde_json::json!({ "content": content });
+    send::<serde_json::Value>(
+        base_url,
+        Method::PUT,
+        &format!("admin/replies/{reply_id}"),
+        None,
+        None,
+        Some(admin_token),
+        Some(body),
+        true,
+    )
+    .await?;
+    Ok(())
+}
+
+/// 管理员删除回复（顶层评论级联楼中楼）
+pub async fn admin_delete_reply(
+    base_url: &str,
+    admin_token: &str,
+    reply_id: i64,
+) -> IcodeResult<()> {
+    send::<serde_json::Value>(
+        base_url,
+        Method::DELETE,
+        &format!("admin/replies/{reply_id}"),
         None,
         None,
         Some(admin_token),

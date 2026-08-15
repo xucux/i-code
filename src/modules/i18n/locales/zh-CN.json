@@ -1761,7 +1761,8 @@
       "cancel": "取消",
       "editTab": "编辑",
       "previewTab": "预览",
-      "previewEmpty": "暂无内容可预览，请先在「编辑」中输入正文"
+      "previewEmpty": "暂无内容可预览，请先在「编辑」中输入正文",
+      "noComments": "暂无评论"
     },
     "comment": {
       "sectionTitle": "评论（{{count}}）",
@@ -1829,7 +1830,24 @@
       "emptyReports": "暂无待处理举报",
       "resolve": "处理",
       "resolveDone": "已处理",
-      "reporter": "举报人：{{name}}"
+      "reporter": "举报人：{{name}}",
+      "posts": "帖子管理",
+      "emptyPosts": "暂无帖子",
+      "viewDetail": "详情",
+      "edit": "编辑",
+      "delete": "删除",
+      "deleteConfirm": "确认删除",
+      "deleteCascadeHint": "删除该评论将连带删除其下楼中楼回复",
+      "postDeleted": "帖子已删除",
+      "postUpdated": "帖子已更新",
+      "replyUpdated": "回复已更新",
+      "replyDeleted": "回复已删除",
+      "loadMore": "加载更多",
+      "backToPosts": "返回列表",
+      "save": "保存",
+      "editPostTitle": "编辑帖子",
+      "editPostDesc": "修改后保存将覆盖原内容",
+      "editReplyPlaceholder": "编辑回复内容…（1000 字以内）"
     },
     "success": {
       "post": "发布成功",

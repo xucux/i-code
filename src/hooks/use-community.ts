@@ -10,7 +10,9 @@ import { toast } from 'sonner'
 import { invokeCommand } from '@/hooks/use-command'
 import type {
   AdminLoginData,
+  AdminPostListData,
   AdminReportItem,
+  AdminUpdatePostInput,
   AdminUserItem,
   CheckInStats,
   CommunityLocalState,
@@ -129,6 +131,52 @@ export async function communityAdminGetReports(adminToken: string): Promise<Admi
 /** 管理员：处理举报 */
 export async function communityAdminResolveReport(adminToken: string, reportId: number): Promise<void> {
   return invokeCommand<void>('community_admin_resolve_report', { adminToken, reportId })
+}
+
+// ===== 管理员：帖子管理（D10）=====
+
+/** 管理员：所有用户帖子列表（游标分页；section 可选过滤） */
+export async function communityAdminGetPosts(
+  adminToken: string,
+  cursor?: string,
+  limit?: number,
+  section?: CommunitySection,
+): Promise<AdminPostListData> {
+  return invokeCommand<AdminPostListData>('community_admin_get_posts', {
+    adminToken,
+    cursor: cursor ?? null,
+    limit: limit ?? null,
+    section: section ?? null,
+  })
+}
+
+/** 管理员：帖子详情 + 评论区（定位待处置回复） */
+export async function communityAdminGetPost(adminToken: string, postId: number): Promise<PostDetailData> {
+  return invokeCommand<PostDetailData>('community_admin_get_post', { adminToken, postId })
+}
+
+/** 管理员：编辑帖子（title / content / section 至少一项） */
+export async function communityAdminUpdatePost(
+  adminToken: string,
+  postId: number,
+  input: AdminUpdatePostInput,
+): Promise<void> {
+  return invokeCommand<void>('community_admin_update_post', { adminToken, postId, input })
+}
+
+/** 管理员：删除帖子（级联删除其全部回复与相关举报） */
+export async function communityAdminDeletePost(adminToken: string, postId: number): Promise<void> {
+  return invokeCommand<void>('community_admin_delete_post', { adminToken, postId })
+}
+
+/** 管理员：编辑回复 */
+export async function communityAdminUpdateReply(adminToken: string, replyId: number, content: string): Promise<void> {
+  return invokeCommand<void>('community_admin_update_reply', { adminToken, replyId, content })
+}
+
+/** 管理员：删除回复（顶层评论级联楼中楼） */
+export async function communityAdminDeleteReply(adminToken: string, replyId: number): Promise<void> {
+  return invokeCommand<void>('community_admin_delete_reply', { adminToken, replyId })
 }
 
 // ===== 通用 hooks =====

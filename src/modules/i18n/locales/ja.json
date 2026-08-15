@@ -1748,7 +1748,8 @@
       "cancel": "キャンセル",
       "editTab": "編集",
       "previewTab": "プレビュー",
-      "previewEmpty": "プレビューする内容がありません。「編集」で本文を入力してください"
+      "previewEmpty": "プレビューする内容がありません。「編集」で本文を入力してください",
+      "noComments": "コメントはまだありません"
     },
     "comment": {
       "sectionTitle": "コメント（{{count}}）",
@@ -1816,7 +1817,24 @@
       "emptyReports": "未処理の通報はありません",
       "resolve": "処理",
       "resolveDone": "処理しました",
-      "reporter": "通報者：{{name}}"
+      "reporter": "通報者：{{name}}",
+      "posts": "投稿管理",
+      "emptyPosts": "投稿はまだありません",
+      "viewDetail": "詳細",
+      "edit": "編集",
+      "delete": "削除",
+      "deleteConfirm": "削除確認",
+      "deleteCascadeHint": "このコメントを削除するとネストされた返信も削除されます",
+      "postDeleted": "投稿を削除しました",
+      "postUpdated": "投稿を更新しました",
+      "replyUpdated": "返信を更新しました",
+      "replyDeleted": "返信を削除しました",
+      "loadMore": "さらに読み込む",
+      "backToPosts": "一覧に戻る",
+      "save": "保存",
+      "editPostTitle": "投稿を編集",
+      "editPostDesc": "保存すると元の内容が上書きされます",
+      "editReplyPlaceholder": "返信を編集…（1000 字以内）"
     },
     "success": {
       "post": "投稿しました",

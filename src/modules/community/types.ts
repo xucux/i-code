@@ -230,3 +230,32 @@ export interface AdminReportItem {
   /** 目标预览（帖子标题 / 回复内容） */
   targetPreview?: string | null
 }
+
+// ===== 管理员帖子管理（D10）=====
+
+/** 管理员帖子列表项（所有用户，含作者摘要与 updatedAt） */
+export interface AdminPostItem {
+  postId: number
+  title: string
+  section: CommunitySection
+  /** 正文截断摘要（Worker 侧取前 200 字） */
+  excerpt: string
+  replyCount: number
+  createdAt: string
+  /** 最后编辑时间（管理员识别被编辑过的帖子） */
+  updatedAt: string
+  author: UserBrief
+}
+
+/** 管理员帖子列表响应（游标分页） */
+export interface AdminPostListData {
+  posts: AdminPostItem[]
+  nextCursor: string | null
+}
+
+/** 管理员编辑帖子输入（部分更新：title / content / section 至少一项） */
+export interface AdminUpdatePostInput {
+  title?: string
+  content?: string
+  section?: CommunitySection
+}

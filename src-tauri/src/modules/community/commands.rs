@@ -10,9 +10,10 @@ use crate::error::IcodeResult;
 
 use super::service::CommunityHandle;
 use super::types::{
-    AdminLoginData, AdminLoginInput, AdminReportItem, AdminUserItem, CheckInStats,
-    CommunityLocalState, CreatePostInput, CreateReplyInput, MyPostsData, MyRepliesData,
-    PostDetailData, PostListData, ProfileData, ProfileUser, ReportInput, UpdateProfileInput,
+    AdminLoginData, AdminLoginInput, AdminPostListData, AdminReportItem, AdminUpdatePostInput,
+    AdminUserItem, CheckInStats, CommunityLocalState, CreatePostInput, CreateReplyInput,
+    MyPostsData, MyRepliesData, PostDetailData, PostListData, ProfileData, ProfileUser,
+    ReportInput, UpdateProfileInput,
 };
 
 /// 列表分页上限（与 Worker 侧 MAX_LIST_LIMIT 对齐）
@@ -207,4 +208,71 @@ pub async fn community_admin_resolve_report(
     report_id: i64,
 ) -> IcodeResult<()> {
     state.service().admin_resolve_report(&admin_token, report_id).await
+}
+
+// ===== 管理员帖子管理（D10）=====
+
+/// 管理员帖子列表（所有用户，游标分页；section 可选过滤）
+#[tauri::command]
+pub async fn community_admin_get_posts(
+    state: State<'_, CommunityHandle>,
+    admin_token: String,
+    cursor: Option<String>,
+    limit: Option<u32>,
+    section: Option<String>,
+) -> IcodeResult<AdminPostListData> {
+    validate_limit(limit)?;
+    state.service().admin_list_posts(&admin_token, cursor, limit, section).await
+}
+
+/// 管理员帖子详情 + 评论区（定位待处置回复）
+#[tauri::command]
+pub async fn community_admin_get_post(
+    state: State<'_, CommunityHandle>,
+    admin_token: String,
+    post_id: i64,
+) -> IcodeResult<PostDetailData> {
+    state.service().admin_get_post(&admin_token, post_id).await
+}
+
+/// 管理员编辑帖子（title / content / section 至少一项）
+#[tauri::command]
+pub async fn community_admin_update_post(
+    state: State<'_, CommunityHandle>,
+    admin_token: String,
+    post_id: i64,
+    input: AdminUpdatePostInput,
+) -> IcodeResult<()> {
+    state.service().admin_update_post(&admin_token, post_id, input).await
+}
+
+/// 管理员删除帖子（级联删除其全部回复与相关举报）
+#[tauri::command]
+pub async fn community_admin_delete_post(
+    state: State<'_, CommunityHandle>,
+    admin_token: String,
+    post_id: i64,
+) -> IcodeResult<()> {
+    state.service().admin_delete_post(&admin_token, post_id).await
+}
+
+/// 管理员编辑回复
+#[tauri::command]
+pub async fn community_admin_update_reply(
+    state: State<'_, CommunityHandle>,
+    admin_token: String,
+    reply_id: i64,
+    content: String,
+) -> IcodeResult<()> {
+    state.service().admin_update_reply(&admin_token, reply_id, &content).await
+}
+
+/// 管理员删除回复（顶层评论级联楼中楼）
+#[tauri::command]
+pub async fn community_admin_delete_reply(
+    state: State<'_, CommunityHandle>,
+    admin_token: String,
+    reply_id: i64,
+) -> IcodeResult<()> {
+    state.service().admin_delete_reply(&admin_token, reply_id).await
 }

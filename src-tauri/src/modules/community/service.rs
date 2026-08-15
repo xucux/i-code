@@ -17,9 +17,10 @@ use crate::error::{IcodeError, IcodeResult};
 use super::client;
 use super::repository;
 use super::types::{
-    AdminLoginData, AdminLoginInput, AdminReportItem, AdminUserItem, CheckInStats,
-    CommunityLocalState, CreatePostInput, CreateReplyInput, MyPostsData, MyRepliesData,
-    PostDetailData, PostListData, ProfileData, ProfileUser, ReportInput, UpdateProfileInput,
+    AdminLoginData, AdminLoginInput, AdminPostListData, AdminReportItem, AdminUpdatePostInput,
+    AdminUserItem, CheckInStats, CommunityLocalState, CreatePostInput, CreateReplyInput,
+    MyPostsData, MyRepliesData, PostDetailData, PostListData, ProfileData, ProfileUser,
+    ReportInput, UpdateProfileInput,
 };
 
 /// 社区 Service 句柄（Tauri State）
@@ -256,6 +257,101 @@ impl CommunityService {
     ) -> IcodeResult<()> {
         let base_url = self.require_enabled_base()?;
         client::admin_resolve_report(&base_url, admin_token, report_id).await
+    }
+
+    // ===== 管理员帖子管理（D10）=====
+
+    /// 管理员帖子列表（所有用户，游标分页；section 可选过滤，非法值提前拦截）
+    pub async fn admin_list_posts(
+        &self,
+        admin_token: &str,
+        cursor: Option<String>,
+        limit: Option<u32>,
+        section: Option<String>,
+    ) -> IcodeResult<AdminPostListData> {
+        let base_url = self.require_enabled_base()?;
+        let section = Self::normalize_section_filter(section.as_deref())?;
+        client::admin_list_posts(&base_url, admin_token, cursor, limit, section).await
+    }
+
+    /// 管理员帖子详情 + 评论区（定位待处置回复）
+    pub async fn admin_get_post(
+        &self,
+        admin_token: &str,
+        post_id: i64,
+    ) -> IcodeResult<PostDetailData> {
+        let base_url = self.require_enabled_base()?;
+        client::admin_get_post(&base_url, admin_token, post_id).await
+    }
+
+    /// 管理员编辑帖子（title / content / section 至少一项，提前做与发帖一致的校验）
+    pub async fn admin_update_post(
+        &self,
+        admin_token: &str,
+        post_id: i64,
+        input: AdminUpdatePostInput,
+    ) -> IcodeResult<()> {
+        let base_url = self.require_enabled_base()?;
+        // 至少一项字段；提供字段时做与发帖一致的前置校验（Worker 侧仍兜底）
+        if input.title.is_none() && input.content.is_none() && input.section.is_none() {
+            return Err(IcodeError::validation("请提供要修改的字段"));
+        }
+        if let Some(title) = input.title.as_deref() {
+            let t = title.trim();
+            if t.is_empty() {
+                return Err(IcodeError::validation("标题不能为空"));
+            }
+            if t.chars().count() > 80 {
+                return Err(IcodeError::validation("标题不能超过 80 字"));
+            }
+        }
+        if let Some(content) = input.content.as_deref() {
+            let c = content.trim();
+            if c.is_empty() {
+                return Err(IcodeError::validation("内容不能为空"));
+            }
+            if c.chars().count() > 5000 {
+                return Err(IcodeError::validation("内容不能超过 5000 字"));
+            }
+        }
+        if let Some(section) = input.section.as_deref() {
+            if !super::types::is_valid_section(section) {
+                return Err(IcodeError::validation(format!(
+                    "板块非法：{section}（须为 chat / eggs / tech）"
+                )));
+            }
+        }
+        client::admin_update_post(&base_url, admin_token, post_id, &input).await
+    }
+
+    /// 管理员删除帖子（Worker 级联删除其全部回复与相关举报）
+    pub async fn admin_delete_post(&self, admin_token: &str, post_id: i64) -> IcodeResult<()> {
+        let base_url = self.require_enabled_base()?;
+        client::admin_delete_post(&base_url, admin_token, post_id).await
+    }
+
+    /// 管理员编辑回复（前置校验与发回复一致）
+    pub async fn admin_update_reply(
+        &self,
+        admin_token: &str,
+        reply_id: i64,
+        content: &str,
+    ) -> IcodeResult<()> {
+        let base_url = self.require_enabled_base()?;
+        let c = content.trim();
+        if c.is_empty() {
+            return Err(IcodeError::validation("回复内容不能为空"));
+        }
+        if c.chars().count() > 1000 {
+            return Err(IcodeError::validation("回复不能超过 1000 字"));
+        }
+        client::admin_update_reply(&base_url, admin_token, reply_id, c).await
+    }
+
+    /// 管理员删除回复（顶层评论级联楼中楼）
+    pub async fn admin_delete_reply(&self, admin_token: &str, reply_id: i64) -> IcodeResult<()> {
+        let base_url = self.require_enabled_base()?;
+        client::admin_delete_reply(&base_url, admin_token, reply_id).await
     }
 
     // ===== 内部辅助 =====

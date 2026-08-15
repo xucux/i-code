@@ -839,6 +839,12 @@ fn main() {
             modules::community::commands::community_admin_unban,
             modules::community::commands::community_admin_get_reports,
             modules::community::commands::community_admin_resolve_report,
+            modules::community::commands::community_admin_get_posts,
+            modules::community::commands::community_admin_get_post,
+            modules::community::commands::community_admin_update_post,
+            modules::community::commands::community_admin_delete_post,
+            modules::community::commands::community_admin_update_reply,
+            modules::community::commands::community_admin_delete_reply,
             // ===== Gateway Runtime 模块 =====
             modules::gateway_runtime::commands::gateway_start,
             modules::gateway_runtime::commands::gateway_stop,

@@ -345,3 +345,44 @@ pub struct AdminReportItem {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub target_preview: Option<String>,
 }
+
+// ===== 管理员帖子管理（D10，2026-08-15）=====
+
+/// 管理员帖子列表项（所有用户，含作者摘要与 updatedAt）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AdminPostItem {
+    pub post_id: i64,
+    pub title: String,
+    /// 所属板块（chat / eggs / tech）
+    #[serde(default = "default_section")]
+    pub section: String,
+    /// 正文截断摘要（Worker 侧取前 200 字）
+    pub excerpt: String,
+    pub reply_count: i64,
+    pub created_at: String,
+    /// 最后编辑时间（管理员识别被编辑过的帖子）
+    pub updated_at: String,
+    pub author: UserBrief,
+}
+
+/// 管理员帖子列表响应（游标分页）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AdminPostListData {
+    pub posts: Vec<AdminPostItem>,
+    pub next_cursor: Option<String>,
+}
+
+/// 管理员编辑帖子输入（部分更新：title / content / section 至少一项）
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AdminUpdatePostInput {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content: Option<String>,
+    /// 所属板块（chat / eggs / tech）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub section: Option<String>,
+}

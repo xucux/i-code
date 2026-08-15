@@ -1748,7 +1748,8 @@
       "cancel": "Cancel",
       "editTab": "Edit",
       "previewTab": "Preview",
-      "previewEmpty": "Nothing to preview yet — write your content in Edit first"
+      "previewEmpty": "Nothing to preview yet — write your content in Edit first",
+      "noComments": "No comments yet"
     },
     "comment": {
       "sectionTitle": "Comments ({{count}})",
@@ -1816,7 +1817,24 @@
       "emptyReports": "No pending reports",
       "resolve": "Resolve",
       "resolveDone": "Resolved",
-      "reporter": "Reporter: {{name}}"
+      "reporter": "Reporter: {{name}}",
+      "posts": "Posts",
+      "emptyPosts": "No posts yet",
+      "viewDetail": "Detail",
+      "edit": "Edit",
+      "delete": "Delete",
+      "deleteConfirm": "Confirm delete",
+      "deleteCascadeHint": "Deleting this comment also deletes its nested replies",
+      "postDeleted": "Post deleted",
+      "postUpdated": "Post updated",
+      "replyUpdated": "Reply updated",
+      "replyDeleted": "Reply deleted",
+      "loadMore": "Load more",
+      "backToPosts": "Back to list",
+      "save": "Save",
+      "editPostTitle": "Edit post",
+      "editPostDesc": "Saving overwrites the original content",
+      "editReplyPlaceholder": "Edit reply… (max 1000 chars)"
     },
     "success": {
       "post": "Published",

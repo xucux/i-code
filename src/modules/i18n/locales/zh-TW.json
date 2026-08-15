@@ -1748,7 +1748,8 @@
       "cancel": "取消",
       "editTab": "編輯",
       "previewTab": "預覽",
-      "previewEmpty": "暫無內容可預覽，請先在「編輯」中輸入正文"
+      "previewEmpty": "暫無內容可預覽，請先在「編輯」中輸入正文",
+      "noComments": "暫無留言"
     },
     "comment": {
       "sectionTitle": "評論（{{count}}）",
@@ -1816,7 +1817,24 @@
       "emptyReports": "暫無待處理檢舉",
       "resolve": "處理",
       "resolveDone": "已處理",
-      "reporter": "檢舉人：{{name}}"
+      "reporter": "檢舉人：{{name}}",
+      "posts": "貼文管理",
+      "emptyPosts": "暫無貼文",
+      "viewDetail": "詳情",
+      "edit": "編輯",
+      "delete": "刪除",
+      "deleteConfirm": "確認刪除",
+      "deleteCascadeHint": "刪除該留言將連帶刪除其下巢狀回覆",
+      "postDeleted": "貼文已刪除",
+      "postUpdated": "貼文已更新",
+      "replyUpdated": "回覆已更新",
+      "replyDeleted": "回覆已刪除",
+      "loadMore": "載入更多",
+      "backToPosts": "返回列表",
+      "save": "儲存",
+      "editPostTitle": "編輯貼文",
+      "editPostDesc": "修改後儲存將覆蓋原內容",
+      "editReplyPlaceholder": "編輯回覆內容…（1000 字以內）"
     },
     "success": {
       "post": "發布成功",
