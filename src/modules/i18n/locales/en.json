@@ -1770,14 +1770,6 @@
       "nickname": "Nickname",
       "nicknamePlaceholder": "Enter nickname (1-20 chars)",
       "avatar": "Avatar (preset emoji)",
-        "avatarCat": {
-          "smileys": "Smileys",
-          "people": "People & Gestures",
-          "animals": "Animals",
-          "natureFood": "Nature & Food",
-          "activityTravel": "Activity & Travel",
-          "objectsSymbols": "Objects & Symbols"
-        },
       "banned": "Banned",
       "banReason": "Ban reason: {{reason}}",
       "posts": "Posts",
@@ -1786,6 +1778,14 @@
       "streak": "{{count}}-day streak",
       "notFoundTip": "Community profile not set up yet",
       "save": "Save"
+    },
+    "avatarCat": {
+      "smileys": "Smileys",
+      "people": "People & Gestures",
+      "animals": "Animals",
+      "natureFood": "Nature & Food",
+      "activityTravel": "Activity & Travel",
+      "objectsSymbols": "Objects & Symbols"
     },
     "report": {
       "title": "Report",

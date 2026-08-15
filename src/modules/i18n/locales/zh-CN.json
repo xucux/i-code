@@ -1783,14 +1783,6 @@
       "nickname": "昵称",
       "nicknamePlaceholder": "输入昵称（1~20 字）",
       "avatar": "头像（预设 emoji）",
-        "avatarCat": {
-          "smileys": "笑脸与情感",
-          "people": "人物与手势",
-          "animals": "动物",
-          "natureFood": "自然与食物",
-          "activityTravel": "活动与旅行",
-          "objectsSymbols": "物品与符号"
-        },
       "banned": "已封禁",
       "banReason": "封禁原因：{{reason}}",
       "posts": "帖子",
@@ -1799,6 +1791,14 @@
       "streak": "连续 {{count}} 天",
       "notFoundTip": "尚未设置社区资料",
       "save": "保存"
+    },
+    "avatarCat": {
+      "smileys": "笑脸与情感",
+      "people": "人物与手势",
+      "animals": "动物",
+      "natureFood": "自然与食物",
+      "activityTravel": "活动与旅行",
+      "objectsSymbols": "物品与符号"
     },
     "report": {
       "title": "举报",

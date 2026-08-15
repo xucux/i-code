@@ -1770,14 +1770,6 @@
       "nickname": "ニックネーム",
       "nicknamePlaceholder": "ニックネームを入力（1〜20 文字）",
       "avatar": "アバター（プリセット emoji）",
-        "avatarCat": {
-          "smileys": "顔と感情",
-          "people": "人とジェスチャー",
-          "animals": "動物",
-          "natureFood": "自然と食べ物",
-          "activityTravel": "活動と旅行",
-          "objectsSymbols": "物と記号"
-        },
       "banned": "禁止中",
       "banReason": "禁止理由：{{reason}}",
       "posts": "投稿",
@@ -1786,6 +1778,14 @@
       "streak": "連続 {{count}} 日",
       "notFoundTip": "コミュニティプロフィール未設定",
       "save": "保存"
+    },
+    "avatarCat": {
+      "smileys": "顔と感情",
+      "people": "人とジェスチャー",
+      "animals": "動物",
+      "natureFood": "自然と食べ物",
+      "activityTravel": "活動と旅行",
+      "objectsSymbols": "物と記号"
     },
     "report": {
       "title": "通報",

@@ -1770,14 +1770,6 @@
       "nickname": "暱稱",
       "nicknamePlaceholder": "輸入暱稱（1~20 字）",
       "avatar": "頭像（預設 emoji）",
-        "avatarCat": {
-          "smileys": "笑臉與情感",
-          "people": "人物與手勢",
-          "animals": "動物",
-          "natureFood": "自然與食物",
-          "activityTravel": "活動與旅行",
-          "objectsSymbols": "物品與符號"
-        },
       "banned": "已封禁",
       "banReason": "封禁原因：{{reason}}",
       "posts": "貼文",
@@ -1786,6 +1778,14 @@
       "streak": "連續 {{count}} 天",
       "notFoundTip": "尚未設定社群資料",
       "save": "儲存"
+    },
+    "avatarCat": {
+      "smileys": "笑臉與情感",
+      "people": "人物與手勢",
+      "animals": "動物",
+      "natureFood": "自然與食物",
+      "activityTravel": "活動與旅行",
+      "objectsSymbols": "物品與符號"
     },
     "report": {
       "title": "檢舉",
