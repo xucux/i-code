@@ -1,3 +1,11 @@
+/**
+ * Markdown 渲染通用组件（GFM + GitHub Alert）
+ *
+ * - 基于 marked 同步解析，样式统一走 Tailwind Typography（prose）
+ * - 支持 GitHub 风格 Alert 引用块（> [!NOTE] 等）
+ * - 无业务模块依赖，可跨模块复用（更新日志、社区帖子正文等）
+ */
+
 import { useMemo } from 'react'
 import { marked } from 'marked'
 import { useTranslation } from '@/modules/i18n/use-translation'
@@ -72,8 +80,8 @@ export function preprocessMarkdownAlerts(markdown: string, t: (key: string) => s
 /**
  * Markdown 渲染组件（GFM + GitHub Alert）
  *
- * 供更新检查弹窗（Release Notes）与「查看历史更新」弹窗（CHANGELOG）复用，
- * 展示前对 GitHub 风格 Alert 引用块做预处理，样式统一走 Tailwind Typography。
+ * 供更新检查弹窗（Release Notes）、「查看历史更新」弹窗（CHANGELOG）
+ * 与社区帖子正文等场景复用。
  */
 export function MarkdownContent({ content }: { content: string }) {
   const { t } = useTranslation()

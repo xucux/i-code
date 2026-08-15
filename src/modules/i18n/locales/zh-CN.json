@@ -32,7 +32,8 @@
     "logs": "日志",
     "backup": "备份",
     "settings": "设置",
-    "preview": "组件预览"
+    "preview": "组件预览",
+    "community": "社区"
   },
   "theme": {
     "title": "主题",
@@ -1707,6 +1708,143 @@
     "marketplaceVarOptional": "可选",
     "kind": {
       "balance": "额度监控"
+    }
+  },
+  "community": {
+    "title": "社区",
+    "gate": {
+      "title": "社区公测中",
+      "desc": "社区使用匿名设备身份，仅需昵称与预设头像即可参与；所有内容公开可见，请友善交流。",
+      "privacy": "身份与本机绑定，无账号体系；重装系统或更换设备后身份无法找回。",
+      "enable": "我已了解，开启社区",
+      "reopen": "关闭后仍可再次开启",
+      "closeConfirm": "关闭后将回到未开启状态，历史数据保留在服务端。",
+      "closeYes": "确认关闭",
+      "closeNo": "取消",
+      "closedTip": "社区已关闭，可随时再次开启"
+    },
+    "tab": {
+      "latest": "最新",
+      "myPosts": "我的帖子",
+      "myReplies": "我的回复"
+    },
+    "section": {
+      "chat": "闲聊",
+      "eggs": "领鸡蛋",
+      "tech": "技术"
+    },
+    "action": {
+      "refresh": "刷新",
+      "newPost": "发帖",
+      "backToList": "返回列表",
+      "reply": "回复",
+      "report": "举报",
+      "editProfile": "编辑资料",
+      "checkIn": "签到",
+      "checkedIn": "今日已签到",
+      "closeCommunity": "关闭社区",
+      "loadMore": "加载更多"
+    },
+    "post": {
+      "empty": "暂无帖子，来发第一帖吧",
+      "emptyMy": "你还没有发布过帖子",
+      "emptyMyReplies": "你还没有回复过",
+      "notFound": "帖子不存在或已被删除",
+      "createTitle": "发帖",
+      "createDesc": "标题 80 字以内，正文 5000 字以内",
+      "titleLabel": "标题",
+      "titlePlaceholder": "输入标题（80 字以内）",
+      "contentLabel": "正文",
+      "sectionLabel": "板块",
+      "contentPlaceholder": "分享你的想法…（支持 Markdown，5000 字以内）",
+      "submit": "发布",
+      "cancel": "取消",
+      "editTab": "编辑",
+      "previewTab": "预览",
+      "previewEmpty": "暂无内容可预览，请先在「编辑」中输入正文"
+    },
+    "comment": {
+      "sectionTitle": "评论（{{count}}）",
+      "empty": "暂无评论，快来抢沙发",
+      "op": "楼主",
+      "more": "还有更多回复",
+      "placeholder": "发表评论…（1000 字以内，Ctrl+Enter 发送）",
+      "placeholderReply": "回复 {{name}}…（1000 字以内）",
+      "replyTo": "回复 {{name}}",
+      "cancelReply": "取消回复"
+    },
+    "profile": {
+      "setupTitle": "设置昵称与头像",
+      "setupDesc": "昵称与预设 emoji 头像将公开展示",
+      "editTitle": "编辑资料",
+      "later": "稍后设置",
+      "nickname": "昵称",
+      "nicknamePlaceholder": "输入昵称（1~20 字）",
+      "avatar": "头像（预设 emoji）",
+        "avatarCat": {
+          "smileys": "笑脸与情感",
+          "people": "人物与手势",
+          "animals": "动物",
+          "natureFood": "自然与食物",
+          "activityTravel": "活动与旅行",
+          "objectsSymbols": "物品与符号"
+        },
+      "banned": "已封禁",
+      "banReason": "封禁原因：{{reason}}",
+      "posts": "帖子",
+      "replies": "回复",
+      "totalCheckIns": "累计签到 {{count}} 天",
+      "streak": "连续 {{count}} 天",
+      "notFoundTip": "尚未设置社区资料",
+      "save": "保存"
+    },
+    "report": {
+      "title": "举报",
+      "desc": "举报后由管理员审核处理",
+      "post": "帖子",
+      "reply": "回复",
+      "reason": "举报原因（选填）",
+      "reasonPlaceholder": "简要说明问题（选填）",
+      "submit": "提交举报"
+    },
+    "admin": {
+      "title": "社区管理",
+      "login": "登录",
+      "loginSuccess": "登录成功",
+      "logout": "退出登录",
+      "username": "用户名",
+      "password": "密码",
+      "users": "用户",
+      "reports": "举报",
+      "banned": "已封禁",
+      "normal": "正常",
+      "ban": "封禁",
+      "banConfirm": "确认封禁",
+      "unban": "解封",
+      "banDone": "已封禁",
+      "unbanDone": "已解封",
+      "banReasonPlaceholder": "封禁原因（选填）",
+      "emptyUsers": "暂无用户",
+      "emptyReports": "暂无待处理举报",
+      "resolve": "处理",
+      "resolveDone": "已处理",
+      "reporter": "举报人：{{name}}"
+    },
+    "success": {
+      "post": "发布成功",
+      "reply": "回复成功",
+      "checkIn": "签到成功",
+      "profile": "资料已更新",
+      "report": "举报已提交，感谢反馈"
+    },
+    "loadError": {
+      "loading": "加载中…"
+    },
+    "time": {
+      "justNow": "刚刚",
+      "minutesAgo": "{{count}} 分钟前",
+      "hoursAgo": "{{count}} 小时前",
+      "daysAgo": "{{count}} 天前"
     }
   }
 }

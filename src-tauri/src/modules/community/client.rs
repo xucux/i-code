@@ -3,11 +3,13 @@
 //! - `base_url` 由调用方传入（读取自 `app_settings.community.base_url`）
 //! - 复用 `shared::apply_global_proxy` 应用全局代理
 //! - `X-User-Id` 从本地状态注入；`X-App-Token` 为编译期常量
+//! - 请求头校验（§5.1 / §6）：`User-Agent` 为 `i-code/X.Y.Z`、`Referer` 为合法主域，
+//!   不满足会被 Worker 将来源 IP 记入 `ip_blocklist` 并阻拦 48 小时
 //! - 响应先验 `code`：非 0 转业务错误；429 → 限流文案；错误不暴露 SQL / 堆栈
 
 use std::time::Duration;
 
-use reqwest::header::{HeaderValue, AUTHORIZATION, CONTENT_TYPE};
+use reqwest::header::{HeaderValue, REFERER, AUTHORIZATION, CONTENT_TYPE};
 use reqwest::Method;
 use serde::de::DeserializeOwned;
 
@@ -22,7 +24,16 @@ use super::types::{
 
 /// App Token：与 Worker 侧 `APP_TOKEN`（wrangler.toml `[vars]`）保持一致，
 /// 防止外部脚本直接刷接口（§5.1）
-pub const APP_TOKEN: &str = "i-code-community-app-token-v1";
+pub const APP_TOKEN: &str = "i-code-community-app-token-prod";
+
+/// 请求 User-Agent：须匹配 Worker 侧 `i-code/\d+\.\d+\.\d+`（§5.1 请求头检查）。
+/// 用 `CARGO_PKG_VERSION`（如 `0.2.2`）拼装，随版本自动变化。
+const USER_AGENT: &str = concat!("i-code/", env!("CARGO_PKG_VERSION"));
+
+/// 请求 Referer：须为 Worker 白名单内的主域（§5.1 / §6）。
+/// 即使 `base_url` 切换到备用域名，Referer 仍需保持主域，故用固定常量。
+/// 命名 `REFERER_VALUE` 避免与 `reqwest::header::REFERER`（头名常量）冲突。
+const REFERER_VALUE: &str = "https://community-beta.tenma.work/";
 
 /// 读接口超时（秒）
 const READ_TIMEOUT_SECS: u64 = 15;
@@ -90,7 +101,7 @@ fn build_client(write: bool) -> IcodeResult<reqwest::Client> {
     };
     let builder = reqwest::Client::builder()
         .timeout(timeout)
-        .user_agent(concat!("i-code/", env!("CARGO_PKG_VERSION")));
+        .user_agent(USER_AGENT);
     shared::apply_global_proxy(builder)
         .build()
         .map_err(|e| IcodeError::internal(format!("创建社区 HTTP 客户端失败：{e}")))
@@ -146,6 +157,8 @@ async fn send<T: DeserializeOwned>(
 
     let mut req = client.request(method, &url);
     req = req.header("X-App-Token", APP_TOKEN);
+    // 请求头校验（§5.1）：Referer 必须命中 Worker 白名单，否则来源 IP 会被阻拦 48 小时
+    req = req.header(REFERER, REFERER_VALUE);
     if let Some(uid) = user_id {
         req = req.header("X-User-Id", uid);
     }
@@ -198,12 +211,13 @@ async fn send<T: DeserializeOwned>(
 
 // ===== 用户接口 =====
 
-/// 帖子列表（游标分页）
+/// 帖子列表（游标分页；`section` = Some 时按板块过滤，None = 最近/全部）
 pub async fn list_posts(
     base_url: &str,
     user_id: &str,
     cursor: Option<String>,
     limit: Option<u32>,
+    section: Option<&str>,
 ) -> IcodeResult<PostListData> {
     let mut query = Vec::new();
     if let Some(c) = cursor {
@@ -211,6 +225,9 @@ pub async fn list_posts(
     }
     if let Some(l) = limit {
         query.push(("limit".to_string(), l.to_string()));
+    }
+    if let Some(s) = section {
+        query.push(("section".to_string(), s.to_string()));
     }
     send(
         base_url,

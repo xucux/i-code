@@ -32,15 +32,16 @@ fn validate_limit(limit: Option<u32>) -> IcodeResult<()> {
 
 // ===== 帖子 =====
 
-/// 帖子列表（游标分页）
+/// 帖子列表（游标分页；`section` 可选：chat=闲聊 / eggs=领鸡蛋 / tech=技术，缺省 = 最近/全部）
 #[tauri::command]
 pub async fn community_get_posts(
     state: State<'_, CommunityHandle>,
     cursor: Option<String>,
     limit: Option<u32>,
+    section: Option<String>,
 ) -> IcodeResult<PostListData> {
     validate_limit(limit)?;
-    state.service().get_posts(cursor, limit).await
+    state.service().get_posts(cursor, limit, section).await
 }
 
 /// 帖子详情 + 评论区（含楼中楼）

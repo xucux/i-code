@@ -16,7 +16,7 @@ import { useTranslation } from '@/modules/i18n/use-translation'
 import { BACKEND_EVENTS } from '@/core/events'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
-import { MarkdownContent } from './markdown-content'
+import { MarkdownContent } from '@/components/ui/markdown-content'
 
 const GITHUB_REPO = 'xucux/i-code'
 const RELEASES_URL = `https://github.com/${GITHUB_REPO}/releases/latest`

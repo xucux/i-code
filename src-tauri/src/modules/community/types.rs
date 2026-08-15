@@ -53,6 +53,22 @@ impl Default for CommunityLocalState {
 
 // ===== 帖子 =====
 
+/// 固定板块枚举值（与 Worker 侧 `SECTIONS` / D1 `posts.section` 一致）
+///
+/// `chat` = 闲聊 / `eggs` = 领鸡蛋 / `tech` = 技术；
+/// 前端「最近」Tab = 不带板块过滤（全部帖子按时间倒序）。
+pub const SECTIONS: &[&str] = &["chat", "eggs", "tech"];
+
+/// 校验板块值是否合法（None 视为合法 = 最近 / 缺省闲聊，由调用方决定语义）
+pub fn is_valid_section(section: &str) -> bool {
+    SECTIONS.contains(&section)
+}
+
+/// serde 缺省板块（兼容旧 Worker 响应：无 section 字段时按闲聊处理）
+fn default_section() -> String {
+    "chat".to_string()
+}
+
 /// 作者摘要（帖子/回复通用）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -68,6 +84,9 @@ pub struct UserBrief {
 pub struct PostSummary {
     pub post_id: i64,
     pub title: String,
+    /// 所属板块（chat / eggs / tech）
+    #[serde(default = "default_section")]
+    pub section: String,
     /// 正文截断摘要（Worker 侧取前 200 字）
     pub excerpt: String,
     pub reply_count: i64,
@@ -90,6 +109,9 @@ pub struct PostDetail {
     pub post_id: i64,
     pub title: String,
     pub content: String,
+    /// 所属板块（chat / eggs / tech）
+    #[serde(default = "default_section")]
+    pub section: String,
     pub reply_count: i64,
     pub created_at: String,
     pub author: UserBrief,
@@ -145,6 +167,9 @@ pub struct PostDetailData {
 pub struct CreatePostInput {
     pub title: String,
     pub content: String,
+    /// 所属板块（chat / eggs / tech）；None = 缺省闲聊（Service 层归一化）
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub section: Option<String>,
 }
 
 /// 回复 / 楼中楼输入
@@ -206,6 +231,9 @@ pub struct UpdateProfileInput {
 pub struct MyPostItem {
     pub post_id: i64,
     pub title: String,
+    /// 所属板块（chat / eggs / tech）
+    #[serde(default = "default_section")]
+    pub section: String,
     pub excerpt: String,
     pub reply_count: i64,
     pub created_at: String,
@@ -235,6 +263,9 @@ pub struct MyReplyItem {
 pub struct MyReplyPost {
     pub post_id: i64,
     pub title: String,
+    /// 所属板块（chat / eggs / tech）
+    #[serde(default = "default_section")]
+    pub section: String,
 }
 
 /// 我的回复列表响应

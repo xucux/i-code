@@ -114,13 +114,26 @@ impl CommunityService {
 
     // ===== 帖子 =====
 
+    /// 校验板块参数：Some 时必须为合法枚举值；返回归一化后的过滤值
+    fn normalize_section_filter(section: Option<&str>) -> IcodeResult<Option<&str>> {
+        match section {
+            None => Ok(None),
+            Some(s) if super::types::is_valid_section(s) => Ok(Some(s)),
+            Some(s) => Err(IcodeError::validation(format!(
+                "板块非法：{s}（须为 chat / eggs / tech）"
+            ))),
+        }
+    }
+
     pub async fn get_posts(
         &self,
         cursor: Option<String>,
         limit: Option<u32>,
+        section: Option<String>,
     ) -> IcodeResult<PostListData> {
         let (state, user_id) = self.require_ready()?;
-        client::list_posts(&state.base_url, &user_id, cursor, limit).await
+        let section = Self::normalize_section_filter(section.as_deref())?;
+        client::list_posts(&state.base_url, &user_id, cursor, limit, section).await
     }
 
     pub async fn get_post(&self, post_id: i64) -> IcodeResult<PostDetailData> {
@@ -128,8 +141,19 @@ impl CommunityService {
         client::get_post(&state.base_url, &user_id, post_id).await
     }
 
-    pub async fn create_post(&self, input: CreatePostInput) -> IcodeResult<i64> {
+    pub async fn create_post(&self, mut input: CreatePostInput) -> IcodeResult<i64> {
         let (state, user_id) = self.require_ready()?;
+        // 板块归一化：None → 闲聊；非法值直接拒绝（与 Worker 400 语义一致，提前拦截）
+        let section = match input.section.as_deref() {
+            None => "chat".to_string(),
+            Some(s) if super::types::is_valid_section(s) => s.to_string(),
+            Some(s) => {
+                return Err(IcodeError::validation(format!(
+                    "板块非法：{s}（须为 chat / eggs / tech）"
+                )))
+            }
+        };
+        input.section = Some(section);
         client::create_post(&state.base_url, &user_id, &input).await
     }
 

@@ -32,7 +32,8 @@
     "logs": "日誌",
     "backup": "備份",
     "settings": "設定",
-    "preview": "元件預覽"
+    "preview": "元件預覽",
+    "community": "社群"
   },
   "theme": {
     "title": "主題",
@@ -1694,6 +1695,143 @@
     "marketplaceVarOptional": "可選",
     "kind": {
       "balance": "額度監控"
+    }
+  },
+  "community": {
+    "title": "社群",
+    "gate": {
+      "title": "社群公測中",
+      "desc": "社群使用匿名裝置身分，僅需暱稱與預設頭像即可參與；所有內容公開可見，請友善交流。",
+      "privacy": "身分與本機綁定，無帳號體系；重灌系統或更換裝置後身分無法找回。",
+      "enable": "我已了解，開啟社群",
+      "reopen": "關閉後仍可再次開啟",
+      "closeConfirm": "關閉後將回到未開啟狀態，歷史資料保留在伺服器。",
+      "closeYes": "確認關閉",
+      "closeNo": "取消",
+      "closedTip": "社群已關閉，可隨時再次開啟"
+    },
+    "tab": {
+      "latest": "最新",
+      "myPosts": "我的貼文",
+      "myReplies": "我的回覆"
+    },
+    "section": {
+      "chat": "閒聊",
+      "eggs": "領雞蛋",
+      "tech": "技術"
+    },
+    "action": {
+      "refresh": "重新整理",
+      "newPost": "發文",
+      "backToList": "返回列表",
+      "reply": "回覆",
+      "report": "檢舉",
+      "editProfile": "編輯資料",
+      "checkIn": "簽到",
+      "checkedIn": "今日已簽到",
+      "closeCommunity": "關閉社群",
+      "loadMore": "載入更多"
+    },
+    "post": {
+      "empty": "暫無貼文，來發第一篇吧",
+      "emptyMy": "你還沒有發布過貼文",
+      "emptyMyReplies": "你還沒有回覆過",
+      "notFound": "貼文不存在或已被刪除",
+      "createTitle": "發文",
+      "createDesc": "標題 80 字以內，正文 5000 字以內",
+      "titleLabel": "標題",
+      "titlePlaceholder": "輸入標題（80 字以內）",
+      "contentLabel": "正文",
+      "sectionLabel": "板塊",
+      "contentPlaceholder": "分享你的想法…（支援 Markdown，5000 字以內）",
+      "submit": "發布",
+      "cancel": "取消",
+      "editTab": "編輯",
+      "previewTab": "預覽",
+      "previewEmpty": "暫無內容可預覽，請先在「編輯」中輸入正文"
+    },
+    "comment": {
+      "sectionTitle": "評論（{{count}}）",
+      "empty": "暫無評論，快來搶沙發",
+      "op": "樓主",
+      "more": "還有更多回覆",
+      "placeholder": "發表評論…（1000 字以內，Ctrl+Enter 送出）",
+      "placeholderReply": "回覆 {{name}}…（1000 字以內）",
+      "replyTo": "回覆 {{name}}",
+      "cancelReply": "取消回覆"
+    },
+    "profile": {
+      "setupTitle": "設定暱稱與頭像",
+      "setupDesc": "暱稱與預設 emoji 頭像將公開顯示",
+      "editTitle": "編輯資料",
+      "later": "稍後設定",
+      "nickname": "暱稱",
+      "nicknamePlaceholder": "輸入暱稱（1~20 字）",
+      "avatar": "頭像（預設 emoji）",
+        "avatarCat": {
+          "smileys": "笑臉與情感",
+          "people": "人物與手勢",
+          "animals": "動物",
+          "natureFood": "自然與食物",
+          "activityTravel": "活動與旅行",
+          "objectsSymbols": "物品與符號"
+        },
+      "banned": "已封禁",
+      "banReason": "封禁原因：{{reason}}",
+      "posts": "貼文",
+      "replies": "回覆",
+      "totalCheckIns": "累計簽到 {{count}} 天",
+      "streak": "連續 {{count}} 天",
+      "notFoundTip": "尚未設定社群資料",
+      "save": "儲存"
+    },
+    "report": {
+      "title": "檢舉",
+      "desc": "檢舉後由管理員審核處理",
+      "post": "貼文",
+      "reply": "回覆",
+      "reason": "檢舉原因（選填）",
+      "reasonPlaceholder": "簡要說明問題（選填）",
+      "submit": "提交檢舉"
+    },
+    "admin": {
+      "title": "社群管理",
+      "login": "登入",
+      "loginSuccess": "登入成功",
+      "logout": "登出",
+      "username": "使用者名稱",
+      "password": "密碼",
+      "users": "使用者",
+      "reports": "檢舉",
+      "banned": "已封禁",
+      "normal": "正常",
+      "ban": "封禁",
+      "banConfirm": "確認封禁",
+      "unban": "解封",
+      "banDone": "已封禁",
+      "unbanDone": "已解封",
+      "banReasonPlaceholder": "封禁原因（選填）",
+      "emptyUsers": "暫無使用者",
+      "emptyReports": "暫無待處理檢舉",
+      "resolve": "處理",
+      "resolveDone": "已處理",
+      "reporter": "檢舉人：{{name}}"
+    },
+    "success": {
+      "post": "發布成功",
+      "reply": "回覆成功",
+      "checkIn": "簽到成功",
+      "profile": "資料已更新",
+      "report": "檢舉已提交，感謝回報"
+    },
+    "loadError": {
+      "loading": "載入中…"
+    },
+    "time": {
+      "justNow": "剛剛",
+      "minutesAgo": "{{count}} 分鐘前",
+      "hoursAgo": "{{count}} 小時前",
+      "daysAgo": "{{count}} 天前"
     }
   }
 }

@@ -32,7 +32,8 @@
     "logs": "ログ",
     "backup": "バックアップ",
     "settings": "設定",
-    "preview": "コンポーネントプレビュー"
+    "preview": "コンポーネントプレビュー",
+    "community": "コミュニティ"
   },
   "theme": {
     "title": "テーマ",
@@ -1694,6 +1695,143 @@
     "marketplaceVarOptional": "任意",
     "kind": {
       "balance": "残高モニタリング"
+    }
+  },
+  "community": {
+    "title": "コミュニティ",
+    "gate": {
+      "title": "コミュニティ ベータ版",
+      "desc": "コミュニティは匿名のデバイス ID を使用します。ニックネームとプリセットアバターを設定するだけで参加できます。投稿は公開されますので、丁寧な交流をお願いします。",
+      "privacy": "ID はこのデバイスに紐付き、アカウント制度はありません。OS の再インストールやデバイスの変更後は復元できません。",
+      "enable": "了解しました、コミュニティを有効にする",
+      "reopen": "閉じた後でも再度有効化できます",
+      "closeConfirm": "閉じると無効状態に戻ります。履歴はサーバーに保持されます。",
+      "closeYes": "閉じる",
+      "closeNo": "キャンセル",
+      "closedTip": "コミュニティを閉じました。いつでも再度有効化できます"
+    },
+    "tab": {
+      "latest": "最新",
+      "myPosts": "自分の投稿",
+      "myReplies": "自分の返信"
+    },
+    "section": {
+      "chat": "雑談",
+      "eggs": "たまご",
+      "tech": "技術"
+    },
+    "action": {
+      "refresh": "更新",
+      "newPost": "投稿する",
+      "backToList": "一覧に戻る",
+      "reply": "返信",
+      "report": "通報",
+      "editProfile": "プロフィール編集",
+      "checkIn": "チェックイン",
+      "checkedIn": "本日チェックイン済み",
+      "closeCommunity": "コミュニティを閉じる",
+      "loadMore": "さらに読み込む"
+    },
+    "post": {
+      "empty": "投稿はまだありません。最初の投稿をどうぞ",
+      "emptyMy": "まだ投稿していません",
+      "emptyMyReplies": "まだ返信していません",
+      "notFound": "投稿が存在しないか削除されました",
+      "createTitle": "新規投稿",
+      "createDesc": "タイトル 80 文字以内、本文 5000 文字以内",
+      "titleLabel": "タイトル",
+      "titlePlaceholder": "タイトルを入力（80 文字以内）",
+      "contentLabel": "本文",
+      "sectionLabel": "カテゴリ",
+      "contentPlaceholder": "考えを共有しましょう…（Markdown 対応、5000 文字以内）",
+      "submit": "投稿",
+      "cancel": "キャンセル",
+      "editTab": "編集",
+      "previewTab": "プレビュー",
+      "previewEmpty": "プレビューする内容がありません。「編集」で本文を入力してください"
+    },
+    "comment": {
+      "sectionTitle": "コメント（{{count}}）",
+      "empty": "コメントはまだありません",
+      "op": "投稿者",
+      "more": "他の返信",
+      "placeholder": "コメントを書く…（1000 文字以内、Ctrl+Enter で送信）",
+      "placeholderReply": "{{name}} に返信…（1000 文字以内）",
+      "replyTo": "{{name}} に返信",
+      "cancelReply": "返信をキャンセル"
+    },
+    "profile": {
+      "setupTitle": "ニックネームとアバターの設定",
+      "setupDesc": "ニックネームとプリセット emoji アバターは公開されます",
+      "editTitle": "プロフィール編集",
+      "later": "後で設定",
+      "nickname": "ニックネーム",
+      "nicknamePlaceholder": "ニックネームを入力（1〜20 文字）",
+      "avatar": "アバター（プリセット emoji）",
+        "avatarCat": {
+          "smileys": "顔と感情",
+          "people": "人とジェスチャー",
+          "animals": "動物",
+          "natureFood": "自然と食べ物",
+          "activityTravel": "活動と旅行",
+          "objectsSymbols": "物と記号"
+        },
+      "banned": "禁止中",
+      "banReason": "禁止理由：{{reason}}",
+      "posts": "投稿",
+      "replies": "返信",
+      "totalCheckIns": "累計 {{count}} 日",
+      "streak": "連続 {{count}} 日",
+      "notFoundTip": "コミュニティプロフィール未設定",
+      "save": "保存"
+    },
+    "report": {
+      "title": "通報",
+      "desc": "通報は管理者が確認します",
+      "post": "投稿",
+      "reply": "返信",
+      "reason": "理由（任意）",
+      "reasonPlaceholder": "問題を簡単に説明（任意）",
+      "submit": "通報する"
+    },
+    "admin": {
+      "title": "コミュニティ管理",
+      "login": "ログイン",
+      "loginSuccess": "ログインしました",
+      "logout": "ログアウト",
+      "username": "ユーザー名",
+      "password": "パスワード",
+      "users": "ユーザー",
+      "reports": "通報",
+      "banned": "禁止中",
+      "normal": "正常",
+      "ban": "禁止",
+      "banConfirm": "禁止する",
+      "unban": "解除",
+      "banDone": "禁止しました",
+      "unbanDone": "解除しました",
+      "banReasonPlaceholder": "禁止理由（任意）",
+      "emptyUsers": "ユーザーはいません",
+      "emptyReports": "未処理の通報はありません",
+      "resolve": "処理",
+      "resolveDone": "処理しました",
+      "reporter": "通報者：{{name}}"
+    },
+    "success": {
+      "post": "投稿しました",
+      "reply": "返信しました",
+      "checkIn": "チェックインしました",
+      "profile": "プロフィールを更新しました",
+      "report": "通報を送信しました"
+    },
+    "loadError": {
+      "loading": "読み込み中…"
+    },
+    "time": {
+      "justNow": "たった今",
+      "minutesAgo": "{{count}} 分前",
+      "hoursAgo": "{{count}} 時間前",
+      "daysAgo": "{{count}} 日前"
     }
   }
 }

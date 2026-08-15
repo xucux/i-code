@@ -7,7 +7,7 @@ import { Separator } from '@/components/ui/separator'
 import { useTranslation } from '@/modules/i18n/use-translation'
 import { toIcodeError } from '@/core/errors'
 import { cn } from '@/lib/utils'
-import { MarkdownContent } from './markdown-content'
+import { MarkdownContent } from '@/components/ui/markdown-content'
 
 const CHANGELOG_PAGE_URL = 'https://github.com/xucux/i-code/blob/main/CHANGELOG.md'
 

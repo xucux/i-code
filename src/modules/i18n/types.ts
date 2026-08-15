@@ -10,6 +10,7 @@ export type Namespace =
   | 'workspace'
   | 'virtualProvider'
   | 'scriptTemplate'
+  | 'community'
   | 'theme'
   | 'preview'
   | 'dashboard'

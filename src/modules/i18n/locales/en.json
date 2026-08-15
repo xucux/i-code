@@ -32,7 +32,8 @@
     "logs": "Logs",
     "backup": "Backup",
     "settings": "Settings",
-    "preview": "Components"
+    "preview": "Components",
+    "community": "Community"
   },
   "theme": {
     "title": "Theme",
@@ -1694,6 +1695,143 @@
     "marketplaceVarOptional": "Optional",
     "kind": {
       "balance": "Balance Monitor"
+    }
+  },
+  "community": {
+    "title": "Community",
+    "gate": {
+      "title": "Community Beta",
+      "desc": "The community uses an anonymous device identity — just pick a nickname and a preset avatar. All content is public; please be kind.",
+      "privacy": "Your identity is bound to this device with no account system. It cannot be recovered after reinstalling the OS or switching devices.",
+      "enable": "I understand, enable community",
+      "reopen": "You can re-enable it after closing",
+      "closeConfirm": "Closing returns to the disabled state; history is kept on the server.",
+      "closeYes": "Close community",
+      "closeNo": "Cancel",
+      "closedTip": "Community closed, you can re-enable it anytime"
+    },
+    "tab": {
+      "latest": "Latest",
+      "myPosts": "My Posts",
+      "myReplies": "My Replies"
+    },
+    "section": {
+      "chat": "Casual",
+      "eggs": "Eggs",
+      "tech": "Tech"
+    },
+    "action": {
+      "refresh": "Refresh",
+      "newPost": "New Post",
+      "backToList": "Back to list",
+      "reply": "Reply",
+      "report": "Report",
+      "editProfile": "Edit profile",
+      "checkIn": "Check in",
+      "checkedIn": "Checked in today",
+      "closeCommunity": "Close community",
+      "loadMore": "Load more"
+    },
+    "post": {
+      "empty": "No posts yet — be the first to post",
+      "emptyMy": "You haven't posted anything yet",
+      "emptyMyReplies": "You haven't replied yet",
+      "notFound": "Post not found or deleted",
+      "createTitle": "New Post",
+      "createDesc": "Title up to 80 chars, content up to 5000 chars",
+      "titleLabel": "Title",
+      "titlePlaceholder": "Enter title (max 80 chars)",
+      "contentLabel": "Content",
+      "sectionLabel": "Section",
+      "contentPlaceholder": "Share your thoughts… (Markdown supported, max 5000 chars)",
+      "submit": "Publish",
+      "cancel": "Cancel",
+      "editTab": "Edit",
+      "previewTab": "Preview",
+      "previewEmpty": "Nothing to preview yet — write your content in Edit first"
+    },
+    "comment": {
+      "sectionTitle": "Comments ({{count}})",
+      "empty": "No comments yet — be the first",
+      "op": "OP",
+      "more": "More replies",
+      "placeholder": "Write a comment… (max 1000 chars, Ctrl+Enter to send)",
+      "placeholderReply": "Reply to {{name}}… (max 1000 chars)",
+      "replyTo": "Reply to {{name}}",
+      "cancelReply": "Cancel reply"
+    },
+    "profile": {
+      "setupTitle": "Set nickname & avatar",
+      "setupDesc": "Your nickname and preset emoji avatar will be public",
+      "editTitle": "Edit profile",
+      "later": "Later",
+      "nickname": "Nickname",
+      "nicknamePlaceholder": "Enter nickname (1-20 chars)",
+      "avatar": "Avatar (preset emoji)",
+        "avatarCat": {
+          "smileys": "Smileys",
+          "people": "People & Gestures",
+          "animals": "Animals",
+          "natureFood": "Nature & Food",
+          "activityTravel": "Activity & Travel",
+          "objectsSymbols": "Objects & Symbols"
+        },
+      "banned": "Banned",
+      "banReason": "Ban reason: {{reason}}",
+      "posts": "Posts",
+      "replies": "Replies",
+      "totalCheckIns": "{{count}} total check-ins",
+      "streak": "{{count}}-day streak",
+      "notFoundTip": "Community profile not set up yet",
+      "save": "Save"
+    },
+    "report": {
+      "title": "Report",
+      "desc": "Reports will be reviewed by an administrator",
+      "post": "Post",
+      "reply": "Reply",
+      "reason": "Reason (optional)",
+      "reasonPlaceholder": "Briefly describe the issue (optional)",
+      "submit": "Submit report"
+    },
+    "admin": {
+      "title": "Community Admin",
+      "login": "Log in",
+      "loginSuccess": "Logged in",
+      "logout": "Log out",
+      "username": "Username",
+      "password": "Password",
+      "users": "Users",
+      "reports": "Reports",
+      "banned": "Banned",
+      "normal": "Normal",
+      "ban": "Ban",
+      "banConfirm": "Confirm ban",
+      "unban": "Unban",
+      "banDone": "User banned",
+      "unbanDone": "User unbanned",
+      "banReasonPlaceholder": "Ban reason (optional)",
+      "emptyUsers": "No users",
+      "emptyReports": "No pending reports",
+      "resolve": "Resolve",
+      "resolveDone": "Resolved",
+      "reporter": "Reporter: {{name}}"
+    },
+    "success": {
+      "post": "Published",
+      "reply": "Reply sent",
+      "checkIn": "Checked in",
+      "profile": "Profile updated",
+      "report": "Report submitted, thanks"
+    },
+    "loadError": {
+      "loading": "Loading…"
+    },
+    "time": {
+      "justNow": "just now",
+      "minutesAgo": "{{count}} min ago",
+      "hoursAgo": "{{count}} h ago",
+      "daysAgo": "{{count}} d ago"
     }
   }
 }

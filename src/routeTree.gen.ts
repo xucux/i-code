@@ -16,12 +16,15 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as WorkspacesIndexRouteImport } from './routes/workspaces/index'
 import { Route as LogsIndexRouteImport } from './routes/logs/index'
 import { Route as GatewaysIndexRouteImport } from './routes/gateways/index'
+import { Route as CommunityIndexRouteImport } from './routes/community/index'
 import { Route as CliIndexRouteImport } from './routes/cli/index'
 import { Route as ChatIndexRouteImport } from './routes/chat/index'
 import { Route as BackupsIndexRouteImport } from './routes/backups/index'
 import { Route as GatewaysSettingsRouteImport } from './routes/gateways/settings'
 import { Route as GatewaysProvidersRouteImport } from './routes/gateways/providers'
 import { Route as GatewaysModelsRouteImport } from './routes/gateways/models'
+import { Route as CommunityAdminRouteImport } from './routes/community/admin'
+import { Route as CommunityPostIdRouteImport } from './routes/community/post.$id'
 
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
@@ -58,6 +61,11 @@ const GatewaysIndexRoute = GatewaysIndexRouteImport.update({
   path: '/gateways/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CommunityIndexRoute = CommunityIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => CommunityRoute,
+} as any)
 const CliIndexRoute = CliIndexRouteImport.update({
   id: '/cli/',
   path: '/cli/',
@@ -88,36 +96,52 @@ const GatewaysModelsRoute = GatewaysModelsRouteImport.update({
   path: '/gateways/models',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CommunityAdminRoute = CommunityAdminRouteImport.update({
+  id: '/community/admin',
+  path: '/community/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CommunityPostIdRoute = CommunityPostIdRouteImport.update({
+  id: '/community/post/$id',
+  path: '/community/post/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/mini-panel': typeof MiniPanelRoute
   '/preview': typeof PreviewRoute
   '/settings': typeof SettingsRoute
+  '/community/admin': typeof CommunityAdminRoute
   '/gateways/models': typeof GatewaysModelsRoute
   '/gateways/providers': typeof GatewaysProvidersRoute
   '/gateways/settings': typeof GatewaysSettingsRoute
   '/backups/': typeof BackupsIndexRoute
   '/chat/': typeof ChatIndexRoute
   '/cli/': typeof CliIndexRoute
+  '/community/': typeof CommunityIndexRoute
   '/gateways/': typeof GatewaysIndexRoute
   '/logs/': typeof LogsIndexRoute
   '/workspaces/': typeof WorkspacesIndexRoute
+  '/community/post/$id': typeof CommunityPostIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/mini-panel': typeof MiniPanelRoute
   '/preview': typeof PreviewRoute
   '/settings': typeof SettingsRoute
+  '/community/admin': typeof CommunityAdminRoute
   '/gateways/models': typeof GatewaysModelsRoute
   '/gateways/providers': typeof GatewaysProvidersRoute
   '/gateways/settings': typeof GatewaysSettingsRoute
   '/backups': typeof BackupsIndexRoute
   '/chat': typeof ChatIndexRoute
   '/cli': typeof CliIndexRoute
+  '/community': typeof CommunityIndexRoute
   '/gateways': typeof GatewaysIndexRoute
   '/logs': typeof LogsIndexRoute
   '/workspaces': typeof WorkspacesIndexRoute
+  '/community/post/$id': typeof CommunityPostIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -125,15 +149,18 @@ export interface FileRoutesById {
   '/mini-panel': typeof MiniPanelRoute
   '/preview': typeof PreviewRoute
   '/settings': typeof SettingsRoute
+  '/community/admin': typeof CommunityAdminRoute
   '/gateways/models': typeof GatewaysModelsRoute
   '/gateways/providers': typeof GatewaysProvidersRoute
   '/gateways/settings': typeof GatewaysSettingsRoute
   '/backups/': typeof BackupsIndexRoute
   '/chat/': typeof ChatIndexRoute
   '/cli/': typeof CliIndexRoute
+  '/community/': typeof CommunityIndexRoute
   '/gateways/': typeof GatewaysIndexRoute
   '/logs/': typeof LogsIndexRoute
   '/workspaces/': typeof WorkspacesIndexRoute
+  '/community/post/$id': typeof CommunityPostIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -142,45 +169,54 @@ export interface FileRouteTypes {
     | '/mini-panel'
     | '/preview'
     | '/settings'
+    | '/community/admin'
     | '/gateways/models'
     | '/gateways/providers'
     | '/gateways/settings'
     | '/backups/'
     | '/chat/'
     | '/cli/'
+    | '/community/'
     | '/gateways/'
     | '/logs/'
     | '/workspaces/'
+    | '/community/post/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/mini-panel'
     | '/preview'
     | '/settings'
+    | '/community/admin'
     | '/gateways/models'
     | '/gateways/providers'
     | '/gateways/settings'
     | '/backups'
     | '/chat'
     | '/cli'
+    | '/community'
     | '/gateways'
     | '/logs'
     | '/workspaces'
+    | '/community/post/$id'
   id:
     | '__root__'
     | '/'
     | '/mini-panel'
     | '/preview'
     | '/settings'
+    | '/community/admin'
     | '/gateways/models'
     | '/gateways/providers'
     | '/gateways/settings'
     | '/backups/'
     | '/chat/'
     | '/cli/'
+    | '/community/'
     | '/gateways/'
     | '/logs/'
     | '/workspaces/'
+    | '/community/post/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -188,6 +224,7 @@ export interface RootRouteChildren {
   MiniPanelRoute: typeof MiniPanelRoute
   PreviewRoute: typeof PreviewRoute
   SettingsRoute: typeof SettingsRoute
+  CommunityAdminRoute: typeof CommunityAdminRoute
   GatewaysModelsRoute: typeof GatewaysModelsRoute
   GatewaysProvidersRoute: typeof GatewaysProvidersRoute
   GatewaysSettingsRoute: typeof GatewaysSettingsRoute
@@ -197,6 +234,7 @@ export interface RootRouteChildren {
   GatewaysIndexRoute: typeof GatewaysIndexRoute
   LogsIndexRoute: typeof LogsIndexRoute
   WorkspacesIndexRoute: typeof WorkspacesIndexRoute
+  CommunityPostIdRoute: typeof CommunityPostIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -250,6 +288,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GatewaysIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/community/': {
+      id: '/community/'
+      path: '/'
+      fullPath: '/community/'
+      preLoaderRoute: typeof CommunityIndexRouteImport
+      parentRoute: typeof CommunityRoute
+    }
     '/cli/': {
       id: '/cli/'
       path: '/cli'
@@ -292,6 +337,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GatewaysModelsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/community/admin': {
+      id: '/community/admin'
+      path: '/community/admin'
+      fullPath: '/community/admin'
+      preLoaderRoute: typeof CommunityAdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/community/post/$id': {
+      id: '/community/post/$id'
+      path: '/community/post/$id'
+      fullPath: '/community/post/$id'
+      preLoaderRoute: typeof CommunityPostIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -300,6 +359,7 @@ const rootRouteChildren: RootRouteChildren = {
   MiniPanelRoute: MiniPanelRoute,
   PreviewRoute: PreviewRoute,
   SettingsRoute: SettingsRoute,
+  CommunityAdminRoute: CommunityAdminRoute,
   GatewaysModelsRoute: GatewaysModelsRoute,
   GatewaysProvidersRoute: GatewaysProvidersRoute,
   GatewaysSettingsRoute: GatewaysSettingsRoute,
@@ -309,6 +369,7 @@ const rootRouteChildren: RootRouteChildren = {
   GatewaysIndexRoute: GatewaysIndexRoute,
   LogsIndexRoute: LogsIndexRoute,
   WorkspacesIndexRoute: WorkspacesIndexRoute,
+  CommunityPostIdRoute: CommunityPostIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
