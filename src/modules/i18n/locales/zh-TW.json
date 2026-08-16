@@ -1775,6 +1775,7 @@
       "muteReason": "禁言原因：{{reason}}",
       "posts": "貼文",
       "replies": "回覆",
+      "points": "積分",
       "totalCheckIns": "累計簽到 {{count}} 天",
       "streak": "連續 {{count}} 天",
       "notFoundTip": "尚未設定社群資料",
@@ -1881,9 +1882,10 @@
     "success": {
       "post": "發布成功",
       "reply": "回覆成功",
-      "checkIn": "簽到成功",
+      "checkInPoints": "簽到成功，積分 +{{earned}}",
+      "checkInBonus": "簽到成功，積分 +{{earned}}（連續 5 天獎勵 +{{bonus}}）",
       "profile": "資料已更新",
-      "report": "檢舉已提交，感謝回報"
+      "report": "檢舉已提交，感謝回饋"
     },
     "loadError": {
       "loading": "載入中…"

@@ -1788,6 +1788,7 @@
       "muteReason": "禁言原因：{{reason}}",
       "posts": "帖子",
       "replies": "回复",
+      "points": "积分",
       "totalCheckIns": "累计签到 {{count}} 天",
       "streak": "连续 {{count}} 天",
       "notFoundTip": "尚未设置社区资料",
@@ -1894,7 +1895,8 @@
     "success": {
       "post": "发布成功",
       "reply": "回复成功",
-      "checkIn": "签到成功",
+      "checkInPoints": "签到成功，积分 +{{earned}}",
+      "checkInBonus": "签到成功，积分 +{{earned}}（连续 5 天奖励 +{{bonus}}）",
       "profile": "资料已更新",
       "report": "举报已提交，感谢反馈"
     },

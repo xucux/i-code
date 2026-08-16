@@ -138,13 +138,23 @@ export interface ProfileUser {
   muteReason?: string | null
 }
 
-/** 签到 / 数据统计（纯计数 + 连续天数） */
+/** 签到 / 数据统计（纯计数 + 连续天数 + 累计积分） */
 export interface CheckInStats {
   totalCheckIns: number
   streakDays: number
   postCount: number
   replyCount: number
   todayCheckedIn: boolean
+  /** 累计积分（Points，SUM(points_ledger.change)） */
+  points: number
+}
+
+/** 签到结果：统计 + 本次获得积分（Rust 侧 `CheckInResult` 以 flatten 展开统计字段） */
+export interface CheckInResult extends CheckInStats {
+  /** 本次签到获得积分（基础分 + 连续奖励） */
+  pointsEarned: number
+  /** 连续满 5 天奖励积分（0 = 未触发） */
+  streakBonus: number
 }
 
 /** 我的资料 + 签到统计响应 */

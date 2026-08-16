@@ -214,7 +214,7 @@ pub struct ProfileUser {
     pub mute_reason: Option<String>,
 }
 
-/// 签到 / 数据统计（§8.3：纯计数 + 连续天数）
+/// 签到 / 数据统计（§8.3：纯计数 + 连续天数 + 累计积分）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CheckInStats {
@@ -223,6 +223,25 @@ pub struct CheckInStats {
     pub post_count: i64,
     pub reply_count: i64,
     pub today_checked_in: bool,
+    /// 累计积分（Points，`SUM(points_ledger.change)`）
+    #[serde(default)]
+    pub points: i64,
+}
+
+/// 签到结果：统计 + 本次获得积分
+///
+/// Worker `/users/me/check-in` 返回 `{ ...stats, pointsEarned, streakBonus }`，
+/// 此处用 `#[serde(flatten)]` 展开统计字段，前端可直接取 `stats` 与 `pointsEarned`。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CheckInResult {
+    #[serde(flatten)]
+    pub stats: CheckInStats,
+    /// 本次签到获得积分（基础分 + 连续奖励）
+    pub points_earned: i64,
+    /// 连续满 5 天奖励积分（0 = 未触发）
+    #[serde(default)]
+    pub streak_bonus: i64,
 }
 
 /// 我的资料 + 签到统计响应

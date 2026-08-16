@@ -11,10 +11,10 @@ use crate::error::IcodeResult;
 use super::service::CommunityHandle;
 use super::types::{
     AdminLoginData, AdminLoginInput, AdminMuteInput, AdminPostListData, AdminReportItem,
-    AdminUpdateGovernanceInput, AdminUpdatePostInput, AdminUserItem, CheckInStats,
-    CommunityLocalState, CreatePostInput, CreateReplyInput, MyPostsData, MyRepliesData,
-    PostDetailData, PostListData, ProfileData, ProfileUser, ReportInput, SiteGovernance,
-    UpdateProfileInput,
+    AdminUpdateGovernanceInput, AdminUpdatePostInput, AdminUserItem, CheckInResult,
+    CommunityLocalState, CreatePostInput, CreateReplyInput, MyPostsData,
+    MyRepliesData, PostDetailData, PostListData, ProfileData, ProfileUser, ReportInput,
+    SiteGovernance, UpdateProfileInput,
 };
 
 /// 列表分页上限（与 Worker 侧 MAX_LIST_LIMIT 对齐）
@@ -93,11 +93,11 @@ pub async fn community_update_profile(
     state.service().update_profile(input).await
 }
 
-/// 签到（同 UTC 日重复 → Worker 409）
+/// 签到（同 UTC 日重复 → Worker 409）；返回统计 + 本次获得积分
 #[tauri::command]
 pub async fn community_check_in(
     state: State<'_, CommunityHandle>,
-) -> IcodeResult<CheckInStats> {
+) -> IcodeResult<CheckInResult> {
     state.service().check_in().await
 }
 

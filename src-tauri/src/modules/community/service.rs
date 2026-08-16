@@ -18,7 +18,7 @@ use super::client;
 use super::repository;
 use super::types::{
     AdminLoginData, AdminLoginInput, AdminMuteInput, AdminPostListData, AdminReportItem,
-    AdminUpdateGovernanceInput, AdminUpdatePostInput, AdminUserItem, CheckInStats,
+    AdminUpdateGovernanceInput, AdminUpdatePostInput, AdminUserItem, CheckInResult,
     CommunityLocalState, CreatePostInput, CreateReplyInput, MyPostsData, MyRepliesData,
     PostDetailData, PostListData, ProfileData, ProfileUser, ReportInput, SiteGovernance,
     UpdateProfileInput,
@@ -182,8 +182,8 @@ impl CommunityService {
         Ok(user)
     }
 
-    /// 签到（重复签到由 Worker 返回 409）
-    pub async fn check_in(&self) -> IcodeResult<CheckInStats> {
+    /// 签到（重复签到由 Worker 返回 409）；返回统计 + 本次获得积分
+    pub async fn check_in(&self) -> IcodeResult<CheckInResult> {
         let (state, user_id) = self.require_ready()?;
         client::check_in(&state.base_url, &user_id).await
     }

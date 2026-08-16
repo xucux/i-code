@@ -67,6 +67,10 @@ export function CommunityProfilePanel({
                 <i className="fa-solid fa-comment mr-0.5 size-2.5" />
                 {stats.replyCount}
               </span>
+              <span title={t('profile.points')} className="text-amber-600">
+                <i className="fa-solid fa-coins mr-0.5 size-2.5" />
+                {stats.points}
+              </span>
             </div>
           </div>
           <Button

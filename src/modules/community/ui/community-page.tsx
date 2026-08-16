@@ -130,8 +130,13 @@ export function CommunityPage() {
   const handleCheckIn = async () => {
     setCheckInPending(true)
     try {
-      await communityCheckIn()
-      toast.success(t('success.checkIn'))
+      const result = await communityCheckIn()
+      // 签到成功 toast：本次获得积分 + 连续 5 天奖励
+      if (result.streakBonus > 0) {
+        toast.success(t('success.checkInBonus', { earned: result.pointsEarned, bonus: result.streakBonus }))
+      } else {
+        toast.success(t('success.checkInPoints', { earned: result.pointsEarned }))
+      }
       await refreshProfile()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e))

@@ -1775,6 +1775,7 @@
       "muteReason": "Mute reason: {{reason}}",
       "posts": "Posts",
       "replies": "Replies",
+      "points": "Points",
       "totalCheckIns": "{{count}} total check-ins",
       "streak": "{{count}}-day streak",
       "notFoundTip": "Community profile not set up yet",
@@ -1881,7 +1882,8 @@
     "success": {
       "post": "Published",
       "reply": "Reply sent",
-      "checkIn": "Checked in",
+      "checkInPoints": "Checked in, +{{earned}} points",
+      "checkInBonus": "Checked in, +{{earned}} points (5-day streak bonus +{{bonus}})",
       "profile": "Profile updated",
       "report": "Report submitted, thanks"
     },

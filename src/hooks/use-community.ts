@@ -16,7 +16,7 @@ import type {
   AdminUpdateGovernanceInput,
   AdminUpdatePostInput,
   AdminUserItem,
-  CheckInStats,
+  CheckInResult,
   CommunityLocalState,
   CommunitySection,
   CreatePostInput,
@@ -82,9 +82,9 @@ export async function updateCommunityProfile(input: UpdateProfileInput): Promise
   return invokeCommand<ProfileUser>('community_update_profile', { input })
 }
 
-/** 签到（同 UTC 日重复 → Worker 409） */
-export async function communityCheckIn(): Promise<CheckInStats> {
-  return invokeCommand<CheckInStats>('community_check_in')
+/** 签到（同 UTC 日重复 → Worker 409）；返回统计 + 本次获得积分 */
+export async function communityCheckIn(): Promise<CheckInResult> {
+  return invokeCommand<CheckInResult>('community_check_in')
 }
 
 /** 我的帖子 */

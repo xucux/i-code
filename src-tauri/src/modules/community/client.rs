@@ -18,9 +18,9 @@ use crate::modules::shared;
 
 use super::types::{
     AdminLoginData, AdminLoginInput, AdminMuteInput, AdminPostListData, AdminReportItem,
-    AdminUpdateGovernanceInput, AdminUpdatePostInput, AdminUserItem, CheckInStats, CreatePostInput,
-    CreateReplyInput, MyPostsData, MyRepliesData, PostDetailData, PostListData, ProfileData,
-    ProfileUser, ReportInput, SiteGovernance, UpdateProfileInput,
+    AdminUpdateGovernanceInput, AdminUpdatePostInput, AdminUserItem, CheckInResult,
+    CreatePostInput, CreateReplyInput, MyPostsData, MyRepliesData, PostDetailData, PostListData,
+    ProfileData, ProfileUser, ReportInput, SiteGovernance, UpdateProfileInput,
 };
 
 /// App Token：与 Worker 侧 `APP_TOKEN`（wrangler.toml `[vars]`）保持一致，
@@ -338,8 +338,8 @@ pub async fn update_profile(
     Ok(data.user)
 }
 
-/// 签到；同 UTC 日重复签到 Worker 返回 409
-pub async fn check_in(base_url: &str, user_id: &str) -> IcodeResult<CheckInStats> {
+/// 签到；同 UTC 日重复签到 Worker 返回 409；返回统计 + 本次获得积分
+pub async fn check_in(base_url: &str, user_id: &str) -> IcodeResult<CheckInResult> {
     send(
         base_url,
         Method::POST,
