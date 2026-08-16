@@ -1713,7 +1713,8 @@
     "tab": {
       "latest": "最新",
       "myPosts": "自分の投稿",
-      "myReplies": "自分の返信"
+      "myReplies": "自分の返信",
+      "leaderboard": "ポイントランキング"
     },
     "section": {
       "chat": "雑談",
@@ -1750,6 +1751,11 @@
       "previewTab": "プレビュー",
       "previewEmpty": "プレビューする内容がありません。「編集」で本文を入力してください",
       "noComments": "コメントはまだありません"
+    },
+    "leaderboard": {
+      "empty": "ランキングデータはありません",
+      "rank": "{{rank}} 位",
+      "points": "{{points}} ポイント"
     },
     "comment": {
       "sectionTitle": "コメント（{{count}}）",

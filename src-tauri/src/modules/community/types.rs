@@ -313,6 +313,28 @@ pub struct MyRepliesData {
     pub next_cursor: Option<String>,
 }
 
+/// 积分排行项（Points leaderboard）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PointsLeaderboardItem {
+    /// 名次（顺延式：1/2/3…）
+    pub rank: i64,
+    pub user_id: String,
+    pub nickname: String,
+    pub avatar_index: i64,
+    /// 累计积分
+    pub points: i64,
+}
+
+/// 积分排行响应（offset 分页）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PointsLeaderboardData {
+    pub items: Vec<PointsLeaderboardItem>,
+    /// 下一页 offset；None = 无更多
+    pub next_offset: Option<i64>,
+}
+
 // ===== 举报 =====
 
 /// 举报输入

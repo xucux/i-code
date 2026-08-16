@@ -1713,7 +1713,8 @@
     "tab": {
       "latest": "最新",
       "myPosts": "我的貼文",
-      "myReplies": "我的回覆"
+      "myReplies": "我的回覆",
+      "leaderboard": "積分排行"
     },
     "section": {
       "chat": "閒聊",
@@ -1750,6 +1751,11 @@
       "previewTab": "預覽",
       "previewEmpty": "暫無內容可預覽，請先在「編輯」中輸入正文",
       "noComments": "暫無留言"
+    },
+    "leaderboard": {
+      "empty": "暫無排行資料",
+      "rank": "第 {{rank}} 名",
+      "points": "{{points}} 積分"
     },
     "comment": {
       "sectionTitle": "評論（{{count}}）",

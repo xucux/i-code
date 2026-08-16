@@ -13,8 +13,8 @@ use super::types::{
     AdminLoginData, AdminLoginInput, AdminMuteInput, AdminPostListData, AdminReportItem,
     AdminUpdateGovernanceInput, AdminUpdatePostInput, AdminUserItem, CheckInResult,
     CommunityLocalState, CreatePostInput, CreateReplyInput, MyPostsData,
-    MyRepliesData, PostDetailData, PostListData, ProfileData, ProfileUser, ReportInput,
-    SiteGovernance, UpdateProfileInput,
+    MyRepliesData, PointsLeaderboardData, PostDetailData, PostListData, ProfileData, ProfileUser,
+    ReportInput, SiteGovernance, UpdateProfileInput,
 };
 
 /// 列表分页上限（与 Worker 侧 MAX_LIST_LIMIT 对齐）
@@ -138,6 +138,17 @@ pub async fn community_get_site_governance(
     state: State<'_, CommunityHandle>,
 ) -> IcodeResult<SiteGovernance> {
     state.service().get_site_governance().await
+}
+
+/// 积分排行（offset 分页；Worker 侧过滤封禁用户，禁言用户仍展示）
+#[tauri::command]
+pub async fn community_get_points_leaderboard(
+    state: State<'_, CommunityHandle>,
+    offset: Option<i64>,
+    limit: Option<u32>,
+) -> IcodeResult<PointsLeaderboardData> {
+    validate_limit(limit)?;
+    state.service().get_points_leaderboard(offset, limit).await
 }
 
 // ===== 门禁与本地状态（不进 Worker）=====

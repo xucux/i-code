@@ -23,6 +23,7 @@ import type {
   CreateReplyInput,
   MyPostsData,
   MyRepliesData,
+  PointsLeaderboardData,
   PostDetailData,
   PostListData,
   ProfileData,
@@ -105,6 +106,17 @@ export async function reportCommunityContent(input: ReportInput): Promise<number
 /** 全站治理开关（D11：用户端只读，用于禁用发帖 / 回复入口） */
 export async function getCommunitySiteGovernance(): Promise<SiteGovernance> {
   return invokeCommand<SiteGovernance>('community_get_site_governance')
+}
+
+/** 积分排行（offset 分页；Worker 侧过滤封禁用户，禁言用户仍展示） */
+export async function getCommunityPointsLeaderboard(
+  offset?: number,
+  limit?: number,
+): Promise<PointsLeaderboardData> {
+  return invokeCommand<PointsLeaderboardData>('community_get_points_leaderboard', {
+    offset: offset ?? null,
+    limit: limit ?? null,
+  })
 }
 
 // ===== 管理员 =====

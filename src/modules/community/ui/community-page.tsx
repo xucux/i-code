@@ -27,6 +27,7 @@ import { CommunityGate } from '@/modules/community/ui/community-gate'
 import { CommunityProfilePanel } from '@/modules/community/ui/community-profile-panel'
 import { CreatePostDialog } from '@/modules/community/ui/create-post-dialog'
 import { MyContentList } from '@/modules/community/ui/my-content-list'
+import { LeaderboardList } from '@/modules/community/ui/leaderboard-list'
 import { PostList } from '@/modules/community/ui/post-list'
 import { ProfileSetupDialog } from '@/modules/community/ui/profile-setup-dialog'
 import { getCommunityAvatar } from '@/modules/community/avatars'
@@ -198,7 +199,7 @@ export function CommunityPage() {
               title={t('action.refresh')}
               disabled={loading}
               onClick={() =>
-                view === 'myPosts' || view === 'myReplies'
+                view === 'myPosts' || view === 'myReplies' || view === 'leaderboard'
                   ? setView('latest')
                   : void refreshPosts()
               }
@@ -243,6 +244,8 @@ export function CommunityPage() {
           <div className="overflow-y-auto pr-2" style={{ height: listHeight || undefined }}>
             {view === 'myPosts' || view === 'myReplies' ? (
               <MyContentList kind={view === 'myPosts' ? 'posts' : 'replies'} />
+            ) : view === 'leaderboard' ? (
+              <LeaderboardList />
             ) : (
               <PostList
                 posts={posts}

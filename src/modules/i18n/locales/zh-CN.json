@@ -1726,7 +1726,8 @@
     "tab": {
       "latest": "最新",
       "myPosts": "我的帖子",
-      "myReplies": "我的回复"
+      "myReplies": "我的回复",
+      "leaderboard": "积分排行"
     },
     "section": {
       "chat": "闲聊",
@@ -1763,6 +1764,11 @@
       "previewTab": "预览",
       "previewEmpty": "暂无内容可预览，请先在「编辑」中输入正文",
       "noComments": "暂无评论"
+    },
+    "leaderboard": {
+      "empty": "暂无排行数据",
+      "rank": "第 {{rank}} 名",
+      "points": "{{points}} 积分"
     },
     "comment": {
       "sectionTitle": "评论（{{count}}）",

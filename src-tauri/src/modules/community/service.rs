@@ -20,8 +20,8 @@ use super::types::{
     AdminLoginData, AdminLoginInput, AdminMuteInput, AdminPostListData, AdminReportItem,
     AdminUpdateGovernanceInput, AdminUpdatePostInput, AdminUserItem, CheckInResult,
     CommunityLocalState, CreatePostInput, CreateReplyInput, MyPostsData, MyRepliesData,
-    PostDetailData, PostListData, ProfileData, ProfileUser, ReportInput, SiteGovernance,
-    UpdateProfileInput,
+    PointsLeaderboardData, PostDetailData, PostListData, ProfileData, ProfileUser, ReportInput,
+    SiteGovernance, UpdateProfileInput,
 };
 
 /// 社区 Service 句柄（Tauri State）
@@ -216,6 +216,16 @@ impl CommunityService {
     pub async fn get_site_governance(&self) -> IcodeResult<SiteGovernance> {
         let (state, user_id) = self.require_ready()?;
         client::get_site_governance(&state.base_url, &user_id).await
+    }
+
+    /// 积分排行（offset 分页；Worker 侧过滤封禁用户，禁言用户仍展示）
+    pub async fn get_points_leaderboard(
+        &self,
+        offset: Option<i64>,
+        limit: Option<u32>,
+    ) -> IcodeResult<PointsLeaderboardData> {
+        let (state, user_id) = self.require_ready()?;
+        client::get_points_leaderboard(&state.base_url, &user_id, offset, limit).await
     }
 
     // ===== 管理员 =====

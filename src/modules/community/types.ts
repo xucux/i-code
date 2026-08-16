@@ -30,8 +30,8 @@ export type CommunitySection = 'chat' | 'eggs' | 'tech'
 /** 板块顺序（顶部 Tab 展示顺序：闲聊 / 领鸡蛋 / 技术） */
 export const COMMUNITY_SECTIONS: readonly CommunitySection[] = ['chat', 'eggs', 'tech'] as const
 
-/** 左列视图：最近（全部）/ 板块 / 我的帖子 / 我的回复 */
-export type CommunityView = 'latest' | CommunitySection | 'myPosts' | 'myReplies'
+/** 左列视图：最近（全部）/ 板块 / 我的帖子 / 我的回复 / 积分排行 */
+export type CommunityView = 'latest' | CommunitySection | 'myPosts' | 'myReplies' | 'leaderboard'
 
 /** 作者摘要（帖子/回复通用） */
 export interface UserBrief {
@@ -206,6 +206,24 @@ export interface MyReplyItem {
 export interface MyRepliesData {
   replies: MyReplyItem[]
   nextCursor: string | null
+}
+
+/** 积分排行项（点进排行视图展示；Worker 聚合 points_ledger，过滤封禁用户，禁言用户仍展示） */
+export interface PointsLeaderboardItem {
+  /** 名次（顺延式：1/2/3…） */
+  rank: number
+  userId: string
+  nickname: string
+  avatarIndex: number
+  /** 累计积分 */
+  points: number
+}
+
+/** 积分排行响应（offset 分页） */
+export interface PointsLeaderboardData {
+  items: PointsLeaderboardItem[]
+  /** 下一页 offset；null = 无更多 */
+  nextOffset: number | null
 }
 
 // ===== 举报 =====

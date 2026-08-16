@@ -1713,7 +1713,8 @@
     "tab": {
       "latest": "Latest",
       "myPosts": "My Posts",
-      "myReplies": "My Replies"
+      "myReplies": "My Replies",
+      "leaderboard": "Leaderboard"
     },
     "section": {
       "chat": "Casual",
@@ -1750,6 +1751,11 @@
       "previewTab": "Preview",
       "previewEmpty": "Nothing to preview yet — write your content in Edit first",
       "noComments": "No comments yet"
+    },
+    "leaderboard": {
+      "empty": "No leaderboard data",
+      "rank": "Rank #{{rank}}",
+      "points": "{{points}} points"
     },
     "comment": {
       "sectionTitle": "Comments ({{count}})",

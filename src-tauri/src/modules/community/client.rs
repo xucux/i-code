@@ -19,8 +19,9 @@ use crate::modules::shared;
 use super::types::{
     AdminLoginData, AdminLoginInput, AdminMuteInput, AdminPostListData, AdminReportItem,
     AdminUpdateGovernanceInput, AdminUpdatePostInput, AdminUserItem, CheckInResult,
-    CreatePostInput, CreateReplyInput, MyPostsData, MyRepliesData, PostDetailData, PostListData,
-    ProfileData, ProfileUser, ReportInput, SiteGovernance, UpdateProfileInput,
+    CreatePostInput, CreateReplyInput, MyPostsData, MyRepliesData, PointsLeaderboardData,
+    PostDetailData, PostListData, ProfileData, ProfileUser, ReportInput, SiteGovernance,
+    UpdateProfileInput,
 };
 
 /// App Token：与 Worker 侧 `APP_TOKEN`（wrangler.toml `[vars]`）保持一致，
@@ -437,6 +438,33 @@ pub async fn get_site_governance(
         Method::GET,
         "site-settings",
         None,
+        Some(user_id),
+        None,
+        None,
+        false,
+    )
+    .await
+}
+
+/// 积分排行（offset 分页；Worker 侧聚合 points_ledger，过滤封禁用户，禁言用户仍展示）
+pub async fn get_points_leaderboard(
+    base_url: &str,
+    user_id: &str,
+    offset: Option<i64>,
+    limit: Option<u32>,
+) -> IcodeResult<PointsLeaderboardData> {
+    let mut query = Vec::new();
+    if let Some(o) = offset {
+        query.push(("offset".to_string(), o.to_string()));
+    }
+    if let Some(l) = limit {
+        query.push(("limit".to_string(), l.to_string()));
+    }
+    send(
+        base_url,
+        Method::GET,
+        "points/leaderboard",
+        if query.is_empty() { None } else { Some(query) },
         Some(user_id),
         None,
         None,

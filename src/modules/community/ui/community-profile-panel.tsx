@@ -129,6 +129,12 @@ export function CommunityProfilePanel({
           active={activeView === 'myReplies'}
           onClick={() => onViewChange('myReplies')}
         />
+        <EntryButton
+          icon="fa-solid fa-trophy"
+          label={t('tab.leaderboard')}
+          active={activeView === 'leaderboard'}
+          onClick={() => onViewChange('leaderboard')}
+        />
       </div>
 
       {/* 关闭社区（二次确认，防误触） */}
