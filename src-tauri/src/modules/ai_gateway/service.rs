@@ -2192,7 +2192,8 @@ impl AiGatewayService {
         match provider.provider_type.as_str() {
             "openai-chat-completion" | "openai-responses" | "openai-codex" => {
                 let api_key = extract_api_key(&auth);
-                self.fetch_openai_compatible_models(&client, &provider, api_key)
+                // 默认拉取：优先 OpenAI 兼容协议，失败时自动回退 Anthropic 原生协议
+                self.fetch_openai_compatible_with_anthropic_fallback(&client, &provider, api_key)
                     .await
             }
             // xAI Grok Build：OAuth 模式走 cli-chat-proxy（需特殊请求头），
@@ -2215,7 +2216,7 @@ impl AiGatewayService {
             }
             "custom" => {
                 let api_key = extract_api_key(&auth);
-                self.fetch_openai_compatible_models(&client, &provider, api_key)
+                self.fetch_openai_compatible_with_anthropic_fallback(&client, &provider, api_key)
                     .await
             }
             "ollama" => self.fetch_ollama_models(&client, &provider).await,
@@ -2284,6 +2285,39 @@ impl AiGatewayService {
                 "不支持的拉取协议 '{}'，仅支持 openai-compatible / anthropic-native",
                 other
             ))),
+        }
+    }
+
+    /// 默认拉取：优先 OpenAI 兼容协议，失败时自动回退 Anthropic 原生协议
+    ///
+    /// 部分供应商（尤其是中转网关）的 `provider_type` 声明为 OpenAI 兼容，
+    /// 但实际 `/models` 端点返回的并非标准 OpenAI `{ data: [...] }` 结构，
+    /// 或该端点根本不支持拉取。此时直接复用 `fetch_openai_compatible_models`
+    /// 会得到「供应商模型列表缺少 data 数组」的报错。
+    ///
+    /// 因此默认拉取时自动「双协议兜底」：先按 OpenAI 兼容协议请求，
+    /// 任何失败（端点返回非 2xx、JSON 结构不符合、网络错误等）都自动
+    /// 切换为 Anthropic 原生协议（`/v1/models` + `x-api-key`）再拉一次。
+    async fn fetch_openai_compatible_with_anthropic_fallback(
+        &self,
+        client: &reqwest::Client,
+        provider: &Provider,
+        api_key: Option<&str>,
+    ) -> IcodeResult<Vec<String>> {
+        match self
+            .fetch_openai_compatible_models(client, provider, api_key)
+            .await
+        {
+            Ok(models) => Ok(models),
+            Err(openai_err) => {
+                tracing::warn!(
+                    "默认拉取 OpenAI 兼容协议失败，自动回退 Anthropic 原生协议 | provider={} | err={}",
+                    provider.slug,
+                    openai_err
+                );
+                self.fetch_anthropic_native_models(client, provider, api_key)
+                    .await
+            }
         }
     }
 
