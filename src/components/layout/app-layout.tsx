@@ -1,6 +1,9 @@
-import { Link, useRouterState } from '@tanstack/react-router'
+import { useEffect } from 'react'
+import { Link, useRouter, useRouterState } from '@tanstack/react-router'
+import { listen } from '@tauri-apps/api/event'
 import { cn } from '@/lib/utils'
 import { useTranslation } from '@/modules/i18n/use-translation'
+import { BACKEND_EVENTS } from '@/core/events'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
@@ -29,6 +32,20 @@ interface NavItem {
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation()
   const location = useRouterState({ select: (s) => s.location })
+  const router = useRouter()
+
+  // 监听托盘菜单导航请求（如「模型统计」）：跳转到后端指定的路由路径
+  useEffect(() => {
+    const unlisten = listen<string>(BACKEND_EVENTS.TRAY_NAVIGATE, (event) => {
+      const path = event.payload
+      if (typeof path === 'string' && path.startsWith('/')) {
+        void router.navigate({ to: path })
+      }
+    })
+    return () => {
+      void unlisten.then((fn) => fn())
+    }
+  }, [router])
 
   // 顶部菜单：核心业务入口
   const mainNavItems: NavItem[] = [

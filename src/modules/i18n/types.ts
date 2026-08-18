@@ -18,6 +18,7 @@ export type Namespace =
   | 'autoRefresh'
   | 'logger'
   | 'chat'
+  | 'browser'
 
 export interface I18nState {
   locale: AppLocale

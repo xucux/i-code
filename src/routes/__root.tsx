@@ -4,13 +4,17 @@ import { TitleBar } from '@/components/ui/title-bar'
 import { TitleBarInfoContainer } from '@/components/ui/title-bar-info-container'
 import { AppLayout } from '@/components/layout/app-layout'
 import { UpdateCheckIndicator } from '@/modules/settings/ui/update-check'
+import { AppGlobalMenu } from '@/modules/browser/ui/app-global-menu'
 
 function RootComponent() {
   const location = useRouterState({ select: (s) => s.location })
   // 迷你面板路由不渲染标题栏、侧边栏和顶部间距
   const isMiniPanel = location.pathname === '/mini-panel'
+  // 内置浏览器专属窗口同样全屏展示（独立 webview 窗口加载）
+  const isBrowser = location.pathname === '/browser'
+  const isDedicated = isMiniPanel || isBrowser
 
-  if (isMiniPanel) {
+  if (isDedicated) {
     return (
       <div className="h-screen w-screen overflow-hidden">
         <Outlet />
@@ -32,6 +36,7 @@ function RootComponent() {
         <Outlet />
       </AppLayout>
       <Toaster />
+      <AppGlobalMenu />
     </div>
   )
 }

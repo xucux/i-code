@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as PreviewRouteImport } from './routes/preview'
 import { Route as MiniPanelRouteImport } from './routes/mini-panel'
+import { Route as BrowserRouteImport } from './routes/browser'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WorkspacesIndexRouteImport } from './routes/workspaces/index'
 import { Route as LogsIndexRouteImport } from './routes/logs/index'
@@ -39,6 +40,11 @@ const PreviewRoute = PreviewRouteImport.update({
 const MiniPanelRoute = MiniPanelRouteImport.update({
   id: '/mini-panel',
   path: '/mini-panel',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BrowserRoute = BrowserRouteImport.update({
+  id: '/browser',
+  path: '/browser',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -109,6 +115,7 @@ const CommunityPostIdRoute = CommunityPostIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/browser': typeof BrowserRoute
   '/mini-panel': typeof MiniPanelRoute
   '/preview': typeof PreviewRoute
   '/settings': typeof SettingsRoute
@@ -127,6 +134,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/browser': typeof BrowserRoute
   '/mini-panel': typeof MiniPanelRoute
   '/preview': typeof PreviewRoute
   '/settings': typeof SettingsRoute
@@ -146,6 +154,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/browser': typeof BrowserRoute
   '/mini-panel': typeof MiniPanelRoute
   '/preview': typeof PreviewRoute
   '/settings': typeof SettingsRoute
@@ -166,6 +175,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/browser'
     | '/mini-panel'
     | '/preview'
     | '/settings'
@@ -184,6 +194,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/browser'
     | '/mini-panel'
     | '/preview'
     | '/settings'
@@ -202,6 +213,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/browser'
     | '/mini-panel'
     | '/preview'
     | '/settings'
@@ -221,6 +233,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  BrowserRoute: typeof BrowserRoute
   MiniPanelRoute: typeof MiniPanelRoute
   PreviewRoute: typeof PreviewRoute
   SettingsRoute: typeof SettingsRoute
@@ -259,6 +272,13 @@ declare module '@tanstack/react-router' {
       path: '/mini-panel'
       fullPath: '/mini-panel'
       preLoaderRoute: typeof MiniPanelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/browser': {
+      id: '/browser'
+      path: '/browser'
+      fullPath: '/browser'
+      preLoaderRoute: typeof BrowserRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -357,6 +377,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  BrowserRoute: BrowserRoute,
   MiniPanelRoute: MiniPanelRoute,
   PreviewRoute: PreviewRoute,
   SettingsRoute: SettingsRoute,

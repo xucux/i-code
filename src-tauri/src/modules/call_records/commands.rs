@@ -11,9 +11,9 @@
 //! - `call_records_clear_stats`：清空模型调用统计数据（全部或指定时间范围）
 //! - `call_records_today_tokens`：获取今日消耗的 total_tokens 总数
 
-use tauri::State;
+use tauri::{Manager, State};
 
-use crate::error::IcodeResult;
+use crate::error::{IcodeError, IcodeResult};
 
 use super::service::CallRecordsHandle;
 use super::types::{
@@ -100,4 +100,29 @@ pub async fn call_records_clear_stats(
 #[tauri::command]
 pub async fn call_records_today_tokens() -> IcodeResult<i64> {
     super::service::get_today_tokens()
+}
+
+/// 导出统计 CSV 文件到导出目录
+///
+/// 将前端生成的 CSV 内容写入 `app_cache_dir/exports` 下（文件名带时间戳），
+/// 返回完整文件路径，供前端打开所在目录/文件。
+#[tauri::command]
+pub async fn call_records_export_stats_csv(
+    app: tauri::AppHandle,
+    content: String,
+) -> IcodeResult<String> {
+    let export_dir = app
+        .path()
+        .app_cache_dir()
+        .map_err(|e| IcodeError::internal(format!("无法获取缓存目录: {e}")))?
+        .join("exports");
+    if !export_dir.exists() {
+        std::fs::create_dir_all(&export_dir)
+            .map_err(|e| IcodeError::internal(format!("创建导出目录失败: {e}")))?;
+    }
+    let file_name = format!("model-stats-{}.csv", chrono::Utc::now().format("%Y%m%d-%H%M%S"));
+    let file_path = export_dir.join(file_name);
+    std::fs::write(&file_path, content)
+        .map_err(|e| IcodeError::internal(format!("写入导出文件失败: {e}")))?;
+    Ok(file_path.to_string_lossy().to_string())
 }

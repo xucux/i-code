@@ -94,6 +94,8 @@ export const BACKEND_EVENTS = {
   UPDATE_DOWNLOAD_PROGRESS: 'update-download-progress',
   /** 后端 tracing 日志转发到前端 DevTools 控制台（替代 tauri-plugin-log Webview 目标） */
   CONSOLE_LOG: 'console:log',
+  /** 托盘菜单导航请求（payload: 路由路径），前端监听后跳转对应页面 */
+  TRAY_NAVIGATE: 'tray:navigate',
 } as const
 
 /**

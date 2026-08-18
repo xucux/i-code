@@ -400,7 +400,27 @@ export function useCommunityPosts(
 }
 
 /**
+ * 我的资料缓存入口（模块级单例）
+ *
+ * 社区的「我的信息」通常只有本机一个身份，故用单入口缓存即可（无需按 user_id 分键）。
+ * 与帖子列表缓存（`firstPageCache`）同理，用于减少重复进入社区时的 Worker 请求次数。
+ */
+interface ProfileCacheEntry {
+  profile: ProfileData
+  cachedAt: number
+}
+
+/** 我的资料缓存有效期（ms）：15 秒内再次进入社区直接展示缓存，不发请求 */
+const PROFILE_TTL = 15_000
+
+/** 模块级我的资料缓存：成功拉取后写入，供下次进入社区兜底展示 */
+let profileCache: ProfileCacheEntry | null = null
+
+/**
  * 我的资料 + 签到统计
+ *
+ * - 初始加载（进入社区）优先命中新鲜缓存（< 15s）直接展示；
+ * - `refresh` 总是强制请求并更新缓存，供签到 / 改资料 / 发帖后保持最新。
  */
 export function useCommunityProfile(enabled: boolean): {
   profile: ProfileData | null
@@ -419,6 +439,8 @@ export function useCommunityProfile(enabled: boolean): {
     try {
       const data = await getCommunityProfile()
       setProfile(data)
+      // 写入模块级缓存：下次进入社区新鲜期内直接复用
+      profileCache = { profile: data, cachedAt: Date.now() }
       return data
     } catch {
       // 新设备尚未在 Worker 注册（404）→ 引导设置资料
@@ -431,8 +453,16 @@ export function useCommunityProfile(enabled: boolean): {
   }, [enabled])
 
   useEffect(() => {
-    if (enabled) void refresh()
-  }, [enabled, refresh])
+    if (!enabled) return
+    // 命中新鲜缓存：直接展示，不发请求（避免频繁进出社区触发 Worker 限流）
+    if (profileCache && Date.now() - profileCache.cachedAt < PROFILE_TTL) {
+      setProfile(profileCache.profile)
+      setNotFound(false)
+      return
+    }
+    void refresh()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled])
 
   return { profile, loading, notFound, refresh }
 }

@@ -600,7 +600,11 @@
     },
     "modelStats": {
       "viewModeCompact": "緊湊檢視",
-      "viewModeScroll": "左右滾動檢視"
+      "viewModeScroll": "左右滾動檢視",
+      "expand": "全螢幕",
+      "restore": "還原",
+      "export": "匯出 CSV",
+      "exportSaved": "已匯出 CSV，請查看開啟的資料夾"
     },
     "timeRange": {
       "1hour": "1小時",
@@ -1902,5 +1906,17 @@
       "hoursAgo": "{{count}} 小時前",
       "daysAgo": "{{count}} 天前"
     }
+  },
+  "browser": {
+    "back": "返回",
+    "refresh": "重新整理",
+    "openInApp": "在應用內開啟",
+    "openOutside": "在瀏覽器開啟"
+  },
+  "contextMenu": {
+    "paste": "貼上",
+    "copy": "複製",
+    "refresh": "重新整理",
+    "home": "回到首頁"
   }
 }

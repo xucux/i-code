@@ -600,7 +600,11 @@
     },
     "modelStats": {
       "viewModeCompact": "コンパクト表示",
-      "viewModeScroll": "左右スクロール表示"
+      "viewModeScroll": "左右スクロール表示",
+      "expand": "全画面",
+      "restore": "戻す",
+      "export": "CSVをエクスポート",
+      "exportSaved": "CSVをエクスポートしました。開いたフォルダを確認してください"
     },
     "timeRange": {
       "1hour": "1時間",
@@ -1902,5 +1906,17 @@
       "hoursAgo": "{{count}} 時間前",
       "daysAgo": "{{count}} 日前"
     }
+  },
+  "browser": {
+    "back": "戻る",
+    "refresh": "再読み込み",
+    "openInApp": "アプリ内で開く",
+    "openOutside": "ブラウザで開く"
+  },
+  "contextMenu": {
+    "paste": "貼り付け",
+    "copy": "コピー",
+    "refresh": "再読み込み",
+    "home": "ホームへ戻る"
   }
 }

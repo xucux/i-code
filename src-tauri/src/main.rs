@@ -181,13 +181,71 @@ fn open_url(url: String) -> Result<(), String> {
         .map_err(|e| format!("打开浏览器失败: {}", e))
 }
 
-// 供应商列表，用于托盘子菜单展示
-const PROVIDERS: &[(&str, &str)] = &[
-    ("openai", "OpenAI"),
-    ("anthropic", "Anthropic"),
-    ("gemini", "Google Gemini"),
-    ("deepseek", "DeepSeek"),
-];
+/// 读取系统剪贴板中的文本（兼容 Windows / macOS / Linux 各平台剪贴板）。
+/// 供全局右键菜单「粘贴」使用；仅读取，不修改剪贴板内容。
+#[tauri::command]
+fn clipboard_read_text() -> Result<String, String> {
+    arboard::Clipboard::new()
+        .and_then(|mut cb| cb.get_text())
+        .map_err(|e| format!("读取剪贴板失败: {}", e))
+}
+
+/// 简单 RFC3986 查询参数百分号编码。
+/// 仅对非「未保留字符」（字母/数字/-._~）做 %XX 编码，保证 URL 可安全放入查询参数。
+fn percent_encode_query(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    for byte in input.bytes() {
+        let c = byte as char;
+        if c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | '~') {
+            out.push(c);
+        } else {
+            out.push_str(&format!("%{:02X}", byte));
+        }
+    }
+    out
+}
+
+/// 打开内置浏览器专属窗口，加载目标外部 URL（通过 /browser 路由 + iframe 展示）。
+///
+/// 窗口 label 固定为 "browser"；若已存在则先关闭旧窗口再重建，保证每次都是最新 URL。
+/// URL 经百分号编码后放入查询参数 `url`，由前端路由读取。
+#[tauri::command]
+async fn open_browser_window(app: tauri::AppHandle, url: String) -> Result<(), String> {
+    const LABEL: &str = "browser";
+
+    // 若已有浏览器窗口，先关闭再重建，确保导航到最新目标
+    if let Some(window) = app.get_webview_window(LABEL) {
+        let _ = window.close();
+    }
+
+    let path = format!("browser?url={}", percent_encode_query(&url));
+    tauri::WebviewWindowBuilder::new(&app, LABEL, tauri::WebviewUrl::App(path.into()))
+        .title("i-code · 在应用内打开")
+        .inner_size(1100.0, 760.0)
+        .min_inner_size(620.0, 440.0)
+        .decorations(false)
+        .resizable(true)
+        .center()
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+/// 关闭内置浏览器窗口，并显示聚焦主窗口（返回应用）
+#[tauri::command]
+async fn close_browser_window(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("browser") {
+        window.close().map_err(|e| e.to_string())?;
+    }
+    // 返回并聚焦主窗口
+    if let Some(main) = app.get_webview_window("main") {
+        let _ = main.show();
+        let _ = main.unminimize();
+        let _ = main.set_focus();
+    }
+    Ok(())
+}
 
 /// 获取当前应用进程占用的物理内存（KB）
 /// sysinfo 的 Process::memory() 返回字节数，此处除以 1024 转换为 KB
@@ -610,9 +668,12 @@ fn main() {
             modules::update_version::check_update,
             modules::update_version::download_and_install_update,
             open_url,
+            clipboard_read_text,
             get_memory_usage,
             open_mini_panel,
             close_mini_panel,
+            open_browser_window,
+            close_browser_window,
             // ===== Secret 模块 =====
             modules::secret::commands::secret_save,
             modules::secret::commands::secret_update,
@@ -803,6 +864,7 @@ fn main() {
             modules::call_records::commands::call_stats_aggregated,
             modules::call_records::commands::call_records_clear_stats,
             modules::call_records::commands::call_records_today_tokens,
+            modules::call_records::commands::call_records_export_stats_csv,
             // ===== Tokenizer 模块 =====
             modules::tokenizer::commands::tokenizer_list,
             modules::tokenizer::commands::tokenizer_count,
@@ -1093,19 +1155,8 @@ fn main() {
             let quit_i = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
             let separator = PredefinedMenuItem::separator(app)?;
 
-            // 供应商子菜单：当前仅作为组件库展示结构，选中事件可供后续业务逻辑订阅
-            let provider_items: Vec<MenuItem<_>> = PROVIDERS
-                .iter()
-                .map(|(id, label)| {
-                    MenuItem::with_id(app, format!("provider:{id}"), *label, true, None::<&str>)
-                        .expect("failed to create provider menu item")
-                })
-                .collect();
-            let provider_refs: Vec<&dyn IsMenuItem<_>> = provider_items
-                .iter()
-                .map(|item| item as &dyn IsMenuItem<_>)
-                .collect();
-            let provider_submenu = Submenu::with_items(app, "选择供应商", true, &provider_refs)?;
+            // 模型统计菜单项：点击显示主窗口并导航到模型统计页（/gateways/models）
+            let model_stats_i = MenuItem::with_id(app, "model-stats", "模型统计", true, None::<&str>)?;
 
             // 额度子菜单：展示每个已配置额度监控的供应商的额度摘要
             // 菜单项与占位项分别持有引用，由定时线程与事件监听器通过
@@ -1185,7 +1236,7 @@ fn main() {
                 &[
                     &show_i,
                     &open_website_i,
-                    &provider_submenu,
+                    &model_stats_i,
                     &balance_submenu,
                     &separator2,
                     &today_tokens_i,
@@ -1291,9 +1342,14 @@ fn main() {
                             // 后端监听 gateway:toggle-request 事件执行实际操作
                             let _ = app.emit("gateway:toggle-request", ());
                         }
-                        id if id.starts_with("provider:") => {
-                            // 供应商切换事件占位：后续可通过 Tauri 事件通知前端
-                            let _ = app.emit("provider-changed", id);
+                        "model-stats" => {
+                            // 显示主窗口并通过事件让前端导航到模型统计页
+                            if let Some(window) = app.get_webview_window("main") {
+                                let _ = window.show();
+                                let _ = window.unminimize();
+                                let _ = window.set_focus();
+                            }
+                            let _ = app.emit("tray:navigate", "/gateways/models");
                         }
                         _ => {}
                     }

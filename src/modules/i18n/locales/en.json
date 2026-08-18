@@ -600,7 +600,11 @@
     },
     "modelStats": {
       "viewModeCompact": "Compact",
-      "viewModeScroll": "Scroll"
+      "viewModeScroll": "Scroll",
+      "expand": "Fullscreen",
+      "restore": "Restore",
+      "export": "Export CSV",
+      "exportSaved": "CSV exported, check the opened folder"
     },
     "timeRange": {
       "1hour": "1h",
@@ -1902,5 +1906,17 @@
       "hoursAgo": "{{count}} h ago",
       "daysAgo": "{{count}} d ago"
     }
+  },
+  "browser": {
+    "back": "Back",
+    "refresh": "Refresh",
+    "openInApp": "Open in App",
+    "openOutside": "Open in Browser"
+  },
+  "contextMenu": {
+    "paste": "Paste",
+    "copy": "Copy",
+    "refresh": "Refresh",
+    "home": "Back to Home"
   }
 }

@@ -600,7 +600,11 @@
     },
     "modelStats": {
       "viewModeCompact": "紧凑视图",
-      "viewModeScroll": "左右滚动视图"
+      "viewModeScroll": "左右滚动视图",
+      "expand": "全屏",
+      "restore": "还原",
+      "export": "导出 CSV",
+      "exportSaved": "已导出 CSV，请查看打开的文件目录"
     },
     "timeRange": {
       "1hour": "1小时",
@@ -1915,5 +1919,17 @@
       "hoursAgo": "{{count}} 小时前",
       "daysAgo": "{{count}} 天前"
     }
+  },
+  "browser": {
+    "back": "返回",
+    "refresh": "刷新",
+    "openInApp": "在应用内打开",
+    "openOutside": "在浏览器打开"
+  },
+  "contextMenu": {
+    "paste": "粘贴",
+    "copy": "复制",
+    "refresh": "刷新",
+    "home": "回到主页"
   }
 }
