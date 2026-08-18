@@ -21,7 +21,7 @@ use super::types::{
     AdminUpdateGovernanceInput, AdminUpdatePostInput, AdminUserItem, CheckInResult,
     CreatePostInput, CreateReplyInput, MyPostsData, MyRepliesData, PointsLeaderboardData,
     PostDetailData, PostListData, ProfileData, ProfileUser, ReportInput, SiteGovernance,
-    UpdateProfileInput,
+    UpdateMyPostInput, UpdateProfileInput,
 };
 
 /// App Token：与 Worker 侧 `APP_TOKEN`（wrangler.toml `[vars]`）保持一致，
@@ -406,6 +406,89 @@ pub async fn list_my_replies(
         false,
     )
     .await
+}
+
+/// 编辑自己的帖子（title / content / section 至少一项；Worker 校验归属）
+pub async fn update_my_post(
+    base_url: &str,
+    user_id: &str,
+    post_id: i64,
+    input: &UpdateMyPostInput,
+) -> IcodeResult<()> {
+    send::<serde_json::Value>(
+        base_url,
+        Method::PUT,
+        &format!("users/me/posts/{post_id}"),
+        None,
+        Some(user_id),
+        None,
+        Some(serde_json::to_value(input)?),
+        true,
+    )
+    .await?;
+    Ok(())
+}
+
+/// 删除自己的帖子（Worker 级联删除其全部回复与相关举报）
+pub async fn delete_my_post(
+    base_url: &str,
+    user_id: &str,
+    post_id: i64,
+) -> IcodeResult<()> {
+    send::<serde_json::Value>(
+        base_url,
+        Method::DELETE,
+        &format!("users/me/posts/{post_id}"),
+        None,
+        Some(user_id),
+        None,
+        None,
+        true,
+    )
+    .await?;
+    Ok(())
+}
+
+/// 编辑自己的回复（≤ 1000 字 + 敏感词校验；Worker 校验归属）
+pub async fn update_my_reply(
+    base_url: &str,
+    user_id: &str,
+    reply_id: i64,
+    content: &str,
+) -> IcodeResult<()> {
+    let body = serde_json::json!({ "content": content });
+    send::<serde_json::Value>(
+        base_url,
+        Method::PUT,
+        &format!("users/me/replies/{reply_id}"),
+        None,
+        Some(user_id),
+        None,
+        Some(body),
+        true,
+    )
+    .await?;
+    Ok(())
+}
+
+/// 删除自己的回复（顶层评论级联楼中楼；Worker 回减 reply_count）
+pub async fn delete_my_reply(
+    base_url: &str,
+    user_id: &str,
+    reply_id: i64,
+) -> IcodeResult<()> {
+    send::<serde_json::Value>(
+        base_url,
+        Method::DELETE,
+        &format!("users/me/replies/{reply_id}"),
+        None,
+        Some(user_id),
+        None,
+        None,
+        true,
+    )
+    .await?;
+    Ok(())
 }
 
 /// 举报帖子 / 回复，返回 report_id
@@ -820,6 +903,28 @@ pub async fn admin_set_post_locked(
         base_url,
         Method::POST,
         &format!("admin/posts/{post_id}/lock"),
+        None,
+        None,
+        Some(admin_token),
+        Some(body),
+        true,
+    )
+    .await?;
+    Ok(())
+}
+
+/// 管理员置顶 / 取消置顶帖子（置顶帖在列表排序时排在最前）
+pub async fn admin_set_post_pin(
+    base_url: &str,
+    admin_token: &str,
+    post_id: i64,
+    pinned: bool,
+) -> IcodeResult<()> {
+    let body = serde_json::json!({ "pinned": pinned });
+    send::<serde_json::Value>(
+        base_url,
+        Method::POST,
+        &format!("admin/posts/{post_id}/pin"),
         None,
         None,
         Some(admin_token),

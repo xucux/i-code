@@ -21,7 +21,7 @@ use super::types::{
     AdminUpdateGovernanceInput, AdminUpdatePostInput, AdminUserItem, CheckInResult,
     CommunityLocalState, CreatePostInput, CreateReplyInput, MyPostsData, MyRepliesData,
     PointsLeaderboardData, PostDetailData, PostListData, ProfileData, ProfileUser, ReportInput,
-    SiteGovernance, UpdateProfileInput,
+    SiteGovernance, UpdateMyPostInput, UpdateProfileInput,
 };
 
 /// 社区 Service 句柄（Tauri State）
@@ -204,6 +204,70 @@ impl CommunityService {
     ) -> IcodeResult<MyRepliesData> {
         let (state, user_id) = self.require_ready()?;
         client::list_my_replies(&state.base_url, &user_id, cursor, limit).await
+    }
+
+    /// 编辑自己的帖子（title / content / section 至少一项，前置校验与发帖一致）
+    pub async fn update_my_post(
+        &self,
+        post_id: i64,
+        input: UpdateMyPostInput,
+    ) -> IcodeResult<()> {
+        let (state, user_id) = self.require_ready()?;
+        // 至少一项字段；提供字段时做与发帖一致的前置校验（Worker 侧仍兜底）
+        if input.title.is_none() && input.content.is_none() && input.section.is_none() {
+            return Err(IcodeError::validation("请提供要修改的字段"));
+        }
+        if let Some(title) = input.title.as_deref() {
+            let t = title.trim();
+            if t.is_empty() {
+                return Err(IcodeError::validation("标题不能为空"));
+            }
+            if t.chars().count() > 80 {
+                return Err(IcodeError::validation("标题不能超过 80 字"));
+            }
+        }
+        if let Some(content) = input.content.as_deref() {
+            let c = content.trim();
+            if c.is_empty() {
+                return Err(IcodeError::validation("内容不能为空"));
+            }
+            if c.chars().count() > 5000 {
+                return Err(IcodeError::validation("内容不能超过 5000 字"));
+            }
+        }
+        if let Some(section) = input.section.as_deref() {
+            if !super::types::is_valid_section(section) {
+                return Err(IcodeError::validation(format!(
+                    "板块非法：{section}（须为 chat / eggs / tech）"
+                )));
+            }
+        }
+        client::update_my_post(&state.base_url, &user_id, post_id, &input).await
+    }
+
+    /// 删除自己的帖子（Worker 级联删除其全部回复与相关举报）
+    pub async fn delete_my_post(&self, post_id: i64) -> IcodeResult<()> {
+        let (state, user_id) = self.require_ready()?;
+        client::delete_my_post(&state.base_url, &user_id, post_id).await
+    }
+
+    /// 编辑自己的回复（前置校验与发回复一致）
+    pub async fn update_my_reply(&self, reply_id: i64, content: &str) -> IcodeResult<()> {
+        let (state, user_id) = self.require_ready()?;
+        let c = content.trim();
+        if c.is_empty() {
+            return Err(IcodeError::validation("回复内容不能为空"));
+        }
+        if c.chars().count() > 1000 {
+            return Err(IcodeError::validation("回复不能超过 1000 字"));
+        }
+        client::update_my_reply(&state.base_url, &user_id, reply_id, c).await
+    }
+
+    /// 删除自己的回复（顶层评论级联楼中楼）
+    pub async fn delete_my_reply(&self, reply_id: i64) -> IcodeResult<()> {
+        let (state, user_id) = self.require_ready()?;
+        client::delete_my_reply(&state.base_url, &user_id, reply_id).await
     }
 
     /// 举报
@@ -430,6 +494,17 @@ impl CommunityService {
     ) -> IcodeResult<()> {
         let base_url = self.require_enabled_base()?;
         client::admin_set_post_locked(&base_url, admin_token, post_id, locked).await
+    }
+
+    /// 管理员置顶 / 取消置顶帖子（置顶帖在列表排序时排在最前）
+    pub async fn admin_set_post_pin(
+        &self,
+        admin_token: &str,
+        post_id: i64,
+        pinned: bool,
+    ) -> IcodeResult<()> {
+        let base_url = self.require_enabled_base()?;
+        client::admin_set_post_pin(&base_url, admin_token, post_id, pinned).await
     }
 
     // ===== 内部辅助 =====

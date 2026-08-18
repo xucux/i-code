@@ -1737,6 +1737,19 @@
       "closeCommunity": "關閉社群",
       "loadMore": "載入更多"
     },
+    "pinned": "置頂",
+    "my": {
+      "edit": "編輯",
+      "delete": "刪除",
+      "deleteConfirm": "確認刪除",
+      "deleteCascadeHint": "刪除此回覆將連帶刪除其下樓中樓回覆",
+      "editTitle": "編輯貼文",
+      "postUpdated": "貼文已更新",
+      "postDeleted": "貼文已刪除",
+      "replyUpdated": "回覆已更新",
+      "replyDeleted": "回覆已刪除",
+      "save": "儲存"
+    },
     "post": {
       "empty": "暫無貼文，來發第一篇吧",
       "emptyMy": "你還沒有發布過貼文",
@@ -1859,6 +1872,11 @@
       "editPostTitle": "編輯貼文",
       "editPostDesc": "修改後儲存將覆蓋原內容",
       "editReplyPlaceholder": "編輯回覆內容…（1000 字以內）",
+      "pinPost": "置頂",
+      "unpinPost": "取消置頂",
+      "pinned": "已置頂",
+      "postPinnedDone": "貼文已置頂",
+      "postUnpinnedDone": "貼文已取消置頂",
       "governance": "站點治理",
       "governanceHint": "全站禁言優先級最高：開啟後發帖與評論回覆一併禁止；貼文級鎖定請在「貼文管理」中操作",
       "governanceUpdated": "治理開關已更新",

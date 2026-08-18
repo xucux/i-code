@@ -1750,6 +1750,19 @@
       "closeCommunity": "关闭社区",
       "loadMore": "加载更多"
     },
+    "pinned": "置顶",
+    "my": {
+      "edit": "编辑",
+      "delete": "删除",
+      "deleteConfirm": "确认删除",
+      "deleteCascadeHint": "删除该回复将连带删除其下楼中楼回复",
+      "editTitle": "编辑帖子",
+      "postUpdated": "帖子已更新",
+      "postDeleted": "帖子已删除",
+      "replyUpdated": "回复已更新",
+      "replyDeleted": "回复已删除",
+      "save": "保存"
+    },
     "post": {
       "empty": "暂无帖子，来发第一帖吧",
       "emptyMy": "你还没有发布过帖子",
@@ -1883,6 +1896,11 @@
       "replyLocked": "禁止评论回复",
       "replyLockedDesc": "禁止所有用户发表评论与回复，存量内容正常展示",
       "locked": "已锁定",
+      "pinPost": "置顶",
+      "unpinPost": "取消置顶",
+      "pinned": "已置顶",
+      "postPinnedDone": "帖子已置顶",
+      "postUnpinnedDone": "帖子已取消置顶",
       "lockPost": "锁定",
       "unlockPost": "解锁",
       "postLockedDone": "帖子已锁定，禁止新增评论回复",

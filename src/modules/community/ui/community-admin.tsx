@@ -44,6 +44,7 @@ import {
   communityAdminMuteUser,
   communityAdminResolveReport,
   communityAdminSetPostLocked,
+  communityAdminSetPostPin,
   communityAdminUnbanUser,
   communityAdminUnmuteUser,
   communityAdminUpdateGovernance,
@@ -834,6 +835,22 @@ function AdminPostsTab({ token, height }: { token: string; height: number }) {
     }
   }
 
+  /** 置顶 / 取消置顶帖子（置顶帖在列表排序时排在最前） */
+  const handleTogglePin = async (postId: number, pinned: boolean) => {
+    if (acting) return
+    setActing(true)
+    try {
+      await communityAdminSetPostPin(token, postId, pinned)
+      toast.success(pinned ? t('admin.postPinnedDone') : t('admin.postUnpinnedDone'))
+      // 就地更新列表项的置顶状态，避免整页刷新闪烁
+      setPosts((prev) => prev.map((p) => (p.postId === postId ? { ...p, pinned } : p)))
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e))
+    } finally {
+      setActing(false)
+    }
+  }
+
   // ===== 详情视图（帖子全文 + 回复治理）=====
   if (detailPostId != null) {
     return (
@@ -874,6 +891,12 @@ function AdminPostsTab({ token, height }: { token: string; height: number }) {
                 <span className="max-w-40 truncate text-xs font-medium">{post.author.nickname}</span>
                 <MuteBadge muted={post.author.muted} />
                 <SectionBadge section={post.section} />
+                {post.pinned && (
+                  <Badge variant="secondary" className="h-4 gap-0.5 px-1 text-[10px]">
+                    <i className="fa-solid fa-thumbtack size-2" />
+                    {t('admin.pinned')}
+                  </Badge>
+                )}
                 {post.locked && (
                   <Badge variant="outline" className="h-4 px-1 text-[10px]">
                     <i className="fa-solid fa-lock mr-0.5 size-2" />
@@ -910,6 +933,22 @@ function AdminPostsTab({ token, height }: { token: string; height: number }) {
                 >
                   <i className="fa-solid fa-pen mr-1 size-2.5" />
                   {t('admin.edit')}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={cn(
+                    'h-6 px-2 text-[11px]',
+                    post.pinned
+                      ? 'text-primary hover:text-foreground'
+                      : 'text-muted-foreground hover:text-primary'
+                  )}
+                  disabled={acting}
+                  title={post.pinned ? t('admin.unpinPost') : t('admin.pinPost')}
+                  onClick={() => void handleTogglePin(post.postId, !post.pinned)}
+                >
+                  <i className="fa-solid fa-thumbtack mr-1 size-2.5" />
+                  {post.pinned ? t('admin.unpinPost') : t('admin.pinPost')}
                 </Button>
                 <Button
                   variant="ghost"

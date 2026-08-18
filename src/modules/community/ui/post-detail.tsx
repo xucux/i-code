@@ -206,6 +206,12 @@ export function PostDetail({ postId, currentUserId }: PostDetailProps) {
 
             <div className="mt-2 flex items-start gap-2">
               <h1 className="min-w-0 flex-1 text-base font-semibold leading-snug">{post.title}</h1>
+              {post.pinned && (
+                <Badge variant="secondary" className="mt-0.5 h-5 shrink-0 gap-1 px-1.5 text-[10px]">
+                  <i className="fa-solid fa-thumbtack size-2" />
+                  {t('pinned')}
+                </Badge>
+              )}
               {post.locked && (
                 <Badge variant="outline" className="mt-0.5 h-5 shrink-0 gap-1 px-1.5 text-[10px]">
                   <i className="fa-solid fa-lock size-2" />

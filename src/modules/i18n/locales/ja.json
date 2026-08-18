@@ -1737,6 +1737,19 @@
       "closeCommunity": "コミュニティを閉じる",
       "loadMore": "さらに読み込む"
     },
+    "pinned": "固定",
+    "my": {
+      "edit": "編集",
+      "delete": "削除",
+      "deleteConfirm": "削除しますか？",
+      "deleteCascadeHint": "この返信を削除すると、その下の返信も一緒に削除されます",
+      "editTitle": "投稿を編集",
+      "postUpdated": "投稿を更新しました",
+      "postDeleted": "投稿を削除しました",
+      "replyUpdated": "返信を更新しました",
+      "replyDeleted": "返信を削除しました",
+      "save": "保存"
+    },
     "post": {
       "empty": "投稿はまだありません。最初の投稿をどうぞ",
       "emptyMy": "まだ投稿していません",
@@ -1859,6 +1872,11 @@
       "editPostTitle": "投稿を編集",
       "editPostDesc": "保存すると元の内容が上書きされます",
       "editReplyPlaceholder": "返信を編集…（1000 字以内）",
+      "pinPost": "固定",
+      "unpinPost": "固定解除",
+      "pinned": "固定中",
+      "postPinnedDone": "投稿を固定しました",
+      "postUnpinnedDone": "投稿の固定を解除しました",
       "governance": "サイト管理",
       "governanceHint": "サイト全体のミュートが最優先：有効にすると投稿と返信の両方が禁止されます。投稿単位のロックは「投稿管理」で操作できます",
       "governanceUpdated": "管理設定を更新しました",

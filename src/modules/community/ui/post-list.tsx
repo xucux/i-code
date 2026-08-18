@@ -58,6 +58,12 @@ export function PostList({ posts, loading, loadingMore, hasMore, onRefresh, onLo
                   title={t('governance.lockedBadge')}
                 />
               )}
+              {post.pinned && (
+                <i
+                  className="fa-solid fa-thumbtack text-primary shrink-0 size-2.5"
+                  title={t('pinned')}
+                />
+              )}
               <span className="line-clamp-1 text-sm font-medium">{post.title}</span>
             </span>
             <span className="text-muted-foreground mt-0.5 flex shrink-0 items-center gap-1.5 text-[11px] tabular-nums">

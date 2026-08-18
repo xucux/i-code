@@ -1737,6 +1737,19 @@
       "closeCommunity": "Close community",
       "loadMore": "Load more"
     },
+    "pinned": "Pinned",
+    "my": {
+      "edit": "Edit",
+      "delete": "Delete",
+      "deleteConfirm": "Confirm delete",
+      "deleteCascadeHint": "Deleting this reply also deletes its replies below",
+      "editTitle": "Edit post",
+      "postUpdated": "Post updated",
+      "postDeleted": "Post deleted",
+      "replyUpdated": "Reply updated",
+      "replyDeleted": "Reply deleted",
+      "save": "Save"
+    },
     "post": {
       "empty": "No posts yet — be the first to post",
       "emptyMy": "You haven't posted anything yet",
@@ -1870,6 +1883,11 @@
       "replyLocked": "Lock replies",
       "replyLockedDesc": "Block all users from commenting; existing content remains visible",
       "locked": "Locked",
+      "pinPost": "Pin",
+      "unpinPost": "Unpin",
+      "pinned": "Pinned",
+      "postPinnedDone": "Post pinned",
+      "postUnpinnedDone": "Post unpinned",
       "lockPost": "Lock",
       "unlockPost": "Unlock",
       "postLockedDone": "Post locked, new replies blocked",

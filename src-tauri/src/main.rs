@@ -892,6 +892,10 @@ fn main() {
             modules::community::commands::community_check_in,
             modules::community::commands::community_get_my_posts,
             modules::community::commands::community_get_my_replies,
+            modules::community::commands::community_update_my_post,
+            modules::community::commands::community_delete_my_post,
+            modules::community::commands::community_update_my_reply,
+            modules::community::commands::community_delete_my_reply,
             modules::community::commands::community_report,
             modules::community::commands::community_get_local_state,
             modules::community::commands::community_set_enabled,
@@ -914,6 +918,7 @@ fn main() {
             modules::community::commands::community_admin_get_governance,
             modules::community::commands::community_admin_update_governance,
             modules::community::commands::community_admin_set_post_locked,
+            modules::community::commands::community_admin_set_post_pin,
             // ===== Gateway Runtime 模块 =====
             modules::gateway_runtime::commands::gateway_start,
             modules::gateway_runtime::commands::gateway_stop,

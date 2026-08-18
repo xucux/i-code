@@ -53,6 +53,8 @@ export interface PostSummary {
   replyCount: number
   /** 帖子级锁定（D11：locked=1 时禁止新增评论回复，存量保留展示） */
   locked: boolean
+  /** 是否置顶（管理员置顶后列表排序置顶） */
+  pinned: boolean
   createdAt: string
   author: UserBrief
 }
@@ -73,6 +75,8 @@ export interface PostDetail {
   replyCount: number
   /** 帖子级锁定（D11：locked=1 时禁止新增评论回复） */
   locked: boolean
+  /** 是否置顶（管理员置顶后列表排序置顶） */
+  pinned: boolean
   createdAt: string
   author: UserBrief
 }
@@ -177,6 +181,8 @@ export interface MyPostItem {
   section: CommunitySection
   excerpt: string
   replyCount: number
+  /** 是否置顶（默认 false） */
+  pinned: boolean
   createdAt: string
 }
 
@@ -297,6 +303,8 @@ export interface AdminPostItem {
   replyCount: number
   /** 帖子级锁定（D11：locked=1 时禁止新增评论回复） */
   locked: boolean
+  /** 是否置顶（管理员置顶后列表排序置顶） */
+  pinned: boolean
   createdAt: string
   /** 最后编辑时间（管理员识别被编辑过的帖子） */
   updatedAt: string
@@ -315,6 +323,9 @@ export interface AdminUpdatePostInput {
   content?: string
   section?: CommunitySection
 }
+
+/** 编辑「我的帖子」输入（字段与管理端编辑一致：title / content / section 至少一项） */
+export type UpdateMyPostInput = AdminUpdatePostInput
 
 // ===== 站点治理（D11：全站禁言 / 禁发帖 / 禁回复 + 帖子级锁定）=====
 

@@ -14,7 +14,7 @@ use super::types::{
     AdminUpdateGovernanceInput, AdminUpdatePostInput, AdminUserItem, CheckInResult,
     CommunityLocalState, CreatePostInput, CreateReplyInput, MyPostsData,
     MyRepliesData, PointsLeaderboardData, PostDetailData, PostListData, ProfileData, ProfileUser,
-    ReportInput, SiteGovernance, UpdateProfileInput,
+    ReportInput, SiteGovernance, UpdateMyPostInput, UpdateProfileInput,
 };
 
 /// 列表分页上限（与 Worker 侧 MAX_LIST_LIMIT 对齐）
@@ -121,6 +121,44 @@ pub async fn community_get_my_replies(
 ) -> IcodeResult<MyRepliesData> {
     validate_limit(limit)?;
     state.service().get_my_replies(cursor, limit).await
+}
+
+/// 编辑自己的帖子（title / content / section 至少一项）
+#[tauri::command]
+pub async fn community_update_my_post(
+    state: State<'_, CommunityHandle>,
+    post_id: i64,
+    input: UpdateMyPostInput,
+) -> IcodeResult<()> {
+    state.service().update_my_post(post_id, input).await
+}
+
+/// 删除自己的帖子（Worker 级联删除其全部回复与相关举报）
+#[tauri::command]
+pub async fn community_delete_my_post(
+    state: State<'_, CommunityHandle>,
+    post_id: i64,
+) -> IcodeResult<()> {
+    state.service().delete_my_post(post_id).await
+}
+
+/// 编辑自己的回复
+#[tauri::command]
+pub async fn community_update_my_reply(
+    state: State<'_, CommunityHandle>,
+    reply_id: i64,
+    content: String,
+) -> IcodeResult<()> {
+    state.service().update_my_reply(reply_id, &content).await
+}
+
+/// 删除自己的回复（顶层评论级联楼中楼）
+#[tauri::command]
+pub async fn community_delete_my_reply(
+    state: State<'_, CommunityHandle>,
+    reply_id: i64,
+) -> IcodeResult<()> {
+    state.service().delete_my_reply(reply_id).await
 }
 
 /// 举报帖子 / 回复
@@ -348,4 +386,15 @@ pub async fn community_admin_set_post_locked(
     locked: bool,
 ) -> IcodeResult<()> {
     state.service().admin_set_post_locked(&admin_token, post_id, locked).await
+}
+
+/// 管理员置顶 / 取消置顶帖子（置顶帖在列表排序时排在最前）
+#[tauri::command]
+pub async fn community_admin_set_post_pin(
+    state: State<'_, CommunityHandle>,
+    admin_token: String,
+    post_id: i64,
+    pinned: bool,
+) -> IcodeResult<()> {
+    state.service().admin_set_post_pin(&admin_token, post_id, pinned).await
 }

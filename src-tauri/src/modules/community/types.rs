@@ -96,6 +96,9 @@ pub struct PostSummary {
     /// 帖子级锁定（D11：locked=1 时禁止新增评论回复）
     #[serde(default)]
     pub locked: bool,
+    /// 是否置顶（管理员置顶后列表排序置顶，默认 false）
+    #[serde(default)]
+    pub pinned: bool,
     pub created_at: String,
     pub author: UserBrief,
 }
@@ -122,6 +125,9 @@ pub struct PostDetail {
     /// 帖子级锁定（D11：locked=1 时禁止新增评论回复）
     #[serde(default)]
     pub locked: bool,
+    /// 是否置顶（管理员置顶后列表排序置顶，默认 false）
+    #[serde(default)]
+    pub pinned: bool,
     pub created_at: String,
     pub author: UserBrief,
 }
@@ -273,6 +279,9 @@ pub struct MyPostItem {
     pub section: String,
     pub excerpt: String,
     pub reply_count: i64,
+    /// 是否置顶（默认 false）
+    #[serde(default)]
+    pub pinned: bool,
     pub created_at: String,
 }
 
@@ -443,6 +452,9 @@ pub struct AdminPostItem {
     /// 帖子级锁定（D11：locked=1 时禁止新增评论回复）
     #[serde(default)]
     pub locked: bool,
+    /// 是否置顶（管理员置顶后列表排序置顶，默认 false）
+    #[serde(default)]
+    pub pinned: bool,
     pub created_at: String,
     /// 最后编辑时间（管理员识别被编辑过的帖子）
     pub updated_at: String,
@@ -469,6 +481,9 @@ pub struct AdminUpdatePostInput {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub section: Option<String>,
 }
+
+/// 编辑「我的帖子」输入（字段与管理员编辑帖子一致：title / content / section 至少一项）
+pub type UpdateMyPostInput = AdminUpdatePostInput;
 
 // ===== 站点治理（D11，2026-08-15：全站禁言 / 禁发帖 / 禁回复 + 帖子级锁定）=====
 

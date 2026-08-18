@@ -30,6 +30,7 @@ import type {
   ProfileUser,
   ReportInput,
   SiteGovernance,
+  UpdateMyPostInput,
   UpdateProfileInput,
 } from '@/modules/community/types'
 
@@ -96,6 +97,26 @@ export async function getCommunityMyPosts(cursor?: string, limit?: number): Prom
 /** 我的回复 */
 export async function getCommunityMyReplies(cursor?: string, limit?: number): Promise<MyRepliesData> {
   return invokeCommand<MyRepliesData>('community_get_my_replies', { cursor: cursor ?? null, limit: limit ?? null })
+}
+
+/** 编辑自己的帖子（title / content / section 至少一项） */
+export async function updateCommunityMyPost(postId: number, input: UpdateMyPostInput): Promise<void> {
+  return invokeCommand<void>('community_update_my_post', { postId, input })
+}
+
+/** 删除自己的帖子（Worker 级联删除其全部回复与相关举报） */
+export async function deleteCommunityMyPost(postId: number): Promise<void> {
+  return invokeCommand<void>('community_delete_my_post', { postId })
+}
+
+/** 编辑自己的回复 */
+export async function updateCommunityMyReply(replyId: number, content: string): Promise<void> {
+  return invokeCommand<void>('community_update_my_reply', { replyId, content })
+}
+
+/** 删除自己的回复（顶层评论级联楼中楼） */
+export async function deleteCommunityMyReply(replyId: number): Promise<void> {
+  return invokeCommand<void>('community_delete_my_reply', { replyId })
 }
 
 /** 举报帖子 / 回复 */
@@ -235,6 +256,15 @@ export async function communityAdminSetPostLocked(
   locked: boolean,
 ): Promise<void> {
   return invokeCommand<void>('community_admin_set_post_locked', { adminToken, postId, locked })
+}
+
+/** 管理员：置顶 / 取消置顶帖子（置顶帖在列表排序时排在最前） */
+export async function communityAdminSetPostPin(
+  adminToken: string,
+  postId: number,
+  pinned: boolean,
+): Promise<void> {
+  return invokeCommand<void>('community_admin_set_post_pin', { adminToken, postId, pinned })
 }
 
 // ===== 通用 hooks =====
