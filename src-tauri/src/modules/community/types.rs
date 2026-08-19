@@ -397,6 +397,12 @@ pub struct AdminUserItem {
     pub post_count: i64,
     pub reply_count: i64,
     pub created_at: String,
+    /// 最近登录时间（UTC ISO）；null = 尚未记录登录
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_login_at: Option<String>,
+    /// 最近登录 IP；null = 尚未记录
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_login_ip: Option<String>,
 }
 
 /// 管理员禁言输入（D12：设置时长 / 永久 + 原因）

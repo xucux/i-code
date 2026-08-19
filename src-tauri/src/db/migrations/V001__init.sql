@@ -115,18 +115,18 @@ CREATE TABLE IF NOT EXISTS log_settings (
   max_file_count    INTEGER NOT NULL DEFAULT 7,     -- 保留的日志文件数量
   file_log_level    TEXT    DEFAULT 'INFO',          -- 文件写入级别阈值
 
-  -- 转发详细日志配置
-  enable_request_log  INTEGER NOT NULL DEFAULT 0,   -- 是否记录转发请求体
-  enable_response_log INTEGER NOT NULL DEFAULT 0,   -- 是否记录转发响应体
+  -- 转发详细日志配置（首次安装默认开启请求/响应记录）
+  enable_request_log  INTEGER NOT NULL DEFAULT 1,   -- 是否记录转发请求体
+  enable_response_log INTEGER NOT NULL DEFAULT 1,   -- 是否记录转发响应体
   forward_max_body_length INTEGER NOT NULL DEFAULT 4096, -- 转发日志最大记录长度
 
   -- Command 交互日志配置
   enable_command_log  INTEGER NOT NULL DEFAULT 1,   -- 是否记录 Command 调用
-  enable_command_request_log INTEGER NOT NULL DEFAULT 0, -- 是否记录请求参数
-  enable_command_response_log INTEGER NOT NULL DEFAULT 0, -- 是否记录响应数据
+  enable_command_request_log INTEGER NOT NULL DEFAULT 1, -- 是否记录请求参数
+  enable_command_response_log INTEGER NOT NULL DEFAULT 1, -- 是否记录响应数据
   command_max_body_length INTEGER NOT NULL DEFAULT 4096,  -- Command 日志最大记录长度
-  enable_gateway_request_log INTEGER NOT NULL DEFAULT 0,
-  enable_gateway_response_log INTEGER NOT NULL DEFAULT 0,
+  enable_gateway_request_log INTEGER NOT NULL DEFAULT 1,
+  enable_gateway_response_log INTEGER NOT NULL DEFAULT 1,
   gateway_max_body_length INTEGER NOT NULL DEFAULT 4096
 );
 

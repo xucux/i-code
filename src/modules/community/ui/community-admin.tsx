@@ -31,6 +31,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { MarkdownContent } from '@/components/ui/markdown-content'
 import { cn } from '@/lib/utils'
 import { useAvailableHeight } from '@/hooks/use-available-height'
+import { formatDateTime } from '@/core/utils'
 import {
   communityAdminBanUser,
   communityAdminDeletePost,
@@ -453,9 +454,6 @@ function AdminUsersTab({ token, height }: { token: string; height: number }) {
                 <i className="fa-solid fa-comment ml-1.5 mr-0.5 size-2.5" />
                 {user.replyCount}
               </span>
-              <span className="text-muted-foreground shrink-0 text-[11px] tabular-nums">
-                {formatCommunityTime(user.createdAt, t)}
-              </span>
               {user.muted ? (
                 <Button variant="outline" size="sm" className="h-6 shrink-0 px-2 text-[11px]" disabled={acting} onClick={() => void handleUnmute(user.userId)}>
                   <i className="fa-solid fa-volume-high mr-1 size-2.5" />
@@ -491,6 +489,25 @@ function AdminUsersTab({ token, height }: { token: string; height: number }) {
                 >
                   {t('admin.ban')}
                 </Button>
+              )}
+            </div>
+            {/* 注册时间 / 最近登录时间 / 最近登录 IP */}
+            <div className="text-muted-foreground mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] tabular-nums">
+              <span>
+                <i className="fa-regular fa-calendar mr-1 size-2.5" />
+                {t('admin.registeredAt', { time: formatDateTime(user.createdAt).slice(0, 10) })}
+              </span>
+              {user.lastLoginAt && (
+                <span>
+                  <i className="fa-solid fa-right-to-bracket mr-1 size-2.5" />
+                  {t('admin.lastLoginAt', { time: formatCommunityTime(user.lastLoginAt, t) })}
+                </span>
+              )}
+              {user.lastLoginIp && (
+                <span>
+                  <i className="fa-solid fa-location-dot mr-1 size-2.5" />
+                  {t('admin.lastLoginIp', { ip: user.lastLoginIp })}
+                </span>
               )}
             </div>
             {user.banned && user.banReason && (

@@ -102,3 +102,18 @@
     }
   }
 }
+
+/* Toast 关闭角标：直接放右上角，正方形，仅左下角圆角，仅保留左边框与下边框（贴角语义） */
+.toaster [data-sonner-toast][data-styled='true'] [data-close-button] {
+  left: auto;
+  right: 0;
+  transform: none;
+  /* 仅左下角圆角（朝向内容的一角），其余直角 */
+  border-radius: 0 0 0 6px;
+  /* 仅左侧、下侧描边，上/右透明，营造贴住角落的角标感 */
+  border-top-width: 0;
+  border-right-width: 0;
+  border-bottom-width: 1px;
+  border-left-width: 1px;
+  border-color: hsl(var(--border));
+}

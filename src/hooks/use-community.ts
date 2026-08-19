@@ -440,8 +440,8 @@ interface ProfileCacheEntry {
   cachedAt: number
 }
 
-/** 我的资料缓存有效期（ms）：15 秒内再次进入社区直接展示缓存，不发请求 */
-const PROFILE_TTL = 15_000
+/** 我的资料缓存有效期（ms）：6h 内再次进入社区直接展示缓存，不发请求（降低 Worker 调用频率） */
+const PROFILE_TTL = 6 * 60 * 60 * 1000
 
 /** 模块级我的资料缓存：成功拉取后写入，供下次进入社区兜底展示 */
 let profileCache: ProfileCacheEntry | null = null
@@ -449,7 +449,7 @@ let profileCache: ProfileCacheEntry | null = null
 /**
  * 我的资料 + 签到统计
  *
- * - 初始加载（进入社区）优先命中新鲜缓存（< 15s）直接展示；
+ * - 初始加载（进入社区）优先命中新鲜缓存（< 6h）直接展示；
  * - `refresh` 总是强制请求并更新缓存，供签到 / 改资料 / 发帖后保持最新。
  */
 export function useCommunityProfile(enabled: boolean): {

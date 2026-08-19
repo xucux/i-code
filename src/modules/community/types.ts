@@ -266,6 +266,10 @@ export interface AdminUserItem {
   postCount: number
   replyCount: number
   createdAt: string
+  /** 最近登录时间（UTC ISO）；null = 尚未记录登录 */
+  lastLoginAt?: string | null
+  /** 最近登录 IP；null = 尚未记录 */
+  lastLoginIp?: string | null
 }
 
 /** 管理员禁言输入（D12：设置时长 / 永久 + 原因） */
