@@ -109,8 +109,9 @@ pub struct BuiltinProviderDefaultModel {
     /// 展示名称（可选，缺省时使用匹配到的内置模型展示名）
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
-    /// 在 data/builtin-models.json 中匹配的模型 id
-    pub match_model_id: String,
+    /// 在 data/builtin-models.json 中匹配的模型 id（可选，缺省时该条目不参与内置模型匹配）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub match_model_id: Option<String>,
 }
 
 /// 内置模型预设
