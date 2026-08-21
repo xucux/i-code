@@ -16,6 +16,7 @@ import type {
   AdminUpdateGovernanceInput,
   AdminUpdatePostInput,
   AdminUserItem,
+  CheckInLeaderboardData,
   CheckInResult,
   CommunityLocalState,
   CommunitySection,
@@ -135,6 +136,17 @@ export async function getCommunityPointsLeaderboard(
   limit?: number,
 ): Promise<PointsLeaderboardData> {
   return invokeCommand<PointsLeaderboardData>('community_get_points_leaderboard', {
+    offset: offset ?? null,
+    limit: limit ?? null,
+  })
+}
+
+/** 签到排行（offset 分页；Worker 侧返回累计 `total` 与连续 `streak` 两列表） */
+export async function getCommunityCheckInLeaderboard(
+  offset?: number,
+  limit?: number,
+): Promise<CheckInLeaderboardData> {
+  return invokeCommand<CheckInLeaderboardData>('community_get_checkin_leaderboard', {
     offset: offset ?? null,
     limit: limit ?? null,
   })

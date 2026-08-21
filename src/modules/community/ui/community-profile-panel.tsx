@@ -135,6 +135,12 @@ export function CommunityProfilePanel({
           active={activeView === 'leaderboard'}
           onClick={() => onViewChange('leaderboard')}
         />
+        <EntryButton
+          icon="fa-solid fa-calendar-check"
+          label={t('tab.checkInLeaderboard')}
+          active={activeView === 'checkInLeaderboard'}
+          onClick={() => onViewChange('checkInLeaderboard')}
+        />
       </div>
 
       {/* 关闭社区（二次确认，防误触） */}

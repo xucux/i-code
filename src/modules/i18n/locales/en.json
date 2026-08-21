@@ -1718,7 +1718,8 @@
       "latest": "Latest",
       "myPosts": "My Posts",
       "myReplies": "My Replies",
-      "leaderboard": "Leaderboard"
+      "leaderboard": "Leaderboard",
+      "checkInLeaderboard": "Check-in Ranking"
     },
     "section": {
       "chat": "Casual",
@@ -1773,6 +1774,13 @@
       "empty": "No leaderboard data",
       "rank": "Rank #{{rank}}",
       "points": "{{points}} points"
+    },
+    "checkin": {
+      "total": "Total check-ins",
+      "streak": "Consecutive days",
+      "streakHint": "Streaks earn bonus",
+      "totalValue": "{{count}} days total",
+      "streakValue": "{{count}} days in a row"
     },
     "comment": {
       "sectionTitle": "Comments ({{count}})",

@@ -1731,7 +1731,8 @@
       "latest": "最新",
       "myPosts": "我的帖子",
       "myReplies": "我的回复",
-      "leaderboard": "积分排行"
+      "leaderboard": "积分排行",
+      "checkInLeaderboard": "签到排行"
     },
     "section": {
       "chat": "闲聊",
@@ -1786,6 +1787,13 @@
       "empty": "暂无排行数据",
       "rank": "第 {{rank}} 名",
       "points": "{{points}} 积分"
+    },
+    "checkin": {
+      "total": "累计签到",
+      "streak": "连续签到",
+      "streakHint": "连签有奖励",
+      "totalValue": "累计 {{count}} 天",
+      "streakValue": "连续 {{count}} 天"
     },
     "comment": {
       "sectionTitle": "评论（{{count}}）",

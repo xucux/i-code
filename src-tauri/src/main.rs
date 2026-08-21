@@ -915,6 +915,7 @@ fn main() {
             modules::community::commands::community_admin_delete_reply,
             modules::community::commands::community_get_site_governance,
             modules::community::commands::community_get_points_leaderboard,
+            modules::community::commands::community_get_checkin_leaderboard,
             modules::community::commands::community_admin_get_governance,
             modules::community::commands::community_admin_update_governance,
             modules::community::commands::community_admin_set_post_locked,

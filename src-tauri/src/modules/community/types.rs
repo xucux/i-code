@@ -344,6 +344,35 @@ pub struct PointsLeaderboardData {
     pub next_offset: Option<i64>,
 }
 
+/// 签到排行项（累计 / 连续两列表共用；未涉及维度缺省为 0）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CheckInLeaderboardItem {
+    /// 名次（顺延式：1/2/3…）
+    pub rank: i64,
+    pub user_id: String,
+    pub nickname: String,
+    pub avatar_index: i64,
+    /// 累计签到天数（累计签到排行维度）
+    #[serde(default)]
+    pub total_check_ins: i64,
+    /// 当前连续签到天数（连续签到排行维度）
+    #[serde(default)]
+    pub streak_days: i64,
+}
+
+/// 签到排行响应（offset 分页；`total` / `streak` 两列表共用同一分页）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CheckInLeaderboardData {
+    /// 累计签到排行（含 totalCheckIns）
+    pub total: Vec<CheckInLeaderboardItem>,
+    /// 连续签到排行（含 streakDays）
+    pub streak: Vec<CheckInLeaderboardItem>,
+    /// 下一页 offset；None = 无更多
+    pub next_offset: Option<i64>,
+}
+
 // ===== 举报 =====
 
 /// 举报输入

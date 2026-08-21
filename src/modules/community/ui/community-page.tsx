@@ -24,6 +24,7 @@ import {
   useCommunityState,
 } from '@/hooks/use-community'
 import { CommunityGate } from '@/modules/community/ui/community-gate'
+import { CheckInLeaderboardList } from '@/modules/community/ui/checkin-leaderboard-list'
 import { CommunityProfilePanel } from '@/modules/community/ui/community-profile-panel'
 import { CreatePostDialog } from '@/modules/community/ui/create-post-dialog'
 import { MyContentList } from '@/modules/community/ui/my-content-list'
@@ -199,7 +200,7 @@ export function CommunityPage() {
               title={t('action.refresh')}
               disabled={loading}
               onClick={() =>
-                view === 'myPosts' || view === 'myReplies' || view === 'leaderboard'
+                view === 'myPosts' || view === 'myReplies' || view === 'leaderboard' || view === 'checkInLeaderboard'
                   ? setView('latest')
                   : void refreshPosts()
               }
@@ -246,6 +247,8 @@ export function CommunityPage() {
               <MyContentList kind={view === 'myPosts' ? 'posts' : 'replies'} />
             ) : view === 'leaderboard' ? (
               <LeaderboardList />
+            ) : view === 'checkInLeaderboard' ? (
+              <CheckInLeaderboardList />
             ) : (
               <PostList
                 posts={posts}
@@ -259,7 +262,7 @@ export function CommunityPage() {
           </div>
         </div>
 
-        <div className="w-56 shrink-0">
+        <div className="w-52 shrink-0">
           {profile ? (
             <CommunityProfilePanel
               profile={profile}

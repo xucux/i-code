@@ -1718,7 +1718,8 @@
       "latest": "最新",
       "myPosts": "自分の投稿",
       "myReplies": "自分の返信",
-      "leaderboard": "ポイントランキング"
+      "leaderboard": "ポイントランキング",
+      "checkInLeaderboard": "チェックインランキング"
     },
     "section": {
       "chat": "雑談",
@@ -1773,6 +1774,13 @@
       "empty": "ランキングデータはありません",
       "rank": "{{rank}} 位",
       "points": "{{points}} ポイント"
+    },
+    "checkin": {
+      "total": "累計チェックイン",
+      "streak": "連続日数",
+      "streakHint": "連続で特典あり",
+      "totalValue": "累計 {{count}} 日",
+      "streakValue": "連続 {{count}} 日"
     },
     "comment": {
       "sectionTitle": "コメント（{{count}}）",

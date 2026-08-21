@@ -18,10 +18,10 @@ use super::client;
 use super::repository;
 use super::types::{
     AdminLoginData, AdminLoginInput, AdminMuteInput, AdminPostListData, AdminReportItem,
-    AdminUpdateGovernanceInput, AdminUpdatePostInput, AdminUserItem, CheckInResult,
-    CommunityLocalState, CreatePostInput, CreateReplyInput, MyPostsData, MyRepliesData,
-    PointsLeaderboardData, PostDetailData, PostListData, ProfileData, ProfileUser, ReportInput,
-    SiteGovernance, UpdateMyPostInput, UpdateProfileInput,
+    AdminUpdateGovernanceInput, AdminUpdatePostInput, AdminUserItem, CheckInLeaderboardData,
+    CheckInResult, CommunityLocalState, CreatePostInput, CreateReplyInput, MyPostsData,
+    MyRepliesData, PointsLeaderboardData, PostDetailData, PostListData, ProfileData, ProfileUser,
+    ReportInput, SiteGovernance, UpdateMyPostInput, UpdateProfileInput,
 };
 
 /// 社区 Service 句柄（Tauri State）
@@ -290,6 +290,16 @@ impl CommunityService {
     ) -> IcodeResult<PointsLeaderboardData> {
         let (state, user_id) = self.require_ready()?;
         client::get_points_leaderboard(&state.base_url, &user_id, offset, limit).await
+    }
+
+    /// 签到排行（offset 分页；Worker 侧返回累计 `total` 与连续 `streak` 两列表）
+    pub async fn get_checkin_leaderboard(
+        &self,
+        offset: Option<i64>,
+        limit: Option<u32>,
+    ) -> IcodeResult<CheckInLeaderboardData> {
+        let (state, user_id) = self.require_ready()?;
+        client::get_checkin_leaderboard(&state.base_url, &user_id, offset, limit).await
     }
 
     // ===== 管理员 =====

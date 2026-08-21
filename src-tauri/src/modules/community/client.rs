@@ -18,10 +18,10 @@ use crate::modules::shared;
 
 use super::types::{
     AdminLoginData, AdminLoginInput, AdminMuteInput, AdminPostListData, AdminReportItem,
-    AdminUpdateGovernanceInput, AdminUpdatePostInput, AdminUserItem, CheckInResult,
-    CreatePostInput, CreateReplyInput, MyPostsData, MyRepliesData, PointsLeaderboardData,
-    PostDetailData, PostListData, ProfileData, ProfileUser, ReportInput, SiteGovernance,
-    UpdateMyPostInput, UpdateProfileInput,
+    AdminUpdateGovernanceInput, AdminUpdatePostInput, AdminUserItem, CheckInLeaderboardData,
+    CheckInResult, CreatePostInput, CreateReplyInput, MyPostsData, MyRepliesData,
+    PointsLeaderboardData, PostDetailData, PostListData, ProfileData, ProfileUser, ReportInput,
+    SiteGovernance, UpdateMyPostInput, UpdateProfileInput,
 };
 
 /// App Token：与 Worker 侧 `APP_TOKEN`（wrangler.toml `[vars]`）保持一致，
@@ -547,6 +547,33 @@ pub async fn get_points_leaderboard(
         base_url,
         Method::GET,
         "points/leaderboard",
+        if query.is_empty() { None } else { Some(query) },
+        Some(user_id),
+        None,
+        None,
+        false,
+    )
+    .await
+}
+
+/// 签到排行（offset 分页；Worker 侧返回累计 `total` 与连续 `streak` 两列表，共用同一分页）
+pub async fn get_checkin_leaderboard(
+    base_url: &str,
+    user_id: &str,
+    offset: Option<i64>,
+    limit: Option<u32>,
+) -> IcodeResult<CheckInLeaderboardData> {
+    let mut query = Vec::new();
+    if let Some(o) = offset {
+        query.push(("offset".to_string(), o.to_string()));
+    }
+    if let Some(l) = limit {
+        query.push(("limit".to_string(), l.to_string()));
+    }
+    send(
+        base_url,
+        Method::GET,
+        "checkins/leaderboard",
         if query.is_empty() { None } else { Some(query) },
         Some(user_id),
         None,

@@ -30,8 +30,8 @@ export type CommunitySection = 'chat' | 'eggs' | 'tech'
 /** 板块顺序（顶部 Tab 展示顺序：闲聊 / 领鸡蛋 / 技术） */
 export const COMMUNITY_SECTIONS: readonly CommunitySection[] = ['chat', 'eggs', 'tech'] as const
 
-/** 左列视图：最近（全部）/ 板块 / 我的帖子 / 我的回复 / 积分排行 */
-export type CommunityView = 'latest' | CommunitySection | 'myPosts' | 'myReplies' | 'leaderboard'
+/** 左列视图：最近（全部）/ 板块 / 我的帖子 / 我的回复 / 积分排行 / 签到排行 */
+export type CommunityView = 'latest' | CommunitySection | 'myPosts' | 'myReplies' | 'leaderboard' | 'checkInLeaderboard'
 
 /** 作者摘要（帖子/回复通用） */
 export interface UserBrief {
@@ -228,6 +228,29 @@ export interface PointsLeaderboardItem {
 /** 积分排行响应（offset 分页） */
 export interface PointsLeaderboardData {
   items: PointsLeaderboardItem[]
+  /** 下一页 offset；null = 无更多 */
+  nextOffset: number | null
+}
+
+/** 签到排行项（累计 / 连续两列表共用；未涉及维度为空） */
+export interface CheckInLeaderboardItem {
+  /** 名次（顺延式：1/2/3…） */
+  rank: number
+  userId: string
+  nickname: string
+  avatarIndex: number
+  /** 累计签到天数（累计签到排行维度） */
+  totalCheckIns?: number
+  /** 当前连续签到天数（连续签到排行维度） */
+  streakDays?: number
+}
+
+/** 签到排行响应（offset 分页；`total` / `streak` 两列表共用同一分页） */
+export interface CheckInLeaderboardData {
+  /** 累计签到排行（含 totalCheckIns） */
+  total: CheckInLeaderboardItem[]
+  /** 连续签到排行（含 streakDays） */
+  streak: CheckInLeaderboardItem[]
   /** 下一页 offset；null = 无更多 */
   nextOffset: number | null
 }

@@ -11,8 +11,8 @@ use crate::error::IcodeResult;
 use super::service::CommunityHandle;
 use super::types::{
     AdminLoginData, AdminLoginInput, AdminMuteInput, AdminPostListData, AdminReportItem,
-    AdminUpdateGovernanceInput, AdminUpdatePostInput, AdminUserItem, CheckInResult,
-    CommunityLocalState, CreatePostInput, CreateReplyInput, MyPostsData,
+    AdminUpdateGovernanceInput, AdminUpdatePostInput, AdminUserItem, CheckInLeaderboardData,
+    CheckInResult, CommunityLocalState, CreatePostInput, CreateReplyInput, MyPostsData,
     MyRepliesData, PointsLeaderboardData, PostDetailData, PostListData, ProfileData, ProfileUser,
     ReportInput, SiteGovernance, UpdateMyPostInput, UpdateProfileInput,
 };
@@ -187,6 +187,17 @@ pub async fn community_get_points_leaderboard(
 ) -> IcodeResult<PointsLeaderboardData> {
     validate_limit(limit)?;
     state.service().get_points_leaderboard(offset, limit).await
+}
+
+/// 签到排行（offset 分页；Worker 侧返回累计 `total` 与连续 `streak` 两列表）
+#[tauri::command]
+pub async fn community_get_checkin_leaderboard(
+    state: State<'_, CommunityHandle>,
+    offset: Option<i64>,
+    limit: Option<u32>,
+) -> IcodeResult<CheckInLeaderboardData> {
+    validate_limit(limit)?;
+    state.service().get_checkin_leaderboard(offset, limit).await
 }
 
 // ===== 门禁与本地状态（不进 Worker）=====
