@@ -931,8 +931,10 @@ pub struct ProviderDefaultModelInput {
     /// 展示名称（可选，缺省时使用匹配到的内置模型展示名）
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
-    /// 在 builtin-models.json 中匹配的模型 id
-    pub match_model_id: String,
+    /// 在 builtin-models.json 中匹配的模型 id（可选；缺失时不会按内置预设补充配置字段，
+    /// 仅以 model_id / display_name 创建基础网关模型）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub match_model_id: Option<String>,
 }
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

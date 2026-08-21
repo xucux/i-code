@@ -197,49 +197,63 @@ impl AiGatewayService {
             }
         }
 
-        // 自动关联默认模型：按 match_model_id 匹配内置模型预设，
-        // 同步创建 model_config 与 gateway_model（配置字段对齐前端 addModels）
+        // 自动关联默认模型：优先按 match_model_id 匹配内置模型预设，
+        // 同步创建 model_config 与 gateway_model（配置字段对齐前端 addModels）。
+        // match_model_id 缺失或匹配不到内置预设时，仍以 model_id / display_name 创建基础网关模型，不阻断创建。
         if let Some(default_models) = &input.default_models {
             if !default_models.is_empty() {
                 let builtin_models = seed::load_builtin_models()?;
                 for dm in default_models {
-                    if dm.model_id.trim().is_empty() || dm.match_model_id.trim().is_empty() {
+                    if dm.model_id.trim().is_empty() {
                         continue;
                     }
-                    let Some(builtin) =
-                        seed::find_builtin_model_in(&builtin_models, &dm.match_model_id)
-                    else {
-                        // 匹配不到内置模型时跳过该条目，不阻断供应商创建
-                        log::warn!(
-                            "创建供应商 {} 时默认模型未匹配到内置预设: match_model_id={}",
-                            provider.slug,
-                            dm.match_model_id
-                        );
-                        continue;
+                    let builtin = match dm.match_model_id.as_deref() {
+                        Some(mmid) => seed::find_builtin_model_in(&builtin_models, mmid).or_else(
+                            || {
+                                // 匹配不到内置模型时记一条日志，仍按基础配置创建
+                                log::warn!(
+                                    "创建供应商 {} 时默认模型未匹配到内置预设: match_model_id={}",
+                                    provider.slug,
+                                    mmid
+                                );
+                                None
+                            },
+                        ),
+                        None => None,
                     };
                     let display_name = dm
                         .display_name
                         .clone()
-                        .unwrap_or_else(|| builtin.display_name.clone());
+                        .unwrap_or_else(|| {
+                            builtin
+                                .as_ref()
+                                .map(|b| b.display_name.clone())
+                                .unwrap_or_else(|| dm.model_id.clone())
+                        });
                     let config_input = CreateModelConfigInput {
                         name: display_name.clone(),
-                        family: Some(builtin.family.clone()),
-                        max_input_tokens: builtin.max_input_tokens,
-                        max_output_tokens: builtin.max_output_tokens,
-                        tokenizer: builtin.tokenizer.clone(),
-                        token_count_multiplier: builtin.token_count_multiplier,
+                        family: builtin.as_ref().map(|b| b.family.clone()),
+                        max_input_tokens: builtin.as_ref().and_then(|b| b.max_input_tokens),
+                        max_output_tokens: builtin.as_ref().and_then(|b| b.max_output_tokens),
+                        tokenizer: builtin.as_ref().and_then(|b| b.tokenizer.clone()),
+                        token_count_multiplier: builtin
+                            .as_ref()
+                            .map(|b| b.token_count_multiplier)
+                            .unwrap_or_else(crate::modules::ai_gateway::types::default_token_multiplier),
                         price_per_1m_tokens: None,
-                        stream: builtin.stream,
+                        stream: builtin.as_ref().and_then(|b| b.stream),
                         temperature: None,
                         top_p: None,
-                        parallel_tool_calling: builtin.parallel_tool_calling,
-                        capabilities_json: builtin
-                            .capabilities
+                        parallel_tool_calling: builtin
                             .as_ref()
+                            .and_then(|b| b.parallel_tool_calling),
+                        capabilities_json: builtin
+                            .as_ref()
+                            .and_then(|b| b.capabilities.as_ref())
                             .map(|c| serde_json::to_string(c).unwrap_or_default()),
                         thinking_json: builtin
-                            .thinking
                             .as_ref()
+                            .and_then(|b| b.thinking.as_ref())
                             .map(|t| serde_json::to_string(t).unwrap_or_default()),
                     };
                     let config = repository::insert_model_config(&config_input)?;
@@ -248,7 +262,7 @@ impl AiGatewayService {
                         model_config_id: config.id,
                         model_id: dm.model_id.clone(),
                         display_name: Some(display_name),
-                        family: Some(builtin.family.clone()),
+                        family: builtin.as_ref().map(|b| b.family.clone()),
                         is_exposed: true,
                         source: "builtin".to_string(),
                     };

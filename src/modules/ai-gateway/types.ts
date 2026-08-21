@@ -575,8 +575,8 @@ export interface BuiltinProviderDefaultModel {
   modelId: string
   /** 展示名称（可选，缺省时使用匹配到的内置模型展示名） */
   displayName?: string
-  /** 在 builtin-models.json 中匹配的模型 id */
-  matchModelId: string
+  /** 在 builtin-models.json 中匹配的模型 id（可选；缺省时该条目不参与内置模型匹配） */
+  matchModelId?: string
 }
 
 /**
@@ -768,8 +768,8 @@ export interface ProviderDefaultModelInput {
   modelId: string
   /** 展示名称（可选，缺省时使用匹配到的内置模型展示名） */
   displayName?: string
-  /** 在 builtin-models.json 中匹配的模型 id */
-  matchModelId: string
+  /** 在 builtin-models.json 中匹配的模型 id（可选；缺失时不按内置预设补充配置，仅按 modelId/displayName 创建基础网关模型） */
+  matchModelId?: string
 }
 
 export interface UpdateProviderInput {
