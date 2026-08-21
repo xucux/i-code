@@ -231,7 +231,7 @@
         "x-opencode-session": "ses_${uuid_by_day()}",
         "x-opencode-request": "msg_${uuid()}"
       },
-      "remark": "无认证就可用，免费模型会存在200K上下文限制",
+      "remark": "无认证就可用，免费模型会存在200K上下文限制（Free模型不定时上下架）",
       "defaultModels": [
         {
           "modelId": "nemotron-3-ultra-free",
@@ -247,6 +247,15 @@
           "modelId": "mimo-v2.5-free",
           "displayName": "MiMo V2.5",
           "matchModelId": "mimo-v2.5"
+        },
+        {
+          "modelId": "x-preview-f-free",
+          "displayName": "Ox Alpha Free"
+        },
+        {
+          "modelId": "muse-spark-1.2-contributor-free",
+          "displayName": "Muse Spark 1.2 Contributor",
+          "matchModelId": "muse-spark-1.2-contributor"
         }
       ]
     },

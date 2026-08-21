@@ -1233,6 +1233,53 @@
       }
     },
     {
+      "id": "qwen3.8-max",
+      "displayName": "Qwen3.8-Max",
+      "family": "alibaba",
+      "providerTypes": [
+        "openai-chat-completion",
+        "openai-responses",
+        "anthropic"
+      ],
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 131072,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "xhigh"
+      }
+    },
+    {
+      "id": "qwen3.8-27b",
+      "displayName": "Qwen3.8-27B",
+      "family": "alibaba",
+      "providerTypes": [
+        "openai-chat-completion",
+        "openai-responses",
+        "anthropic"
+      ],
+      "maxInputTokens": 262144,
+      "maxOutputTokens": 32768,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled"
+      }
+    },
+    {
       "id": "qwen3.7-max",
       "displayName": "Qwen3.7-Max",
       "family": "alibaba",
@@ -1379,6 +1426,30 @@
       "thinking": null
     },
     {
+      "id": "muse-spark-1.2-contributor",
+      "displayName": "Muse Spark 1.2 Contributor",
+      "family": "meta",
+      "providerTypes": [
+        "openai-chat-completion",
+        "openai-responses",
+        "anthropic"
+      ],
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 131072,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "high"
+      }
+    },
+    {
       "id": "qwen3-32b",
       "displayName": "Qwen3 32B",
       "family": "alibaba",
@@ -1494,6 +1565,28 @@
     {
       "id": "glm-5.2",
       "displayName": "GLM-5.2",
+      "family": "zhipu",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "max"
+      }
+    },
+    {
+      "id": "glm-5.3",
+      "displayName": "GLM-5.3",
       "family": "zhipu",
       "providerTypes": [
         "openai-chat-completion"
@@ -1881,6 +1974,75 @@
         "imageInput": false
       },
       "thinking": null
+    },
+    {
+      "id": "gemini-3.7-flash",
+      "displayName": "Gemini 3.7 Flash",
+      "family": "gemini",
+      "providerTypes": [
+        "google-ai-studio",
+        "google-vertex-ai"
+      ],
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65536,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "medium"
+      }
+    },
+    {
+      "id": "gemini-3.6-flash",
+      "displayName": "Gemini 3.6 Flash",
+      "family": "gemini",
+      "providerTypes": [
+        "google-ai-studio",
+        "google-vertex-ai"
+      ],
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65536,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "medium"
+      }
+    },
+    {
+      "id": "gemini-3.5-flash-lite",
+      "displayName": "Gemini 3.5 Flash-Lite",
+      "family": "gemini",
+      "providerTypes": [
+        "google-ai-studio",
+        "google-vertex-ai"
+      ],
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65536,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "minimal"
+      }
     },
     {
       "id": "gemini-3.5-flash",
