@@ -432,7 +432,7 @@ function AdminUsersTab({ token, height }: { token: string; height: number }) {
 
   return (
     <ScrollPage style={{ height: height || undefined }} variant="borderless">
-      <div className="space-y-2 pr-2">
+      <div className="space-y-2 pr-2 pb-20">
         {users.map((user) => (
           <div key={user.userId} className="rounded-lg border bg-card p-3">
             <div className="flex items-center gap-2">
@@ -900,7 +900,7 @@ function AdminPostsTab({ token, height }: { token: string; height: number }) {
   return (
     <>
       <ScrollPage style={{ height: height || undefined }} variant="borderless">
-        <div className="space-y-2 pr-2">
+        <div className="space-y-2 pr-2 pb-20">
           {posts.map((post) => (
             <div key={post.postId} className="rounded-lg border bg-card p-3">
               <div className="flex items-center gap-2">

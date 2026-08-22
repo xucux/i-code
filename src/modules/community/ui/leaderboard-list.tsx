@@ -75,7 +75,7 @@ export function LeaderboardList() {
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 pb-10">
       {items.map((item) => (
         <div key={item.userId} className="hover:bg-accent/50 flex items-center gap-2.5 rounded-lg border bg-card p-2.5">
           {/* 名次徽标（前 3 名高亮） */}

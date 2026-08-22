@@ -88,7 +88,7 @@ export function CheckInLeaderboardList() {
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 pb-10">
       {/* 子维度切换：累计签到 / 连续签到 */}
       <div className="flex gap-1.5">
         {(['total', 'streak'] as const).map((d) => (

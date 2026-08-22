@@ -242,7 +242,7 @@ export function CommunityPage() {
       {/* 主体：左列列表（原生滚动）+ 右侧个人栏 */}
       <div className="flex h-[80vh] gap-3">
         <div className="min-w-0 flex-1">
-          <div className="overflow-y-auto pr-2" style={{ height: listHeight || undefined }}>
+          <div className="overflow-y-auto pr-2 custom-scrollbar" style={{ height: listHeight || undefined }}>
             {view === 'myPosts' || view === 'myReplies' ? (
               <MyContentList kind={view === 'myPosts' ? 'posts' : 'replies'} />
             ) : view === 'leaderboard' ? (
