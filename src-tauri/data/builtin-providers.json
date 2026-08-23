@@ -615,6 +615,9 @@
       "defaultAuth": {
         "method": "api-key"
       },
+      "defaultExtraHeaders": {
+        "x-client-type": "cline-cli"
+      },
       "autoFetchOfficialModels": false,
       "sortOrder": 28,
       "displayCnName": "Cline Bot"

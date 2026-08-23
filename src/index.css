@@ -79,6 +79,31 @@
     background: hsl(var(--muted-foreground) / 0.5);
   }
 
+  /* 自动隐藏滚动条：不滚动时 thumb 透明，滚动/悬停时恢复（配合 useAutoHideScrollbar） */
+  .custom-scrollbar-auto-hide {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+  .custom-scrollbar-auto-hide::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 9999px;
+    transition: background 0.2s ease;
+  }
+  /* Firefox：滚动中/悬停时显示 thumb */
+  .custom-scrollbar-auto-hide.scrollbar-visible,
+  .custom-scrollbar-auto-hide:hover {
+    scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
+  }
+  /* WebKit：滚动中/悬停时显示 thumb */
+  .custom-scrollbar-auto-hide.scrollbar-visible::-webkit-scrollbar-thumb,
+  .custom-scrollbar-auto-hide:hover::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.3);
+  }
+  .custom-scrollbar-auto-hide.scrollbar-visible::-webkit-scrollbar-thumb:hover,
+  .custom-scrollbar-auto-hide:hover::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.5);
+  }
+
   /* 提示词标题横向滚动跑马灯：内容溢出时由 JS 注入 .marquee-anim 触发 */
   @keyframes chat-marquee {
     0%,

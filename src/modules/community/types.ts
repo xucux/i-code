@@ -87,6 +87,8 @@ export interface ReplyItem {
   content: string
   createdAt: string
   author: UserBrief
+  /** 实际回复目标作者昵称（仅二级回复：回复的是另一条二级评论时为 @昵称，否则为 null） */
+  replyToNickname?: string | null
 }
 
 /** 顶层评论项（含楼中楼，深度限 2 层） */
@@ -371,4 +373,43 @@ export interface AdminUpdateGovernanceInput {
   muteAll?: boolean
   postLocked?: boolean
   replyLocked?: boolean
+}
+
+// ===== 消息通知（2026-08-23 通知迭代）=====
+
+/** 消息通知项 */
+export interface NotificationItem {
+  notificationId: number
+  /** 'reply'（内容被回复）| 'ban'（被封禁）| 'mute'（被禁言） */
+  type: 'reply' | 'ban' | 'mute'
+  /** 触发者昵称（reply 类 = 回复人；ban / mute 类为 null） */
+  actorNickname?: string | null
+  /** 通知正文（reply 类 = 回复预览；ban / mute 类 = 原因，可为空） */
+  content?: string | null
+  /** 关联帖子 ID（reply 类可点击跳转；null = 不可跳转） */
+  postId?: number | null
+  /** 关联帖子标题（帖子已删除时为 null） */
+  postTitle?: string | null
+  /** 禁言到期时间（UTC ISO）；mute 类 null = 永久禁言 */
+  until?: string | null
+  isRead: boolean
+  createdAt: string
+}
+
+/** 通知列表响应（游标分页 + 未读数） */
+export interface NotificationListData {
+  items: NotificationItem[]
+  nextCursor: string | null
+  /** 未读数（供小红点；列表接口顺带返回） */
+  unreadCount: number
+}
+
+/** 未读通知数响应 */
+export interface UnreadCountData {
+  unreadCount: number
+}
+
+/** 全部标记已读响应 */
+export interface ReadAllNotificationsData {
+  updated: number
 }

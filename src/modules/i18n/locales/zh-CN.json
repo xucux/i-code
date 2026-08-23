@@ -1942,6 +1942,18 @@
     "loadError": {
       "loading": "加载中…"
     },
+    "notifications": {
+      "title": "消息通知",
+      "empty": "暂无通知",
+      "replyTitle": "{{name}} 回复了你的帖子《{{post}}》",
+      "replyTitleNoPost": "{{name}} 回复了你的帖子",
+      "banTitle": "你已被封禁",
+      "muteTitle": "你已被禁言",
+      "reason": "原因：{{reason}}",
+      "muteUntil": "解除时间：{{time}}",
+      "muteForever": "永久禁言",
+      "loadMore": "加载更多"
+    },
     "time": {
       "justNow": "刚刚",
       "minutesAgo": "{{count}} 分钟前",

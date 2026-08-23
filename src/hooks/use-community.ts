@@ -24,13 +24,16 @@ import type {
   CreateReplyInput,
   MyPostsData,
   MyRepliesData,
+  NotificationListData,
   PointsLeaderboardData,
   PostDetailData,
   PostListData,
   ProfileData,
   ProfileUser,
+  ReadAllNotificationsData,
   ReportInput,
   SiteGovernance,
+  UnreadCountData,
   UpdateMyPostInput,
   UpdateProfileInput,
 } from '@/modules/community/types'
@@ -150,6 +153,31 @@ export async function getCommunityCheckInLeaderboard(
     offset: offset ?? null,
     limit: limit ?? null,
   })
+}
+
+// ===== 消息通知（2026-08-23 通知迭代）=====
+
+/** 通知列表（游标分页；顺带返回未读数供小红点） */
+export async function getCommunityNotifications(
+  cursor?: string,
+  limit?: number,
+): Promise<NotificationListData> {
+  return invokeCommand<NotificationListData>('community_get_notifications', {
+    cursor: cursor ?? null,
+    limit: limit ?? null,
+  })
+}
+
+/** 未读通知数（小红点） */
+export async function getCommunityUnreadCount(): Promise<number> {
+  const data = await invokeCommand<UnreadCountData>('community_get_unread_count')
+  return data.unreadCount
+}
+
+/** 全部标记已读（返回本次更新的条数） */
+export async function markCommunityNotificationsRead(): Promise<number> {
+  const data = await invokeCommand<ReadAllNotificationsData>('community_read_all_notifications')
+  return data.updated
 }
 
 // ===== 管理员 =====

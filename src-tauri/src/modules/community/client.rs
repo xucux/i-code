@@ -20,8 +20,9 @@ use super::types::{
     AdminLoginData, AdminLoginInput, AdminMuteInput, AdminPostListData, AdminReportItem,
     AdminUpdateGovernanceInput, AdminUpdatePostInput, AdminUserItem, CheckInLeaderboardData,
     CheckInResult, CreatePostInput, CreateReplyInput, MyPostsData, MyRepliesData,
-    PointsLeaderboardData, PostDetailData, PostListData, ProfileData, ProfileUser, ReportInput,
-    SiteGovernance, UpdateMyPostInput, UpdateProfileInput,
+    NotificationListData, PointsLeaderboardData, PostDetailData, PostListData, ProfileData,
+    ProfileUser, ReadAllNotificationsData, ReportInput, SiteGovernance, UnreadCountData,
+    UpdateMyPostInput, UpdateProfileInput,
 };
 
 /// App Token：与 Worker 侧 `APP_TOKEN`（wrangler.toml `[vars]`）保持一致，
@@ -960,4 +961,69 @@ pub async fn admin_set_post_pin(
     )
     .await?;
     Ok(())
+}
+
+// ===== 消息通知（2026-08-23 通知迭代）=====
+
+/// 通知列表（游标分页；顺带返回未读数供小红点）
+pub async fn list_notifications(
+    base_url: &str,
+    user_id: &str,
+    cursor: Option<String>,
+    limit: Option<u32>,
+) -> IcodeResult<NotificationListData> {
+    let mut query = Vec::new();
+    if let Some(c) = cursor {
+        query.push(("cursor".to_string(), c));
+    }
+    if let Some(l) = limit {
+        query.push(("limit".to_string(), l.to_string()));
+    }
+    send(
+        base_url,
+        Method::GET,
+        "users/me/notifications",
+        if query.is_empty() { None } else { Some(query) },
+        Some(user_id),
+        None,
+        None,
+        false,
+    )
+    .await
+}
+
+/// 未读通知数（小红点）
+pub async fn get_unread_count(
+    base_url: &str,
+    user_id: &str,
+) -> IcodeResult<UnreadCountData> {
+    send(
+        base_url,
+        Method::GET,
+        "users/me/notifications/unread-count",
+        None,
+        Some(user_id),
+        None,
+        None,
+        false,
+    )
+    .await
+}
+
+/// 全部标记已读（返回本次更新的条数）
+pub async fn read_all_notifications(
+    base_url: &str,
+    user_id: &str,
+) -> IcodeResult<ReadAllNotificationsData> {
+    send(
+        base_url,
+        Method::POST,
+        "users/me/notifications/read-all",
+        None,
+        Some(user_id),
+        None,
+        None,
+        true,
+    )
+    .await
 }

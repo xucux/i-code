@@ -6,6 +6,7 @@
  */
 
 import { useTranslation } from '@/modules/i18n/use-translation'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useNavigate } from '@tanstack/react-router'
 import { getCommunityAvatar } from '@/modules/community/avatars'
@@ -59,10 +60,9 @@ export function PostList({ posts, loading, loadingMore, hasMore, onRefresh, onLo
                 />
               )}
               {post.pinned && (
-                <i
-                  className="fa-solid fa-thumbtack text-primary shrink-0 size-2.5"
-                  title={t('pinned')}
-                />
+                <Badge variant="secondary" className="h-4 shrink-0 gap-1 px-1.5 text-[10px]">
+                  {t('pinned')}
+                </Badge>
               )}
               <span className="line-clamp-1 text-sm font-medium">{post.title}</span>
             </span>

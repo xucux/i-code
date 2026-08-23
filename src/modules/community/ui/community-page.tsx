@@ -7,17 +7,20 @@
  * - 首次开启且无资料 → 自动弹层引导设置昵称与头像
  */
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { toast } from 'sonner'
 import { useTranslation } from '@/modules/i18n/use-translation'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { cn } from '@/lib/utils'
 import { useAvailableHeight } from '@/hooks/use-available-height'
+import { useAutoHideScrollbar } from '@/hooks/use-auto-hide-scrollbar'
 import {
   communityCheckIn,
   createCommunityPost,
   getCommunitySiteGovernance,
+  getCommunityUnreadCount,
   updateCommunityProfile,
   useCommunityPosts,
   useCommunityProfile,
@@ -29,6 +32,7 @@ import { CommunityProfilePanel } from '@/modules/community/ui/community-profile-
 import { CreatePostDialog } from '@/modules/community/ui/create-post-dialog'
 import { MyContentList } from '@/modules/community/ui/my-content-list'
 import { LeaderboardList } from '@/modules/community/ui/leaderboard-list'
+import { NotificationListDialog } from '@/modules/community/ui/notification-list-dialog'
 import { PostList } from '@/modules/community/ui/post-list'
 import { ProfileSetupDialog } from '@/modules/community/ui/profile-setup-dialog'
 import { getCommunityAvatar } from '@/modules/community/avatars'
@@ -71,6 +75,24 @@ export function CommunityPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [checkInPending, setCheckInPending] = useState(false)
 
+  // 消息通知（通知迭代）：未读数小红点 + 通知列表弹层
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [notifOpen, setNotifOpen] = useState(false)
+
+  /** 拉取未读通知数（进入社区 / 重新启用时刷新小红点） */
+  const refreshUnread = useCallback(async () => {
+    if (!enabled) return
+    try {
+      setUnreadCount(await getCommunityUnreadCount())
+    } catch {
+      // 未读数拉取失败按 0 处理（不阻塞社区浏览）
+    }
+  }, [enabled])
+
+  useEffect(() => {
+    void refreshUnread()
+  }, [refreshUnread])
+
   // 站点治理开关（D11）：开启社区后拉取，null = 加载中/失败（宽松处理，不阻塞浏览）
   const [governance, setGovernance] = useState<SiteGovernance | null>(null)
   // 禁言 / 禁发帖时禁用发帖入口（Worker 侧仍兜底拦截）
@@ -94,6 +116,7 @@ export function CommunityPage() {
   // 布局高度：页头（标题 + Tabs）固定，左列滚动
   const [pageHeight, pageRef] = useAvailableHeight()
   const [headerHeight, headerRef] = useAvailableHeight()
+  const [scrollRef, scrolling] = useAutoHideScrollbar()
   const listHeight = useMemo(
     () => Math.max(0, pageHeight - headerHeight - 32),
     [pageHeight, headerHeight]
@@ -217,6 +240,19 @@ export function CommunityPage() {
               <i className="fa-solid fa-pen-to-square mr-1.5 size-3" />
               {t('action.newPost')}
             </Button>
+            {/* 消息通知：仅图标按钮，未读时展示小红点（通知迭代） */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground relative size-7"
+              title={t('notifications.title')}
+              onClick={() => setNotifOpen(true)}
+            >
+              <i className="fa-solid fa-bell size-3.5" />
+              {unreadCount > 0 && (
+                <span className="bg-destructive absolute right-0.5 top-0.5 size-2 rounded-full" />
+              )}
+            </Button>
           </div>
         </div>
 
@@ -242,7 +278,14 @@ export function CommunityPage() {
       {/* 主体：左列列表（原生滚动）+ 右侧个人栏 */}
       <div className="flex h-[80vh] gap-3">
         <div className="min-w-0 flex-1">
-          <div className="overflow-y-auto pr-2 custom-scrollbar" style={{ height: listHeight || undefined }}>
+          <div
+            ref={scrollRef}
+            className={cn(
+              'overflow-y-auto pr-2 custom-scrollbar custom-scrollbar-auto-hide',
+              scrolling && 'scrollbar-visible'
+            )}
+            style={{ height: listHeight || undefined }}
+          >
             {view === 'myPosts' || view === 'myReplies' ? (
               <MyContentList kind={view === 'myPosts' ? 'posts' : 'replies'} />
             ) : view === 'leaderboard' ? (
@@ -313,6 +356,12 @@ export function CommunityPage() {
         onOpenChange={setCreateOpen}
         defaultSection={activeSection ?? 'chat'}
         onSubmit={handleCreatePost}
+      />
+      {/* 消息通知列表（打开时自动全部已读，成功后清空小红点） */}
+      <NotificationListDialog
+        open={notifOpen}
+        onOpenChange={setNotifOpen}
+        onUnreadCleared={() => setUnreadCount(0)}
       />
     </div>
   )

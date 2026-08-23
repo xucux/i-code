@@ -140,6 +140,9 @@ pub struct ReplyItem {
     pub content: String,
     pub created_at: String,
     pub author: UserBrief,
+    /// 实际回复目标作者昵称（仅二级回复：回复的是另一条二级评论时展示）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reply_to_nickname: Option<String>,
 }
 
 /// 顶层评论项（含楼中楼，深度限 2 层）
@@ -544,4 +547,58 @@ pub struct AdminUpdateGovernanceInput {
     pub post_locked: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reply_locked: Option<bool>,
+}
+
+// ===== 消息通知（2026-08-23 通知迭代）=====
+
+/// 消息通知项
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NotificationItem {
+    pub notification_id: i64,
+    /// 通知类型：'reply'（内容被回复）/ 'ban'（被封禁）/ 'mute'（被禁言）
+    #[serde(rename = "type")]
+    pub kind: String,
+    /// 触发者昵称（reply 类 = 回复人；ban / mute 类为 None）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub actor_nickname: Option<String>,
+    /// 通知正文（reply 类 = 回复预览；ban / mute 类 = 原因，可为空）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content: Option<String>,
+    /// 关联帖子 ID（reply 类可点击跳转；None = 不可跳转）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub post_id: Option<i64>,
+    /// 关联帖子标题（帖子已删除时为 None）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub post_title: Option<String>,
+    /// 禁言到期时间（UTC ISO；mute 类：None = 永久禁言）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub until: Option<String>,
+    /// 是否已读
+    pub is_read: bool,
+    pub created_at: String,
+}
+
+/// 通知列表响应（游标分页 + 未读数）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NotificationListData {
+    pub items: Vec<NotificationItem>,
+    pub next_cursor: Option<String>,
+    /// 未读数（供小红点；列表接口顺带返回）
+    pub unread_count: i64,
+}
+
+/// 未读通知数响应
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UnreadCountData {
+    pub unread_count: i64,
+}
+
+/// 全部标记已读响应
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReadAllNotificationsData {
+    pub updated: i64,
 }

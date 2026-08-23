@@ -13,8 +13,9 @@ use super::types::{
     AdminLoginData, AdminLoginInput, AdminMuteInput, AdminPostListData, AdminReportItem,
     AdminUpdateGovernanceInput, AdminUpdatePostInput, AdminUserItem, CheckInLeaderboardData,
     CheckInResult, CommunityLocalState, CreatePostInput, CreateReplyInput, MyPostsData,
-    MyRepliesData, PointsLeaderboardData, PostDetailData, PostListData, ProfileData, ProfileUser,
-    ReportInput, SiteGovernance, UpdateMyPostInput, UpdateProfileInput,
+    MyRepliesData, NotificationListData, PointsLeaderboardData, PostDetailData, PostListData,
+    ProfileData, ProfileUser, ReadAllNotificationsData, ReportInput, SiteGovernance,
+    UnreadCountData, UpdateMyPostInput, UpdateProfileInput,
 };
 
 /// 列表分页上限（与 Worker 侧 MAX_LIST_LIMIT 对齐）
@@ -198,6 +199,35 @@ pub async fn community_get_checkin_leaderboard(
 ) -> IcodeResult<CheckInLeaderboardData> {
     validate_limit(limit)?;
     state.service().get_checkin_leaderboard(offset, limit).await
+}
+
+// ===== 消息通知（2026-08-23 通知迭代）=====
+
+/// 通知列表（游标分页；顺带返回未读数供小红点）
+#[tauri::command]
+pub async fn community_get_notifications(
+    state: State<'_, CommunityHandle>,
+    cursor: Option<String>,
+    limit: Option<u32>,
+) -> IcodeResult<NotificationListData> {
+    validate_limit(limit)?;
+    state.service().get_notifications(cursor, limit).await
+}
+
+/// 未读通知数（小红点）
+#[tauri::command]
+pub async fn community_get_unread_count(
+    state: State<'_, CommunityHandle>,
+) -> IcodeResult<UnreadCountData> {
+    state.service().get_unread_count().await
+}
+
+/// 全部标记已读（返回本次更新的条数）
+#[tauri::command]
+pub async fn community_read_all_notifications(
+    state: State<'_, CommunityHandle>,
+) -> IcodeResult<ReadAllNotificationsData> {
+    state.service().read_all_notifications().await
 }
 
 // ===== 门禁与本地状态（不进 Worker）=====

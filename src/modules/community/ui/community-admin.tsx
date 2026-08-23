@@ -24,13 +24,13 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ScrollPage } from '@/components/ui/scroll-page'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { MarkdownContent } from '@/components/ui/markdown-content'
 import { cn } from '@/lib/utils'
 import { useAvailableHeight } from '@/hooks/use-available-height'
+import { useAutoHideScrollbar } from '@/hooks/use-auto-hide-scrollbar'
 import { formatDateTime } from '@/core/utils'
 import {
   communityAdminBanUser,
@@ -248,7 +248,7 @@ function AdminPanels({ token, listHeight }: { token: string; listHeight: number 
         <AdminPostsTab token={token} height={listHeight} />
       </TabsContent>
       <TabsContent value="governance" className="min-h-0 flex-1">
-        <AdminGovernanceTab token={token} />
+        <AdminGovernanceTab token={token} height={listHeight} />
       </TabsContent>
     </Tabs>
   )
@@ -260,12 +260,13 @@ function AdminPanels({ token, listHeight }: { token: string; listHeight: number 
  * - muteAll 开启时语义上已覆盖发帖与回复（Worker 侧最高优先级拦截），UI 提示但不联动禁用子开关；
  * - 每个开关独立提交（部分更新），成功后用返回值回填，避免并发下显示漂移。
  */
-function AdminGovernanceTab({ token }: { token: string }) {
+function AdminGovernanceTab({ token, height }: { token: string; height: number }) {
   const { t } = useTranslation('community')
   const [gov, setGov] = useState<SiteGovernance | null>(null)
   const [loading, setLoading] = useState(true)
   // 各开关独立 pending，防止切换期间重复提交
   const [pendingKey, setPendingKey] = useState<string | null>(null)
+  const [scrollRef, scrolling] = useAutoHideScrollbar()
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -319,8 +320,15 @@ function AdminGovernanceTab({ token }: { token: string }) {
   ]
 
   return (
-    <ScrollPage variant="borderless">
-      <div className="space-y-2 pr-2">
+    <div
+      ref={scrollRef}
+      className={cn(
+        'overflow-y-auto pr-2 custom-scrollbar custom-scrollbar-auto-hide',
+        scrolling && 'scrollbar-visible'
+      )}
+      style={{ height: height || undefined }}
+    >
+      <div className="space-y-2 pb-20">
         {/* 生效优先级说明 */}
         <p className="text-muted-foreground text-[11px] leading-relaxed">
           <i className="fa-solid fa-circle-info mr-1 size-2.5" />
@@ -341,7 +349,7 @@ function AdminGovernanceTab({ token }: { token: string }) {
           </div>
         ))}
       </div>
-    </ScrollPage>
+    </div>
   )
 }
 
@@ -350,6 +358,7 @@ function AdminUsersTab({ token, height }: { token: string; height: number }) {
   const { t } = useTranslation('community')
   const [users, setUsers] = useState<AdminUserItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [scrollRef, scrolling] = useAutoHideScrollbar()
   // 待确认封禁的用户（展开原因输入）
   const [banningId, setBanningId] = useState<string | null>(null)
   const [banReason, setBanReason] = useState('')
@@ -431,8 +440,15 @@ function AdminUsersTab({ token, height }: { token: string; height: number }) {
   }
 
   return (
-    <ScrollPage style={{ height: height || undefined }} variant="borderless">
-      <div className="space-y-2 pr-2 pb-20">
+    <div
+      ref={scrollRef}
+      className={cn(
+        'overflow-y-auto pr-2 custom-scrollbar custom-scrollbar-auto-hide',
+        scrolling && 'scrollbar-visible'
+      )}
+      style={{ height: height || undefined }}
+    >
+      <div className="space-y-2 pb-20">
         {users.map((user) => (
           <div key={user.userId} className="rounded-lg border bg-card p-3">
             <div className="flex items-center gap-2">
@@ -548,7 +564,7 @@ function AdminUsersTab({ token, height }: { token: string; height: number }) {
         onOpenChange={(open) => !open && setMuteTarget(null)}
         onSaved={() => void load()}
       />
-    </ScrollPage>
+    </div>
   )
 }
 
@@ -685,6 +701,7 @@ function AdminReportsTab({ token, height }: { token: string; height: number }) {
   const { t } = useTranslation('community')
   const [reports, setReports] = useState<AdminReportItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [scrollRef, scrolling] = useAutoHideScrollbar()
   const [acting, setActing] = useState(false)
 
   const load = useCallback(async () => {
@@ -730,8 +747,15 @@ function AdminReportsTab({ token, height }: { token: string; height: number }) {
   }
 
   return (
-    <ScrollPage style={{ height: height || undefined }} variant="borderless">
-      <div className="space-y-2 pr-2">
+    <div
+      ref={scrollRef}
+      className={cn(
+        'overflow-y-auto pr-2 custom-scrollbar custom-scrollbar-auto-hide',
+        scrolling && 'scrollbar-visible'
+      )}
+      style={{ height: height || undefined }}
+    >
+      <div className="space-y-2 pb-20">
         {reports.map((report) => (
           <div key={report.reportId} className="rounded-lg border bg-card p-3">
             <div className="flex items-center gap-2 text-[11px]">
@@ -767,7 +791,7 @@ function AdminReportsTab({ token, height }: { token: string; height: number }) {
           </div>
         ))}
       </div>
-    </ScrollPage>
+    </div>
   )
 }
 
@@ -776,6 +800,7 @@ function AdminPostsTab({ token, height }: { token: string; height: number }) {
   const { t } = useTranslation('community')
   const [posts, setPosts] = useState<AdminPostItem[]>([])
   const [cursor, setCursor] = useState<string | null>(null)
+  const [listScrollRef, listScrolling] = useAutoHideScrollbar()
   const [hasMore, setHasMore] = useState(false)
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -899,8 +924,15 @@ function AdminPostsTab({ token, height }: { token: string; height: number }) {
 
   return (
     <>
-      <ScrollPage style={{ height: height || undefined }} variant="borderless">
-        <div className="space-y-2 pr-2 pb-20">
+      <div
+        ref={listScrollRef}
+        className={cn(
+          'overflow-y-auto pr-2 custom-scrollbar custom-scrollbar-auto-hide',
+          listScrolling && 'scrollbar-visible'
+        )}
+        style={{ height: height || undefined }}
+      >
+        <div className="space-y-2 pb-20">
           {posts.map((post) => (
             <div key={post.postId} className="rounded-lg border bg-card p-3">
               <div className="flex items-center gap-2">
@@ -1032,7 +1064,7 @@ function AdminPostsTab({ token, height }: { token: string; height: number }) {
             </div>
           )}
         </div>
-      </ScrollPage>
+      </div>
       {/* 编辑帖子弹窗（打开时拉取最新详情填充） */}
       <AdminPostEditDialog
         token={token}
@@ -1063,6 +1095,7 @@ function AdminPostDetail({
   const { t } = useTranslation('community')
   const [detail, setDetail] = useState<PostDetailData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [scrollRef, scrolling] = useAutoHideScrollbar()
   const [acting, setActing] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [editingPost, setEditingPost] = useState(false)
@@ -1134,8 +1167,15 @@ function AdminPostDetail({
 
   return (
     <>
-      <ScrollPage style={{ height: height || undefined }} variant="borderless">
-        <div className="space-y-2 pr-2">
+      <div
+        ref={scrollRef}
+        className={cn(
+          'overflow-y-auto pr-2 custom-scrollbar custom-scrollbar-auto-hide',
+          scrolling && 'scrollbar-visible'
+        )}
+        style={{ height: height || undefined }}
+      >
+        <div className="space-y-2 pb-20">
           {/* 返回 + 帖子操作 */}
           <div className="flex items-center gap-2">
             <Button
@@ -1238,7 +1278,7 @@ function AdminPostDetail({
             ))
           )}
         </div>
-      </ScrollPage>
+      </div>
       {/* 详情内编辑帖子（已有全文，直接带初始值） */}
       <AdminPostEditDialog
         token={token}
@@ -1313,6 +1353,10 @@ function AdminReplyCard({
       <div className="flex items-center gap-2">
         <span className="text-base leading-none">{getCommunityAvatar(reply.author.avatarIndex)}</span>
         <span className="max-w-40 truncate text-xs font-medium">{reply.author.nickname}</span>
+        {/* 楼中楼 @目标昵称：回复的是另一条二级评论时展示（通知迭代，与用户视角一致） */}
+        {reply.replyToNickname && (
+          <span className="text-muted-foreground max-w-24 truncate text-[11px]">@{reply.replyToNickname}</span>
+        )}
         <MuteBadge muted={reply.author.muted} />
         <span className="text-muted-foreground ml-auto text-[11px] tabular-nums">
           {formatCommunityTime(reply.createdAt, t)}

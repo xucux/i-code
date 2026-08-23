@@ -20,8 +20,9 @@ use super::types::{
     AdminLoginData, AdminLoginInput, AdminMuteInput, AdminPostListData, AdminReportItem,
     AdminUpdateGovernanceInput, AdminUpdatePostInput, AdminUserItem, CheckInLeaderboardData,
     CheckInResult, CommunityLocalState, CreatePostInput, CreateReplyInput, MyPostsData,
-    MyRepliesData, PointsLeaderboardData, PostDetailData, PostListData, ProfileData, ProfileUser,
-    ReportInput, SiteGovernance, UpdateMyPostInput, UpdateProfileInput,
+    MyRepliesData, NotificationListData, PointsLeaderboardData, PostDetailData, PostListData,
+    ProfileData, ProfileUser, ReadAllNotificationsData, ReportInput, SiteGovernance,
+    UnreadCountData, UpdateMyPostInput, UpdateProfileInput,
 };
 
 /// 社区 Service 句柄（Tauri State）
@@ -300,6 +301,30 @@ impl CommunityService {
     ) -> IcodeResult<CheckInLeaderboardData> {
         let (state, user_id) = self.require_ready()?;
         client::get_checkin_leaderboard(&state.base_url, &user_id, offset, limit).await
+    }
+
+    // ===== 消息通知（2026-08-23 通知迭代）=====
+
+    /// 通知列表（游标分页；顺带返回未读数供小红点）
+    pub async fn get_notifications(
+        &self,
+        cursor: Option<String>,
+        limit: Option<u32>,
+    ) -> IcodeResult<NotificationListData> {
+        let (state, user_id) = self.require_ready()?;
+        client::list_notifications(&state.base_url, &user_id, cursor, limit).await
+    }
+
+    /// 未读通知数（小红点）
+    pub async fn get_unread_count(&self) -> IcodeResult<UnreadCountData> {
+        let (state, user_id) = self.require_ready()?;
+        client::get_unread_count(&state.base_url, &user_id).await
+    }
+
+    /// 全部标记已读（返回本次更新的条数）
+    pub async fn read_all_notifications(&self) -> IcodeResult<ReadAllNotificationsData> {
+        let (state, user_id) = self.require_ready()?;
+        client::read_all_notifications(&state.base_url, &user_id).await
     }
 
     // ===== 管理员 =====

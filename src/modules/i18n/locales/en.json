@@ -1929,6 +1929,18 @@
     "loadError": {
       "loading": "Loading…"
     },
+    "notifications": {
+      "title": "Notifications",
+      "empty": "No notifications yet",
+      "replyTitle": "{{name}} replied to your post: {{post}}",
+      "replyTitleNoPost": "{{name}} replied to your post",
+      "banTitle": "You have been banned",
+      "muteTitle": "You have been muted",
+      "reason": "Reason: {{reason}}",
+      "muteUntil": "Lifted at {{time}}",
+      "muteForever": "Muted permanently",
+      "loadMore": "Load more"
+    },
     "time": {
       "justNow": "just now",
       "minutesAgo": "{{count}} min ago",
