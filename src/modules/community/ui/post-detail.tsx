@@ -49,7 +49,7 @@ export function PostDetail({ postId, currentUserId }: PostDetailProps) {
   const [refreshing, setRefreshing] = useState(false)
   const [notFound, setNotFound] = useState(false)
 
-  // 一级评论回复（Markdown 弹窗）：目标 null = 发表新顶层评论；非 null = 回复某顶层评论
+  // 发表新顶层评论（Markdown 弹窗）；回复顶层/楼中楼评论均走下方简单弹窗
   const [mdReplyOpen, setMdReplyOpen] = useState(false)
   const [mdReplyTarget, setMdReplyTarget] = useState<{ replyId: number; nickname: string } | null>(null)
 
@@ -112,19 +112,19 @@ export function PostDetail({ postId, currentUserId }: PostDetailProps) {
   /** 滚动区高度 = 页面高度 - 上下内边距（p-4 = 32px），整页原生滚动 */
   const scrollHeight = useMemo(() => Math.max(0, pageHeight - 32), [pageHeight])
 
-  /** 打开一级评论 Markdown 回复弹窗（target 缺省 = 发表新顶层评论） */
-  const openMdReply = (target?: { replyId: number; nickname: string }) => {
-    setMdReplyTarget(target ?? null)
+  /** 打开「发表新顶层评论」Markdown 弹窗 */
+  const openMdReply = () => {
+    setMdReplyTarget(null)
     setMdReplyOpen(true)
   }
 
-  /** 打开二级（楼中楼）回复弹窗（原纯文本） */
+  /** 打开回复弹窗（顶层评论 / 楼中楼统一使用简单弹窗） */
   const openReplyDialog = (target: { replyId: number; nickname: string }) => {
     setReplyTarget(target)
     setReplyDialogOpen(true)
   }
 
-  /** 发送一级回复（Markdown 弹窗提交；顶层评论或回复顶层评论），成功后关弹窗并整页刷新 */
+  /** 发送新顶层评论（Markdown 弹窗提交），成功后关弹窗并整页刷新 */
   const handleMdReplySubmit = async (content: string) => {
     await createCommunityReply(postId, {
       content,
@@ -196,7 +196,7 @@ export function PostDetail({ postId, currentUserId }: PostDetailProps) {
       <div
         ref={scrollRef}
         className={cn(
-          'min-h-0 overflow-y-auto pr-2 custom-scrollbar custom-scrollbar-auto-hide',
+          'min-h-0 overflow-y-auto pr-2 custom-scrollbar custom-scrollbar-auto-hide pb-20',
           scrolling && 'scrollbar-visible'
         )}
         style={{ height: scrollHeight || undefined }}
@@ -306,7 +306,7 @@ export function PostDetail({ postId, currentUserId }: PostDetailProps) {
                 postAuthorId={post.author.userId}
                 currentUserId={currentUserId}
                 replyDisabled={replyDisabled}
-                onReply={(replyId, nickname) => openMdReply({ replyId, nickname })}
+                onReply={(replyId, nickname) => openReplyDialog({ replyId, nickname })}
                 onNestedReply={(replyId, nickname) => openReplyDialog({ replyId, nickname })}
                 onReport={(type, id, preview) => setReportTarget({ type, id, preview })}
               />
@@ -323,7 +323,7 @@ export function PostDetail({ postId, currentUserId }: PostDetailProps) {
         onSubmit={handleMdReplySubmit}
       />
 
-      {/* 二级（楼中楼）回复弹层（原纯文本） */}
+      {/* 回复弹层（回复顶层评论与楼中楼统统一使用简单文本弹窗，Markdown 弹窗仅用于发表新顶层评论） */}
       <Dialog open={replyDialogOpen} onOpenChange={setReplyDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -408,9 +408,9 @@ function CommentBlock({
   currentUserId: string | null
   /** D11 治理：帖子锁定 / 全站禁言 / 禁回复时隐藏回复入口 */
   replyDisabled: boolean
-  /** 回复顶层评论（一级，Markdown 弹窗） */
+  /** 回复顶层评论（一级，简单弹窗） */
   onReply: (replyId: number, nickname: string) => void
-  /** 回复楼中楼（二级，原纯文本弹窗） */
+  /** 回复楼中楼（二级，简单弹窗） */
   onNestedReply: (replyId: number, nickname: string) => void
   onReport: (type: 'post' | 'reply', id: number, preview: string) => void
 }) {
@@ -426,9 +426,9 @@ function CommentBlock({
         onReply={() => onReply(comment.replyId, comment.author.nickname)}
         onReport={() => onReport('reply', comment.replyId, comment.content)}
       />
-      {/* 一级评论正文：Markdown 渲染（通知迭代） */}
+      {/* 一级评论正文：Markdown 渲染（通知迭代）；图片宽度缩为 1/3 紧凑呈现 */}
       <div className="mt-1">
-        <MarkdownContent content={comment.content} />
+        <MarkdownContent content={comment.content} compactImages />
       </div>
 
       {/* 楼中楼（第 2 层，缩进 + 左竖线）；二级正文保持纯文本，@目标昵称见 ReplyMeta */}

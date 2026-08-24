@@ -696,13 +696,16 @@ function MuteUserDialog({
   )
 }
 
-/** 举报列表 Tab：查看 + 标记已处理 */
+/** 举报列表 Tab：跳转帖子详情 + 处理（封禁 / 禁言 / 修改内容 / 忽略） */
 function AdminReportsTab({ token, height }: { token: string; height: number }) {
   const { t } = useTranslation('community')
   const [reports, setReports] = useState<AdminReportItem[]>([])
   const [loading, setLoading] = useState(true)
   const [scrollRef, scrolling] = useAutoHideScrollbar()
-  const [acting, setActing] = useState(false)
+  // 进入帖子详情的帖子 ID（null = 列表视图；复用 AdminPostDetail）
+  const [detailPostId, setDetailPostId] = useState<number | null>(null)
+  // 处理弹窗目标举报
+  const [handlingReport, setHandlingReport] = useState<AdminReportItem | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -719,18 +722,30 @@ function AdminReportsTab({ token, height }: { token: string; height: number }) {
     void load()
   }, [load])
 
-  const handleResolve = async (reportId: number) => {
-    if (acting) return
-    setActing(true)
-    try {
-      await communityAdminResolveReport(token, reportId)
-      toast.success(t('admin.resolveDone'))
-      await load()
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e))
-    } finally {
-      setActing(false)
+  /** 解析目标帖子 ID（帖子举报 = targetId；回复举报 = 所属帖子 postId）；null = 帖子已删除 */
+  const resolvePostId = (report: AdminReportItem): number | null =>
+    report.postId ?? (report.targetType === 'post' ? report.targetId : null)
+
+  /** 跳转到帖子详情（处理后在详情内可编辑 / 删除任意回复与正文） */
+  const openDetail = (report: AdminReportItem) => {
+    const pid = resolvePostId(report)
+    if (pid == null) {
+      toast.error(t('admin.postGone'))
+      return
     }
+    setDetailPostId(pid)
+  }
+
+  if (detailPostId != null) {
+    return (
+      <AdminPostDetail
+        token={token}
+        postId={detailPostId}
+        height={height}
+        onBack={() => setDetailPostId(null)}
+        onDeleted={() => setDetailPostId(null)}
+      />
+    )
   }
 
   if (loading) {
@@ -747,51 +762,470 @@ function AdminReportsTab({ token, height }: { token: string; height: number }) {
   }
 
   return (
-    <div
-      ref={scrollRef}
-      className={cn(
-        'overflow-y-auto pr-2 custom-scrollbar custom-scrollbar-auto-hide',
-        scrolling && 'scrollbar-visible'
-      )}
-      style={{ height: height || undefined }}
-    >
-      <div className="space-y-2 pb-20">
-        {reports.map((report) => (
-          <div key={report.reportId} className="rounded-lg border bg-card p-3">
-            <div className="flex items-center gap-2 text-[11px]">
-              <Badge variant="outline" className="h-4 px-1 text-[10px]">
-                {report.targetType === 'post' ? t('report.post') : t('report.reply')}
-              </Badge>
-              <span className="text-muted-foreground">
-                {t('admin.reporter', { name: report.reporter.nickname })}
-              </span>
-              <span className="text-muted-foreground ml-auto tabular-nums">
-                {formatCommunityTime(report.createdAt, t)}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-muted-foreground h-6 shrink-0 px-2 text-[11px]"
-                disabled={acting}
-                onClick={() => void handleResolve(report.reportId)}
-              >
-                <i className="fa-solid fa-check mr-1 size-2.5" />
-                {t('admin.resolve')}
-              </Button>
+    <>
+      <div
+        ref={scrollRef}
+        className={cn(
+          'overflow-y-auto pr-2 custom-scrollbar custom-scrollbar-auto-hide',
+          scrolling && 'scrollbar-visible'
+        )}
+        style={{ height: height || undefined }}
+      >
+        <div className="space-y-2 pb-20">
+          {reports.map((report) => (
+            <div key={report.reportId} className="rounded-lg border bg-card p-3">
+              <div className="flex items-center gap-2 text-[11px]">
+                <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                  {report.targetType === 'post' ? t('report.post') : t('report.reply')}
+                </Badge>
+                <span className="text-muted-foreground">
+                  {t('admin.reporter', { name: report.reporter.nickname })}
+                </span>
+                <span className="text-muted-foreground ml-auto tabular-nums">
+                  {formatCommunityTime(report.createdAt, t)}
+                </span>
+                {/* 跳转帖子详情 */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground hover:text-foreground h-6 shrink-0 px-2 text-[11px]"
+                  onClick={() => openDetail(report)}
+                >
+                  <i className="fa-solid fa-eye mr-1 size-2.5" />
+                  {t('admin.viewDetail')}
+                </Button>
+                {/* 处理：打开措施弹窗（替代原「标记已处理」） */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-muted-foreground h-6 shrink-0 px-2 text-[11px]"
+                  onClick={() => setHandlingReport(report)}
+                >
+                  <i className="fa-solid fa-gavel mr-1 size-2.5" />
+                  {t('admin.resolve')}
+                </Button>
+              </div>
+              {/* 目标预览 + 举报原因 */}
+              {report.targetPreview && (
+                <p className="bg-muted/50 mt-2 line-clamp-3 rounded-md border p-2 text-xs leading-relaxed">
+                  {report.targetPreview}
+                </p>
+              )}
+              {report.reason && (
+                <p className="text-destructive mt-1.5 text-[11px]">{t('report.reason')}: {report.reason}</p>
+              )}
+              {report.targetAuthor && (
+                <p className="text-muted-foreground mt-1.5 text-[11px]">
+                  <i className="fa-solid fa-user mr-1 size-2.5" />
+                  {t('admin.reportedTarget', { name: report.targetAuthor.nickname })}
+                </p>
+              )}
             </div>
-            {/* 目标预览 + 举报原因 */}
-            {report.targetPreview && (
-              <p className="bg-muted/50 mt-2 line-clamp-3 rounded-md border p-2 text-xs leading-relaxed">
-                {report.targetPreview}
-              </p>
-            )}
-            {report.reason && (
-              <p className="text-destructive mt-1.5 text-[11px]">{t('report.reason')}: {report.reason}</p>
-            )}
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
-    </div>
+      {/* 处理措施弹窗 */}
+      <ReportHandleDialog
+        token={token}
+        report={handlingReport}
+        onOpenChange={(open) => !open && setHandlingReport(null)}
+        onDone={() => void load()}
+      />
+    </>
+  )
+}
+
+/** 处理举报措施类型：菜单 / 封禁 / 禁言 / 修改内容 */
+type HandleMode = 'menu' | 'ban' | 'mute' | 'edit'
+
+/**
+ * 处理举报弹窗（管理端）
+ *
+ * 措施：封禁 / 禁言（需目标作者信息）/ 修改内容（帖子或回复）/ 忽略。
+ * 任一处置成功后可回到列表；本弹窗不直接「忽略」之外，其余动作成功后自动将举报标记已处理。
+ * 目标帖子已删除（postId 缺失）时禁用「跳详情 / 修改内容」。
+ */
+function ReportHandleDialog({
+  token,
+  report,
+  onOpenChange,
+  onDone,
+}: {
+  token: string
+  report: AdminReportItem | null
+  onOpenChange: (open: boolean) => void
+  onDone: () => void
+}) {
+  const { t } = useTranslation('community')
+  const isOpen = report != null
+  const author = report?.targetAuthor ?? null
+  const postId = report == null ? null : report.postId ?? (report.targetType === 'post' ? report.targetId : null)
+
+  const [mode, setMode] = useState<HandleMode>('menu')
+  const [acting, setActing] = useState(false)
+  // 封禁 / 禁言原因
+  const [banReason, setBanReason] = useState('')
+  const [hours, setHours] = useState(24)
+  const [permanent, setPermanent] = useState(false)
+  const [muteReason, setMuteReason] = useState('')
+  // 修改内容（帖子：拉取全文；回复：预填 targetPreview）
+  const [editTitle, setEditTitle] = useState('')
+  const [editContent, setEditContent] = useState('')
+  const [editSection, setEditSection] = useState<CommunitySection>('chat')
+  const [editLoaded, setEditLoaded] = useState(false)
+
+  // 每次打开重置表单
+  useEffect(() => {
+    if (isOpen) {
+      setMode('menu')
+      setActing(false)
+      setBanReason('')
+      setHours(24)
+      setPermanent(false)
+      setMuteReason('')
+      setEditTitle('')
+      setEditContent('')
+      setEditSection('chat')
+      setEditLoaded(false)
+    }
+  }, [isOpen])
+
+  // 进入「修改内容」：帖子需拉取全文；回复直接用 targetPreview 预填
+  useEffect(() => {
+    if (!report || mode !== 'edit' || editLoaded) return
+    if (report.targetType === 'reply') {
+      setEditContent(report.targetPreview ?? '')
+      setEditLoaded(true)
+      return
+    }
+    if (postId == null) {
+      setEditLoaded(true)
+      return
+    }
+    let cancelled = false
+    communityAdminGetPost(token, postId)
+      .then((data) => {
+        if (cancelled) return
+        setEditTitle(data.post.title)
+        setEditContent(data.post.content)
+        setEditSection(data.post.section)
+      })
+      .catch((e) => {
+        toast.error(e instanceof Error ? e.message : String(e))
+        setMode('menu')
+      })
+      .finally(() => {
+        if (!cancelled) setEditLoaded(true)
+      })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [report, mode, editLoaded])
+
+  /** 统一执行「处置动作 + 标记已处理」 */
+  const finishAction = async (action: () => Promise<void>) => {
+    if (!report || acting) return
+    setActing(true)
+    try {
+      await action()
+      await communityAdminResolveReport(token, report.reportId)
+      toast.success(t('admin.resolveDone'))
+      onOpenChange(false)
+      onDone()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e))
+    } finally {
+      setActing(false)
+    }
+  }
+
+  const handleBan = () => {
+    if (!author) return
+    void finishAction(() => communityAdminBanUser(token, author.userId, banReason.trim() || undefined))
+  }
+
+  const handleMute = () => {
+    if (!author) return
+    const until = permanent ? null : new Date(Date.now() + hours * 60 * 60 * 1000).toISOString()
+    void finishAction(() =>
+      communityAdminMuteUser(token, author.userId, {
+        until: until ?? null,
+        reason: muteReason.trim() || undefined,
+      })
+    )
+  }
+
+  const handleEdit = () => {
+    if (!report) return
+    void finishAction(async () => {
+      if (report.targetType === 'post') {
+        await communityAdminUpdatePost(token, report.targetId, {
+          title: editTitle.trim(),
+          content: editContent.trim(),
+          section: editSection,
+        })
+      } else {
+        await communityAdminUpdateReply(token, report.targetId, editContent.trim())
+      }
+    })
+  }
+
+  const handleIgnore = () => {
+    void finishAction(async () => {
+      // 忽略：不做处置，仅标记已处理
+    })
+  }
+
+  const presets = [1, 6, 24, 72, 168, 720]
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-sm">
+            <i className="fa-solid fa-gavel mr-1.5 size-3" />
+            {t('admin.handleReport')}
+          </DialogTitle>
+          <DialogDescription className="text-xs">
+            {report && (
+              <>
+                {report.targetType === 'post' ? t('report.post') : t('report.reply')}
+                {' · '}
+                {t('admin.reporter', { name: report.reporter.nickname })}
+                {author && ` · ${author.nickname}`}
+              </>
+            )}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-2 py-1">
+          {mode === 'menu' && (
+            <div className="grid grid-cols-1 gap-1.5">
+              {/* 封禁 */}
+              <button
+                type="button"
+                disabled={!author || acting}
+                className="flex items-center gap-2.5 rounded-md border p-2.5 text-left transition-colors enabled:hover:bg-muted disabled:opacity-40"
+                onClick={() => author && setMode('ban')}
+              >
+                <i className="fa-solid fa-ban text-destructive size-4" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-xs font-medium">{t('admin.actionBan')}</span>
+                  <span className="text-muted-foreground block text-[11px]">
+                    {author ? t('admin.banTarget', { name: author.nickname }) : t('admin.targetAuthorMissing')}
+                  </span>
+                </span>
+                <i className="fa-solid fa-chevron-right text-muted-foreground size-3" />
+              </button>
+              {/* 禁言 */}
+              <button
+                type="button"
+                disabled={!author || acting}
+                className="flex items-center gap-2.5 rounded-md border p-2.5 text-left transition-colors enabled:hover:bg-muted disabled:opacity-40"
+                onClick={() => author && setMode('mute')}
+              >
+                <i className="fa-solid fa-volume-xmark text-amber-500 size-4" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-xs font-medium">{t('admin.actionMute')}</span>
+                  <span className="text-muted-foreground block text-[11px]">
+                    {author ? t('admin.muteTarget', { name: author.nickname }) : t('admin.targetAuthorMissing')}
+                  </span>
+                </span>
+                <i className="fa-solid fa-chevron-right text-muted-foreground size-3" />
+              </button>
+              {/* 修改内容 */}
+              <button
+                type="button"
+                disabled={postId == null || acting}
+                className="flex items-center gap-2.5 rounded-md border p-2.5 text-left transition-colors enabled:hover:bg-muted disabled:opacity-40"
+                onClick={() => setMode('edit')}
+              >
+                <i className="fa-solid fa-pen text-primary size-4" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-xs font-medium">{t('admin.actionEdit')}</span>
+                  <span className="text-muted-foreground block text-[11px]">{t('admin.actionEditDesc')}</span>
+                </span>
+                <i className="fa-solid fa-chevron-right text-muted-foreground size-3" />
+              </button>
+              {/* 忽略 */}
+              <button
+                type="button"
+                disabled={acting}
+                className="flex items-center gap-2.5 rounded-md border p-2.5 text-left transition-colors enabled:hover:bg-muted disabled:opacity-40"
+                onClick={handleIgnore}
+              >
+                <i className="fa-solid fa-check text-muted-foreground size-4" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-xs font-medium">{t('admin.actionIgnore')}</span>
+                  <span className="text-muted-foreground block text-[11px]">{t('admin.actionIgnoreDesc')}</span>
+                </span>
+              </button>
+            </div>
+          )}
+
+          {mode === 'ban' && author && (
+            <div className="space-y-2 py-1">
+              <p className="text-[11px] font-medium">{t('admin.banTarget', { name: author.nickname })}</p>
+              <Input
+                value={banReason}
+                maxLength={100}
+                placeholder={t('admin.banReasonPlaceholder')}
+                onChange={(e) => setBanReason(e.target.value)}
+                className="h-8 text-xs"
+              />
+              <DialogFooter className="pt-1">
+                <Button variant="outline" size="sm" className="h-8 text-xs" disabled={acting} onClick={() => setMode('menu')}>
+                  {t('post.cancel')}
+                </Button>
+                <Button variant="destructive" size="sm" className="h-8 text-xs" disabled={acting} onClick={handleBan}>
+                  {acting && <i className="fa-solid fa-spinner fa-spin mr-1.5 size-3" />}
+                  {t('admin.banConfirm')}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+
+          {mode === 'mute' && author && (
+            <div className="space-y-3 py-1">
+              <p className="text-[11px] font-medium">{t('admin.muteTarget', { name: author.nickname })}</p>
+              <div className="space-y-1">
+                <Label className="text-xs">{t('admin.muteDuration')}</Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {presets.map((h) => (
+                    <button
+                      key={h}
+                      type="button"
+                      disabled={permanent}
+                      className={cn(
+                        'h-7 rounded-md border px-2 text-xs transition-colors',
+                        !permanent && hours === h
+                          ? 'border-primary bg-primary text-primary-foreground'
+                          : 'bg-background text-muted-foreground hover:bg-muted hover:text-foreground'
+                      )}
+                      onClick={() => {
+                        setHours(h)
+                        setPermanent(false)
+                      }}
+                    >
+                      {t('admin.muteHours', { hours: h })}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2 pt-1">
+                  <Switch checked={permanent} onCheckedChange={setPermanent} />
+                  <span className="text-muted-foreground text-xs">{t('admin.mutePermanent')}</span>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">{t('admin.muteReason')}</Label>
+                <Input
+                  value={muteReason}
+                  maxLength={100}
+                  placeholder={t('admin.muteReasonPlaceholder')}
+                  onChange={(e) => setMuteReason(e.target.value)}
+                  className="h-8 text-xs"
+                />
+              </div>
+              <DialogFooter className="pt-1">
+                <Button variant="outline" size="sm" className="h-8 text-xs" disabled={acting} onClick={() => setMode('menu')}>
+                  {t('post.cancel')}
+                </Button>
+                <Button size="sm" className="h-8 text-xs" disabled={acting} onClick={handleMute}>
+                  {acting && <i className="fa-solid fa-spinner fa-spin mr-1.5 size-3" />}
+                  {t('admin.save')}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+
+          {mode === 'edit' && (
+            <div className="space-y-2 py-1">
+              {report?.targetType === 'post' ? (
+                <>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs">{t('post.titleLabel')}</Label>
+                      <span className="text-muted-foreground text-[10px] tabular-nums">{editTitle.trim().length}/80</span>
+                    </div>
+                    <Input
+                      value={editTitle}
+                      maxLength={80}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">{t('post.sectionLabel')}</Label>
+                    <div className="flex gap-1.5">
+                      {COMMUNITY_SECTIONS.map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          title={t(`section.${s}`)}
+                          className={cn(
+                            'flex h-7 flex-1 items-center justify-center rounded-md border px-2 text-xs transition-colors',
+                            editSection === s
+                              ? 'border-primary bg-primary text-primary-foreground'
+                              : 'bg-background text-muted-foreground hover:bg-muted hover:text-foreground'
+                          )}
+                          onClick={() => setEditSection(s)}
+                        >
+                          {t(`section.${s}`)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs">{t('post.contentLabel')}</Label>
+                      <span className="text-muted-foreground text-[10px] tabular-nums">{editContent.length}/5000</span>
+                    </div>
+                    <Textarea
+                      value={editContent}
+                      maxLength={5000}
+                      onChange={(e) => setEditContent(e.target.value)}
+                      className="h-40 resize-none text-xs leading-relaxed"
+                    />
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-1">
+                  <Label className="text-xs">{t('admin.editReplyTitle')}</Label>
+                  <Textarea
+                    value={editContent}
+                    maxLength={1000}
+                    onChange={(e) => setEditContent(e.target.value)}
+                    className="h-32 resize-none text-xs leading-relaxed"
+                  />
+                  <span className="text-muted-foreground text-[10px] tabular-nums">{editContent.length}/1000</span>
+                </div>
+              )}
+              {!editLoaded && report?.targetType === 'post' && (
+                <p className="text-muted-foreground flex items-center gap-1.5 text-[11px]">
+                  <i className="fa-solid fa-spinner fa-spin size-3" />
+                  {t('loadError.loading')}
+                </p>
+              )}
+              <DialogFooter className="pt-1">
+                <Button variant="outline" size="sm" className="h-8 text-xs" disabled={acting} onClick={() => setMode('menu')}>
+                  {t('post.cancel')}
+                </Button>
+                <Button
+                  size="sm"
+                  className="h-8 text-xs"
+                  disabled={acting || !editLoaded || !editContent.trim()}
+                  onClick={handleEdit}
+                >
+                  {acting && <i className="fa-solid fa-spinner fa-spin mr-1.5 size-3" />}
+                  {t('admin.save')}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 

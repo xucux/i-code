@@ -318,6 +318,12 @@ export interface AdminReportItem {
   }
   /** 目标预览（帖子标题 / 回复内容） */
   targetPreview?: string | null
+  /** 目标帖子 ID（帖子举报 = targetId；回复举报 = 所属帖子；帖子已删除时为 null） */
+  postId?: number | null
+  /** 目标帖子标题（跳转 / 展示用） */
+  postTitle?: string | null
+  /** 被举报目标作者（封禁 / 禁言用） */
+  targetAuthor?: { userId: string; nickname: string; avatarIndex: number } | null
 }
 
 // ===== 管理员帖子管理（D10）=====

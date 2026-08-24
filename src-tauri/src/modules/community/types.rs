@@ -457,6 +457,15 @@ pub struct ReportReporter {
     pub avatar_index: i64,
 }
 
+/// 被举报目标作者（管理员视角，供封禁 / 禁言）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReportTargetAuthor {
+    pub user_id: String,
+    pub nickname: String,
+    pub avatar_index: i64,
+}
+
 /// 管理员举报列表项
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -471,6 +480,15 @@ pub struct AdminReportItem {
     /// 目标预览（帖子标题 / 回复内容）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub target_preview: Option<String>,
+    /// 目标帖子 ID（帖子举报 = target_id；回复举报 = 所属帖子；帖子已删除时为 null）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub post_id: Option<i64>,
+    /// 目标帖子标题（跳转 / 展示用）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub post_title: Option<String>,
+    /// 被举报目标作者（封禁 / 禁言用）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_author: Option<ReportTargetAuthor>,
 }
 
 // ===== 管理员帖子管理（D10，2026-08-15）=====

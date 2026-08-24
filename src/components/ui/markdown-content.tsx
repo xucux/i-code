@@ -6,7 +6,8 @@
  * - 无业务模块依赖，可跨模块复用（更新日志、社区帖子正文等）
  */
 
-import { useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { marked } from 'marked'
 import { useTranslation } from '@/modules/i18n/use-translation'
 import { cn } from '@/lib/utils'
@@ -80,53 +81,126 @@ export function preprocessMarkdownAlerts(markdown: string, t: (key: string) => s
 /**
  * Markdown 渲染组件（GFM + GitHub Alert）
  *
- * 供更新检查弹窗（Release Notes）、「查看历史更新」弹窗（CHANGELOG）
- * 与社区帖子正文等场景复用。
+ * - 图片自动等比缩放（默认 max-w-full，不溢出容器），点击图片放大查看（全屏遮罩）
+ * - `compactImages` 置位时图片宽度缩为容器 1/3（用于评论区紧凑布局）
+ * - 供更新检查弹窗（Release Notes）、「查看历史更新」弹窗（CHANGELOG）
+ *   与社区帖子正文等场景复用。
  */
-export function MarkdownContent({ content }: { content: string }) {
+export function MarkdownContent({ content, compactImages = false }: { content: string; compactImages?: boolean }) {
   const { t } = useTranslation()
+  // 正在预览放大的图片地址；null = 未放大
+  const [zoomSrc, setZoomSrc] = useState<string | null>(null)
+
   const html = useMemo(() => {
     if (!content) return ''
     const processed = preprocessMarkdownAlerts(content, t)
     return marked.parse(processed) as string
   }, [content, t])
 
+  // 点击容器内任意 <img> 时打开放大查看（事件委托，避免直接操作 innerHTML）
+  const handleContainerClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const img = (e.target as HTMLElement).closest('img')
+    if (!img) return
+    const src = img.getAttribute('src')
+    if (src) {
+      // 若图片嵌套在 Markdown 链接内，阻止默认跳转
+      e.preventDefault()
+      setZoomSrc(src)
+    }
+  }, [])
+
+  // 放大查看时支持 ESC 关闭
+  useEffect(() => {
+    if (!zoomSrc) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setZoomSrc(null)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [zoomSrc])
+
   return (
+    <>
+      <div
+        onClick={handleContainerClick}
+        className={cn(
+          'prose prose-xs max-w-none text-xs leading-relaxed',
+          'prose-headings:mt-3 prose-headings:mb-1.5 prose-headings:text-foreground',
+          'prose-h1:mt-3.5 prose-h1:mb-2 prose-h1:text-lg prose-h1:font-bold',
+          'prose-h2:mt-3 prose-h2:mb-1.5 prose-h2:text-base prose-h2:font-semibold',
+          'prose-h3:mt-2.5 prose-h3:mb-1 prose-h3:text-sm prose-h3:font-semibold',
+          'prose-h4:mt-2 prose-h4:mb-0.5 prose-h4:text-xs prose-h4:font-medium',
+          'prose-p:my-1 prose-p:text-foreground',
+          'prose-li:my-0.5 prose-li:text-foreground',
+          'prose-ul:my-1 prose-ul:pl-4 prose-ul:list-disc',
+          'prose-ol:my-1 prose-ol:pl-4 prose-ol:list-decimal',
+          'prose-code:rounded prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:text-xs prose-code:font-mono',
+          'prose-a:text-primary prose-a:underline prose-a:underline-offset-2',
+          'prose-strong:text-foreground prose-strong:font-semibold',
+          'prose-del:text-muted-foreground',
+          'prose-table:my-2 prose-table:text-xs',
+          'prose-th:border prose-th:px-2 prose-th:py-1 prose-th:text-left prose-th:text-xs prose-th:text-muted-foreground prose-th:bg-muted/50',
+          'prose-td:border prose-td:px-2 prose-td:py-1 prose-td:text-xs',
+          // 图片：等比缩放不溢出容器，指针放大态；评论区用 compactImages 时缩为 1/3 宽
+          compactImages
+            ? 'prose-img:my-1 prose-img:h-auto prose-img:max-w-[33.333%] prose-img:rounded-md prose-img:cursor-zoom-in'
+            : 'prose-img:my-1 prose-img:max-w-full prose-img:h-auto prose-img:rounded-md prose-img:cursor-zoom-in',
+          // GFM 任务列表：input checkbox 美化
+          'prose-li:input:mr-1.5 prose-li:input:size-3 prose-li:input:align-middle',
+          '[&_li>input[type="checkbox"]]:mr-1.5',
+          '[&_li>input[type="checkbox"]]:size-3',
+          '[&_li>input[type="checkbox"]]:align-middle',
+          '[&_li>input[type="checkbox"]]:accent-primary',
+          // 去除任务列表 li 的圆点
+          '[&_li:has(>input[type="checkbox"])]:list-none',
+          '[&_li:has(>input[type="checkbox"])]:-ml-4',
+          '[&h2:first-child]:mt-0',
+          // GitHub 风格 Alert 提示块：布局统一，颜色按类型注入（见 ALERT_STYLE 注释）
+          '[&_.markdown-alert]:my-3 [&_.markdown-alert]:rounded-md [&_.markdown-alert]:border [&_.markdown-alert]:border-l-4 [&_.markdown-alert]:p-3',
+          '[&_.markdown-alert-title]:mb-1.5 [&_.markdown-alert-title]:flex [&_.markdown-alert-title]:items-center [&_.markdown-alert-title]:gap-1.5 [&_.markdown-alert-title]:text-xs [&_.markdown-alert-title]:font-semibold',
+          '[&_.markdown-alert_p]:my-1 [&_.markdown-alert_p]:text-foreground'
+        )}
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+      {/* 图片放大查看遮罩（Portal 到 body，避免被父级 transform/overflow 限制） */}
+      {zoomSrc && <ImageLightbox src={zoomSrc} onClose={() => setZoomSrc(null)} />}
+    </>
+  )
+}
+
+/**
+ * 图片放大查看遮罩：半透明黑底 + 等比居中显示原图
+ *
+ * 触发关闭：点击遮罩 / 点右上角关闭 / ESC。
+ */
+function ImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
+  return createPortal(
     <div
-      className={cn(
-        'prose prose-xs max-w-none text-xs leading-relaxed',
-        'prose-headings:mt-3 prose-headings:mb-1.5 prose-headings:text-foreground',
-        'prose-h1:mt-3.5 prose-h1:mb-2 prose-h1:text-lg prose-h1:font-bold',
-        'prose-h2:mt-3 prose-h2:mb-1.5 prose-h2:text-base prose-h2:font-semibold',
-        'prose-h3:mt-2.5 prose-h3:mb-1 prose-h3:text-sm prose-h3:font-semibold',
-        'prose-h4:mt-2 prose-h4:mb-0.5 prose-h4:text-xs prose-h4:font-medium',
-        'prose-p:my-1 prose-p:text-foreground',
-        'prose-li:my-0.5 prose-li:text-foreground',
-        'prose-ul:my-1 prose-ul:pl-4 prose-ul:list-disc',
-        'prose-ol:my-1 prose-ol:pl-4 prose-ol:list-decimal',
-        'prose-code:rounded prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:text-xs prose-code:font-mono',
-        'prose-a:text-primary prose-a:underline prose-a:underline-offset-2',
-        'prose-strong:text-foreground prose-strong:font-semibold',
-        'prose-del:text-muted-foreground',
-        'prose-table:my-2 prose-table:text-xs',
-        'prose-th:border prose-th:px-2 prose-th:py-1 prose-th:text-left prose-th:text-xs prose-th:text-muted-foreground prose-th:bg-muted/50',
-        'prose-td:border prose-td:px-2 prose-td:py-1 prose-td:text-xs',
-        // GFM 任务列表：input checkbox 美化
-        'prose-li:input:mr-1.5 prose-li:input:size-3 prose-li:input:align-middle',
-        '[&_li>input[type="checkbox"]]:mr-1.5',
-        '[&_li>input[type="checkbox"]]:size-3',
-        '[&_li>input[type="checkbox"]]:align-middle',
-        '[&_li>input[type="checkbox"]]:accent-primary',
-        // 去除任务列表 li 的圆点
-        '[&_li:has(>input[type="checkbox"])]:list-none',
-        '[&_li:has(>input[type="checkbox"])]:-ml-4',
-        '[&h2:first-child]:mt-0',
-        // GitHub 风格 Alert 提示块：布局统一，颜色按类型注入（见 ALERT_STYLE 注释）
-        '[&_.markdown-alert]:my-3 [&_.markdown-alert]:rounded-md [&_.markdown-alert]:border [&_.markdown-alert]:border-l-4 [&_.markdown-alert]:p-3',
-        '[&_.markdown-alert-title]:mb-1.5 [&_.markdown-alert-title]:flex [&_.markdown-alert-title]:items-center [&_.markdown-alert-title]:gap-1.5 [&_.markdown-alert-title]:text-xs [&_.markdown-alert-title]:font-semibold',
-        '[&_.markdown-alert_p]:my-1 [&_.markdown-alert_p]:text-foreground'
-      )}
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
+      className="fixed inset-0 z-[100] flex cursor-zoom-out items-center justify-center bg-black/70 p-6"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      {/* 右上角关闭按钮（事件不冒泡，避免触发遮罩关闭外的重复逻辑） */}
+      <button
+        type="button"
+        className="absolute right-3 top-3 flex size-8 items-center justify-center rounded-md text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+        title="关闭"
+        onClick={(e) => {
+          e.stopPropagation()
+          onClose()
+        }}
+      >
+        <i className="fa-solid fa-xmark size-4" />
+      </button>
+      {/* 原图：等比显示，不超过可视区域；点击图片自身不关闭（可拖动查看细节的交互预留） */}
+      <img
+        src={src}
+        alt=""
+        className="max-h-full max-w-full cursor-zoom-out rounded-md object-contain shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      />
+    </div>,
+    document.body
   )
 }
