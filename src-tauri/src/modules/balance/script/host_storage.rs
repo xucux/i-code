@@ -756,18 +756,17 @@ mod tests {
     fn ttl_expires_after_deadline() {
         let _g = TEST_LOCK.lock().unwrap();
         let _tmp = init_tmp();
-        // 10ms 后过期
-        storage_set_ttl_impl("temp", Dynamic::from("value"), Some(10)).expect("set ttl 失败");
-
-        // 立即读取：未过期
+        // 立即读取：先用较长 TTL，避免并行负载下线程被调度导致偶发「提前过期」
+        storage_set_ttl_impl("temp", Dynamic::from("value"), Some(60_000)).expect("set ttl 失败");
         assert_eq!(
             storage_get_impl("temp").expect("get 失败").as_string().ok(),
             Some("value".to_string())
         );
         assert!(storage_has_impl("temp").expect("has 失败"));
 
-        // 等待过期后读取：返回 ()，且已从存储移除
-        std::thread::sleep(std::time::Duration::from_millis(30));
+        // 重设 10ms 过期，等待后应已移除且不可见
+        storage_set_ttl_impl("temp", Dynamic::from("value"), Some(10)).expect("set ttl 失败");
+        std::thread::sleep(std::time::Duration::from_millis(50));
         assert!(storage_get_impl("temp").expect("get 失败").is_unit());
         assert!(!storage_has_impl("temp").expect("has 失败"));
         assert!(storage_keys_impl().expect("keys 失败").is_empty());
