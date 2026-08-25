@@ -22,7 +22,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
-import { MarkdownContent } from '@/components/ui/markdown-content'
+import { CommunityMarkdownContent } from './community-markdown-content'
 import { SectionBadge } from '@/modules/community/ui/section-badge'
 import { MuteBadge } from '@/modules/community/ui/mute-badge'
 import { useAvailableHeight } from '@/hooks/use-available-height'
@@ -265,9 +265,9 @@ export function PostDetail({ postId, currentUserId }: PostDetailProps) {
                 {post.replyCount}
               </span>
             </div>
-            {/* 正文：Markdown 渲染（GFM + GitHub Alert） */}
+            {/* 正文：社区隔离 Markdown 渲染（GFM + GitHub Alert，代码长块折叠） */}
             <div className="mt-2.5">
-              <MarkdownContent content={post.content} />
+              <CommunityMarkdownContent content={post.content} />
             </div>
           </div>
 
@@ -426,9 +426,9 @@ function CommentBlock({
         onReply={() => onReply(comment.replyId, comment.author.nickname)}
         onReport={() => onReport('reply', comment.replyId, comment.content)}
       />
-      {/* 一级评论正文：Markdown 渲染（通知迭代）；图片宽度缩为 1/3 紧凑呈现 */}
+      {/* 一级评论正文：社区隔离 Markdown 渲染（通知迭代）；图片宽度缩为 1/3 紧凑呈现 */}
       <div className="mt-1">
-        <MarkdownContent content={comment.content} compactImages />
+        <CommunityMarkdownContent content={comment.content} compactImages />
       </div>
 
       {/* 楼中楼（第 2 层，缩进 + 左竖线）；二级正文保持纯文本，@目标昵称见 ReplyMeta */}

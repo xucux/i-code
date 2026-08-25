@@ -16,9 +16,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Textarea } from '@/components/ui/textarea'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { MarkdownContent } from '@/components/ui/markdown-content'
+import { MarkdownEditor } from './markdown-editor'
+import { cn } from '@/lib/utils'
 
 /** 回复字数上限（与 Worker / Rust 侧一致） */
 const REPLY_MAX = 1000
@@ -41,6 +40,48 @@ export function MarkdownReplyDialog({
   const { t } = useTranslation('community')
   const [draft, setDraft] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  // 系统全屏（Fullscreen API）+ CSS 回退，参考脚本编辑器 / 模型统计（非软件窗内铺满）
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [cssFullscreen, setCssFullscreen] = useState(false)
+
+  // 监听系统 fullscreenchange：退出全屏（含 ESC）时同步状态并清 CSS 回退
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      const active = Boolean(document.fullscreenElement)
+      setIsFullscreen(active)
+      if (!active) setCssFullscreen(false)
+    }
+    document.addEventListener('fullscreenchange', onFullscreenChange)
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange)
+  }, [])
+
+  // 关闭弹窗时若仍处于系统全屏，先退出，避免残留
+  useEffect(() => {
+    if (open) return
+    if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined)
+    setIsFullscreen(false)
+    setCssFullscreen(false)
+  }, [open])
+
+  const expanded = isFullscreen || cssFullscreen
+
+  /** 系统全屏切换：放大整个弹窗（含编辑器）至系统全屏；失败回退 CSS 铺满 */
+  const toggleFullscreen = async () => {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen()
+        return
+      }
+      if (cssFullscreen) {
+        setCssFullscreen(false)
+        return
+      }
+      await document.documentElement.requestFullscreen()
+      setCssFullscreen(true)
+    } catch {
+      setCssFullscreen((v) => !v)
+    }
+  }
 
   // 每次打开重置草稿（回到编辑 Tab）
   useEffect(() => {
@@ -64,61 +105,49 @@ export function MarkdownReplyDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="h-[80vh] max-w-lg">
-        <DialogHeader>
+      <DialogContent
+        className={cn(
+          'flex h-[80vh] max-w-lg flex-col',
+          expanded &&
+            '!fixed !inset-0 !left-0 !top-0 !h-screen !w-screen !max-h-none !max-w-none !translate-x-0 !translate-y-0 !rounded-none border-0'
+        )}
+      >
+        {/* 整窗全屏放大 / 还原（置于 close 按钮左侧，参考脚本编辑器） */}
+        <button
+          type="button"
+          title={expanded ? t('editor.restore') : t('editor.expand')}
+          aria-label={expanded ? t('editor.restore') : t('editor.expand')}
+          onClick={() => void toggleFullscreen()}
+          className="absolute right-11 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+        >
+          <i className={cn('fa-solid h-4 w-4', expanded ? 'fa-compress' : 'fa-expand')} />
+        </button>
+
+        <DialogHeader className="shrink-0 pr-14">
           <DialogTitle className="text-sm">
             <i className="fa-solid fa-reply mr-1.5 size-3" />
             {target ? t('comment.replyTo', { name: target.nickname }) : t('comment.replyTitle')}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-2 py-1">
-          {/* Markdown 编辑 / 预览双 Tab */}
-          <Tabs defaultValue="edit">
-            <TabsList className="h-6">
-              <TabsTrigger
-                value="edit"
-                className="text-muted-foreground h-4 px-2 text-[11px] data-[state=active]:text-foreground"
-              >
-                <i className="fa-solid fa-pen mr-1 size-2.5" />
-                {t('post.editTab')}
-              </TabsTrigger>
-              <TabsTrigger
-                value="preview"
-                className="text-muted-foreground h-4 px-2 text-[11px] data-[state=active]:text-foreground"
-              >
-                <i className="fa-solid fa-eye mr-1 size-2.5" />
-                {t('post.previewTab')}
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="edit" className="mt-1.5">
-              <Textarea
-                value={draft}
-                maxLength={REPLY_MAX}
-                autoFocus
-                placeholder={t('comment.placeholder')}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  // Ctrl/Cmd + Enter 快捷发送
-                  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') void handleSubmit()
-                }}
-                className="h-[45vh] resize-none text-xs leading-relaxed"
-              />
-            </TabsContent>
-            <TabsContent value="preview" className="mt-1.5">
-              {/* 预览区与编辑区等高，内容超高时内部滚动 */}
-              <div className="h-[45vh] overflow-y-auto rounded-md border p-3">
-                {draft.trim() ? (
-                  <MarkdownContent content={draft} />
-                ) : (
-                  <p className="text-muted-foreground text-xs">{t('post.previewEmpty')}</p>
-                )}
-              </div>
-            </TabsContent>
-          </Tabs>
+        <div className={cn('min-h-0', expanded ? 'flex flex-1 flex-col overflow-hidden' : 'space-y-1.5 py-1')}>
+          {/* Markdown 编辑 / 预览双 Tab（含语法工具栏与代码折叠） */}
+          <MarkdownEditor
+            value={draft}
+            onChange={setDraft}
+            maxLength={REPLY_MAX}
+            autoFocus
+            placeholder={t('comment.placeholder')}
+            heightClass="h-[45vh]"
+            fill={expanded}
+            onKeyDown={(e) => {
+              // Ctrl/Cmd + Enter 快捷发送
+              if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') void handleSubmit()
+            }}
+          />
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0">
           <span className="text-muted-foreground mr-auto text-[10px] tabular-nums">
             {draft.length}/{REPLY_MAX}
           </span>

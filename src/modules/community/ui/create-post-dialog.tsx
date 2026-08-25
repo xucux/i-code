@@ -12,17 +12,15 @@ import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { MarkdownContent } from '@/components/ui/markdown-content'
+import { HelpIcon } from '@/components/ui/help-icon'
 import { cn } from '@/lib/utils'
+import { MarkdownEditor } from './markdown-editor'
 import {
   COMMUNITY_SECTIONS,
   type CommunitySection,
@@ -54,6 +52,50 @@ export function CreatePostDialog({ open, onOpenChange, defaultSection, onSubmit 
   const [content, setContent] = useState('')
   const [section, setSection] = useState<CommunitySection>(defaultSection)
   const [submitting, setSubmitting] = useState(false)
+  // 系统全屏（Fullscreen API）+ CSS 回退，参考脚本编辑器 / 模型统计（非软件窗内铺满）
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [cssFullscreen, setCssFullscreen] = useState(false)
+
+  // 监听系统 fullscreenchange：退出全屏（含 ESC）时同步状态并清 CSS 回退
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      const active = Boolean(document.fullscreenElement)
+      setIsFullscreen(active)
+      if (!active) setCssFullscreen(false)
+    }
+    document.addEventListener('fullscreenchange', onFullscreenChange)
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange)
+  }, [])
+
+  // 关闭弹窗时若仍处于系统全屏，先退出，避免残留
+  useEffect(() => {
+    if (open) return
+    if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined)
+    setIsFullscreen(false)
+    setCssFullscreen(false)
+  }, [open])
+
+  const expanded = isFullscreen || cssFullscreen
+
+  /** 系统全屏切换：放大整个弹窗（含编辑器）至系统全屏；失败回退 CSS 铺满 */
+  const toggleFullscreen = async () => {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen()
+        return
+      }
+      if (cssFullscreen) {
+        setCssFullscreen(false)
+        return
+      }
+      // 全屏整个文档，确保弹窗内容（含 Popover / Select 弹出层）随文档可见
+      await document.documentElement.requestFullscreen()
+      setCssFullscreen(true)
+    } catch {
+      // Fullscreen API 不可用（如非用户手势触发），回退到 CSS 铺满
+      setCssFullscreen((v) => !v)
+    }
+  }
 
   // 每次打开重置表单（回到编辑 Tab，板块回退到入口时的默认板块）
   useEffect(() => {
@@ -81,17 +123,38 @@ export function CreatePostDialog({ open, onOpenChange, defaultSection, onSubmit 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg h-[98vh]">
-        <DialogHeader>
+      <DialogContent
+        className={cn(
+          'flex max-w-lg flex-col h-[98vh]',
+          expanded &&
+            '!fixed !inset-0 !left-0 !top-0 !h-screen !w-screen !max-h-none !max-w-none !translate-x-0 !translate-y-0 !rounded-none border-0 !overflow-hidden'
+        )}
+      >
+        {/* 整窗全屏放大 / 还原（置于 close 按钮左侧，参考脚本编辑器） */}
+        <button
+          type="button"
+          title={expanded ? t('editor.restore') : t('editor.expand')}
+          aria-label={expanded ? t('editor.restore') : t('editor.expand')}
+          onClick={() => void toggleFullscreen()}
+          className="absolute right-11 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+        >
+          <i className={cn('fa-solid h-4 w-4', expanded ? 'fa-compress' : 'fa-expand')} />
+        </button>
+
+        <DialogHeader className="shrink-0 pr-14 flex flex-row items-center">
           <DialogTitle className="text-sm">{t('post.createTitle')}</DialogTitle>
-          <DialogDescription className="text-xs">{t('post.createDesc')}</DialogDescription>
+          {/* <DialogDescription className="text-xs">{t('post.createDesc')}</DialogDescription> */}
+          {/* 字数限制提示：helpicon 形式置于标题右侧 */}
+          <HelpIcon size="sm" type="popover" trigger="click" side="bottom" align="start" contentClassName="max-w-xs text-xs leading-relaxed">
+            <p>{t('post.createDesc')}</p>
+          </HelpIcon>
         </DialogHeader>
 
-        <div className="space-y-3 py-2">
+        <div className={cn('min-h-0', expanded ? 'flex flex-1 flex-col gap-1.5 overflow-hidden' : 'space-y-1.5 py-1')}>
           {/* 板块选择（固定三板块，默认取当前 Tab） */}
-          <div className="space-y-1">
+          <div className={cn('space-y-1', expanded && 'shrink-0')}>
             <Label className="text-xs">{t('post.sectionLabel')}</Label>
-            <div className="flex gap-1.5">
+            <div className="flex gap-1">
               {COMMUNITY_SECTIONS.map((s) => (
                 <button
                   key={s}
@@ -112,11 +175,14 @@ export function CreatePostDialog({ open, onOpenChange, defaultSection, onSubmit 
             </div>
           </div>
 
-          <div className="space-y-1">
+          <div className={cn('space-y-1', expanded && 'shrink-0')}>
             <div className="flex items-center justify-between">
-              <Label htmlFor="post-title" className="text-xs">
-                {t('post.titleLabel')}
-              </Label>
+              <div className="flex items-center gap-0.5">
+                <Label htmlFor="post-title" className="text-xs">
+                  {t('post.titleLabel')}
+                </Label>
+
+              </div>
               <span className="text-muted-foreground text-[10px] tabular-nums">
                 {title.trim().length}/{TITLE_MAX}
               </span>
@@ -131,8 +197,8 @@ export function CreatePostDialog({ open, onOpenChange, defaultSection, onSubmit 
             />
           </div>
 
-          {/* 正文：Markdown 编辑 / 预览 */}
-          <div className="space-y-1">
+          {/* 正文：Markdown 编辑 / 预览（含语法工具栏与代码折叠） */}
+          <div className={cn('space-y-1', expanded ? 'flex min-h-0 flex-1 flex-col' : '')}>
             <div className="flex items-center justify-between">
               <Label htmlFor="post-content" className="text-xs">
                 {t('post.contentLabel')}
@@ -141,42 +207,19 @@ export function CreatePostDialog({ open, onOpenChange, defaultSection, onSubmit 
                 {content.length}/{CONTENT_MAX}
               </span>
             </div>
-            <Tabs defaultValue="edit">
-              <TabsList className="h-6">
-                <TabsTrigger value="edit" className="text-muted-foreground h-4 px-2 text-[11px] data-[state=active]:text-foreground">
-                  <i className="fa-solid fa-pen mr-1 size-2.5" />
-                  {t('post.editTab')}
-                </TabsTrigger>
-                <TabsTrigger value="preview" className="text-muted-foreground h-4 px-2 text-[11px] data-[state=active]:text-foreground">
-                  <i className="fa-solid fa-eye mr-1 size-2.5" />
-                  {t('post.previewTab')}
-                </TabsTrigger>
-              </TabsList>
-              <TabsContent value="edit" className="mt-1.5">
-                <Textarea
-                  id="post-content"
-                  value={content}
-                  maxLength={CONTENT_MAX}
-                  placeholder={t('post.contentPlaceholder')}
-                  onChange={(e) => setContent(e.target.value)}
-                  className="h-[50vh] font-mono text-xs leading-relaxed"
-                />
-              </TabsContent>
-              <TabsContent value="preview" className="mt-1.5">
-                {/* 预览区与编辑区等高，内容超高时内部滚动 */}
-                <div className="h-[50vh] overflow-y-auto rounded-md border p-3">
-                  {content.trim() ? (
-                    <MarkdownContent content={content} />
-                  ) : (
-                    <p className="text-muted-foreground text-xs">{t('post.previewEmpty')}</p>
-                  )}
-                </div>
-              </TabsContent>
-            </Tabs>
+            <MarkdownEditor
+              id="post-content"
+              value={content}
+              onChange={setContent}
+              maxLength={CONTENT_MAX}
+              placeholder={t('post.contentPlaceholder')}
+              heightClass="h-[50vh]"
+              fill={expanded}
+            />
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0">
           <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => onOpenChange(false)}>
             {t('post.cancel')}
           </Button>

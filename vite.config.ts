@@ -16,9 +16,12 @@ export default defineConfig(async () => ({
   // 1. prevent vite from obscuring rust errors
   clearScreen: false,
   // 2. tauri expects a fixed port, fail if that port is not available
+  //    端口 1421 落在本机 Windows 系统排除区间（netsh excludedportrange 1376-1475），
+  //    绑定会报 EACCES；改用 Vite 默认安全端口 5173（需与 tauri.conf.json 的 devUrl 同步）
   server: {
-    port: 1421,
+    port: 5173,
     strictPort: true,
+    host: '127.0.0.1',
     watch: {
       // 3. tell vite to ignore watching `src-tauri`
       ignored: ['**/src-tauri/**'],

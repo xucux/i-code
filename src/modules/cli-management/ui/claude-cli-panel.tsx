@@ -737,16 +737,19 @@ export function ClaudeCliPanel({ profile, height }: ClaudeCliPanelProps) {
 
       {/* ── settings.json 预览对话框 ── */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="text-base">{t('cli.claude.previewTitle')}</DialogTitle>
           </DialogHeader>
-          <CodeEditor
-            value={generateSettingsJson()}
-            language="json"
-            readOnly
-            className="min-h-[280px]"
-          />
+          <div className="min-h-0 flex-1 overflow-hidden rounded-md border">
+            <CodeEditor
+              value={generateSettingsJson()}
+              language="json"
+              readOnly
+              className="h-full border-0"
+              minHeight="100%"
+            />
+          </div>
           <DialogFooter>
             <Button
               type="button"

@@ -27,7 +27,7 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
-import { MarkdownContent } from '@/components/ui/markdown-content'
+import { CommunityMarkdownContent } from './community-markdown-content'
 import { cn } from '@/lib/utils'
 import { useAvailableHeight } from '@/hooks/use-available-height'
 import { useAutoHideScrollbar } from '@/hooks/use-auto-hide-scrollbar'
@@ -1693,7 +1693,7 @@ function AdminPostDetail({
             </div>
             <h2 className="mt-1.5 text-sm font-semibold">{post.title}</h2>
             <div className="mt-1.5 text-xs leading-relaxed">
-              <MarkdownContent content={post.content} />
+              <CommunityMarkdownContent content={post.content} />
             </div>
           </div>
 
