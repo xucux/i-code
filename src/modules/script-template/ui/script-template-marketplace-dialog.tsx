@@ -24,7 +24,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -197,8 +196,7 @@ export function ScriptTemplateMarketplaceDialog({
               loading={displayLoading}
               density="compact"
             >
-              <Table>
-                <TableHeader className="sticky top-0 z-10 bg-muted">
+              <TableHeader className="sticky top-0 z-10 bg-muted">
                   <TableRow>
                     <TableHead className="text-xs">{t('marketplaceColumns.name')}</TableHead>
                     <TableHead className="text-xs">{t('marketplaceColumns.author')}</TableHead>
@@ -274,7 +272,6 @@ export function ScriptTemplateMarketplaceDialog({
                     ))
                   )}
                 </TableBody>
-              </Table>
             </ScrollableTable>
           </div>
 

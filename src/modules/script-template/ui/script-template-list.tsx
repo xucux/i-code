@@ -20,7 +20,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -168,8 +167,7 @@ export function ScriptTemplateList() {
         loading={loading}
         density="compact"
       >
-        <Table>
-          <TableHeader className="sticky top-0 z-10 bg-muted">
+        <TableHeader className="sticky top-0 z-10 bg-muted">
             <TableRow>
               <TableHead className="text-xs">{t('columns.name')}</TableHead>
               <TableHead className="text-xs">slug</TableHead>
@@ -276,7 +274,6 @@ export function ScriptTemplateList() {
               ))
             )}
           </TableBody>
-        </Table>
       <ScriptTemplateMarketplaceDialog
         open={marketplaceOpen}
         onOpenChange={setMarketplaceOpen}

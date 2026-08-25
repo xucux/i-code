@@ -14,7 +14,6 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { ScrollableTable } from '@/components/ui/scrollable-table'
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -265,8 +264,7 @@ export function ScriptStorageDialog({ open, onOpenChange }: ScriptStorageDialogP
           loading={loading}
           density="compact"
         >
-          <Table>
-            <TableHeader className="sticky top-0 z-10 bg-muted">
+          <TableHeader className="sticky top-0 z-10 bg-muted">
               <TableRow>
                 <TableHead className="w-[30%] text-xs">key</TableHead>
                 <TableHead className="text-xs">{t('storage.value')}</TableHead>
@@ -320,7 +318,6 @@ export function ScriptStorageDialog({ open, onOpenChange }: ScriptStorageDialogP
                 ))
               )}
             </TableBody>
-          </Table>
         </ScrollableTable>
       </WideDialogContent>
 

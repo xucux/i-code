@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { MarkdownEditor } from './markdown-editor'
+import { useDialogFullscreen } from './use-dialog-fullscreen'
 import { cn } from '@/lib/utils'
 
 /** 回复字数上限（与 Worker / Rust 侧一致） */
@@ -40,48 +41,8 @@ export function MarkdownReplyDialog({
   const { t } = useTranslation('community')
   const [draft, setDraft] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  // 系统全屏（Fullscreen API）+ CSS 回退，参考脚本编辑器 / 模型统计（非软件窗内铺满）
-  const [isFullscreen, setIsFullscreen] = useState(false)
-  const [cssFullscreen, setCssFullscreen] = useState(false)
-
-  // 监听系统 fullscreenchange：退出全屏（含 ESC）时同步状态并清 CSS 回退
-  useEffect(() => {
-    const onFullscreenChange = () => {
-      const active = Boolean(document.fullscreenElement)
-      setIsFullscreen(active)
-      if (!active) setCssFullscreen(false)
-    }
-    document.addEventListener('fullscreenchange', onFullscreenChange)
-    return () => document.removeEventListener('fullscreenchange', onFullscreenChange)
-  }, [])
-
-  // 关闭弹窗时若仍处于系统全屏，先退出，避免残留
-  useEffect(() => {
-    if (open) return
-    if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined)
-    setIsFullscreen(false)
-    setCssFullscreen(false)
-  }, [open])
-
-  const expanded = isFullscreen || cssFullscreen
-
-  /** 系统全屏切换：放大整个弹窗（含编辑器）至系统全屏；失败回退 CSS 铺满 */
-  const toggleFullscreen = async () => {
-    try {
-      if (document.fullscreenElement) {
-        await document.exitFullscreen()
-        return
-      }
-      if (cssFullscreen) {
-        setCssFullscreen(false)
-        return
-      }
-      await document.documentElement.requestFullscreen()
-      setCssFullscreen(true)
-    } catch {
-      setCssFullscreen((v) => !v)
-    }
-  }
+  // 系统全屏（Fullscreen API + CSS 回退），放大整个弹窗 / 关闭时自动退出
+  const { expanded, toggleFullscreen } = useDialogFullscreen(open)
 
   // 每次打开重置草稿（回到编辑 Tab）
   useEffect(() => {

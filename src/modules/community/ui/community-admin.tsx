@@ -27,7 +27,10 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
+import { HelpIcon } from '@/components/ui/help-icon'
 import { CommunityMarkdownContent } from './community-markdown-content'
+import { MarkdownEditor } from './markdown-editor'
+import { useDialogFullscreen } from './use-dialog-fullscreen'
 import { cn } from '@/lib/utils'
 import { useAvailableHeight } from '@/hooks/use-available-height'
 import { useAutoHideScrollbar } from '@/hooks/use-auto-hide-scrollbar'
@@ -1923,6 +1926,8 @@ function AdminPostEditDialog({
   const [section, setSection] = useState<CommunitySection>('chat')
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  // 系统全屏（参考新建帖子弹窗：Fullscreen API + CSS 回退）
+  const { expanded, toggleFullscreen } = useDialogFullscreen(isOpen)
 
   // 打开时填充表单：优先 initial，否则拉取详情
   useEffect(() => {
@@ -1979,8 +1984,25 @@ function AdminPostEditDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="h-[98vh] max-w-lg">
-        <DialogHeader>
+      <DialogContent
+        className={cn(
+          'flex max-w-lg flex-col h-[98vh]',
+          expanded &&
+            '!fixed !inset-0 !left-0 !top-0 !h-screen !w-screen !max-h-none !max-w-none !translate-x-0 !translate-y-0 !rounded-none border-0'
+        )}
+      >
+        {/* 整窗全屏放大 / 还原（置于 close 按钮左侧，与新建帖子弹窗一致） */}
+        <button
+          type="button"
+          title={expanded ? t('editor.restore') : t('editor.expand')}
+          aria-label={expanded ? t('editor.restore') : t('editor.expand')}
+          onClick={() => void toggleFullscreen()}
+          className="absolute right-11 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+        >
+          <i className={cn('fa-solid h-4 w-4', expanded ? 'fa-compress' : 'fa-expand')} />
+        </button>
+
+        <DialogHeader className="shrink-0 pr-14">
           <DialogTitle className="text-sm">{t('admin.editPostTitle')}</DialogTitle>
           <DialogDescription className="text-xs">{t('admin.editPostDesc')}</DialogDescription>
         </DialogHeader>
@@ -1991,11 +2013,11 @@ function AdminPostEditDialog({
             {t('loadError.loading')}
           </div>
         ) : (
-          <div className="space-y-3 py-2">
+          <div className={cn('min-h-0', expanded ? 'flex flex-1 flex-col gap-1.5 overflow-hidden' : 'space-y-1.5 py-1')}>
             {/* 板块选择（与发帖弹窗一致的三按钮组） */}
             <div className="space-y-1">
               <Label className="text-xs">{t('post.sectionLabel')}</Label>
-              <div className="flex gap-1.5">
+              <div className="flex gap-1">
                 {COMMUNITY_SECTIONS.map((s) => (
                   <button
                     key={s}
@@ -2017,9 +2039,15 @@ function AdminPostEditDialog({
 
             <div className="space-y-1">
               <div className="flex items-center justify-between">
-                <Label htmlFor="admin-post-title" className="text-xs">
-                  {t('post.titleLabel')}
-                </Label>
+                <div className="flex items-center gap-0.5">
+                  <Label htmlFor="admin-post-title" className="text-xs">
+                    {t('post.titleLabel')}
+                  </Label>
+                  {/* 字数限制提示：helpicon 形式置于标题右侧，与新建帖子弹窗一致 */}
+                  <HelpIcon size="sm" type="popover" trigger="click" side="bottom" align="start" contentClassName="max-w-xs text-xs leading-relaxed">
+                    <p>{t('post.createDesc')}</p>
+                  </HelpIcon>
+                </div>
                 <span className="text-muted-foreground text-[10px] tabular-nums">
                   {title.trim().length}/80
                 </span>
@@ -2042,18 +2070,21 @@ function AdminPostEditDialog({
                   {content.length}/5000
                 </span>
               </div>
-              <Textarea
+              {/* 新 Markdown 编辑器（工具栏 / 预览，全屏时铺满） */}
+              <MarkdownEditor
                 id="admin-post-content"
                 value={content}
+                onChange={setContent}
                 maxLength={5000}
-                onChange={(e) => setContent(e.target.value)}
-                className="h-[50vh] font-mono text-xs leading-relaxed"
+                placeholder={t('post.contentPlaceholder')}
+                heightClass="h-[50vh]"
+                fill={expanded}
               />
             </div>
           </div>
         )}
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0">
           <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => onOpenChange(false)}>
             {t('post.cancel')}
           </Button>
