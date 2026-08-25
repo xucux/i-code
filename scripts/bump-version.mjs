@@ -12,6 +12,7 @@ const paths = {
   cargoToml: path.join(rootDir, 'src-tauri', 'Cargo.toml'),
   titleBar: path.join(rootDir, 'src', 'components', 'ui', 'title-bar.tsx'),
   settingsPage: path.join(rootDir, 'src', 'routes', 'settings.tsx'),
+  chatPage: path.join(rootDir, 'src', 'modules', 'chat', 'ui', 'chat-page.tsx'),
   agentsMd: path.join(rootDir, 'AGENTS.md'),
 }
 
@@ -82,6 +83,16 @@ function syncStaticVersionRefs(oldVersion, newVersion) {
       patterns: [
         {
           regex: new RegExp(`(<span className="text-xs text-muted-foreground tabular-nums">)${oldVersion}(</span>)`),
+          replacement: `$1${newVersion}$2`,
+        },
+      ],
+    },
+    {
+      file: paths.chatPage,
+      patterns: [
+        {
+          // 聊天导出 HTML 中展示的版本号（与主版本号一致，无 v 前缀）
+          regex: new RegExp(`(const APP_VERSION = ')${oldVersion}(')`),
           replacement: `$1${newVersion}$2`,
         },
       ],

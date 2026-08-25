@@ -1818,6 +1818,28 @@
       "thinking": null
     },
     {
+      "id": "grok-4.6",
+      "displayName": "Grok 4.6",
+      "family": "xai",
+      "providerTypes": [
+        "openai-responses"
+      ],
+      "maxInputTokens": 500000,
+      "maxOutputTokens": 65536,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "high"
+      }
+    },
+    {
       "id": "grok-4.5",
       "displayName": "Grok 4.5",
       "family": "xai",
