@@ -923,6 +923,11 @@ fn main() {
             modules::community::commands::community_admin_update_governance,
             modules::community::commands::community_admin_set_post_locked,
             modules::community::commands::community_admin_set_post_pin,
+            // 帖子外链分享（2026-08-26 分享迭代）
+            modules::community::commands::community_create_share_link,
+            modules::community::commands::community_list_post_share_links,
+            modules::community::commands::community_admin_get_share_links,
+            modules::community::commands::community_admin_revoke_share_link,
             // ===== Gateway Runtime 模块 =====
             modules::gateway_runtime::commands::gateway_start,
             modules::gateway_runtime::commands::gateway_stop,

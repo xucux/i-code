@@ -32,6 +32,7 @@ import { getCommunityAvatar } from '@/modules/community/avatars'
 import type { PostDetailData, ReplyItem, SiteGovernance } from '@/modules/community/types'
 import { MarkdownReplyDialog } from './markdown-reply-dialog'
 import { ReportDialog } from './report-dialog'
+import { ShareDialog } from './share-dialog'
 
 /** 回复字数上限（与 Worker / Rust 侧一致） */
 const REPLY_MAX = 1000
@@ -61,6 +62,9 @@ export function PostDetail({ postId, currentUserId }: PostDetailProps) {
 
   // 举报弹层状态
   const [reportTarget, setReportTarget] = useState<{ type: 'post' | 'reply'; id: number; preview: string } | null>(null)
+
+  // 分享弹窗（2026-08-26 分享迭代：仅作者本人可见按钮）
+  const [shareOpen, setShareOpen] = useState(false)
 
   // 站点治理开关（D11）：null = 加载中/失败按全关处理，不阻塞浏览
   const [governance, setGovernance] = useState<SiteGovernance | null>(null)
@@ -106,6 +110,7 @@ export function PostDetail({ postId, currentUserId }: PostDetailProps) {
     setReplyTarget(null)
     setDraft('')
     setReplyDialogOpen(false)
+    setShareOpen(false)
     void load()
   }, [load])
 
@@ -223,6 +228,18 @@ export function PostDetail({ postId, currentUserId }: PostDetailProps) {
                 >
                   <i className={refreshing ? 'fa-solid fa-spinner fa-spin size-3' : 'fa-solid fa-rotate size-3'} />
                 </Button>
+                {/* 分享（2026-08-26：仅帖子作者本人可发起，Worker 校验归属 + 扣 100 积分） */}
+                {post.author.userId === currentUserId && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground hover:text-primary size-7"
+                    title={t('action.share')}
+                    onClick={() => setShareOpen(true)}
+                  >
+                    <i className="fa-solid fa-share-nodes size-3" />
+                  </Button>
+                )}
                 {post.author.userId !== currentUserId && (
                   <Button
                     variant="ghost"
@@ -387,6 +404,9 @@ export function PostDetail({ postId, currentUserId }: PostDetailProps) {
         targetId={reportTarget?.id ?? null}
         preview={reportTarget?.preview}
       />
+
+      {/* 分享弹窗（2026-08-26：生成直链 + 帖内分享列表；撤销归管理员） */}
+      <ShareDialog postId={post.postId} open={shareOpen} onOpenChange={setShareOpen} />
     </div>
   )
 }

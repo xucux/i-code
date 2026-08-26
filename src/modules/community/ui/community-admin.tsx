@@ -43,10 +43,12 @@ import {
   communityAdminGetPost,
   communityAdminGetPosts,
   communityAdminGetReports,
+  communityAdminGetShareLinks,
   communityAdminGetUsers,
   communityAdminLogin,
   communityAdminMuteUser,
   communityAdminResolveReport,
+  communityAdminRevokeShareLink,
   communityAdminSetPostLocked,
   communityAdminSetPostPin,
   communityAdminUnbanUser,
@@ -61,6 +63,7 @@ import {
   COMMUNITY_SECTIONS,
   type AdminPostItem,
   type AdminReportItem,
+  type AdminShareItem,
   type AdminUserItem,
   type CommentItem,
   type CommunitySection,
@@ -215,15 +218,15 @@ export function CommunityAdmin() {
   )
 }
 
-/** 已登录面板：用户 / 举报 / 帖子管理 / 站点治理 四个 Tab */
+/** 已登录面板：用户 / 举报 / 帖子管理 / 站点治理 / 分享管理 五个 Tab */
 function AdminPanels({ token, listHeight }: { token: string; listHeight: number }) {
   const { t } = useTranslation('community')
-  const [tab, setTab] = useState<'users' | 'reports' | 'posts' | 'governance'>('users')
+  const [tab, setTab] = useState<'users' | 'reports' | 'posts' | 'governance' | 'shares'>('users')
 
   return (
     <Tabs
       value={tab}
-      onValueChange={(v) => setTab(v as 'users' | 'reports' | 'posts' | 'governance')}
+      onValueChange={(v) => setTab(v as 'users' | 'reports' | 'posts' | 'governance' | 'shares')}
       className="flex min-h-0 flex-1 flex-col"
     >
       <TabsList className="mb-2 self-start">
@@ -239,6 +242,10 @@ function AdminPanels({ token, listHeight }: { token: string; listHeight: number 
         <TabsTrigger value="governance" className="text-xs">
           {t('admin.governance')}
         </TabsTrigger>
+        {/* 分享管理（2026-08-26：列表 / 撤销，不返还积分） */}
+        <TabsTrigger value="shares" className="text-xs">
+          {t('admin.shares')}
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="users" className="min-h-0 flex-1">
@@ -252,6 +259,9 @@ function AdminPanels({ token, listHeight }: { token: string; listHeight: number 
       </TabsContent>
       <TabsContent value="governance" className="min-h-0 flex-1">
         <AdminGovernanceTab token={token} height={listHeight} />
+      </TabsContent>
+      <TabsContent value="shares" className="min-h-0 flex-1">
+        <AdminSharesTab token={token} height={listHeight} />
       </TabsContent>
     </Tabs>
   )
@@ -353,6 +363,259 @@ function AdminGovernanceTab({ token, height }: { token: string; height: number }
         ))}
       </div>
     </div>
+  )
+}
+
+/**
+ * 分享管理 Tab（2026-08-26 分享迭代）：全站分享列表（可按帖子过滤）+ 撤销
+ *
+ * - 每行展示 pid / 帖子标题 / 发起人 / 次数 / 状态（正常 | 已用完）/ 时间 / 直链；
+ * - 撤销为内联二次确认（不返还积分，撤销后直链 404）；D9 管理接口不限流。
+ */
+function AdminSharesTab({ token, height }: { token: string; height: number }) {
+  const { t } = useTranslation('community')
+  const [shares, setShares] = useState<AdminShareItem[]>([])
+  const [cursor, setCursor] = useState<string | null>(null)
+  const [hasMore, setHasMore] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [acting, setActing] = useState(false)
+  // 待确认撤销的 pid（内联二次确认，与帖子删除交互一致）
+  const [revokingPid, setRevokingPid] = useState<string | null>(null)
+  // 帖子 ID 过滤（选填）
+  const [postFilter, setPostFilter] = useState('')
+  const [appliedPostId, setAppliedPostId] = useState<number | null>(null)
+  // 刚复制直链的 pid（对勾反馈）
+  const [copiedPid, setCopiedPid] = useState<string | null>(null)
+  const [scrollRef, scrolling] = useAutoHideScrollbar()
+
+  /** 列表加载：base 为空拉第一页（覆盖），非空追加下一页 */
+  const load = useCallback(
+    async (postId: number | null, base?: string) => {
+      if (!base) setLoading(true)
+      try {
+        const data = await communityAdminGetShareLinks(token, base, undefined, postId ?? undefined)
+        setShares((prev) => (base ? [...prev, ...data.items] : data.items))
+        setCursor(data.nextCursor)
+        setHasMore(data.nextCursor != null)
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : String(e))
+      } finally {
+        setLoading(false)
+      }
+    },
+    [token]
+  )
+
+  useEffect(() => {
+    void load(appliedPostId)
+  }, [appliedPostId, load])
+
+  const loadMore = async () => {
+    if (!cursor || loadingMore) return
+    setLoadingMore(true)
+    try {
+      await load(appliedPostId, cursor)
+    } finally {
+      setLoadingMore(false)
+    }
+  }
+
+  /** 应用帖子 ID 过滤（正整数校验，空 = 全站） */
+  const applyFilter = () => {
+    const stripped = postFilter.trim()
+    if (stripped) {
+      const parsed = Number(stripped)
+      if (!Number.isInteger(parsed) || parsed <= 0) {
+        toast.error(t('admin.shareFilterInvalid'))
+        return
+      }
+      setAppliedPostId(parsed)
+    } else {
+      setAppliedPostId(null)
+    }
+    setRevokingPid(null)
+  }
+
+  /** 撤销分享（内联二次确认；不返还积分，撤销后直链 404） */
+  const handleRevoke = async (pid: string) => {
+    if (acting) return
+    setActing(true)
+    try {
+      await communityAdminRevokeShareLink(token, pid)
+      toast.success(t('admin.shareRevoked'))
+      setRevokingPid(null)
+      setShares((prev) => prev.filter((s) => s.pid !== pid))
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e))
+    } finally {
+      setActing(false)
+    }
+  }
+
+  /** 复制直链（对勾反馈） */
+  const copyUrl = async (url: string, pid: string) => {
+    try {
+      await navigator.clipboard.writeText(url)
+    } catch {
+      return
+    }
+    setCopiedPid(pid)
+    setTimeout(() => setCopiedPid((prev) => (prev === pid ? null : prev)), 1500)
+  }
+
+  /** 滚动区高度 = 面板高度 - 筛选栏（约 36px） */
+  const listHeight = Math.max(0, height - 36)
+
+  return (
+    <>
+      {/* 筛选栏（按帖子 ID 过滤） */}
+      <div className="mb-2 flex items-center gap-1.5">
+        <Input
+          value={postFilter}
+          inputMode="numeric"
+          placeholder={t('admin.sharePostFilterPlaceholder')}
+          onChange={(e) => setPostFilter(e.target.value.replace(/[^\d]/g, ''))}
+          onKeyDown={(e) => e.key === 'Enter' && applyFilter()}
+          className="h-7 w-40 text-[11px]"
+        />
+        <Button size="sm" className="h-7 px-2 text-[11px]" onClick={applyFilter}>
+          <i className="fa-solid fa-magnifying-glass mr-1 size-2.5" />
+          {t('admin.shareFilter')}
+        </Button>
+        {appliedPostId != null && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground h-7 px-2 text-[11px]"
+            onClick={() => {
+              setPostFilter('')
+              setAppliedPostId(null)
+            }}
+          >
+            {t('admin.shareFilterReset')}
+          </Button>
+        )}
+      </div>
+
+      {loading && shares.length === 0 ? (
+        <div className="text-muted-foreground flex h-20 items-center justify-center gap-2 text-xs">
+          <i className="fa-solid fa-spinner fa-spin size-3.5" />
+          {t('loadError.loading')}
+        </div>
+      ) : (
+        <div
+          ref={scrollRef}
+          className={cn(
+            'overflow-y-auto pr-2 custom-scrollbar custom-scrollbar-auto-hide',
+            scrolling && 'scrollbar-visible'
+          )}
+          style={{ height: listHeight || undefined }}
+        >
+          {shares.length === 0 ? (
+            <AdminEmpty text={t('admin.emptyShares')} />
+          ) : (
+            <div className="space-y-2 pb-20">
+              {shares.map((share) => {
+                const exhausted = share.views >= share.maxViews
+                return (
+                  <div key={share.pid} className="rounded-lg border bg-card p-3">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="h-4 shrink-0 px-1 font-mono text-[10px]">
+                        {share.pid}
+                      </Badge>
+                      <span className="min-w-0 flex-1 truncate text-xs font-medium" title={share.postTitle}>
+                        {share.postTitle}
+                      </span>
+                      <span className="text-muted-foreground shrink-0 text-[11px] tabular-nums">
+                        {share.views} / {share.maxViews}
+                      </span>
+                      <Badge
+                        variant={exhausted ? 'outline' : 'secondary'}
+                        className={cn('h-4 shrink-0 px-1 text-[10px]', exhausted && 'text-muted-foreground')}
+                      >
+                        {t(exhausted ? 'admin.shareExhausted' : 'admin.shareNormal')}
+                      </Badge>
+                      <span className="text-muted-foreground shrink-0 text-[10px] tabular-nums">
+                        {formatCommunityTime(share.createdAt, t)}
+                      </span>
+                    </div>
+                    <div className="mt-1.5 flex items-center gap-1.5 text-[11px]">
+                      <span className="text-lg leading-none">{getCommunityAvatar(share.author.avatarIndex)}</span>
+                      <span className="max-w-32 truncate text-[11px]">{share.author.nickname}</span>
+                      <span className="text-muted-foreground min-w-0 flex-1 truncate font-mono text-[10px]">
+                        {share.url}
+                      </span>
+                      {revokingPid === share.pid ? (
+                        <>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            className="h-6 shrink-0 px-2 text-[11px]"
+                            disabled={acting}
+                            onClick={() => void handleRevoke(share.pid)}
+                          >
+                            {t('admin.deleteConfirm')}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-muted-foreground h-6 shrink-0 px-2 text-[11px]"
+                            onClick={() => setRevokingPid(null)}
+                          >
+                            {t('post.cancel')}
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-muted-foreground hover:text-foreground h-6 shrink-0 px-1.5 text-[11px]"
+                            title={t('share.copy')}
+                            onClick={() => void copyUrl(share.url, share.pid)}
+                          >
+                            {copiedPid === share.pid ? (
+                              <i className="fa-solid fa-check text-green-500 size-2.5" />
+                            ) : (
+                              <i className="fa-regular fa-copy size-2.5" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-muted-foreground hover:text-destructive h-6 shrink-0 px-2 text-[11px]"
+                            title={t('admin.shareRevokeHint')}
+                            onClick={() => setRevokingPid(share.pid)}
+                          >
+                            <i className="fa-solid fa-trash mr-1 size-2.5" />
+                            {t('admin.shareRevoke')}
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+              {hasMore && (
+                <div className="flex justify-center py-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-muted-foreground h-7 text-[11px]"
+                    disabled={loadingMore}
+                    onClick={() => void loadMore()}
+                  >
+                    {loadingMore && <i className="fa-solid fa-spinner fa-spin mr-1.5 size-3" />}
+                    {t('admin.loadMore')}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </>
   )
 }
 

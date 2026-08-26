@@ -18,11 +18,12 @@ use super::client;
 use super::repository;
 use super::types::{
     AdminLoginData, AdminLoginInput, AdminMuteInput, AdminPostListData, AdminReportItem,
-    AdminUpdateGovernanceInput, AdminUpdatePostInput, AdminUserItem, CheckInLeaderboardData,
-    CheckInResult, CommunityLocalState, CreatePostInput, CreateReplyInput, MyPostsData,
-    MyRepliesData, NotificationListData, PointsLeaderboardData, PostDetailData, PostListData,
-    ProfileData, ProfileUser, ReadAllNotificationsData, ReportInput, SiteGovernance,
-    UnreadCountData, UpdateMyPostInput, UpdateProfileInput,
+    AdminShareListData, AdminUpdateGovernanceInput, AdminUpdatePostInput, AdminUserItem,
+    CheckInLeaderboardData, CheckInResult, CommunityLocalState, CreatePostInput, CreateReplyInput,
+    MyPostsData, MyRepliesData, NotificationListData, PointsLeaderboardData, PostDetailData,
+    PostListData, ProfileData, ProfileUser, ReadAllNotificationsData, ReportInput, ShareLink,
+    ShareLinkInput, ShareLinkListData, SiteGovernance, UnreadCountData, UpdateMyPostInput,
+    UpdateProfileInput,
 };
 
 /// 社区 Service 句柄（Tauri State）
@@ -540,6 +541,59 @@ impl CommunityService {
     ) -> IcodeResult<()> {
         let base_url = self.require_enabled_base()?;
         client::admin_set_post_pin(&base_url, admin_token, post_id, pinned).await
+    }
+
+    // ===== 帖子外链分享（2026-08-26 分享迭代，见 docs/proposals/community-post-share.md）=====
+
+    /// 发起分享：作者本人 + 扣 100 积分（Worker 校验），返回带直链的链接
+    pub async fn create_share_link(
+        &self,
+        post_id: i64,
+        input: ShareLinkInput,
+    ) -> IcodeResult<ShareLink> {
+        let (state, user_id) = self.require_ready()?;
+        // maxViews：缺省 1000，范围 1~10000（提前拦截，Worker 仍兜底）
+        let max_views = input.max_views.unwrap_or(1000);
+        if max_views < 1 || max_views > 10000 {
+            return Err(IcodeError::validation("maxViews 须为 1~10000 的整数"));
+        }
+        let normalized = ShareLinkInput {
+            max_views: Some(max_views),
+        };
+        client::create_share_link(&state.base_url, &user_id, post_id, &normalized).await
+    }
+
+    /// 该帖分享列表（游标分页；仅作者本人可见，Worker 校验归属）
+    pub async fn list_post_share_links(
+        &self,
+        post_id: i64,
+        cursor: Option<String>,
+        limit: Option<u32>,
+    ) -> IcodeResult<ShareLinkListData> {
+        let (state, user_id) = self.require_ready()?;
+        client::list_post_share_links(&state.base_url, &user_id, post_id, cursor, limit).await
+    }
+
+    /// 管理员分享列表（全站 / 按帖子过滤，游标分页）
+    pub async fn admin_list_share_links(
+        &self,
+        admin_token: &str,
+        cursor: Option<String>,
+        limit: Option<u32>,
+        post_id: Option<i64>,
+    ) -> IcodeResult<AdminShareListData> {
+        let base_url = self.require_enabled_base()?;
+        client::admin_list_share_links(&base_url, admin_token, cursor, limit, post_id).await
+    }
+
+    /// 管理员撤销任意分享（不返还积分）
+    pub async fn admin_revoke_share_link(
+        &self,
+        admin_token: &str,
+        pid: &str,
+    ) -> IcodeResult<()> {
+        let base_url = self.require_enabled_base()?;
+        client::admin_revoke_share_link(&base_url, admin_token, pid).await
     }
 
     // ===== 内部辅助 =====

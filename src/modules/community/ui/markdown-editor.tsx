@@ -166,9 +166,9 @@ export function MarkdownEditor({
     {
       key: 'newline',
       icon: 'fa-arrow-turn-down',
-      // 换行：在新行直接插入 <br>（HTML 硬换行标记），光标置于其后
+      // 换行：新行插入 <br>（HTML 硬换行标记），<br> 前后均保留换行，避免与相邻文本黏连
       transform: (v, s, e) => {
-        const ins = '\n<br>'
+        const ins = '\n<br>\n'
         const text = v.slice(0, s) + ins + v.slice(e)
         return { text, sel: [s + ins.length, s + ins.length] }
       },

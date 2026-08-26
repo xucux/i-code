@@ -620,3 +620,63 @@ pub struct UnreadCountData {
 pub struct ReadAllNotificationsData {
     pub updated: i64,
 }
+
+// ===== 帖子外链分享（2026-08-26 分享迭代，见 docs/proposals/community-post-share.md）=====
+
+/// 发起分享输入（maxViews 缺省 1000，范围 1~10000；发起扣 100 积分，Worker 校验）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShareLinkInput {
+    /// 访问配额上限（1~10000）；缺省 1000
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub max_views: Option<i64>,
+}
+
+/// 分享链接（用户视角；url 由 Worker 按请求域根拼装直链）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShareLink {
+    /// 8 位 base62 随机短码（/s/{pid} 直链）
+    pub pid: String,
+    /// 被分享的帖子 ID
+    pub post_id: i64,
+    /// 访问配额上限
+    pub max_views: i64,
+    /// 已访问次数（阈值自动封顶，原子自增）
+    pub views: i64,
+    pub created_at: String,
+    /// 组装好的直链（如 https://community-beta.tenma.work/s/{pid}）
+    pub url: String,
+}
+
+/// 帖内分享列表响应（游标分页）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShareLinkListData {
+    pub items: Vec<ShareLink>,
+    pub next_cursor: Option<String>,
+}
+
+/// 管理员分享项（含帖子标题与创建者摘要；D9 不限流）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AdminShareItem {
+    pub pid: String,
+    pub post_id: i64,
+    pub max_views: i64,
+    pub views: i64,
+    pub created_at: String,
+    pub url: String,
+    /// 分享所在帖子标题
+    pub post_title: String,
+    /// 创建者（= 帖子作者）摘要
+    pub author: UserBrief,
+}
+
+/// 管理员分享列表响应（游标分页）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AdminShareListData {
+    pub items: Vec<AdminShareItem>,
+    pub next_cursor: Option<String>,
+}

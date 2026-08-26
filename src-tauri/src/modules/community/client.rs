@@ -18,11 +18,11 @@ use crate::modules::shared;
 
 use super::types::{
     AdminLoginData, AdminLoginInput, AdminMuteInput, AdminPostListData, AdminReportItem,
-    AdminUpdateGovernanceInput, AdminUpdatePostInput, AdminUserItem, CheckInLeaderboardData,
-    CheckInResult, CreatePostInput, CreateReplyInput, MyPostsData, MyRepliesData,
-    NotificationListData, PointsLeaderboardData, PostDetailData, PostListData, ProfileData,
-    ProfileUser, ReadAllNotificationsData, ReportInput, SiteGovernance, UnreadCountData,
-    UpdateMyPostInput, UpdateProfileInput,
+    AdminShareListData, AdminUpdateGovernanceInput, AdminUpdatePostInput, AdminUserItem,
+    CheckInLeaderboardData, CheckInResult, CreatePostInput, CreateReplyInput, MyPostsData,
+    MyRepliesData, NotificationListData, PointsLeaderboardData, PostDetailData, PostListData,
+    ProfileData, ProfileUser, ReadAllNotificationsData, ReportInput, ShareLink, ShareLinkInput,
+    ShareLinkListData, SiteGovernance, UnreadCountData, UpdateMyPostInput, UpdateProfileInput,
 };
 
 /// App Token：与 Worker 侧 `APP_TOKEN`（wrangler.toml `[vars]`）保持一致，
@@ -1026,4 +1026,105 @@ pub async fn read_all_notifications(
         true,
     )
     .await
+}
+
+// ===== 帖子外链分享（2026-08-26 分享迭代，见 docs/proposals/community-post-share.md）=====
+
+/// 发起分享（作者本人 + 扣 100 积分，Worker 校验），返回带直链的 ShareLink
+pub async fn create_share_link(
+    base_url: &str,
+    user_id: &str,
+    post_id: i64,
+    input: &ShareLinkInput,
+) -> IcodeResult<ShareLink> {
+    send(
+        base_url,
+        Method::POST,
+        &format!("posts/{post_id}/shares"),
+        None,
+        Some(user_id),
+        None,
+        Some(serde_json::to_value(input)?),
+        true,
+    )
+    .await
+}
+
+/// 该帖分享列表（游标分页；仅作者本人可见，Worker 校验归属）
+pub async fn list_post_share_links(
+    base_url: &str,
+    user_id: &str,
+    post_id: i64,
+    cursor: Option<String>,
+    limit: Option<u32>,
+) -> IcodeResult<ShareLinkListData> {
+    let mut query = Vec::new();
+    if let Some(c) = cursor {
+        query.push(("cursor".to_string(), c));
+    }
+    if let Some(l) = limit {
+        query.push(("limit".to_string(), l.to_string()));
+    }
+    send(
+        base_url,
+        Method::GET,
+        &format!("posts/{post_id}/shares"),
+        if query.is_empty() { None } else { Some(query) },
+        Some(user_id),
+        None,
+        None,
+        false,
+    )
+    .await
+}
+
+/// 管理员分享列表（全站 / 按帖子过滤，游标分页；D9 不限流）
+pub async fn admin_list_share_links(
+    base_url: &str,
+    admin_token: &str,
+    cursor: Option<String>,
+    limit: Option<u32>,
+    post_id: Option<i64>,
+) -> IcodeResult<AdminShareListData> {
+    let mut query = Vec::new();
+    if let Some(c) = cursor {
+        query.push(("cursor".to_string(), c));
+    }
+    if let Some(l) = limit {
+        query.push(("limit".to_string(), l.to_string()));
+    }
+    if let Some(p) = post_id {
+        query.push(("postId".to_string(), p.to_string()));
+    }
+    send(
+        base_url,
+        Method::GET,
+        "admin/shares",
+        if query.is_empty() { None } else { Some(query) },
+        None,
+        Some(admin_token),
+        None,
+        false,
+    )
+    .await
+}
+
+/// 管理员撤销任意分享（不返还积分）
+pub async fn admin_revoke_share_link(
+    base_url: &str,
+    admin_token: &str,
+    pid: &str,
+) -> IcodeResult<()> {
+    send::<serde_json::Value>(
+        base_url,
+        Method::DELETE,
+        &format!("admin/shares/{pid}"),
+        None,
+        None,
+        Some(admin_token),
+        None,
+        true,
+    )
+    .await?;
+    Ok(())
 }

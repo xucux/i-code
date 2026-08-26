@@ -1749,7 +1749,8 @@
       "checkIn": "签到",
       "checkedIn": "今日已签到",
       "closeCommunity": "关闭社区",
-      "loadMore": "加载更多"
+      "loadMore": "加载更多",
+      "share": "分享"
     },
     "pinned": "置顶",
     "my": {
@@ -1906,6 +1907,17 @@
       "registeredAt": "注册于 {{time}}",
       "lastLoginAt": "最近登录 {{time}}",
       "lastLoginIp": "IP {{ip}}",
+      "shares": "分享管理",
+      "emptyShares": "暂无分享记录",
+      "sharePostFilterPlaceholder": "帖子 ID（选填）",
+      "shareFilter": "筛选",
+      "shareFilterReset": "重置",
+      "shareFilterInvalid": "帖子 ID 须为正整数",
+      "shareNormal": "正常",
+      "shareExhausted": "已用完",
+      "shareRevoke": "撤销",
+      "shareRevokeHint": "撤销后链接立即失效，积分不返还",
+      "shareRevoked": "分享链接已撤销",
       "emptyReports": "暂无待处理举报",
       "resolve": "处理",
       "resolveDone": "已处理",
@@ -1976,6 +1988,25 @@
       "muteRemainDays": "剩 {{days}} 天 {{hours}} 小时",
       "muteRemainHours": "剩 {{hours}} 小时",
       "muteTip": "禁言中，{{remain}}后解除"
+    },
+    "share": {
+      "title": "分享帖子",
+      "desc": "生成一个公开直链，任何拿到链接的人均可浏览该帖（浅色渲染，不含评论区）",
+      "maxViews": "访问次数上限",
+      "tiers": "按档位收费：≤ 1000 次 {{c1}} 积分 · ≤ 4000 次 {{c2}} 积分 · ≤ 10000 次 {{c3}} 积分",
+      "costForThis": "本次 {{maxViews}} 次将消耗 {{cost}} 积分，撤销不返还积分",
+      "currentPoints": "当前积分",
+      "insufficientPoints": "积分不足，发起分享需要 {{cost}} 积分",
+      "create": "发起分享",
+      "link": "直链",
+      "linkList": "已有分享",
+      "empty": "还没有分享链接，点击下方按钮生成",
+      "usage": "{{views}} / {{maxViews}} 次",
+      "statusNormal": "正常",
+      "statusExhausted": "已用完",
+      "copy": "复制链接",
+      "copied": "链接已复制",
+      "invalidMaxViews": "请输入 1 ~ 10000 之间的整数次数"
     },
     "success": {
       "post": "发布成功",

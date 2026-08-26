@@ -11,11 +11,12 @@ use crate::error::IcodeResult;
 use super::service::CommunityHandle;
 use super::types::{
     AdminLoginData, AdminLoginInput, AdminMuteInput, AdminPostListData, AdminReportItem,
-    AdminUpdateGovernanceInput, AdminUpdatePostInput, AdminUserItem, CheckInLeaderboardData,
-    CheckInResult, CommunityLocalState, CreatePostInput, CreateReplyInput, MyPostsData,
-    MyRepliesData, NotificationListData, PointsLeaderboardData, PostDetailData, PostListData,
-    ProfileData, ProfileUser, ReadAllNotificationsData, ReportInput, SiteGovernance,
-    UnreadCountData, UpdateMyPostInput, UpdateProfileInput,
+    AdminShareListData, AdminUpdateGovernanceInput, AdminUpdatePostInput, AdminUserItem,
+    CheckInLeaderboardData, CheckInResult, CommunityLocalState, CreatePostInput, CreateReplyInput,
+    MyPostsData, MyRepliesData, NotificationListData, PointsLeaderboardData, PostDetailData,
+    PostListData, ProfileData, ProfileUser, ReadAllNotificationsData, ReportInput, ShareLink,
+    ShareLinkInput, ShareLinkListData, SiteGovernance, UnreadCountData, UpdateMyPostInput,
+    UpdateProfileInput,
 };
 
 /// 列表分页上限（与 Worker 侧 MAX_LIST_LIMIT 对齐）
@@ -438,4 +439,51 @@ pub async fn community_admin_set_post_pin(
     pinned: bool,
 ) -> IcodeResult<()> {
     state.service().admin_set_post_pin(&admin_token, post_id, pinned).await
+}
+
+// ===== 帖子外链分享（2026-08-26 分享迭代，见 docs/proposals/community-post-share.md）=====
+
+/// 发起分享（作者本人 + 扣 100 积分，Worker 校验），返回带直链的分享链接
+#[tauri::command]
+pub async fn community_create_share_link(
+    state: State<'_, CommunityHandle>,
+    post_id: i64,
+    input: ShareLinkInput,
+) -> IcodeResult<ShareLink> {
+    state.service().create_share_link(post_id, input).await
+}
+
+/// 该帖分享列表（游标分页；仅作者本人可见，Worker 校验归属）
+#[tauri::command]
+pub async fn community_list_post_share_links(
+    state: State<'_, CommunityHandle>,
+    post_id: i64,
+    cursor: Option<String>,
+    limit: Option<u32>,
+) -> IcodeResult<ShareLinkListData> {
+    validate_limit(limit)?;
+    state.service().list_post_share_links(post_id, cursor, limit).await
+}
+
+/// 管理员：分享列表（全站 / 按帖子过滤，游标分页）
+#[tauri::command]
+pub async fn community_admin_get_share_links(
+    state: State<'_, CommunityHandle>,
+    admin_token: String,
+    cursor: Option<String>,
+    limit: Option<u32>,
+    post_id: Option<i64>,
+) -> IcodeResult<AdminShareListData> {
+    validate_limit(limit)?;
+    state.service().admin_list_share_links(&admin_token, cursor, limit, post_id).await
+}
+
+/// 管理员：撤销任意分享（不返还积分）
+#[tauri::command]
+pub async fn community_admin_revoke_share_link(
+    state: State<'_, CommunityHandle>,
+    admin_token: String,
+    pid: String,
+) -> IcodeResult<()> {
+    state.service().admin_revoke_share_link(&admin_token, &pid).await
 }

@@ -13,6 +13,7 @@ import type {
   AdminMuteInput,
   AdminPostListData,
   AdminReportItem,
+  AdminShareListData,
   AdminUpdateGovernanceInput,
   AdminUpdatePostInput,
   AdminUserItem,
@@ -32,6 +33,9 @@ import type {
   ProfileUser,
   ReadAllNotificationsData,
   ReportInput,
+  ShareLink,
+  ShareLinkInput,
+  ShareLinkListData,
   SiteGovernance,
   UnreadCountData,
   UpdateMyPostInput,
@@ -178,6 +182,53 @@ export async function getCommunityUnreadCount(): Promise<number> {
 export async function markCommunityNotificationsRead(): Promise<number> {
   const data = await invokeCommand<ReadAllNotificationsData>('community_read_all_notifications')
   return data.updated
+}
+
+// ===== 帖子外链分享（2026-08-26 分享迭代）=====
+
+/** 发起分享（作者本人 + 扣 100 积分，Worker 校验），返回带直链的分享链接 */
+export async function createCommunityShareLink(
+  postId: number,
+  maxViews?: number
+): Promise<ShareLink> {
+  const input: ShareLinkInput = maxViews != null ? { maxViews } : {}
+  return invokeCommand<ShareLink>('community_create_share_link', { postId, input })
+}
+
+/** 该帖分享列表（游标分页；仅作者本人可见，Worker 校验归属） */
+export async function getCommunityPostShareLinks(
+  postId: number,
+  cursor?: string,
+  limit?: number
+): Promise<ShareLinkListData> {
+  return invokeCommand<ShareLinkListData>('community_list_post_share_links', {
+    postId,
+    cursor: cursor ?? null,
+    limit: limit ?? null,
+  })
+}
+
+/** 管理员：分享列表（全站 / 按帖子过滤，游标分页） */
+export async function communityAdminGetShareLinks(
+  adminToken: string,
+  cursor?: string,
+  limit?: number,
+  postId?: number
+): Promise<AdminShareListData> {
+  return invokeCommand<AdminShareListData>('community_admin_get_share_links', {
+    adminToken,
+    cursor: cursor ?? null,
+    limit: limit ?? null,
+    postId: postId ?? null,
+  })
+}
+
+/** 管理员：撤销任意分享（不返还积分） */
+export async function communityAdminRevokeShareLink(
+  adminToken: string,
+  pid: string
+): Promise<void> {
+  return invokeCommand<void>('community_admin_revoke_share_link', { adminToken, pid })
 }
 
 // ===== 管理员 =====
