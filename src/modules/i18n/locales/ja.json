@@ -1736,7 +1736,9 @@
       "checkIn": "チェックイン",
       "checkedIn": "本日チェックイン済み",
       "closeCommunity": "コミュニティを閉じる",
-      "loadMore": "さらに読み込む"
+      "loadMore": "さらに読み込む",
+      "like": "いいね",
+      "liked": "いいね済み"
     },
     "pinned": "固定",
     "my": {
@@ -1955,7 +1957,9 @@
       "checkInPoints": "チェックイン成功、+{{earned}} ポイント",
       "checkInBonus": "チェックイン成功、+{{earned}} ポイント（5日連続ボーナス +{{bonus}}）",
       "profile": "プロフィールを更新しました",
-      "report": "通報を送信しました、ありがとう"
+      "report": "通報を送信しました、ありがとう",
+      "liked": "いいねしました（作者に +1 ポイント）",
+      "unliked": "いいねを解除しました"
     },
     "loadError": {
       "loading": "読み込み中…"

@@ -1750,7 +1750,9 @@
       "checkedIn": "今日已签到",
       "closeCommunity": "关闭社区",
       "loadMore": "加载更多",
-      "share": "分享"
+      "share": "分享",
+      "like": "点赞",
+      "liked": "已点赞"
     },
     "pinned": "置顶",
     "my": {
@@ -2014,7 +2016,9 @@
       "checkInPoints": "签到成功，积分 +{{earned}}",
       "checkInBonus": "签到成功，积分 +{{earned}}（连续 5 天奖励 +{{bonus}}）",
       "profile": "资料已更新",
-      "report": "举报已提交，感谢反馈"
+      "report": "举报已提交，感谢反馈",
+      "liked": "点赞成功，作者 +1 积分",
+      "unliked": "已取消点赞"
     },
     "loadError": {
       "loading": "加载中…"

@@ -28,6 +28,7 @@ import type {
   NotificationListData,
   PointsLeaderboardData,
   PostDetailData,
+  PostLikeData,
   PostListData,
   ProfileData,
   ProfileUser,
@@ -80,6 +81,16 @@ export async function createCommunityPost(input: CreatePostInput): Promise<numbe
 /** 回复 / 楼中楼，返回 reply_id */
 export async function createCommunityReply(postId: number, input: CreateReplyInput): Promise<number> {
   return invokeCommand<number>('community_create_reply', { postId, input })
+}
+
+/** 点赞帖子（点赞迭代：作者不能自赞由后端校验；1 赞 = 作者 +1 积分），返回最新点赞态 */
+export async function likeCommunityPost(postId: number): Promise<PostLikeData> {
+  return invokeCommand<PostLikeData>('community_like_post', { postId })
+}
+
+/** 取消点赞（作者积分同步扣回），返回最新点赞态 */
+export async function unlikeCommunityPost(postId: number): Promise<PostLikeData> {
+  return invokeCommand<PostLikeData>('community_unlike_post', { postId })
 }
 
 /** 我的资料 + 签到统计 */

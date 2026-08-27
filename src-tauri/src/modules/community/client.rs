@@ -20,9 +20,10 @@ use super::types::{
     AdminLoginData, AdminLoginInput, AdminMuteInput, AdminPostListData, AdminReportItem,
     AdminShareListData, AdminUpdateGovernanceInput, AdminUpdatePostInput, AdminUserItem,
     CheckInLeaderboardData, CheckInResult, CreatePostInput, CreateReplyInput, MyPostsData,
-    MyRepliesData, NotificationListData, PointsLeaderboardData, PostDetailData, PostListData,
-    ProfileData, ProfileUser, ReadAllNotificationsData, ReportInput, ShareLink, ShareLinkInput,
-    ShareLinkListData, SiteGovernance, UnreadCountData, UpdateMyPostInput, UpdateProfileInput,
+    MyRepliesData, NotificationListData, PointsLeaderboardData, PostDetailData, PostLikeData,
+    PostListData, ProfileData, ProfileUser, ReadAllNotificationsData, ReportInput, ShareLink,
+    ShareLinkInput, ShareLinkListData, SiteGovernance, UnreadCountData, UpdateMyPostInput,
+    UpdateProfileInput,
 };
 
 /// App Token：与 Worker 侧 `APP_TOKEN`（wrangler.toml `[vars]`）保持一致，
@@ -303,6 +304,44 @@ pub async fn create_reply(
     )
     .await?;
     Ok(data.reply_id)
+}
+
+/// 点赞帖子（点赞迭代：作者不能自赞由 Worker 校验；1 赞 = 作者 +1 积分），返回最新点赞态
+pub async fn like_post(
+    base_url: &str,
+    user_id: &str,
+    post_id: i64,
+) -> IcodeResult<PostLikeData> {
+    send(
+        base_url,
+        Method::POST,
+        &format!("posts/{post_id}/like"),
+        None,
+        Some(user_id),
+        None,
+        None,
+        true,
+    )
+    .await
+}
+
+/// 取消点赞（积分同步扣回），返回最新点赞态
+pub async fn unlike_post(
+    base_url: &str,
+    user_id: &str,
+    post_id: i64,
+) -> IcodeResult<PostLikeData> {
+    send(
+        base_url,
+        Method::DELETE,
+        &format!("posts/{post_id}/like"),
+        None,
+        Some(user_id),
+        None,
+        None,
+        true,
+    )
+    .await
 }
 
 /// 我的资料 + 签到统计

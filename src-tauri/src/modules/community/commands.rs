@@ -14,9 +14,9 @@ use super::types::{
     AdminShareListData, AdminUpdateGovernanceInput, AdminUpdatePostInput, AdminUserItem,
     CheckInLeaderboardData, CheckInResult, CommunityLocalState, CreatePostInput, CreateReplyInput,
     MyPostsData, MyRepliesData, NotificationListData, PointsLeaderboardData, PostDetailData,
-    PostListData, ProfileData, ProfileUser, ReadAllNotificationsData, ReportInput, ShareLink,
-    ShareLinkInput, ShareLinkListData, SiteGovernance, UnreadCountData, UpdateMyPostInput,
-    UpdateProfileInput,
+    PostLikeData, PostListData, ProfileData, ProfileUser, ReadAllNotificationsData, ReportInput,
+    ShareLink, ShareLinkInput, ShareLinkListData, SiteGovernance, UnreadCountData,
+    UpdateMyPostInput, UpdateProfileInput,
 };
 
 /// 列表分页上限（与 Worker 侧 MAX_LIST_LIMIT 对齐）
@@ -74,6 +74,24 @@ pub async fn community_create_reply(
     input: CreateReplyInput,
 ) -> IcodeResult<i64> {
     state.service().create_reply(post_id, input).await
+}
+
+/// 点赞帖子（点赞迭代：作者不能自赞由 Worker 校验；1 赞 = 作者 +1 积分）
+#[tauri::command]
+pub async fn community_like_post(
+    state: State<'_, CommunityHandle>,
+    post_id: i64,
+) -> IcodeResult<PostLikeData> {
+    state.service().like_post(post_id).await
+}
+
+/// 取消点赞（作者积分同步扣回）
+#[tauri::command]
+pub async fn community_unlike_post(
+    state: State<'_, CommunityHandle>,
+    post_id: i64,
+) -> IcodeResult<PostLikeData> {
+    state.service().unlike_post(post_id).await
 }
 
 // ===== 用户中心 =====

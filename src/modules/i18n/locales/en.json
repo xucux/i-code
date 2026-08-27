@@ -1737,7 +1737,9 @@
       "checkedIn": "Checked in today",
       "closeCommunity": "Close community",
       "loadMore": "Load more",
-      "share": "Share"
+      "share": "Share",
+      "like": "Like",
+      "liked": "Liked"
     },
     "pinned": "Pinned",
     "my": {
@@ -2001,7 +2003,9 @@
       "checkInPoints": "Checked in, +{{earned}} points",
       "checkInBonus": "Checked in, +{{earned}} points (5-day streak bonus +{{bonus}})",
       "profile": "Profile updated",
-      "report": "Report submitted, thanks"
+      "report": "Report submitted, thanks",
+      "liked": "Liked, +1 point for the author",
+      "unliked": "Like removed"
     },
     "loadError": {
       "loading": "Loading…"

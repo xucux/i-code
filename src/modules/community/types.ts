@@ -51,6 +51,10 @@ export interface PostSummary {
   /** 正文截断摘要（Worker 侧取前 200 字） */
   excerpt: string
   replyCount: number
+  /** 点赞数（点赞迭代，2026-08-27） */
+  likeCount: number
+  /** 当前用户是否已点赞（列表卡片已赞态） */
+  liked: boolean
   /** 帖子级锁定（D11：locked=1 时禁止新增评论回复，存量保留展示） */
   locked: boolean
   /** 是否置顶（管理员置顶后列表排序置顶） */
@@ -73,12 +77,24 @@ export interface PostDetail {
   /** 所属板块（chat / eggs / tech） */
   section: CommunitySection
   replyCount: number
+  /** 点赞数（点赞迭代，2026-08-27） */
+  likeCount: number
+  /** 当前用户是否已点赞（详情页点赞按钮已赞态） */
+  liked: boolean
   /** 帖子级锁定（D11：locked=1 时禁止新增评论回复） */
   locked: boolean
   /** 是否置顶（管理员置顶后列表排序置顶） */
   pinned: boolean
   createdAt: string
   author: UserBrief
+}
+
+/** 点赞 / 取消点赞结果（点赞迭代，2026-08-27） */
+export interface PostLikeData {
+  /** 操作后是否处于已点赞状态 */
+  liked: boolean
+  /** 操作后的点赞总数 */
+  likeCount: number
 }
 
 /** 楼中楼回复项（第 2 层） */
@@ -183,6 +199,8 @@ export interface MyPostItem {
   section: CommunitySection
   excerpt: string
   replyCount: number
+  /** 点赞数（点赞迭代，2026-08-27） */
+  likeCount: number
   /** 是否置顶（默认 false） */
   pinned: boolean
   createdAt: string
@@ -336,6 +354,8 @@ export interface AdminPostItem {
   /** 正文截断摘要（Worker 侧取前 200 字） */
   excerpt: string
   replyCount: number
+  /** 点赞数（点赞迭代，2026-08-27） */
+  likeCount: number
   /** 帖子级锁定（D11：locked=1 时禁止新增评论回复） */
   locked: boolean
   /** 是否置顶（管理员置顶后列表排序置顶） */

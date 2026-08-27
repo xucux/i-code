@@ -93,6 +93,12 @@ pub struct PostSummary {
     /// 正文截断摘要（Worker 侧取前 200 字）
     pub excerpt: String,
     pub reply_count: i64,
+    /// 点赞数（点赞迭代，2026-08-27）
+    #[serde(default)]
+    pub like_count: i64,
+    /// 当前用户是否已点赞（列表卡片已赞态；Worker 按 viewer 计算）
+    #[serde(default)]
+    pub liked: bool,
     /// 帖子级锁定（D11：locked=1 时禁止新增评论回复）
     #[serde(default)]
     pub locked: bool,
@@ -122,6 +128,12 @@ pub struct PostDetail {
     #[serde(default = "default_section")]
     pub section: String,
     pub reply_count: i64,
+    /// 点赞数（点赞迭代，2026-08-27）
+    #[serde(default)]
+    pub like_count: i64,
+    /// 当前用户是否已点赞（详情页点赞按钮已赞态）
+    #[serde(default)]
+    pub liked: bool,
     /// 帖子级锁定（D11：locked=1 时禁止新增评论回复）
     #[serde(default)]
     pub locked: bool,
@@ -130,6 +142,16 @@ pub struct PostDetail {
     pub pinned: bool,
     pub created_at: String,
     pub author: UserBrief,
+}
+
+/// 点赞 / 取消点赞结果（点赞迭代，2026-08-27）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PostLikeData {
+    /// 操作后是否处于已点赞状态
+    pub liked: bool,
+    /// 操作后的点赞总数
+    pub like_count: i64,
 }
 
 /// 楼中楼回复项
@@ -282,6 +304,9 @@ pub struct MyPostItem {
     pub section: String,
     pub excerpt: String,
     pub reply_count: i64,
+    /// 点赞数（点赞迭代，2026-08-27）
+    #[serde(default)]
+    pub like_count: i64,
     /// 是否置顶（默认 false）
     #[serde(default)]
     pub pinned: bool,
@@ -505,6 +530,9 @@ pub struct AdminPostItem {
     /// 正文截断摘要（Worker 侧取前 200 字）
     pub excerpt: String,
     pub reply_count: i64,
+    /// 点赞数（点赞迭代，2026-08-27）
+    #[serde(default)]
+    pub like_count: i64,
     /// 帖子级锁定（D11：locked=1 时禁止新增评论回复）
     #[serde(default)]
     pub locked: bool,

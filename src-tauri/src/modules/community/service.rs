@@ -21,9 +21,9 @@ use super::types::{
     AdminShareListData, AdminUpdateGovernanceInput, AdminUpdatePostInput, AdminUserItem,
     CheckInLeaderboardData, CheckInResult, CommunityLocalState, CreatePostInput, CreateReplyInput,
     MyPostsData, MyRepliesData, NotificationListData, PointsLeaderboardData, PostDetailData,
-    PostListData, ProfileData, ProfileUser, ReadAllNotificationsData, ReportInput, ShareLink,
-    ShareLinkInput, ShareLinkListData, SiteGovernance, UnreadCountData, UpdateMyPostInput,
-    UpdateProfileInput,
+    PostLikeData, PostListData, ProfileData, ProfileUser, ReadAllNotificationsData, ReportInput,
+    ShareLink, ShareLinkInput, ShareLinkListData, SiteGovernance, UnreadCountData,
+    UpdateMyPostInput, UpdateProfileInput,
 };
 
 /// 社区 Service 句柄（Tauri State）
@@ -164,6 +164,18 @@ impl CommunityService {
     pub async fn create_reply(&self, post_id: i64, input: CreateReplyInput) -> IcodeResult<i64> {
         let (state, user_id) = self.require_ready()?;
         client::create_reply(&state.base_url, &user_id, post_id, &input).await
+    }
+
+    /// 点赞帖子（点赞迭代：作者不能自赞由 Worker 校验；1 赞 = 作者 +1 积分）
+    pub async fn like_post(&self, post_id: i64) -> IcodeResult<PostLikeData> {
+        let (state, user_id) = self.require_ready()?;
+        client::like_post(&state.base_url, &user_id, post_id).await
+    }
+
+    /// 取消点赞（作者积分同步扣回）
+    pub async fn unlike_post(&self, post_id: i64) -> IcodeResult<PostLikeData> {
+        let (state, user_id) = self.require_ready()?;
+        client::unlike_post(&state.base_url, &user_id, post_id).await
     }
 
     // ===== 用户中心 =====

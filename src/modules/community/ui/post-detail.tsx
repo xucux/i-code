@@ -27,7 +27,14 @@ import { SectionBadge } from '@/modules/community/ui/section-badge'
 import { MuteBadge } from '@/modules/community/ui/mute-badge'
 import { useAvailableHeight } from '@/hooks/use-available-height'
 import { useAutoHideScrollbar } from '@/hooks/use-auto-hide-scrollbar'
-import { createCommunityReply, formatCommunityTime, getCommunityPost, getCommunitySiteGovernance } from '@/hooks/use-community'
+import {
+  createCommunityReply,
+  formatCommunityTime,
+  getCommunityPost,
+  getCommunitySiteGovernance,
+  likeCommunityPost,
+  unlikeCommunityPost,
+} from '@/hooks/use-community'
 import { getCommunityAvatar } from '@/modules/community/avatars'
 import type { PostDetailData, ReplyItem, SiteGovernance } from '@/modules/community/types'
 import { MarkdownReplyDialog } from './markdown-reply-dialog'
@@ -66,6 +73,11 @@ export function PostDetail({ postId, currentUserId }: PostDetailProps) {
   // 分享弹窗（2026-08-26 分享迭代：仅作者本人可见按钮）
   const [shareOpen, setShareOpen] = useState(false)
 
+  // 点赞（点赞迭代：作者不能自赞，自己的帖子不展示点赞按钮；1 赞 = 作者 +1 积分）
+  const [liked, setLiked] = useState(false)
+  const [likeCount, setLikeCount] = useState(0)
+  const [likePending, setLikePending] = useState(false)
+
   // 站点治理开关（D11）：null = 加载中/失败按全关处理，不阻塞浏览
   const [governance, setGovernance] = useState<SiteGovernance | null>(null)
 
@@ -94,6 +106,9 @@ export function PostDetail({ postId, currentUserId }: PostDetailProps) {
     try {
       const result = await getCommunityPost(postId)
       setData(result)
+      // 同步点赞态（详情接口返回当前用户是否已赞）
+      setLiked(result.post.liked)
+      setLikeCount(result.post.likeCount)
     } catch {
       setNotFound(true)
       setData(null)
@@ -160,6 +175,29 @@ export function PostDetail({ postId, currentUserId }: PostDetailProps) {
       toast.error(e instanceof Error ? e.message : String(e))
     } finally {
       setSending(false)
+    }
+  }
+
+  /** 点赞 / 取消点赞（点赞迭代：成功后用返回的最新点赞态回填；作者不能自赞由后端校验） */
+  const handleLike = async () => {
+    if (likePending) return
+    setLikePending(true)
+    try {
+      if (liked) {
+        const res = await unlikeCommunityPost(postId)
+        setLiked(res.liked)
+        setLikeCount(res.likeCount)
+        toast.success(t('success.unliked'))
+      } else {
+        const res = await likeCommunityPost(postId)
+        setLiked(res.liked)
+        setLikeCount(res.likeCount)
+        toast.success(t('success.liked'))
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e))
+    } finally {
+      setLikePending(false)
     }
   }
 
@@ -277,9 +315,31 @@ export function PostDetail({ postId, currentUserId }: PostDetailProps) {
               <span className="max-w-32 truncate">{post.author.nickname}</span>
               <MuteBadge muted={post.author.muted} />
               <span>{formatCommunityTime(post.createdAt, t)}</span>
-              <span className="ml-auto flex items-center gap-1 tabular-nums">
-                <i className="fa-solid fa-comment size-2.5" />
-                {post.replyCount}
+              {/* 点赞（点赞迭代）：作者不能自赞，自己的帖子不展示点赞按钮 */}
+              <span className="ml-auto flex items-center gap-2 tabular-nums">
+                {post.author.userId !== currentUserId && (
+                  <button
+                    type="button"
+                    disabled={likePending}
+                    onClick={() => void handleLike()}
+                    className={cn(
+                      'flex items-center gap-1 transition-colors',
+                      liked ? 'text-primary hover:text-primary/80' : 'hover:text-foreground'
+                    )}
+                    title={liked ? t('action.liked') : t('action.like')}
+                  >
+                    {likePending ? (
+                      <i className="fa-solid fa-spinner fa-spin size-2.5" />
+                    ) : (
+                      <i className={cn('size-2.5', liked ? 'fa-solid fa-heart' : 'fa-regular fa-heart')} />
+                    )}
+                    {likeCount}
+                  </button>
+                )}
+                <span className="flex items-center gap-1">
+                  <i className="fa-solid fa-comment size-2.5" />
+                  {post.replyCount}
+                </span>
               </span>
             </div>
             {/* 正文：社区隔离 Markdown 渲染（GFM + GitHub Alert，代码长块折叠） */}

@@ -1736,7 +1736,9 @@
       "checkIn": "簽到",
       "checkedIn": "今日已簽到",
       "closeCommunity": "關閉社群",
-      "loadMore": "載入更多"
+      "loadMore": "載入更多",
+      "like": "點讚",
+      "liked": "已點讚"
     },
     "pinned": "置頂",
     "my": {
@@ -1970,7 +1972,9 @@
       "checkInPoints": "簽到成功，積分 +{{earned}}",
       "checkInBonus": "簽到成功，積分 +{{earned}}（連續 5 天獎勵 +{{bonus}}）",
       "profile": "資料已更新",
-      "report": "檢舉已提交，感謝回饋"
+      "report": "檢舉已提交，感謝回饋",
+      "liked": "點讚成功，作者 +1 積分",
+      "unliked": "已取消點讚"
     },
     "loadError": {
       "loading": "載入中…"
