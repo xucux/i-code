@@ -2420,7 +2420,7 @@ function ModelManagementSection({ provider }: ModelManagementSectionProps) {
                           </div>
                         </TooltipTrigger>
                         {model.background && (
-                          <TooltipContent side="left" className="max-w-[260px] whitespace-normal text-xs leading-relaxed">
+                          <TooltipContent side="top" align="center" className="max-w-[260px] whitespace-normal text-xs leading-relaxed">
                             {model.background}
                           </TooltipContent>
                         )}

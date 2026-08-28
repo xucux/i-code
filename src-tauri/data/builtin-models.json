@@ -1049,6 +1049,54 @@
       }
     },
     {
+      "id": "deepseek-v4-flash-0731",
+      "displayName": "DeepSeek V4 Flash 0731",
+      "background": "DeepSeek V4 Flash 0731（2026-07-31），284B MoE（激活 13B，6/256 专家），MIT 开源，后训练大幅提升智能体能力；Terminal-Bench 2.1 达 82.7（预览版 61.8），DeepSWE 从 7.3 暴涨至 54.4，九项智能体基准全面超越 V4 Pro 预览版。",
+      "family": "deepseek",
+      "providerTypes": [
+        "anthropic",
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 384000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": "deepseek",
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "max"
+      }
+    },
+    {
+      "id": "deepseek-v4-pro-0813",
+      "displayName": "DeepSeek V4 Pro 0813",
+      "background": "DeepSeek V4 Pro 0813（2026-08-13），1.6T MoE（激活 49B，384 路由+1 共享专家，6/专家每 token），MIT 开源，61 核心层 + MTP + DSpark 推测解码；FP4 MoE/FP8 混合精度，1M 上下文/384K 输出；Terminal-Bench 2.1 达 87.9，智能体性能大幅提升，GA 正式版取代 4 月预览版。",
+      "family": "deepseek",
+      "providerTypes": [
+        "anthropic",
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 384000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": "deepseek",
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "max"
+      }
+    },
+    {
       "id": "deepseek-v3.2",
       "displayName": "DeepSeek V3.2",
       "background": "DeepSeek V3.2（2025-09），671B MoE（激活 37B），DSA 稀疏注意力，API 价格再降 50% 以上。",
