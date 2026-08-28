@@ -240,7 +240,7 @@
         },
         {
           "modelId": "deepseek-v4-flash-free",
-          "displayName": "DeepSeek V4 Flash",
+          "displayName": "DeepSeek V4 Flash（下架）",
           "matchModelId": "deepseek-v4-flash"
         },
         {
@@ -249,12 +249,13 @@
           "matchModelId": "mimo-v2.5"
         },
         {
-          "modelId": "x-preview-f-free",
-          "displayName": "Ox Alpha Free"
+          "modelId": "hy3-free",
+          "displayName": "Hy3 Free",
+          "matchModelId": "hy3"
         },
         {
           "modelId": "muse-spark-1.2-contributor-free",
-          "displayName": "Muse Spark 1.2 Contributor",
+          "displayName": "Muse Spark 1.2 Contributor（美区）",
           "matchModelId": "muse-spark-1.2-contributor"
         }
       ]
