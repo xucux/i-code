@@ -5,6 +5,7 @@
     {
       "id": "doubao-seed-evolving",
       "displayName": "Doubao Seed Evolving",
+      "background": "豆包\"自进化\"种子模型，火山引擎旗舰实验型号，能力随用户反馈持续迭代；256K 上下文，支持图像输入与高强度思考，参数量未公开。",
       "family": "volcano",
       "providerTypes": [
         "openai-responses"
@@ -27,6 +28,7 @@
     {
       "id": "doubao-seed-2-1-pro-260628",
       "displayName": "Doubao Seed 2.1 Pro",
+      "background": "豆包 Seed 2.1 Pro（2026-06-28），旗舰编程/推理型号，256K 上下文 + 高强度思考，代码与智能体任务表现突出，参数量未公开。",
       "family": "volcano",
       "providerTypes": [
         "openai-responses"
@@ -49,6 +51,7 @@
     {
       "id": "doubao-seed-2-1-turbo-260628",
       "displayName": "Doubao Seed 2.1 Turbo",
+      "background": "豆包 Seed 2.1 Turbo（2026-06-28），Pro 系高速版，延迟与成本更低，适合高频调用场景，参数量未公开。",
       "family": "volcano",
       "providerTypes": [
         "openai-responses"
@@ -71,6 +74,7 @@
     {
       "id": "doubao-seed-2-0-pro-260215",
       "displayName": "Doubao Seed 2.0 Pro",
+      "background": "豆包 Seed 2.0 Pro（2026-02-15），上一代旗舰，推理/代码/多模态能力均衡，256K 上下文，参数量未公开。",
       "family": "volcano",
       "providerTypes": [
         "openai-responses"
@@ -93,6 +97,7 @@
     {
       "id": "doubao-seed-2-0-lite-260215",
       "displayName": "Doubao Seed 2.0 Lite",
+      "background": "豆包 Seed 2.0 Lite（2026-02-15），轻量版，主打低成本高吞吐，参数量未公开。",
       "family": "volcano",
       "providerTypes": [
         "openai-responses"
@@ -115,6 +120,7 @@
     {
       "id": "doubao-seed-2-0-mini-260215",
       "displayName": "Doubao Seed 2.0 Mini",
+      "background": "豆包 Seed 2.0 Mini（2026-02-15），最小规格，响应极快，适合分类/提取等轻任务，参数量未公开。",
       "family": "volcano",
       "providerTypes": [
         "openai-responses"
@@ -137,6 +143,7 @@
     {
       "id": "doubao-seed-2-0-code-preview-260215",
       "displayName": "Doubao Seed 2.0 Code Preview",
+      "background": "豆包 Seed 2.0 Code 预览版（2026-02-15），专注代码生成/补全与仓库级理解，参数量未公开。",
       "family": "volcano",
       "providerTypes": [
         "openai-responses"
@@ -159,6 +166,7 @@
     {
       "id": "claude-fable-5",
       "displayName": "Claude Fable 5",
+      "background": "Claude 5 代 \"Fable\" 旗舰（2026），1M 上下文，长时程智能体编程与复杂任务编排的代表型号，参数量未公开。",
       "family": "anthropic",
       "providerTypes": [
         "anthropic",
@@ -184,6 +192,7 @@
     {
       "id": "claude-mythos-5",
       "displayName": "Claude Mythos 5",
+      "background": "Claude 5 代 \"Mythos\"（2026），侧重深度推理与创作，1M 上下文，适合分析与写作类重任务，参数量未公开。",
       "family": "anthropic",
       "providerTypes": [
         "anthropic",
@@ -209,6 +218,7 @@
     {
       "id": "claude-sonnet-5",
       "displayName": "Claude Sonnet 5",
+      "background": "Claude Sonnet 5（2026），第五代均衡型号，编程与智能体能力接近旗舰、更快更省，默认超高强度思考，参数量未公开。",
       "family": "anthropic",
       "providerTypes": [
         "anthropic",
@@ -234,6 +244,7 @@
     {
       "id": "claude-opus-4-8",
       "displayName": "Claude Opus 4.8",
+      "background": "Claude Opus 4.8（2026），旗舰编程模型，1M 上下文，Terminal-Bench 约 85 分，复杂智能体与长时程任务首选，参数量未公开。",
       "family": "anthropic",
       "providerTypes": [
         "anthropic",
@@ -259,6 +270,7 @@
     {
       "id": "claude-opus-4-7",
       "displayName": "Claude Opus 4.7",
+      "background": "Claude Opus 4.7（2026），旗舰迭代，1M 上下文，推理与代码能力进一步增强，参数量未公开。",
       "family": "anthropic",
       "providerTypes": [
         "anthropic",
@@ -284,6 +296,7 @@
     {
       "id": "claude-opus-4-6",
       "displayName": "Claude Opus 4.6",
+      "background": "Claude Opus 4.6（2025-11），200K 上下文，大幅提升长时程任务稳定性与代码质量，参数量未公开。",
       "family": "anthropic",
       "providerTypes": [
         "anthropic",
@@ -309,6 +322,7 @@
     {
       "id": "claude-sonnet-4-6",
       "displayName": "Claude Sonnet 4.6",
+      "background": "Claude Sonnet 4.6（2025-12），以更低成本提供接近 Opus 的编码能力，日常编程主力，参数量未公开。",
       "family": "anthropic",
       "providerTypes": [
         "openai-chat-completion",
@@ -333,6 +347,7 @@
     {
       "id": "claude-opus-4-5",
       "displayName": "Claude Opus 4.5",
+      "background": "Claude Opus 4.5（2025-11），专注复杂软件工程，SWE-bench 领先，200K 上下文，参数量未公开。",
       "family": "anthropic",
       "providerTypes": [
         "anthropic",
@@ -357,6 +372,7 @@
     {
       "id": "claude-sonnet-4-5",
       "displayName": "Claude Sonnet 4.5",
+      "background": "Claude Sonnet 4.5（2025-09），可连续数小时自主编程，编码性能接近 Opus 4.1 而成本约 1/5，参数量未公开。",
       "family": "anthropic",
       "providerTypes": [
         "anthropic",
@@ -381,6 +397,7 @@
     {
       "id": "claude-haiku-4-5",
       "displayName": "Claude Haiku 4.5",
+      "background": "Claude Haiku 4.5（2025-10），轻量高速，接近 Sonnet 4.5 的编码水平，成本约为其 1/4，参数量未公开。",
       "family": "anthropic",
       "providerTypes": [
         "anthropic",
@@ -405,6 +422,7 @@
     {
       "id": "gpt-5.6-sol",
       "displayName": "GPT-5.6 Sol",
+      "background": "GPT-5.6 \"Sol\"（2026），旗舰编程/智能体变体，1.05M 上下文，超高强度思考，参数量未公开。",
       "family": "openai",
       "providerTypes": [
         "openai-responses"
@@ -430,6 +448,7 @@
     {
       "id": "gpt-5.6-terra",
       "displayName": "GPT-5.6 Terra",
+      "background": "GPT-5.6 \"Terra\"（2026），侧重稳定与长任务的旗舰变体，1.05M 上下文，参数量未公开。",
       "family": "openai",
       "providerTypes": [
         "openai-responses"
@@ -455,6 +474,7 @@
     {
       "id": "gpt-5.6-luna",
       "displayName": "GPT-5.6 Luna",
+      "background": "GPT-5.6 \"Luna\"（2026），速度与成本优化的旗舰变体，1.05M 上下文，参数量未公开。",
       "family": "openai",
       "providerTypes": [
         "openai-responses"
@@ -480,6 +500,7 @@
     {
       "id": "gpt-5.4",
       "displayName": "GPT-5.4",
+      "background": "GPT-5.4（2026），通用旗舰，1.05M 上下文，思考强度可调，参数量未公开。",
       "family": "openai",
       "providerTypes": [
         "openai-responses"
@@ -503,6 +524,7 @@
     {
       "id": "gpt-5.4-pro",
       "displayName": "GPT-5.4 pro",
+      "background": "GPT-5.4 Pro（2026），增强推理版，复杂任务思考更深，延迟较高，参数量未公开。",
       "family": "openai",
       "providerTypes": [
         "openai-responses"
@@ -526,6 +548,7 @@
     {
       "id": "gpt-5.4-mini",
       "displayName": "GPT-5.4 Mini",
+      "background": "GPT-5.4 Mini（2026），中型低成本版，400K 上下文，速度快，参数量未公开。",
       "family": "openai",
       "providerTypes": [
         "openai-responses"
@@ -549,6 +572,7 @@
     {
       "id": "gpt-5.4-nano",
       "displayName": "GPT-5.4 Nano",
+      "background": "GPT-5.4 Nano（2026），超小型，超低延迟与成本，适合分类/路由等轻任务，参数量未公开。",
       "family": "openai",
       "providerTypes": [
         "openai-responses"
@@ -572,6 +596,7 @@
     {
       "id": "gpt-5.3-codex",
       "displayName": "GPT-5.3-Codex",
+      "background": "GPT-5.3 Codex（2026），代码专精版，为 CLI 智能体与仓库级重构优化，400K 上下文，参数量未公开。",
       "family": "openai",
       "providerTypes": [
         "openai-chat-completion"
@@ -596,6 +621,7 @@
     {
       "id": "gpt-4.1",
       "displayName": "GPT-4.1",
+      "background": "GPT-4.1（2025-04），1M 上下文，编程与指令遵循显著优于 GPT-4o，参数量未公开。",
       "family": "openai",
       "providerTypes": [
         "openai-responses"
@@ -615,6 +641,7 @@
     {
       "id": "gpt-oss-120b",
       "displayName": "GPT-OSS 120B",
+      "background": "gpt-oss-120b（2025-08），开源 117B MoE（激活 5.1B），Apache 2.0 协议，可本地部署。",
       "family": "openai",
       "providerTypes": [
         "openai-responses",
@@ -639,6 +666,7 @@
     {
       "id": "gpt-oss-20b",
       "displayName": "GPT-OSS 20B",
+      "background": "gpt-oss-20b（2025-08），开源 21B MoE（激活 3.6B），约 16GB 显存可运行，Apache 2.0 协议。",
       "family": "openai",
       "providerTypes": [
         "openai-responses"
@@ -662,6 +690,7 @@
     {
       "id": "MiniMax-M3",
       "displayName": "MiniMax-M3",
+      "background": "MiniMax M3（2026），旗舰 MoE，1M 上下文，多模态与智能体能力大幅升级，参数量未公开。",
       "family": "minimax",
       "providerTypes": [
         "anthropic"
@@ -683,6 +712,7 @@
     {
       "id": "MiniMax-M2.7",
       "displayName": "MiniMax-M2.7",
+      "background": "MiniMax M2.7（2026），204K 上下文，编码与推理性价比高，参数量未公开（M2 系开源版为 230B 总参/10B 激活）。",
       "family": "minimax",
       "providerTypes": [
         "openai-chat-completion"
@@ -704,6 +734,7 @@
     {
       "id": "MiniMax-M2.7-highspeed",
       "displayName": "MiniMax-M2.7-Highspeed",
+      "background": "MiniMax M2.7 高速版（2026），同等能力更低延迟，适合流式交互，参数量未公开（M2 系开源版为 230B 总参/10B 激活）。",
       "family": "minimax",
       "providerTypes": [
         "anthropic"
@@ -725,6 +756,7 @@
     {
       "id": "MiniMax-M2.5",
       "displayName": "MiniMax-M2.5",
+      "background": "MiniMax M2.5（2025），204K 上下文，强化工具调用与代码生成，参数量未公开（M2 系开源版为 230B 总参/10B 激活）。",
       "family": "minimax",
       "providerTypes": [
         "openai-chat-completion",
@@ -747,6 +779,7 @@
     {
       "id": "MiniMax-M2.1",
       "displayName": "MiniMax-M2.1",
+      "background": "MiniMax M2.1（2025-10），230B MoE（激活 10B），以约 10% 的成本对标一线模型。",
       "family": "minimax",
       "providerTypes": [
         "openai-chat-completion"
@@ -768,6 +801,7 @@
     {
       "id": "ernie-5.0",
       "displayName": "ERNIE 5.0",
+      "background": "文心大模型 5.0（2026），128K 上下文，原生多模态，知识增强，参数量未公开。",
       "family": "baidu",
       "providerTypes": [
         "openai-chat-completion"
@@ -787,6 +821,7 @@
     {
       "id": "ernie-5.0-thinking-preview",
       "displayName": "ERNIE 5.0 Thinking Preview",
+      "background": "文心 5.0 思考预览版（2026），深度推理强化，适合数学/代码难题，参数量未公开。",
       "family": "baidu",
       "providerTypes": [
         "openai-chat-completion"
@@ -808,6 +843,7 @@
     {
       "id": "ernie-4.5-turbo-128k",
       "displayName": "ERNIE 4.5 Turbo 128K",
+      "background": "文心 4.5 Turbo（2025-05），47B MoE（激活 3B），速度提升约 3 倍、价格大幅下降。",
       "family": "baidu",
       "providerTypes": [
         "openai-chat-completion"
@@ -827,6 +863,7 @@
     {
       "id": "ernie-4.5-turbo-vl",
       "displayName": "ERNIE 4.5 Turbo VL",
+      "background": "文心 4.5 Turbo VL（2025），多模态版，支持图文理解，与 Turbo 同底座（47B 总参/3B 激活），VL 版参数未单独公开。",
       "family": "baidu",
       "providerTypes": [
         "openai-chat-completion"
@@ -846,6 +883,7 @@
     {
       "id": "ernie-4.5-turbo-vl-preview",
       "displayName": "ERNIE 4.5 Turbo VL Preview",
+      "background": "文心 4.5 Turbo VL 预览版，多模态能力尝鲜通道，与 Turbo 同底座（47B 总参/3B 激活），参数未单独公开。",
       "family": "baidu",
       "providerTypes": [
         "openai-chat-completion"
@@ -865,6 +903,7 @@
     {
       "id": "ernie-4.5-turbo-vl-32k-preview",
       "displayName": "ERNIE 4.5 Turbo VL 32K Preview",
+      "background": "文心 4.5 Turbo VL 32K 预览版，轻量多模态，与 Turbo 同底座（47B 总参/3B 激活），参数未单独公开。",
       "family": "baidu",
       "providerTypes": [
         "openai-chat-completion"
@@ -884,6 +923,7 @@
     {
       "id": "ernie-4.5-vl-28b-a3b",
       "displayName": "ERNIE 4.5 VL 28B A3B",
+      "background": "文心 4.5 VL-28B-A3B（2025-05），28B MoE（激活 3B）开源多模态。",
       "family": "baidu",
       "providerTypes": [
         "openai-chat-completion"
@@ -903,6 +943,7 @@
     {
       "id": "ernie-speed-pro-128k",
       "displayName": "ERNIE Speed Pro 128K",
+      "background": "文心 Speed Pro（2025），高吞吐低成本，128K 上下文，参数量未公开。",
       "family": "baidu",
       "providerTypes": [
         "openai-chat-completion"
@@ -922,6 +963,7 @@
     {
       "id": "ernie-lite-pro-128k",
       "displayName": "ERNIE Lite Pro 128K",
+      "background": "文心 Lite Pro（2025），极低成本，适合海量轻任务，参数量未公开。",
       "family": "baidu",
       "providerTypes": [
         "openai-chat-completion"
@@ -941,6 +983,7 @@
     {
       "id": "qianfan-lightning-128b-a19b",
       "displayName": "Qianfan Lightning 128B A19B",
+      "background": "千帆 Lightning 128B（2025），MoE（激活 19B），128K 上下文，吞吐与成本均衡。",
       "family": "openai",
       "providerTypes": [
         "openai-chat-completion"
@@ -960,6 +1003,7 @@
     {
       "id": "deepseek-v4-flash",
       "displayName": "DeepSeek V4 Flash",
+      "background": "DeepSeek V4 Flash（2026），1M 上下文 + 384K 输出，思考力度拉满，速度与成本优化，参数量未公开。",
       "family": "deepseek",
       "providerTypes": [
         "anthropic",
@@ -983,6 +1027,7 @@
     {
       "id": "deepseek-v4-pro",
       "displayName": "DeepSeek V4 Pro",
+      "background": "DeepSeek V4 Pro（2026），旗舰推理模型，1M 上下文，长推理链表现突出，参数量未公开。",
       "family": "deepseek",
       "providerTypes": [
         "anthropic",
@@ -1006,6 +1051,7 @@
     {
       "id": "deepseek-v3.2",
       "displayName": "DeepSeek V3.2",
+      "background": "DeepSeek V3.2（2025-09），671B MoE（激活 37B），DSA 稀疏注意力，API 价格再降 50% 以上。",
       "family": "deepseek",
       "providerTypes": [
         "openai-chat-completion",
@@ -1028,6 +1074,7 @@
     {
       "id": "deepseek-v3",
       "displayName": "DeepSeek V3",
+      "background": "DeepSeek V3（2024-12），671B MoE（激活 37B），128K 上下文，性价比标杆。",
       "family": "deepseek",
       "providerTypes": [
         "openai-chat-completion"
@@ -1047,6 +1094,7 @@
     {
       "id": "deepseek-v3-0324",
       "displayName": "DeepSeek V3 (0324)",
+      "background": "DeepSeek V3-0324（2025-03），671B MoE（激活 37B），V3 小幅升级，代码与数学能力显著提升。",
       "family": "deepseek",
       "providerTypes": [
         "openai-chat-completion"
@@ -1066,6 +1114,7 @@
     {
       "id": "deepseek-r1-0528",
       "displayName": "DeepSeek R1 (0528)",
+      "background": "DeepSeek R1-0528（2025-05），671B MoE 推理模型，强化思考深度，对标 o3/high。",
       "family": "deepseek",
       "providerTypes": [
         "openai-chat-completion"
@@ -1087,6 +1136,7 @@
     {
       "id": "kimi-k3",
       "displayName": "Kimi K3",
+      "background": "Kimi K3（2026），旗舰 MoE，1M 上下文 + 多模态，智能体能力全面，参数量未公开（K2 系开源版为 1T 总参/32B 激活）。",
       "family": "moonshot",
       "providerTypes": [
         "openai-chat-completion"
@@ -1108,6 +1158,7 @@
     {
       "id": "kimi-k2.7-code",
       "displayName": "Kimi K2.7 Code",
+      "background": "Kimi K2.7 Code（2026），代码专精，256K 上下文，Agentic 编程优化，参数量未公开（K2 系开源版为 1T 总参/32B 激活）。",
       "family": "moonshot",
       "providerTypes": [
         "openai-chat-completion"
@@ -1129,6 +1180,7 @@
     {
       "id": "kimi-k2.6",
       "displayName": "Kimi K2.6",
+      "background": "Kimi K2.6（2026），256K 上下文，综合能力迭代，参数量未公开（K2 系开源版为 1T 总参/32B 激活）。",
       "family": "moonshot",
       "providerTypes": [
         "anthropic",
@@ -1151,6 +1203,7 @@
     {
       "id": "kimi-k2.5",
       "displayName": "Kimi K2.5",
+      "background": "Kimi K2.5（2025-12），256K 上下文，工具调用与推理增强，参数量未公开（K2 系开源版为 1T 总参/32B 激活）。",
       "family": "moonshot",
       "providerTypes": [
         "openai-chat-completion",
@@ -1173,6 +1226,7 @@
     {
       "id": "kimi-k2-thinking",
       "displayName": "Kimi K2 Thinking",
+      "background": "Kimi K2 Thinking（2025-11），总参数 1T/激活 32B，强化长推理，数学/代码竞赛级表现。",
       "family": "moonshot",
       "providerTypes": [
         "openai-chat-completion"
@@ -1194,6 +1248,7 @@
     {
       "id": "kimi-k2-0905-preview",
       "displayName": "Kimi K2 0905 Preview",
+      "background": "Kimi K2 0905 预览版（2025-09），K2 架构早期通道（1T 总参/激活 32B），256K 上下文。",
       "family": "moonshot",
       "providerTypes": [
         "openai-chat-completion"
@@ -1213,6 +1268,7 @@
     {
       "id": "kimi-for-coding",
       "displayName": "Kimi For Coding",
+      "background": "Kimi for Coding（2025-12），面向 CLI 编程场景的特调版，默认中等强度思考，参数量未公开。",
       "family": "moonshot",
       "providerTypes": [
         "anthropic"
@@ -1235,6 +1291,7 @@
     {
       "id": "qwen3.8-max",
       "displayName": "Qwen3.8-Max",
+      "background": "Qwen3.8-Max（2026），1M 上下文旗舰，多模态 + 超高强度思考，参数量未公开。",
       "family": "alibaba",
       "providerTypes": [
         "openai-chat-completion",
@@ -1259,6 +1316,7 @@
     {
       "id": "qwen3.8-27b",
       "displayName": "Qwen3.8-27B",
+      "background": "Qwen3.8-27B（2026），中型开源级，262K 上下文，支持图像输入。",
       "family": "alibaba",
       "providerTypes": [
         "openai-chat-completion",
@@ -1282,6 +1340,7 @@
     {
       "id": "qwen3.7-max",
       "displayName": "Qwen3.7-Max",
+      "background": "Qwen3.7-Max（2026），1M 上下文，闭源旗舰迭代，参数量未公开。",
       "family": "alibaba",
       "providerTypes": [
         "openai-chat-completion",
@@ -1304,6 +1363,7 @@
     {
       "id": "qwen3.7-plus",
       "displayName": "Qwen3.7-Plus",
+      "background": "Qwen3.7-Plus（2026），旗舰以下主力，1M 上下文 + 多模态，参数量未公开。",
       "family": "alibaba",
       "providerTypes": [
         "openai-chat-completion",
@@ -1326,6 +1386,7 @@
     {
       "id": "qwen3.6-plus",
       "displayName": "Qwen3.6-Plus",
+      "background": "Qwen3.6-Plus（2026），1M 上下文，均衡型主力，参数量未公开。",
       "family": "alibaba",
       "providerTypes": [
         "anthropic"
@@ -1347,6 +1408,7 @@
     {
       "id": "qwen3.6-flash",
       "displayName": "Qwen3.6-Flash",
+      "background": "Qwen3.6-Flash（2026），高速低成本，1M 上下文 + 多模态，参数量未公开。",
       "family": "alibaba",
       "providerTypes": [
         "openai-chat-completion",
@@ -1369,6 +1431,7 @@
     {
       "id": "qwen3.5-397b-a17b",
       "displayName": "Qwen3.5-397B-A17B",
+      "background": "Qwen3.5-397B（激活 17B）（2026），开源 MoE，262K 上下文，多模态。",
       "family": "alibaba",
       "providerTypes": [
         "openai-chat-completion"
@@ -1390,6 +1453,7 @@
     {
       "id": "llama-3.1-8b",
       "displayName": "Llama 3.1 8B",
+      "background": "Llama 3.1 8B（2024-07），稠密 8B 开源，128K 上下文，本地部署友好。",
       "family": "meta",
       "providerTypes": [
         "openai-chat-completion"
@@ -1409,6 +1473,7 @@
     {
       "id": "llama-3.3-70b",
       "displayName": "Llama 3.3 70B",
+      "background": "Llama 3.3 70B（2024-12），稠密 70B 开源，性能对标 405B 版本，128K 上下文。",
       "family": "meta",
       "providerTypes": [
         "openai-chat-completion"
@@ -1428,6 +1493,7 @@
     {
       "id": "muse-spark-1.2-contributor",
       "displayName": "Muse Spark 1.2 Contributor",
+      "background": "Muse Spark 1.2 Contributor（2026），开源社区贡献版，1M 上下文 + 多模态，思考强度可调，参数量未公开。",
       "family": "meta",
       "providerTypes": [
         "openai-chat-completion",
@@ -1452,6 +1518,7 @@
     {
       "id": "qwen3-32b",
       "displayName": "Qwen3 32B",
+      "background": "Qwen3-32B（2025-04），32.8B 稠密开源，128K 上下文（可扩至 262K），思考/非思考双模式。",
       "family": "alibaba",
       "providerTypes": [
         "openai-chat-completion"
@@ -1470,6 +1537,7 @@
     {
       "id": "qwen3-235b-a22b-thinking-2507",
       "displayName": "Qwen3 235B A22B Thinking 2507",
+      "background": "Qwen3-235B-A22B Thinking（2025-07），235B MoE（激活 22B），旗舰思考版，缓存命中后价格降约 90%。",
       "family": "alibaba",
       "providerTypes": [
         "openai-chat-completion"
@@ -1488,6 +1556,7 @@
     {
       "id": "qwen3-235b-a22b-instruct-2507",
       "displayName": "Qwen3 235B A22B Instruct 2507",
+      "background": "Qwen3-235B-A22B Instruct（2025-07），非思考版旗舰，指令遵循更强。",
       "family": "alibaba",
       "providerTypes": [
         "openai-chat-completion"
@@ -1504,6 +1573,7 @@
     {
       "id": "qwen3-coder-480b-a35b-instruct",
       "displayName": "Qwen3 Coder 480B A35B Instruct",
+      "background": "Qwen3 Coder-480B（激活 35B）（2025-07），最大开源编程模型之一，256K 上下文（可扩至 1M）。",
       "family": "alibaba",
       "providerTypes": [
         "openai-chat-completion"
@@ -1523,6 +1593,7 @@
     {
       "id": "mimo-v2.5-pro",
       "displayName": "MiMo V2.5 Pro",
+      "background": "小米 MiMo v2.5 Pro（2026），1M 上下文，旗舰推理型号，参数量未公开。",
       "family": "xiaomi",
       "providerTypes": [
         "openai-chat-completion"
@@ -1544,6 +1615,7 @@
     {
       "id": "mimo-v2.5",
       "displayName": "MiMo V2.5",
+      "background": "小米 MiMo v2.5（2026），1M 上下文 + 多模态，通用型，参数量未公开。",
       "family": "xiaomi",
       "providerTypes": [
         "openai-chat-completion"
@@ -1565,6 +1637,7 @@
     {
       "id": "glm-5.2",
       "displayName": "GLM-5.2",
+      "background": "GLM-5.2（2026-06-16），753B MoE，1M 无损上下文，MIT 开源，SWE-bench Pro 62.1。",
       "family": "zhipu",
       "providerTypes": [
         "openai-chat-completion"
@@ -1587,6 +1660,7 @@
     {
       "id": "glm-5.3",
       "displayName": "GLM-5.3",
+      "background": "GLM-5.3（2026-07），基于 744B 基座后训练升级（权重未开源），1M 上下文，智能体与编程再增强。",
       "family": "zhipu",
       "providerTypes": [
         "openai-chat-completion"
@@ -1607,8 +1681,32 @@
       }
     },
     {
+      "id": "glm-5.3-flash",
+      "displayName": "GLM-5.3-Flash",
+      "background": "GLM-5.3-Flash（2026-08-26），320B MoE（激活 18B），原生多模态，1M 上下文，KV cache 缩小 4.4 倍，MIT 开源，价格约为 GLM-5.3 的 1/9。",
+      "family": "zhipu",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "max"
+      }
+    },
+    {
       "id": "glm-5.1",
       "displayName": "GLM-5.1",
+      "background": "GLM-5.1（2026-04），200K 上下文，SWE-bench Pro 58.4，开源，参数量未公开。",
       "family": "zhipu",
       "providerTypes": [
         "anthropic",
@@ -1631,6 +1729,7 @@
     {
       "id": "glm-5v-turbo",
       "displayName": "GLM-5V-Turbo",
+      "background": "GLM-5V Turbo（2026），视觉多模态高速版，200K 上下文，参数量未公开。",
       "family": "zhipu",
       "providerTypes": [
         "openai-chat-completion"
@@ -1652,6 +1751,7 @@
     {
       "id": "glm-5-turbo",
       "displayName": "GLM-5-Turbo",
+      "background": "GLM-5 Turbo（2026），高速低成本通道，200K 上下文，参数量未公开。",
       "family": "zhipu",
       "providerTypes": [
         "openai-chat-completion"
@@ -1673,6 +1773,7 @@
     {
       "id": "glm-5",
       "displayName": "GLM-5",
+      "background": "GLM-5（2026-03），标准版，200K 上下文，参数量未公开。",
       "family": "zhipu",
       "providerTypes": [
         "anthropic",
@@ -1695,6 +1796,7 @@
     {
       "id": "glm-4.7",
       "displayName": "GLM-4.7",
+      "background": "GLM-4.7（2025-11），355B MoE（激活 32B），200K 上下文，代码与推理迭代版。",
       "family": "zhipu",
       "providerTypes": [
         "openai-chat-completion"
@@ -1716,6 +1818,7 @@
     {
       "id": "glm-4.7-flash",
       "displayName": "GLM-4.7-Flash",
+      "background": "GLM-4.7 Flash（2025-11），高速低成本，200K 上下文，与 GLM-4.7（355B/激活 32B）同源，参数未单独公开。",
       "family": "zhipu",
       "providerTypes": [
         "openai-chat-completion"
@@ -1737,6 +1840,7 @@
     {
       "id": "glm-4.7-flashx",
       "displayName": "GLM-4.7-FlashX",
+      "background": "GLM-4.7 FlashX（2025-11），Flash 极速版，超低延迟，与 GLM-4.7（355B/激活 32B）同源，参数未单独公开。",
       "family": "zhipu",
       "providerTypes": [
         "openai-chat-completion"
@@ -1758,6 +1862,7 @@
     {
       "id": "glm-4.6",
       "displayName": "GLM-4.6",
+      "background": "GLM-4.6（2025-10），357B MoE（激活 32B），200K 上下文，前端代码能力突出，MIT 开源。",
       "family": "zhipu",
       "providerTypes": [
         "openai-chat-completion"
@@ -1779,6 +1884,7 @@
     {
       "id": "glm-4.6v",
       "displayName": "GLM-4.6V",
+      "background": "GLM-4.6V（2025-11），视觉版，128K 上下文，图表/文档理解能力强，参数量未公开。",
       "family": "zhipu",
       "providerTypes": [
         "openai-chat-completion"
@@ -1801,6 +1907,7 @@
     {
       "id": "codegeex-4",
       "displayName": "CodeGeeX-4",
+      "background": "CodeGeeX4（2024-07），9B 开源代码模型，128K 上下文，轻量本地补全。",
       "family": "openai",
       "providerTypes": [
         "openai-chat-completion"
@@ -1820,6 +1927,7 @@
     {
       "id": "grok-4.6",
       "displayName": "Grok 4.6",
+      "background": "Grok 4.6（2026），500K 上下文，多模态 + 思考，X 实时数据加持，参数量未公开。",
       "family": "xai",
       "providerTypes": [
         "openai-responses"
@@ -1842,6 +1950,7 @@
     {
       "id": "grok-4.5",
       "displayName": "Grok 4.5",
+      "background": "Grok 4.5（2026），500K 上下文，均衡旗舰，参数量未公开。",
       "family": "xai",
       "providerTypes": [
         "openai-responses"
@@ -1864,6 +1973,7 @@
     {
       "id": "grok-4.3",
       "displayName": "Grok 4.3",
+      "background": "Grok 4.3（2026），1M 上下文，长任务智能体优化，参数量未公开。",
       "family": "xai",
       "providerTypes": [
         "openai-responses"
@@ -1886,6 +1996,7 @@
     {
       "id": "grok-4.20-0309-reasoning",
       "displayName": "Grok 4.20 0309 (Reasoning)",
+      "background": "Grok 4.20 推理版（2026-03-09），2M 超长上下文，1M 输出，参数量未公开。",
       "family": "xai",
       "providerTypes": [
         "openai-responses"
@@ -1905,6 +2016,7 @@
     {
       "id": "grok-4.20-0309-non-reasoning",
       "displayName": "Grok 4.20 0309 (Non-Reasoning)",
+      "background": "Grok 4.20 非推理版（2026-03-09），2M 上下文，速度更快，参数量未公开。",
       "family": "xai",
       "providerTypes": [
         "openai-responses"
@@ -1924,6 +2036,7 @@
     {
       "id": "grok-4-1-fast-reasoning",
       "displayName": "Grok 4.1 Fast (Reasoning)",
+      "background": "Grok 4.1 Fast 推理版（2025-10），2M 上下文，高速思考，参数量未公开。",
       "family": "xai",
       "providerTypes": [
         "openai-responses"
@@ -1943,6 +2056,7 @@
     {
       "id": "grok-4-1-fast-non-reasoning",
       "displayName": "Grok 4.1 Fast (Non-Reasoning)",
+      "background": "Grok 4.1 Fast 非推理版（2025-10），极低延迟低成本，参数量未公开。",
       "family": "xai",
       "providerTypes": [
         "openai-responses"
@@ -1962,6 +2076,7 @@
     {
       "id": "grok-code-fast-1",
       "displayName": "Grok Code Fast 1",
+      "background": "Grok Code Fast 1（2025），代码专精，256K 上下文，速度约为 Grok 4 的 5 倍，参数量未公开。",
       "family": "xai",
       "providerTypes": [
         "openai-responses"
@@ -1981,6 +2096,7 @@
     {
       "id": "grok-4",
       "displayName": "Grok 4",
+      "background": "Grok 4（2025-07），256K 上下文，多领域综合能力对标一线模型，参数量未公开。",
       "family": "xai",
       "providerTypes": [
         "openai-responses"
@@ -2000,6 +2116,7 @@
     {
       "id": "gemini-3.7-flash",
       "displayName": "Gemini 3.7 Flash",
+      "background": "Gemini 3.7 Flash（2026），1M 上下文多模态，中等思考，高性价比主力，参数量未公开。",
       "family": "gemini",
       "providerTypes": [
         "google-ai-studio",
@@ -2023,6 +2140,7 @@
     {
       "id": "gemini-3.6-flash",
       "displayName": "Gemini 3.6 Flash",
+      "background": "Gemini 3.6 Flash（2026），1M 上下文，通用高速型号，参数量未公开。",
       "family": "gemini",
       "providerTypes": [
         "google-ai-studio",
@@ -2046,6 +2164,7 @@
     {
       "id": "gemini-3.5-flash-lite",
       "displayName": "Gemini 3.5 Flash-Lite",
+      "background": "Gemini 3.5 Flash-Lite（2026），极低延迟低成本，1M 上下文，参数量未公开。",
       "family": "gemini",
       "providerTypes": [
         "google-ai-studio",
@@ -2069,6 +2188,7 @@
     {
       "id": "gemini-3.5-flash",
       "displayName": "Gemini 3.5 Flash",
+      "background": "Gemini 3.5 Flash（2026），1M 上下文多模态，均衡主力，参数量未公开。",
       "family": "gemini",
       "providerTypes": [
         "google-ai-studio",
@@ -2092,6 +2212,7 @@
     {
       "id": "gemini-3.1-pro-preview",
       "displayName": "Gemini 3.1 Pro Preview",
+      "background": "Gemini 3.1 Pro 预览版（2026），1M 上下文，深度思考，复杂任务旗舰，参数量未公开。",
       "family": "gemini",
       "providerTypes": [
         "google-ai-studio",
@@ -2116,6 +2237,7 @@
     {
       "id": "gemini-3.1-flash-lite-preview",
       "displayName": "Gemini 3.1 Flash Lite Preview",
+      "background": "Gemini 3.1 Flash-Lite 预览版（2026），轻量尝鲜通道，1M 上下文，参数量未公开。",
       "family": "gemini",
       "providerTypes": [
         "openai-chat-completion"
@@ -2138,6 +2260,7 @@
     {
       "id": "gemini-3-pro-preview",
       "displayName": "Gemini 3 Pro Preview",
+      "background": "Gemini 3 Pro 预览版（2025-11），1M 上下文，思考模型代表，GPQA/SWE-bench 领先，参数量未公开。",
       "family": "gemini",
       "providerTypes": [
         "google-ai-studio",
@@ -2161,6 +2284,7 @@
     {
       "id": "gemini-3-flash-preview",
       "displayName": "Gemini 3 Flash Preview",
+      "background": "Gemini 3 Flash 预览版（2025-12），1M 上下文，速度与成本优化的旗舰级，参数量未公开。",
       "family": "gemini",
       "providerTypes": [
         "google-ai-studio",
@@ -2185,6 +2309,7 @@
     {
       "id": "gemini-2.5-pro",
       "displayName": "Gemini 2.5 Pro",
+      "background": "Gemini 2.5 Pro（2025-03），1M 上下文，思考模型，多模态与代码能力强，参数量未公开。",
       "family": "gemini",
       "providerTypes": [
         "google-ai-studio",
@@ -2207,6 +2332,7 @@
     {
       "id": "gemini-2.5-flash",
       "displayName": "Gemini 2.5 Flash",
+      "background": "Gemini 2.5 Flash（2025-06），1M 上下文，主力性价比型号，参数量未公开。",
       "family": "gemini",
       "providerTypes": [
         "google-ai-studio",
@@ -2229,6 +2355,7 @@
     {
       "id": "gemini-2.5-flash-lite",
       "displayName": "Gemini 2.5 Flash-Lite",
+      "background": "Gemini 2.5 Flash-Lite（2025-07），超低成本，1M 上下文，参数量未公开。",
       "family": "gemini",
       "providerTypes": [
         "google-ai-studio",
@@ -2251,6 +2378,7 @@
     {
       "id": "gemini-2.0-flash",
       "displayName": "Gemini 2.0 Flash",
+      "background": "Gemini 2.0 Flash（2024-12），1M 上下文，多模态高速，参数量未公开。",
       "family": "gemini",
       "providerTypes": [
         "google-ai-studio",
@@ -2271,6 +2399,7 @@
     {
       "id": "gemini-2.0-flash-lite",
       "displayName": "Gemini 2.0 Flash-Lite",
+      "background": "Gemini 2.0 Flash-Lite（2025-02），最轻量的 2.0 系列成员，参数量未公开。",
       "family": "gemini",
       "providerTypes": [
         "google-ai-studio",
@@ -2291,6 +2420,7 @@
     {
       "id": "hy3",
       "displayName": "Hy3",
+      "background": "腾讯混元第三代（2026），256K 上下文，高强度思考，中文知识与代码增强，参数量未公开。",
       "family": "tencent",
       "providerTypes": [
         "openai-chat-completion"
@@ -2313,6 +2443,7 @@
     {
       "id": "LongCat-2.0",
       "displayName": "LongCat 2.0",
+      "background": "LongCat 2.0（2026），美团 MoE，1M 上下文，代码与推理均衡，参数量未公开（LongCat-Flash 开源版为 560B 总参/24B 激活）。",
       "family": "openai",
       "providerTypes": [
         "openai-chat-completion"
@@ -2334,6 +2465,7 @@
     {
       "id": "kat-coder-pro-v2",
       "displayName": "KAT-Coder-Pro V2",
+      "background": "KAT Coder Pro v2（2026），256K 上下文，编程特调，最大输出 80K，参数量未公开。",
       "family": "vanchin",
       "providerTypes": [
         "openai-chat-completion",
@@ -2354,6 +2486,7 @@
     {
       "id": "kat-coder-pro-v1",
       "displayName": "KAT-Coder-Pro V1",
+      "background": "KAT Coder Pro v1（2025），256K 上下文编程模型，参数量未公开。",
       "family": "vanchin",
       "providerTypes": [
         "openai-chat-completion",
@@ -2374,6 +2507,7 @@
     {
       "id": "kat-coder-exp-72b-1010",
       "displayName": "KAT-Coder-Exp-72B-1010",
+      "background": "KAT Coder Exp 72B（2025-10-10），实验版 72B，128K 上下文。",
       "family": "vanchin",
       "providerTypes": [
         "openai-chat-completion"
@@ -2393,6 +2527,7 @@
     {
       "id": "kat-coder-air-v1",
       "displayName": "KAT-Coder-Air V1",
+      "background": "KAT Coder Air v1（2025），轻量编程版，低成本高速，参数量未公开。",
       "family": "vanchin",
       "providerTypes": [
         "openai-chat-completion"
@@ -2412,6 +2547,7 @@
     {
       "id": "step-2-mini",
       "displayName": "Step 2 Mini",
+      "background": "Step 2 Mini（2025-07），32K 上下文，阶跃星辰中型模型，参数量未公开。",
       "family": "stepfun",
       "providerTypes": [
         "openai-chat-completion"
@@ -2431,6 +2567,7 @@
     {
       "id": "step-1o-turbo-vision",
       "displayName": "Step 1o Turbo Vision",
+      "background": "Step 1o Turbo Vision（2025），视觉理解高速版，32K 上下文，参数量未公开。",
       "family": "stepfun",
       "providerTypes": [
         "openai-chat-completion"
@@ -2450,6 +2587,7 @@
     {
       "id": "step-3.5-flash",
       "displayName": "Step 3.5 Flash",
+      "background": "Step 3.5 Flash（2026），256K 上下文，高速型号，参数量未公开。",
       "family": "stepfun",
       "providerTypes": [
         "openai-chat-completion"
@@ -2471,6 +2609,7 @@
     {
       "id": "nemotron-3-ultra",
       "displayName": "Nemotron 3 Ultra",
+      "background": "NVIDIA Nemotron 3 Ultra（2026），1M 上下文，高强度思考，企业级推理，参数量未公开。",
       "family": "nvidia",
       "providerTypes": [
         "openai-chat-completion"

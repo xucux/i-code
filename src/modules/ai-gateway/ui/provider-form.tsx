@@ -2376,49 +2376,59 @@ function ModelManagementSection({ provider }: ModelManagementSectionProps) {
                 <span className="text-xs text-muted-foreground">{t('loading', { ns: 'common' })}</span>
               </div>
             ) : (
-              <div className="space-y-1 p-2">
-                {filteredBuiltinModels.map((model) => {
-                  const alreadyAdded = existingModelIds.has(model.id)
-                  const selected = selectedBuiltinIds.has(model.id)
-                  return (
-                    <div
-                      key={model.id}
-                      className={cn(
-                        'flex items-center justify-between rounded px-2 py-1.5 text-xs',
-                        alreadyAdded ? 'opacity-40' : 'hover:bg-muted/50 cursor-pointer'
-                      )}
-                      onClick={() => {
-                        if (alreadyAdded) return
-                        setSelectedBuiltinIds((prev) => {
-                          const next = new Set(prev)
-                          if (next.has(model.id)) next.delete(model.id)
-                          else next.add(model.id)
-                          return next
-                        })
-                      }}
-                    >
-                      <div className="flex items-center gap-2">
-                        {!alreadyAdded && (
-                          <input
-                            type="checkbox"
-                            className="size-3 accent-primary"
-                            checked={selected}
-                            onChange={() => {}}
-                          />
+              <TooltipProvider delayDuration={300}>
+                <div className="space-y-1 p-2">
+                  {filteredBuiltinModels.map((model) => {
+                    const alreadyAdded = existingModelIds.has(model.id)
+                    const selected = selectedBuiltinIds.has(model.id)
+                    return (
+                      <Tooltip key={model.id}>
+                        <TooltipTrigger asChild>
+                          <div
+                            className={cn(
+                              'flex items-center justify-between rounded px-2 py-1.5 text-xs',
+                              alreadyAdded ? 'opacity-40' : 'hover:bg-muted/50 cursor-pointer'
+                            )}
+                            onClick={() => {
+                              if (alreadyAdded) return
+                              setSelectedBuiltinIds((prev) => {
+                                const next = new Set(prev)
+                                if (next.has(model.id)) next.delete(model.id)
+                                else next.add(model.id)
+                                return next
+                              })
+                            }}
+                          >
+                            <div className="flex items-center gap-2">
+                              {!alreadyAdded && (
+                                <input
+                                  type="checkbox"
+                                  className="size-3 accent-primary"
+                                  checked={selected}
+                                  onChange={() => {}}
+                                />
+                              )}
+                              <span className="font-medium">{model.displayName}</span>
+                              <Badge variant="outline" className="text-[10px]">{model.id}</Badge>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {alreadyAdded && <span className="text-[10px] text-muted-foreground">{t('aiGateway.providerForm.modelManagement.added')}</span>}
+                              {model.maxInputTokens && (
+                                <span className="text-muted-foreground">{Math.round(model.maxInputTokens / 1000)}K ctx</span>
+                              )}
+                            </div>
+                          </div>
+                        </TooltipTrigger>
+                        {model.background && (
+                          <TooltipContent side="left" className="max-w-[260px] whitespace-normal text-xs leading-relaxed">
+                            {model.background}
+                          </TooltipContent>
                         )}
-                        <span className="font-medium">{model.displayName}</span>
-                        <Badge variant="outline" className="text-[10px]">{model.id}</Badge>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {alreadyAdded && <span className="text-[10px] text-muted-foreground">{t('aiGateway.providerForm.modelManagement.added')}</span>}
-                        {model.maxInputTokens && (
-                          <span className="text-muted-foreground">{Math.round(model.maxInputTokens / 1000)}K ctx</span>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+                      </Tooltip>
+                    )
+                  })}
+                </div>
+              </TooltipProvider>
             )}
           </ScrollArea>
           {selectedBuiltinIds.size > 0 && (

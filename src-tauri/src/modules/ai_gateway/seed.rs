@@ -122,6 +122,9 @@ pub struct BuiltinModel {
     pub id: String,
     /// 展示名称
     pub display_name: String,
+    /// 模型背景简介（参数/性能/发布日期等），仅用于前端内置模型列表悬浮展示，不落库
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<String>,
     /// 模型族
     pub family: String,
     /// 适配的供应商类型列表

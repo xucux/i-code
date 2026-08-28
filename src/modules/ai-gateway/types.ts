@@ -586,6 +586,8 @@ export interface BuiltinProviderDefaultModel {
 export interface BuiltinModel {
   id: string
   displayName: string
+  /** 模型背景简介（参数/性能/发布日期等，仅悬浮展示，不落库） */
+  background?: string
   family?: string
   /** 适配的供应商类型列表（来自 builtin-models.json `providerTypes`） */
   providerTypes?: ProviderType[]
