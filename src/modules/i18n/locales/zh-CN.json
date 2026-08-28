@@ -1752,7 +1752,9 @@
       "loadMore": "加载更多",
       "share": "分享",
       "like": "点赞",
-      "liked": "已点赞"
+      "liked": "已点赞",
+      "tip": "打赏",
+      "tipped": "已打赏"
     },
     "pinned": "置顶",
     "my": {
@@ -2010,6 +2012,19 @@
       "copied": "链接已复制",
       "invalidMaxViews": "请输入 1 ~ 10000 之间的整数次数"
     },
+    "tip": {
+      "title": "打赏帖子",
+      "desc": "打赏 {{min}} ~ {{max}} 积分支持作者 · 每日最多 {{daily}} 次 · 每人每帖仅可打赏一次，不可撤销",
+      "amountLabel": "打赏积分",
+      "customPlaceholder": "自定义 {{min}} ~ {{max}}",
+      "currentPoints": "我的积分",
+      "insufficientPoints": "积分不足，打赏 {{amount}} 积分需要余额充足",
+      "confirm": "打赏 {{amount}} 积分"
+    },
+    "tips": {
+      "summary": "共 {{amount}} 积分 · {{count}} 人打赏",
+      "empty": "暂无打赏"
+    },
     "success": {
       "post": "发布成功",
       "reply": "回复成功",
@@ -2018,16 +2033,20 @@
       "profile": "资料已更新",
       "report": "举报已提交，感谢反馈",
       "liked": "点赞成功，作者 +1 积分",
-      "unliked": "已取消点赞"
+      "unliked": "已取消点赞",
+      "tipped": "打赏成功，作者 +{{amount}} 积分"
     },
     "loadError": {
-      "loading": "加载中…"
+      "loading": "加载中…",
+      "listing": "加载失败，请重试"
     },
     "notifications": {
       "title": "消息通知",
       "empty": "暂无通知",
       "replyTitle": "{{name}} 回复了你的帖子《{{post}}》",
       "replyTitleNoPost": "{{name}} 回复了你的帖子",
+      "tipTitle": "{{name}} 打赏了你的帖子《{{post}}》{{amount}} 积分",
+      "tipTitleNoPost": "{{name}} 打赏了你的帖子 {{amount}} 积分",
       "banTitle": "你已被封禁",
       "muteTitle": "你已被禁言",
       "reason": "原因：{{reason}}",

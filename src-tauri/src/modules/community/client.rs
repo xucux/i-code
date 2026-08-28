@@ -21,9 +21,9 @@ use super::types::{
     AdminShareListData, AdminUpdateGovernanceInput, AdminUpdatePostInput, AdminUserItem,
     CheckInLeaderboardData, CheckInResult, CreatePostInput, CreateReplyInput, MyPostsData,
     MyRepliesData, NotificationListData, PointsLeaderboardData, PostDetailData, PostLikeData,
-    PostListData, ProfileData, ProfileUser, ReadAllNotificationsData, ReportInput, ShareLink,
-    ShareLinkInput, ShareLinkListData, SiteGovernance, UnreadCountData, UpdateMyPostInput,
-    UpdateProfileInput,
+    PostListData, PostTipData, PostTipListData, ProfileData, ProfileUser, ReadAllNotificationsData,
+    ReportInput, ShareLink, ShareLinkInput, ShareLinkListData, SiteGovernance, TipPostInput,
+    UnreadCountData, UpdateMyPostInput, UpdateProfileInput,
 };
 
 /// App Token：与 Worker 侧 `APP_TOKEN`（wrangler.toml `[vars]`）保持一致，
@@ -340,6 +340,54 @@ pub async fn unlike_post(
         None,
         None,
         true,
+    )
+    .await
+}
+
+/// 打赏帖子（打赏迭代：1~66 积分 / 不能自赏 / 每人每帖一次不可撤销，Worker 校验），返回打赏结果
+pub async fn tip_post(
+    base_url: &str,
+    user_id: &str,
+    post_id: i64,
+    input: &TipPostInput,
+) -> IcodeResult<PostTipData> {
+    send(
+        base_url,
+        Method::POST,
+        &format!("posts/{post_id}/tip"),
+        None,
+        Some(user_id),
+        None,
+        Some(serde_json::to_value(input)?),
+        true,
+    )
+    .await
+}
+
+/// 帖内打赏列表（游标分页；实名展示打赏人）
+pub async fn list_post_tips(
+    base_url: &str,
+    user_id: &str,
+    post_id: i64,
+    cursor: Option<String>,
+    limit: Option<u32>,
+) -> IcodeResult<PostTipListData> {
+    let mut query = Vec::new();
+    if let Some(c) = cursor {
+        query.push(("cursor".to_string(), c));
+    }
+    if let Some(l) = limit {
+        query.push(("limit".to_string(), l.to_string()));
+    }
+    send(
+        base_url,
+        Method::GET,
+        &format!("posts/{post_id}/tips"),
+        if query.is_empty() { None } else { Some(query) },
+        Some(user_id),
+        None,
+        None,
+        false,
     )
     .await
 }

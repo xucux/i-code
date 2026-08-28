@@ -36,10 +36,12 @@ import {
   unlikeCommunityPost,
 } from '@/hooks/use-community'
 import { getCommunityAvatar } from '@/modules/community/avatars'
-import type { PostDetailData, ReplyItem, SiteGovernance } from '@/modules/community/types'
+import type { PostDetailData, PostTipData, ReplyItem, SiteGovernance } from '@/modules/community/types'
 import { MarkdownReplyDialog } from './markdown-reply-dialog'
 import { ReportDialog } from './report-dialog'
 import { ShareDialog } from './share-dialog'
+import { TipDialog } from './tip-dialog'
+import { PostTipSection } from './post-tip-section'
 
 /** 回复字数上限（与 Worker / Rust 侧一致） */
 const REPLY_MAX = 1000
@@ -78,6 +80,12 @@ export function PostDetail({ postId, currentUserId }: PostDetailProps) {
   const [likeCount, setLikeCount] = useState(0)
   const [likePending, setLikePending] = useState(false)
 
+  // 打赏（打赏迭代：作者不能自赏；每人每帖一次不可撤销；打赏信息区域默认折叠）
+  const [tipOpen, setTipOpen] = useState(false)
+  const [myTip, setMyTip] = useState<number | null>(null)
+  const [tipCount, setTipCount] = useState(0)
+  const [tipAmount, setTipAmount] = useState(0)
+
   // 站点治理开关（D11）：null = 加载中/失败按全关处理，不阻塞浏览
   const [governance, setGovernance] = useState<SiteGovernance | null>(null)
 
@@ -109,6 +117,10 @@ export function PostDetail({ postId, currentUserId }: PostDetailProps) {
       // 同步点赞态（详情接口返回当前用户是否已赞）
       setLiked(result.post.liked)
       setLikeCount(result.post.likeCount)
+      // 同步打赏态（详情接口返回人数/总额 + 当前用户已打赏金额）
+      setMyTip(result.post.myTip ?? null)
+      setTipCount(result.post.tipCount ?? 0)
+      setTipAmount(result.post.tipAmount ?? 0)
     } catch {
       setNotFound(true)
       setData(null)
@@ -199,6 +211,13 @@ export function PostDetail({ postId, currentUserId }: PostDetailProps) {
     } finally {
       setLikePending(false)
     }
+  }
+
+  // 打赏成功回调（打赏迭代：用 Worker 返回的最新人数/总额回填；myTip 置本次金额表示已打赏）
+  const handleTipped = (data: PostTipData) => {
+    setMyTip(data.amount)
+    setTipCount(data.tipCount)
+    setTipAmount(data.tipAmount)
   }
 
   if (loading) {
@@ -336,6 +355,21 @@ export function PostDetail({ postId, currentUserId }: PostDetailProps) {
                     {likeCount}
                   </button>
                 )}
+                {/* 打赏（打赏迭代）：作者不能自赏，自己的帖子不展示打赏按钮；已打赏显示金额且不可再次打赏 */}
+                {post.author.userId !== currentUserId && (
+                  <button
+                    type="button"
+                    className={cn(
+                      'flex items-center gap-1 transition-colors',
+                      myTip != null ? 'text-primary hover:text-primary/80' : 'hover:text-foreground'
+                    )}
+                    title={myTip != null ? t('action.tipped') : t('action.tip')}
+                    onClick={() => setTipOpen(true)}
+                  >
+                    <i className="fa-solid fa-gift size-2.5" />
+                    {myTip != null ? myTip : ''}
+                  </button>
+                )}
                 <span className="flex items-center gap-1">
                   <i className="fa-solid fa-comment size-2.5" />
                   {post.replyCount}
@@ -346,6 +380,8 @@ export function PostDetail({ postId, currentUserId }: PostDetailProps) {
             <div className="mt-2.5">
               <CommunityMarkdownContent content={post.content} />
             </div>
+            {/* 打赏信息折叠区域（打赏迭代：有打赏才展示，默认折叠；不随分享直链展示） */}
+            <PostTipSection postId={post.postId} tipCount={tipCount} tipAmount={tipAmount} />
           </div>
 
           {/* 评论区 */}
@@ -467,6 +503,14 @@ export function PostDetail({ postId, currentUserId }: PostDetailProps) {
 
       {/* 分享弹窗（2026-08-26：生成直链 + 帖内分享列表；撤销归管理员） */}
       <ShareDialog postId={post.postId} open={shareOpen} onOpenChange={setShareOpen} />
+
+      {/* 打赏弹窗（打赏迭代：1~66 积分；不能打赏自己；每人每帖仅一次不可撤销） */}
+      <TipDialog
+        postId={post.postId}
+        open={tipOpen}
+        onOpenChange={setTipOpen}
+        onTipped={handleTipped}
+      />
     </div>
   )
 }

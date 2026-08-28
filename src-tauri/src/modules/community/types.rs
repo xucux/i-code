@@ -134,6 +134,15 @@ pub struct PostDetail {
     /// 当前用户是否已点赞（详情页点赞按钮已赞态）
     #[serde(default)]
     pub liked: bool,
+    /// 打赏人数（打赏迭代，2026-08-28；posts.tip_count 冗余列）
+    #[serde(default)]
+    pub tip_count: i64,
+    /// 打赏总额（积分；posts.tip_amount 冗余列）
+    #[serde(default)]
+    pub tip_amount: i64,
+    /// 当前用户已打赏金额（未打赏 = None；打赏按钮已赏态）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub my_tip: Option<i64>,
     /// 帖子级锁定（D11：locked=1 时禁止新增评论回复）
     #[serde(default)]
     pub locked: bool,
@@ -197,6 +206,49 @@ pub struct CommentsData {
 pub struct PostDetailData {
     pub post: PostDetail,
     pub comments: CommentsData,
+}
+
+// ===== 帖子打赏（2026-08-28 打赏迭代：单次 1~66 积分 / 不能自赏 / 每人每帖一次不可撤销）=====
+
+/// 打赏输入（金额由 Service 层校验 1~66，Worker 侧仍兜底）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TipPostInput {
+    /// 打赏积分（1~66）
+    pub amount: i64,
+}
+
+/// 打赏结果（Worker 返回打赏后的最新人数 / 总额）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PostTipData {
+    /// 是否打赏成功（成功恒为 true；失败走错误码）
+    pub tipped: bool,
+    /// 本次打赏金额
+    pub amount: i64,
+    /// 打赏后的打赏人数
+    pub tip_count: i64,
+    /// 打赏后的打赏总额（积分）
+    pub tip_amount: i64,
+}
+
+/// 打赏记录项（实名展示：打赏人摘要 + 金额 + 时间）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PostTipItem {
+    /// 打赏人摘要（昵称 / 头像 / 禁言态）
+    pub author: UserBrief,
+    /// 打赏积分
+    pub amount: i64,
+    pub created_at: String,
+}
+
+/// 帖内打赏列表响应（游标分页）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PostTipListData {
+    pub items: Vec<PostTipItem>,
+    pub next_cursor: Option<String>,
 }
 
 // ===== 发帖 / 回复输入 =====

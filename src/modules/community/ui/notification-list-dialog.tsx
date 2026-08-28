@@ -3,7 +3,7 @@
  *
  * - 打开时自动「全部已读」（需求 2：点击消息按钮进入通知列表即解除所有未读），
  *   并通过 `onUnreadCleared` 通知父级清空小红点；
- * - reply 类通知可点击跳转到对应帖子（/community/post/:id）；ban / mute 类仅展示；
+ * - reply / tip 类通知可点击跳转到对应帖子（/community/post/:id）；ban / mute 类仅展示；
  * - 列表游标分页，底部「加载更多」。
  */
 
@@ -36,10 +36,13 @@ function notificationVisual(type: NotificationItem['type']): { icon: string; cla
       return { icon: 'fa-ban', className: 'text-destructive' }
     case 'mute':
       return { icon: 'fa-volume-xmark', className: 'text-muted-foreground' }
+    case 'tip':
+      // 打赏迭代（2026-08-28）：礼物图标，主题色
+      return { icon: 'fa-gift', className: 'text-primary' }
   }
 }
 
-/** 单条通知行：图标 + 标题 + 正文 + 时间；未读展示圆点；reply 类可跳转 */
+/** 单条通知行：图标 + 标题 + 正文 + 时间；未读展示圆点；reply / tip 类可跳转 */
 function NotificationRow({
   item,
   onNavigate,
@@ -52,32 +55,38 @@ function NotificationRow({
   const { icon, className } = notificationVisual(item.type)
   const time = formatCommunityTime(item.createdAt, t)
 
-  // 标题：reply 类带回复人昵称（有帖子标题时一并展示《标题》）
+  // 标题：reply = 回复人昵称 + 帖子标题；tip = 打赏人昵称 + 金额（+ 帖子标题）；ban / mute = 固定文案
   const title =
     item.type === 'reply'
       ? item.postTitle
         ? t('notifications.replyTitle', { name: item.actorNickname ?? '', post: item.postTitle })
         : t('notifications.replyTitleNoPost', { name: item.actorNickname ?? '' })
-      : item.type === 'ban'
-        ? t('notifications.banTitle')
-        : t('notifications.muteTitle')
+      : item.type === 'tip'
+        ? item.postTitle
+          ? t('notifications.tipTitle', { name: item.actorNickname ?? '', post: item.postTitle, amount: item.content ?? '0' })
+          : t('notifications.tipTitleNoPost', { name: item.actorNickname ?? '', amount: item.content ?? '0' })
+        : item.type === 'ban'
+          ? t('notifications.banTitle')
+          : t('notifications.muteTitle')
 
-  // 正文：reply = 回复预览；ban = 原因（可选）；mute = 原因（可选）+ 解除时间 / 永久
+  // 正文：reply = 回复预览；tip = 无（金额已入标题）；ban / mute = 原因 + 解除信息
   const body =
     item.type === 'reply'
       ? item.content ?? ''
-      : item.type === 'ban'
-        ? item.content
-          ? t('notifications.reason', { reason: item.content })
-          : ''
-        : [
-            item.content ? t('notifications.reason', { reason: item.content }) : '',
-            item.until
-              ? t('notifications.muteUntil', { time: formatDateTime(item.until) })
-              : t('notifications.muteForever'),
-          ]
-            .filter(Boolean)
-            .join('，')
+      : item.type === 'tip'
+        ? ''
+        : item.type === 'ban'
+          ? item.content
+            ? t('notifications.reason', { reason: item.content })
+            : ''
+          : [
+              item.content ? t('notifications.reason', { reason: item.content }) : '',
+              item.until
+                ? t('notifications.muteUntil', { time: formatDateTime(item.until) })
+                : t('notifications.muteForever'),
+            ]
+              .filter(Boolean)
+              .join('，')
 
   const inner = (
     <div className="flex min-w-0 items-start gap-2">
@@ -102,8 +111,8 @@ function NotificationRow({
     </div>
   )
 
-  // reply 类且帖子仍存在 → 点击跳转详情（先关闭通知弹窗）；否则纯展示
-  if (item.type === 'reply' && item.postId != null) {
+  // reply / tip 类且帖子仍存在 → 点击跳转详情（先关闭通知弹窗）；否则纯展示
+  if ((item.type === 'reply' || item.type === 'tip') && item.postId != null) {
     return (
       <Link
         to="/community/post/$id"

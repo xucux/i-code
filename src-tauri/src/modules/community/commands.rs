@@ -14,9 +14,9 @@ use super::types::{
     AdminShareListData, AdminUpdateGovernanceInput, AdminUpdatePostInput, AdminUserItem,
     CheckInLeaderboardData, CheckInResult, CommunityLocalState, CreatePostInput, CreateReplyInput,
     MyPostsData, MyRepliesData, NotificationListData, PointsLeaderboardData, PostDetailData,
-    PostLikeData, PostListData, ProfileData, ProfileUser, ReadAllNotificationsData, ReportInput,
-    ShareLink, ShareLinkInput, ShareLinkListData, SiteGovernance, UnreadCountData,
-    UpdateMyPostInput, UpdateProfileInput,
+    PostLikeData, PostListData, PostTipData, PostTipListData, ProfileData, ProfileUser,
+    ReadAllNotificationsData, ReportInput, ShareLink, ShareLinkInput, ShareLinkListData,
+    SiteGovernance, TipPostInput, UnreadCountData, UpdateMyPostInput, UpdateProfileInput,
 };
 
 /// 列表分页上限（与 Worker 侧 MAX_LIST_LIMIT 对齐）
@@ -92,6 +92,28 @@ pub async fn community_unlike_post(
     post_id: i64,
 ) -> IcodeResult<PostLikeData> {
     state.service().unlike_post(post_id).await
+}
+
+/// 打赏帖子（1~66 积分；不能自赏；每人每帖一次不可撤销）
+#[tauri::command]
+pub async fn community_tip_post(
+    state: State<'_, CommunityHandle>,
+    post_id: i64,
+    input: TipPostInput,
+) -> IcodeResult<PostTipData> {
+    state.service().tip_post(post_id, input.amount).await
+}
+
+/// 帖内打赏列表（游标分页；实名展示打赏人）
+#[tauri::command]
+pub async fn community_list_post_tips(
+    state: State<'_, CommunityHandle>,
+    post_id: i64,
+    cursor: Option<String>,
+    limit: Option<u32>,
+) -> IcodeResult<PostTipListData> {
+    validate_limit(limit)?;
+    state.service().list_post_tips(post_id, cursor, limit).await
 }
 
 // ===== 用户中心 =====

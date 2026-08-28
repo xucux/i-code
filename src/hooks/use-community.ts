@@ -30,6 +30,8 @@ import type {
   PostDetailData,
   PostLikeData,
   PostListData,
+  PostTipData,
+  PostTipListData,
   ProfileData,
   ProfileUser,
   ReadAllNotificationsData,
@@ -38,6 +40,7 @@ import type {
   ShareLinkInput,
   ShareLinkListData,
   SiteGovernance,
+  TipPostInput,
   UnreadCountData,
   UpdateMyPostInput,
   UpdateProfileInput,
@@ -91,6 +94,25 @@ export async function likeCommunityPost(postId: number): Promise<PostLikeData> {
 /** 取消点赞（作者积分同步扣回），返回最新点赞态 */
 export async function unlikeCommunityPost(postId: number): Promise<PostLikeData> {
   return invokeCommand<PostLikeData>('community_unlike_post', { postId })
+}
+
+/** 打赏帖子（1~66 积分 / 不能自赏 / 每人每帖一次不可撤销），返回打赏后的最新人数 / 总额 */
+export async function tipCommunityPost(postId: number, amount: number): Promise<PostTipData> {
+  const input: TipPostInput = { amount }
+  return invokeCommand<PostTipData>('community_tip_post', { postId, input })
+}
+
+/** 帖内打赏列表（游标分页；实名展示打赏人） */
+export async function getCommunityPostTips(
+  postId: number,
+  cursor?: string,
+  limit?: number,
+): Promise<PostTipListData> {
+  return invokeCommand<PostTipListData>('community_list_post_tips', {
+    postId,
+    cursor: cursor ?? null,
+    limit: limit ?? null,
+  })
 }
 
 /** 我的资料 + 签到统计 */

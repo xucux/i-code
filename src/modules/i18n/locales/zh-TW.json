@@ -1738,7 +1738,9 @@
       "closeCommunity": "關閉社群",
       "loadMore": "載入更多",
       "like": "點讚",
-      "liked": "已點讚"
+      "liked": "已點讚",
+      "tip": "打賞",
+      "tipped": "已打賞"
     },
     "pinned": "置頂",
     "my": {
@@ -1966,6 +1968,19 @@
       "muteRemainHours": "剩 {{hours}} 小時",
       "muteTip": "禁言中，{{remain}}後解除"
     },
+    "tip": {
+      "title": "打賞帖子",
+      "desc": "打賞 {{min}} ~ {{max}} 積分支持作者 · 每日最多 {{daily}} 次 · 每人每帖僅可打賞一次，不可撤銷",
+      "amountLabel": "打賞積分",
+      "customPlaceholder": "自訂 {{min}} ~ {{max}}",
+      "currentPoints": "我的積分",
+      "insufficientPoints": "積分不足，打賞 {{amount}} 積分需要餘額充足",
+      "confirm": "打賞 {{amount}} 積分"
+    },
+    "tips": {
+      "summary": "共 {{amount}} 積分 · {{count}} 人打賞",
+      "empty": "暫無打賞"
+    },
     "success": {
       "post": "發布成功",
       "reply": "回覆成功",
@@ -1974,10 +1989,12 @@
       "profile": "資料已更新",
       "report": "檢舉已提交，感謝回饋",
       "liked": "點讚成功，作者 +1 積分",
-      "unliked": "已取消點讚"
+      "unliked": "已取消點讚",
+      "tipped": "打賞成功，作者 +{{amount}} 積分"
     },
     "loadError": {
-      "loading": "載入中…"
+      "loading": "載入中…",
+      "listing": "載入失敗，請重試"
     },
     "time": {
       "justNow": "剛剛",

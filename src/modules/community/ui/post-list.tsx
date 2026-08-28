@@ -79,7 +79,7 @@ export function PostList({ posts, loading, loadingMore, hasMore, onRefresh, onLo
             <MuteBadge muted={post.author.muted} />
             {/* 点赞数（点赞迭代：整卡跳转详情，列表仅只读展示计数与已赞态） */}
             <span className="ml-auto flex items-center gap-2 tabular-nums">
-              <span className={cn('flex items-center gap-1', post.liked && 'text-primary')}>
+              <span className="flex items-center gap-1">
                 <i className={cn('size-2.5', post.liked ? 'fa-solid fa-heart' : 'fa-regular fa-heart')} />
                 {post.likeCount}
               </span>

@@ -1738,7 +1738,9 @@
       "closeCommunity": "コミュニティを閉じる",
       "loadMore": "さらに読み込む",
       "like": "いいね",
-      "liked": "いいね済み"
+      "liked": "いいね済み",
+      "tip": "投げ銭",
+      "tipped": "投げ銭済み"
     },
     "pinned": "固定",
     "my": {
@@ -1951,6 +1953,19 @@
       "muteRemainHours": "残り{{hours}}時間",
       "muteTip": "ミュート中、{{remain}}後に解除"
     },
+    "tip": {
+      "title": "投稿に投げ銭",
+      "desc": "{{min}}〜{{max}} ポイントで作者を応援 · 1日あたり最大 {{daily}} 回 · 投稿ごとに 1 回のみ、取り消し不可",
+      "amountLabel": "投げ銭ポイント",
+      "customPlaceholder": "カスタム {{min}}〜{{max}}",
+      "currentPoints": "所持ポイント",
+      "insufficientPoints": "ポイント不足、{{amount}} ポイントの投げ銭には残高が必要です",
+      "confirm": "{{amount}} ポイント送る"
+    },
+    "tips": {
+      "summary": "合計 {{amount}} ポイント · {{count}} 人が投げ銭",
+      "empty": "まだ投げ銭はありません"
+    },
     "success": {
       "post": "投稿しました",
       "reply": "返信しました",
@@ -1959,10 +1974,12 @@
       "profile": "プロフィールを更新しました",
       "report": "通報を送信しました、ありがとう",
       "liked": "いいねしました（作者に +1 ポイント）",
-      "unliked": "いいねを解除しました"
+      "unliked": "いいねを解除しました",
+      "tipped": "投げ銭完了、作者に +{{amount}} ポイント"
     },
     "loadError": {
-      "loading": "読み込み中…"
+      "loading": "読み込み中…",
+      "listing": "読み込みに失敗しました、再試行してください"
     },
     "time": {
       "justNow": "たった今",

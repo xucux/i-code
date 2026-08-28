@@ -21,9 +21,9 @@ use super::types::{
     AdminShareListData, AdminUpdateGovernanceInput, AdminUpdatePostInput, AdminUserItem,
     CheckInLeaderboardData, CheckInResult, CommunityLocalState, CreatePostInput, CreateReplyInput,
     MyPostsData, MyRepliesData, NotificationListData, PointsLeaderboardData, PostDetailData,
-    PostLikeData, PostListData, ProfileData, ProfileUser, ReadAllNotificationsData, ReportInput,
-    ShareLink, ShareLinkInput, ShareLinkListData, SiteGovernance, UnreadCountData,
-    UpdateMyPostInput, UpdateProfileInput,
+    PostLikeData, PostListData, PostTipData, PostTipListData, ProfileData, ProfileUser,
+    ReadAllNotificationsData, ReportInput, ShareLink, ShareLinkInput, ShareLinkListData,
+    SiteGovernance, TipPostInput, UnreadCountData, UpdateMyPostInput, UpdateProfileInput,
 };
 
 /// 社区 Service 句柄（Tauri State）
@@ -176,6 +176,28 @@ impl CommunityService {
     pub async fn unlike_post(&self, post_id: i64) -> IcodeResult<PostLikeData> {
         let (state, user_id) = self.require_ready()?;
         client::unlike_post(&state.base_url, &user_id, post_id).await
+    }
+
+    /// 打赏帖子（打赏迭代：单次 1~66 积分 / 不能自赏 / 每人每帖一次不可撤销；Worker 校验）
+    pub async fn tip_post(&self, post_id: i64, amount: i64) -> IcodeResult<PostTipData> {
+        let (state, user_id) = self.require_ready()?;
+        // 金额前置校验（与 Worker 400 语义一致，提前拦截；Worker 侧仍兜底）
+        if amount < 1 || amount > 66 {
+            return Err(IcodeError::validation("打赏积分须为 1~66 的整数"));
+        }
+        let input = TipPostInput { amount };
+        client::tip_post(&state.base_url, &user_id, post_id, &input).await
+    }
+
+    /// 帖内打赏列表（游标分页；实名展示打赏人）
+    pub async fn list_post_tips(
+        &self,
+        post_id: i64,
+        cursor: Option<String>,
+        limit: Option<u32>,
+    ) -> IcodeResult<PostTipListData> {
+        let (state, user_id) = self.require_ready()?;
+        client::list_post_tips(&state.base_url, &user_id, post_id, cursor, limit).await
     }
 
     // ===== 用户中心 =====

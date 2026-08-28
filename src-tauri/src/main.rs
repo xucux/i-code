@@ -889,6 +889,8 @@ fn main() {
             modules::community::commands::community_create_reply,
             modules::community::commands::community_like_post,
             modules::community::commands::community_unlike_post,
+            modules::community::commands::community_tip_post,
+            modules::community::commands::community_list_post_tips,
             modules::community::commands::community_get_profile,
             modules::community::commands::community_update_profile,
             modules::community::commands::community_check_in,

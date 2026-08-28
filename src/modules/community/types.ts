@@ -81,6 +81,12 @@ export interface PostDetail {
   likeCount: number
   /** 当前用户是否已点赞（详情页点赞按钮已赞态） */
   liked: boolean
+  /** 打赏人数（打赏迭代，2026-08-28；Worker posts.tip_count 冗余列） */
+  tipCount: number
+  /** 打赏总额（积分；Worker posts.tip_amount 冗余列） */
+  tipAmount: number
+  /** 当前用户已打赏金额；null = 未打赏（详情页打赏按钮已赏态） */
+  myTip?: number | null
   /** 帖子级锁定（D11：locked=1 时禁止新增评论回复） */
   locked: boolean
   /** 是否置顶（管理员置顶后列表排序置顶） */
@@ -95,6 +101,41 @@ export interface PostLikeData {
   liked: boolean
   /** 操作后的点赞总数 */
   likeCount: number
+}
+
+// ===== 帖子打赏（2026-08-28 打赏迭代：单次 1~66 积分 / 不能自赏 / 每人每帖一次不可撤销）=====
+
+/** 打赏输入（金额 1~66，Worker 校验） */
+export interface TipPostInput {
+  /** 打赏积分（1~66） */
+  amount: number
+}
+
+/** 打赏结果（Worker 返回打赏后的最新人数 / 总额） */
+export interface PostTipData {
+  /** 是否打赏成功（成功恒为 true；失败走错误码） */
+  tipped: boolean
+  /** 本次打赏金额 */
+  amount: number
+  /** 打赏后的打赏人数 */
+  tipCount: number
+  /** 打赏后的打赏总额（积分） */
+  tipAmount: number
+}
+
+/** 打赏记录项（实名展示：打赏人摘要 + 金额 + 时间） */
+export interface PostTipItem {
+  /** 打赏人摘要（昵称 / 头像 / 禁言态） */
+  author: UserBrief
+  /** 打赏积分 */
+  amount: number
+  createdAt: string
+}
+
+/** 帖内打赏列表响应（游标分页） */
+export interface PostTipListData {
+  items: PostTipItem[]
+  nextCursor: string | null
 }
 
 /** 楼中楼回复项（第 2 层） */
@@ -406,8 +447,8 @@ export interface AdminUpdateGovernanceInput {
 /** 消息通知项 */
 export interface NotificationItem {
   notificationId: number
-  /** 'reply'（内容被回复）| 'ban'（被封禁）| 'mute'（被禁言） */
-  type: 'reply' | 'ban' | 'mute'
+  /** 'reply'（内容被回复）| 'ban'（被封禁）| 'mute'（被禁言）| 'tip'（被打赏，2026-08-28） */
+  type: 'reply' | 'ban' | 'mute' | 'tip'
   /** 触发者昵称（reply 类 = 回复人；ban / mute 类为 null） */
   actorNickname?: string | null
   /** 通知正文（reply 类 = 回复预览；ban / mute 类 = 原因，可为空） */
