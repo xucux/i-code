@@ -14,6 +14,22 @@ editRules:
 
 ### 🔄变更
 
+## [0.2.14] - 2026-08-29
+
+### 🚀新增
+
+- **新增 Cline Free (VSCode) 内置服务商**：内置供应商列表新增「Cline Free (VSCode)」免费服务商（OpenAI 兼容协议），内置 GLM-5.3-Flash 与 DeepSeek V4 Flash 免费模型入口，并注明免费模型存在次数和 Token 限制
+- **新增 DeepSeek V4 系列内置模型**：内置模型库新增 DeepSeek V4 Flash 0731（284B MoE，激活 13B，智能体能力大幅提升，MIT 开源）与 DeepSeek V4 Pro 0813（1.6T MoE，GA 正式版取代预览版）两个模型，均支持 1M 上下文 / 384K 输出
+- **内置模型背景简介悬浮展示**：供应商表单的内置模型列表中，为 GLM、Grok、Gemini、腾讯混元、美团 LongCat、KAT-Coder、阶跃星辰、NVIDIA Nemotron 等模型补充背景简介（参数规模 / 能力特性 / 发布日期等），鼠标悬浮模型条目即可查看（仅展示不落库）
+
+### 🐞修复
+
+- **内置供应商模型条目更新**：GLM-5.2 标记「（下架）」；DeepSeek V4 Flash 免费模型标记「（下架）」；Ox Alpha Free 替换为 Hy3 Free；Muse Spark 1.2 Contributor 添加「（美区）」标识
+
+### 🔄变更
+
+- **模型背景悬浮提示位置调整**：内置模型列表的背景简介 Tooltip 由左侧改为顶部居中展示，避免遮挡内容
+
 ## [0.2.13] - 2026-08-28
 
 ### 🚀新增
