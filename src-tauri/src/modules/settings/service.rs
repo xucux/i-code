@@ -244,10 +244,10 @@ mod tests {
     #[test]
     fn test_timeout_to_ms() {
         let timeout = TimeoutConfig {
-            connection: 5000,
+            connection: 25000,
             response: 120000,
         };
-        assert_eq!(timeout_to_ms(&timeout), 5000);
+        assert_eq!(timeout_to_ms(&timeout), 25000);
     }
 
     #[test]

@@ -348,6 +348,8 @@
       "authMethodGithubCopilot": "GitHub Copilot",
       "recommendedByBuiltin": "Recommended by builtin preset",
       "baseUrl": "Base URL",
+      "baseUrlProtocolHint": "No protocol detected, click to prepend:",
+      "baseUrlProtocolApply": "Click to use this URL",
       "pathCompletion": "Path completion",
       "remark": "Remark",
       "remarkPlaceholder": "Optional. Notes about this provider's purpose, limits, etc.",

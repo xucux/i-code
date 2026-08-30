@@ -211,7 +211,7 @@ pub struct RetryConfig {
     pub status_codes: Vec<u16>,
 }
 
-fn default_max_retries() -> u32 { 3 }
+fn default_max_retries() -> u32 { 8 }
 fn default_initial_delay_ms() -> u64 { 2000 }
 fn default_max_delay_ms() -> u64 { 8000 }
 fn default_backoff_multiplier() -> f64 { 2.0 }
@@ -219,10 +219,10 @@ fn default_jitter_factor() -> f64 { 0.2 }
 fn default_status_codes() -> Vec<u16> { vec![429, 500, 502, 503, 504] }
 
 impl Default for RetryConfig {
-    /// 默认重试策略：3 次重试，初始间隔 2s，最大 8s，倍率 2.0，抖动 0.2
+    /// 默认重试策略：8 次重试，初始间隔 2s，最大 8s，倍率 2.0，抖动 0.2
     fn default() -> Self {
         Self {
-            max_retries: 3,
+            max_retries: 8,
             initial_delay_ms: 2000,
             max_delay_ms: 8000,
             backoff_multiplier: 2.0,
@@ -470,7 +470,7 @@ mod tests {
     #[test]
     fn test_retry_config_default() {
         let config = RetryConfig::default();
-        assert_eq!(config.max_retries, 3);
+        assert_eq!(config.max_retries, 8);
         assert_eq!(config.initial_delay_ms, 2000);
         assert_eq!(config.status_codes.len(), 5);
         assert!(config.status_codes.contains(&429));
@@ -481,10 +481,10 @@ mod tests {
     fn test_retry_config_from_json() {
         // 空 JSON → 默认值
         let cfg = RetryConfig::from_json(None);
-        assert_eq!(cfg.max_retries, 3);
+        assert_eq!(cfg.max_retries, 8);
 
         let cfg = RetryConfig::from_json(Some(""));
-        assert_eq!(cfg.max_retries, 3);
+        assert_eq!(cfg.max_retries, 8);
 
         // 部分字段
         let cfg = RetryConfig::from_json(Some(r#"{"maxRetries":5,"initialDelayMs":3000}"#));
@@ -495,7 +495,7 @@ mod tests {
 
         // 非法 JSON → 默认值
         let cfg = RetryConfig::from_json(Some("{invalid}"));
-        assert_eq!(cfg.max_retries, 3);
+        assert_eq!(cfg.max_retries, 8);
     }
 
     #[test]
@@ -518,11 +518,11 @@ mod tests {
     #[test]
     fn test_timeout_config_serde() {
         let config = TimeoutConfig {
-            connection: 5000,
+            connection: 25000,
             response: 120000,
         };
         let json = serde_json::to_string(&config).unwrap();
-        assert!(json.contains("\"connection\":5000"));
+        assert!(json.contains("\"connection\":25000"));
         assert!(json.contains("\"response\":120000"));
     }
 

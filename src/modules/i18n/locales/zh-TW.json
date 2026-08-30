@@ -348,6 +348,8 @@
       "authMethodGithubCopilot": "GitHub Copilot",
       "recommendedByBuiltin": "內建預設推薦",
       "baseUrl": "Base URL",
+      "baseUrlProtocolHint": "未偵測到通訊協定前綴，可點擊補全：",
+      "baseUrlProtocolApply": "點擊使用該位址",
       "pathCompletion": "路徑補全",
       "remark": "備註",
       "remarkPlaceholder": "選填，可記錄供應商用途、額度限制等說明",

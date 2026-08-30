@@ -348,6 +348,8 @@
       "authMethodGithubCopilot": "GitHub Copilot",
       "recommendedByBuiltin": "ビルトインプリセット推奨",
       "baseUrl": "Base URL",
+      "baseUrlProtocolHint": "プロトコルが検出されないため、クリックして先頭に追加：",
+      "baseUrlProtocolApply": "クリックしてこの URL を適用",
       "pathCompletion": "パス補完",
       "remark": "メモ",
       "remarkPlaceholder": "任意。プロバイダーの用途、制限などの説明",

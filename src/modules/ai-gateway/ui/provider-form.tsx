@@ -177,6 +177,18 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>
 
+/**
+ * 计算 Base URL 缺协议前缀时的补全建议
+ *
+ * - 输入为空或已以 http:// / https:// 开头时返回 null（无需提示）
+ * - 否则分别生成 https 与 http 两种补全结果，供用户在输入框下方点击填充
+ */
+function suggestBaseUrlProtocol(raw: string): { https: string; http: string } | null {
+  const trimmed = raw.trim()
+  if (!trimmed || /^https?:\/\//i.test(trimmed)) return null
+  return { https: `https://${trimmed}`, http: `http://${trimmed}` }
+}
+
 export interface ProviderFormInitialValues extends Partial<{
   slug: string
   displayName: string
@@ -465,9 +477,9 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, buil
   const [balanceProviderJson, setBalanceProviderJson] = useState('')
   const [proxyMode, setProxyMode] = useState<'global' | 'direct' | 'socks' | 'http'>('global')
   const [proxyUrl, setProxyUrl] = useState('')
-  const [timeoutConnection, setTimeoutConnection] = useState(5000)
+  const [timeoutConnection, setTimeoutConnection] = useState(25000)
   const [timeoutResponse, setTimeoutResponse] = useState(120000)
-  const [maxRetries, setMaxRetries] = useState(3)
+  const [maxRetries, setMaxRetries] = useState(8)
   const [retryInterval, setRetryInterval] = useState(2000)
 
   // 扩展模板变量
@@ -531,6 +543,9 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, buil
       sortOrder: 0,
     },
   })
+
+  // Base URL 缺协议前缀时的补全建议（实时 watch：未带 http(s):// 时在输入框下方展示）
+  const baseUrlSuggestion = suggestBaseUrlProtocol(form.watch('baseUrl'))
 
   // 编辑时回填表单
   useEffect(() => {
@@ -602,19 +617,19 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, buil
       // 解析 timeoutJson
       try {
         const timeout = provider.timeoutJson ? JSON.parse(provider.timeoutJson) as { connection?: number; response?: number } : null
-        setTimeoutConnection(timeout?.connection ?? 5000)
+        setTimeoutConnection(timeout?.connection ?? 25000)
         setTimeoutResponse(timeout?.response ?? 120000)
       } catch {
-        setTimeoutConnection(5000)
+        setTimeoutConnection(25000)
         setTimeoutResponse(120000)
       }
       // 解析 retryJson
       try {
         const retry = provider.retryJson ? JSON.parse(provider.retryJson) as { maxRetries?: number; initialDelayMs?: number } : null
-        setMaxRetries(retry?.maxRetries ?? 3)
+        setMaxRetries(retry?.maxRetries ?? 8)
         setRetryInterval(retry?.initialDelayMs ?? 2000)
       } catch {
-        setMaxRetries(3)
+        setMaxRetries(8)
         setRetryInterval(2000)
       }
       // 解析 scriptVariablesJson
@@ -678,9 +693,9 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, buil
       setBalanceProviderJson('')
       setProxyMode('global')
       setProxyUrl('')
-      setTimeoutConnection(5000)
+      setTimeoutConnection(25000)
       setTimeoutResponse(120000)
-      setMaxRetries(3)
+      setMaxRetries(8)
       setRetryInterval(2000)
       setScriptVariables([])
       // 应用内置预设预填充值（延迟 setValue 避免与 reset 冲突）
@@ -746,12 +761,12 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, buil
     })
 
     // 构建 timeoutJson（仅非默认值时提交）
-    const timeoutJson = (timeoutConnection !== 5000 || timeoutResponse !== 120000)
+    const timeoutJson = (timeoutConnection !== 25000 || timeoutResponse !== 120000)
       ? JSON.stringify({ connection: timeoutConnection, response: timeoutResponse })
       : undefined
 
     // 构建 retryJson（仅非默认值时提交）
-    const retryJson = (maxRetries !== 3 || retryInterval !== 2000)
+    const retryJson = (maxRetries !== 8 || retryInterval !== 2000)
       ? JSON.stringify({ maxRetries, initialDelayMs: retryInterval })
       : undefined
 
@@ -1200,6 +1215,29 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, buil
                   className="h-8 text-xs"
                   aria-invalid={errors.baseUrl ? true : undefined}
                 />
+                {/* 未带协议前缀时实时展示补全建议，点击即可填充 */}
+                {baseUrlSuggestion && (
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 pt-0.5 text-[11px] text-muted-foreground">
+                    <span>{t('aiGateway.providerForm.baseUrlProtocolHint')}</span>
+                    <div className="flex items-center gap-1.5">
+                      {[baseUrlSuggestion.https, baseUrlSuggestion.http].map((url) => (
+                        <button
+                          key={url}
+                          type="button"
+                          onClick={() => {
+                            form.setValue('baseUrl', url, { shouldDirty: true })
+                            // 补全后聚焦输入框，便于用户继续编辑
+                            document.getElementById('baseUrl')?.focus()
+                          }}
+                          className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-primary tabular-nums transition-colors hover:bg-muted-foreground/15 hover:underline"
+                          title={t('aiGateway.providerForm.baseUrlProtocolApply')}
+                        >
+                          {url}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {errors.baseUrl && (
                   <p className="text-destructive text-[10px]">{t(errors.baseUrl.message || '')}</p>
                 )}
