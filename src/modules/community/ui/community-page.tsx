@@ -313,11 +313,16 @@ export function CommunityPage() {
               className="text-muted-foreground size-7"
               title={t('action.refresh')}
               disabled={loading}
-              onClick={() =>
-                view === 'myPosts' || view === 'myReplies' || view === 'leaderboard' || view === 'checkInLeaderboard'
-                  ? setView('latest')
-                  : void refreshPosts()
-              }
+              onClick={() => {
+                // 列表类视图（我的帖子/回复/排行）点刷新 → 回「最新」；普通列表 → 强制重拉
+                if (view === 'myPosts' || view === 'myReplies' || view === 'leaderboard' || view === 'checkInLeaderboard') {
+                  setView('latest')
+                } else {
+                  void refreshPosts()
+                }
+                // 同步刷新个人资料统计（帖子数 / 回复数 / 积分 / 签到），保持个人栏一致
+                void refreshProfile()
+              }}
             >
               <i className={loading ? 'fa-solid fa-spinner fa-spin size-3' : 'fa-solid fa-rotate size-3'} />
             </Button>
