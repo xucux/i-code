@@ -17,6 +17,11 @@ import { cn } from '@/lib/utils'
 import { useAvailableHeight } from '@/hooks/use-available-height'
 import { useAutoHideScrollbar } from '@/hooks/use-auto-hide-scrollbar'
 import {
+  communityAuthAnonymous,
+  communityAuthBind,
+  communityAuthLogin,
+  communityAuthLogout,
+  communityAuthRegister,
   communityCheckIn,
   createCommunityPost,
   getCommunitySiteGovernance,
@@ -27,6 +32,7 @@ import {
   useCommunityState,
 } from '@/hooks/use-community'
 import { CommunityGate } from '@/modules/community/ui/community-gate'
+import { BindAccountDialog } from '@/modules/community/ui/bind-account-dialog'
 import { CheckInLeaderboardList } from '@/modules/community/ui/checkin-leaderboard-list'
 import { CommunityProfilePanel } from '@/modules/community/ui/community-profile-panel'
 import { CreatePostDialog } from '@/modules/community/ui/create-post-dialog'
@@ -50,11 +56,16 @@ function isSectionView(view: CommunityView): view is CommunitySection {
 
 export function CommunityPage() {
   const { t } = useTranslation('community')
-  const { state, pending: statePending, setEnabled } = useCommunityState()
+  const { state, pending: statePending, setEnabled, reload } = useCommunityState()
   const enabled = state?.enabled ?? false
+  // 2026-08-31 鉴权迭代：已登录 = 门禁开启且已持有会话 token（60 天有效）
+  const signedIn = enabled && !!state?.authToken
 
-  // 资料 / 帖子 hooks 须无条件调用（内部按 enabled 门控）
-  const { profile, loading: profileLoading, notFound, refresh: refreshProfile } = useCommunityProfile(enabled)
+  // 资料 hook 须无条件调用（内部按 signedIn 门控；会话失效时 onUnauthorized 拉回登录卡）
+  const { profile, loading: profileLoading, notFound, refresh: refreshProfile } = useCommunityProfile(
+    signedIn,
+    () => void reload()
+  )
 
   const [view, setView] = useState<CommunityView>('latest')
   // 当前板块 Tab（最近 / 我的内容 = null）；发帖弹窗默认板块取自当前 Tab，缺省闲聊
@@ -74,6 +85,9 @@ export function CommunityPage() {
   const [profileDialogMode, setProfileDialogMode] = useState<'setup' | 'edit'>('setup')
   const [createOpen, setCreateOpen] = useState(false)
   const [checkInPending, setCheckInPending] = useState(false)
+  // 2026-08-31 鉴权迭代：登录 / 绑定执行中（禁用按钮防重复提交）与绑定弹窗开关
+  const [authBusy, setAuthBusy] = useState(false)
+  const [bindOpen, setBindOpen] = useState(false)
 
   // 消息通知（通知迭代）：未读数小红点 + 通知列表弹层
   const [unreadCount, setUnreadCount] = useState(0)
@@ -81,13 +95,13 @@ export function CommunityPage() {
 
   /** 拉取未读通知数（进入社区 / 重新启用时刷新小红点） */
   const refreshUnread = useCallback(async () => {
-    if (!enabled) return
+    if (!signedIn) return
     try {
       setUnreadCount(await getCommunityUnreadCount())
     } catch {
       // 未读数拉取失败按 0 处理（不阻塞社区浏览）
     }
-  }, [enabled])
+  }, [signedIn])
 
   useEffect(() => {
     void refreshUnread()
@@ -99,7 +113,7 @@ export function CommunityPage() {
   const postDisabled = governance != null && (governance.muteAll || governance.postLocked)
 
   useEffect(() => {
-    if (!enabled) return
+    if (!signedIn) return
     let cancelled = false
     getCommunitySiteGovernance()
       .then((gov) => {
@@ -111,7 +125,7 @@ export function CommunityPage() {
     return () => {
       cancelled = true
     }
-  }, [enabled])
+  }, [signedIn])
 
   // 布局高度：页头（标题 + Tabs）固定，左列滚动
   const [pageHeight, pageRef] = useAvailableHeight()
@@ -122,19 +136,88 @@ export function CommunityPage() {
     [pageHeight, headerHeight]
   )
 
-  // 开启后无资料（Worker 404 或昵称为空）→ 引导设置（仅自动弹一次）
+  // 登录后无资料（Worker 404 或昵称为空）→ 引导设置（仅自动弹一次）
   useEffect(() => {
-    if (!enabled || profileLoading || profileDialogOpen) return
+    if (!signedIn || profileLoading || profileDialogOpen) return
     if (notFound || (profile && !profile.user.nickname)) {
       setProfileDialogMode('setup')
       setProfileDialogOpen(true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, profileLoading, notFound, profile])
+  }, [signedIn, profileLoading, notFound, profile])
 
-  /** 开启社区（后端生成设备身份，随后自动拉取资料并按需引导设置） */
-  const handleEnable = () => {
-    void setEnabled(true)
+  // ===== 登录态管理（2026-08-31 鉴权迭代，docs/proposals/community-auth-accounts.md）=====
+
+  /** 登录成功统一收尾：重新拉取本地状态（含新 token / 用户名） */
+  const finalizeAuth = async () => {
+    await reload()
+  }
+
+  /** 匿名进入：未开启时先开启门禁（生成机器身份），再换取匿名 token */
+  const handleAnonymous = async () => {
+    setAuthBusy(true)
+    try {
+      if (!enabled) {
+        await setEnabled(true)
+      }
+      await communityAuthAnonymous()
+      await finalizeAuth()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e))
+    } finally {
+      setAuthBusy(false)
+    }
+  }
+
+  /** 账号登录 / 注册（成功即进入社区；注册=新建独立身份，Worker 校验规则） */
+  const handleAccountAuth = async (
+    mode: 'login' | 'register',
+    username: string,
+    password: string
+  ) => {
+    setAuthBusy(true)
+    try {
+      if (!enabled) {
+        await setEnabled(true)
+      }
+      const input = { username, password }
+      if (mode === 'login') {
+        await communityAuthLogin(input)
+      } else {
+        await communityAuthRegister(input)
+      }
+      await finalizeAuth()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e))
+    } finally {
+      setAuthBusy(false)
+    }
+  }
+
+  /** 匿名绑定账号（D3）：成功后 Worker 吊销匿名 token 并签发 account token */
+  const handleBind = async (username: string, password: string) => {
+    setAuthBusy(true)
+    try {
+      await communityAuthBind({ username, password })
+      setBindOpen(false)
+      await finalizeAuth()
+      toast.success(t('auth.bindSuccess'))
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e))
+    } finally {
+      setAuthBusy(false)
+    }
+  }
+
+  /** 退出登录：吊销会话并回到登录卡 */
+  const handleLogout = async () => {
+    try {
+      await communityAuthLogout()
+      await finalizeAuth()
+      toast.info(t('auth.logoutSuccess'))
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e))
+    }
   }
 
   /** 关闭社区：回到模糊门禁态（D8：可再次开启） */
@@ -198,8 +281,16 @@ export function CommunityPage() {
     )
   }
 
-  if (!enabled) {
-    return <CommunityGate pending={statePending} onEnable={handleEnable} />
+  // 未开启 或 已开启但未登录（登出 / token 失效）→ 登录 / 进入卡（2026-08-31 鉴权迭代）
+  if (!signedIn) {
+    return (
+      <CommunityGate
+        pending={statePending || authBusy}
+        onAnonymous={() => void handleAnonymous()}
+        onLogin={(username, password) => void handleAccountAuth('login', username, password)}
+        onRegister={(username, password) => void handleAccountAuth('register', username, password)}
+      />
+    )
   }
 
   return (
@@ -318,6 +409,10 @@ export function CommunityPage() {
               onCheckIn={() => void handleCheckIn()}
               checkInPending={checkInPending}
               onCloseCommunity={() => void handleCloseCommunity()}
+              authMode={state.authMode}
+              username={state.username}
+              onBindAccount={() => setBindOpen(true)}
+              onLogout={() => void handleLogout()}
             />
           ) : (
             // 无资料（未在 Worker 注册）：简化卡片引导设置
@@ -362,6 +457,13 @@ export function CommunityPage() {
         open={notifOpen}
         onOpenChange={setNotifOpen}
         onUnreadCleared={() => setUnreadCount(0)}
+      />
+      {/* 匿名绑定账号（2026-08-31 鉴权迭代 D3） */}
+      <BindAccountDialog
+        open={bindOpen}
+        onOpenChange={setBindOpen}
+        onSubmit={(username, password) => void handleBind(username, password)}
+        pending={authBusy}
       />
     </div>
   )

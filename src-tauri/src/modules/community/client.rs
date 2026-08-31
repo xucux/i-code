@@ -2,10 +2,14 @@
 //!
 //! - `base_url` 由调用方传入（读取自 `app_settings.community.base_url`）
 //! - 复用 `shared::apply_global_proxy` 应用全局代理
-//! - `X-User-Id` 从本地状态注入；`X-App-Token` 为编译期常量
+//! - 2026-08-31 鉴权迭代：固定 `X-App-Token` 已下线；业务接口一律带 `X-Auth-Token`
+//!   （Worker sessions 表签发，60 天有效）；`X-User-Id` 仅用于 `auth_anonymous` 换 token
 //! - 请求头校验（§5.1 / §6）：`User-Agent` 为 `i-code/X.Y.Z`、`Referer` 为合法主域，
 //!   不满足会被 Worker 将来源 IP 记入 `ip_blocklist` 并阻拦 48 小时
-//! - 响应先验 `code`：非 0 转业务错误；429 → 限流文案；错误不暴露 SQL / 堆栈
+//! - 响应先验 `code`：非 0 转业务错误；429 → 限流文案；401 → UNAUTHORIZED（Session 失效，
+//!   由 Service 层清除本地登录态）；错误不暴露 SQL / 堆栈
+//!
+//! 鉴权设计见 docs/proposals/community-auth-accounts.md。
 
 use std::time::Duration;
 
@@ -17,18 +21,15 @@ use crate::error::{IcodeError, IcodeResult};
 use crate::modules::shared;
 
 use super::types::{
-    AdminLoginData, AdminLoginInput, AdminMuteInput, AdminPostListData, AdminReportItem,
-    AdminShareListData, AdminUpdateGovernanceInput, AdminUpdatePostInput, AdminUserItem,
-    CheckInLeaderboardData, CheckInResult, CreatePostInput, CreateReplyInput, MyPostsData,
-    MyRepliesData, NotificationListData, PointsLeaderboardData, PostDetailData, PostLikeData,
-    PostListData, PostTipData, PostTipListData, ProfileData, ProfileUser, ReadAllNotificationsData,
-    ReportInput, ShareLink, ShareLinkInput, ShareLinkListData, SiteGovernance, TipPostInput,
-    UnreadCountData, UpdateMyPostInput, UpdateProfileInput,
+    AccountAuthInput, AdminLoginData, AdminLoginInput, AdminMuteInput, AdminPostListData,
+    AdminReportItem, AdminShareListData, AdminUpdateGovernanceInput, AdminUpdatePostInput,
+    AdminUserItem, AuthResult, CheckInLeaderboardData, CheckInResult, CreatePostInput,
+    CreateReplyInput, LogoutData, MyPostsData, MyRepliesData, NotificationListData,
+    PointsLeaderboardData, PostDetailData, PostLikeData, PostListData, PostTipData,
+    PostTipListData, ProfileData, ProfileUser, ReadAllNotificationsData, ReportInput, ShareLink,
+    ShareLinkInput, ShareLinkListData, SiteGovernance, TipPostInput, UnreadCountData,
+    UpdateMyPostInput, UpdateProfileInput,
 };
-
-/// App Token：与 Worker 侧 `APP_TOKEN`（wrangler.toml `[vars]`）保持一致，
-/// 防止外部脚本直接刷接口（§5.1）
-pub const APP_TOKEN: &str = "i-code-community-app-token-prod";
 
 /// 请求 User-Agent：须匹配 Worker 侧 `i-code/\d+\.\d+\.\d+`（§5.1 请求头检查）。
 /// 用 `CARGO_PKG_VERSION`（如 `0.2.2`）拼装，随版本自动变化。
@@ -137,11 +138,46 @@ fn extract_message(text: &str, status: reqwest::StatusCode) -> String {
     format!("社区服务错误（HTTP {}）", status.as_u16())
 }
 
+/// 发送请求并读取响应文本（统一网络错误映射）
+async fn send_and_read(builder: reqwest::RequestBuilder) -> IcodeResult<(u16, String)> {
+    let resp = builder.send().await.map_err(|e| {
+        if e.is_timeout() {
+            IcodeError::gateway(format!("社区请求超时：{e}"))
+        } else if e.is_connect() {
+            IcodeError::gateway(format!("无法连接社区服务：{e}"))
+        } else {
+            IcodeError::gateway(format!("社区请求失败：{e}"))
+        }
+    })?;
+    let status = resp.status().as_u16();
+    let text = resp.text().await.map_err(|e| {
+        IcodeError::gateway(format!("读取社区响应失败：{e}"))
+    })?;
+    Ok((status, text))
+}
+
+/// 解析 Worker 统一响应包裹：非 2xx → 按状态映射；code != 0 → 业务错误；取 data
+fn parse_envelope<T: DeserializeOwned>(status: u16, text: &str) -> IcodeResult<T> {
+    if status < 200 || status >= 300 {
+        let message = extract_message(text, reqwest::StatusCode::from_u16(status).unwrap_or_default());
+        return Err(map_status(status, message));
+    }
+    // 成功响应：解析 { code, message, data }
+    let payload: ApiEnvelope<T> = serde_json::from_str(text)
+        .map_err(|e| IcodeError::gateway(format!("社区响应解析失败：{e}")))?;
+    if payload.code != 0 {
+        return Err(IcodeError::gateway(payload.message));
+    }
+    payload
+        .data
+        .ok_or_else(|| IcodeError::gateway("社区响应缺少 data"))
+}
+
 /// 统一请求发送核心
 ///
 /// - `path`：相对路径（如 `"posts"`、`"users/me/check-in"`），自动拼接到 base_url
 /// - `query`：可选的查询参数（游标分页）
-/// - `user_id`：`X-User-Id` 头（用户接口必带，管理员接口可空）
+/// - `auth_token`：`X-Auth-Token` 会话 token（用户接口必带，管理员接口可空）
 /// - `admin_token`：`Authorization: Bearer`（管理员接口）
 /// - `body`：JSON 请求体（写接口）
 /// - `write`：是否走写超时
@@ -150,7 +186,7 @@ async fn send<T: DeserializeOwned>(
     method: Method,
     path: &str,
     query: Option<Vec<(String, String)>>,
-    user_id: Option<&str>,
+    auth_token: Option<&str>,
     admin_token: Option<&str>,
     body: Option<serde_json::Value>,
     write: bool,
@@ -160,11 +196,11 @@ async fn send<T: DeserializeOwned>(
     tracing::info!("[community] {} {}", method.as_str(), url);
 
     let mut req = client.request(method, &url);
-    req = req.header("X-App-Token", APP_TOKEN);
     // 请求头校验（§5.1）：Referer 必须命中 Worker 白名单，否则来源 IP 会被阻拦 48 小时
     req = req.header(REFERER, REFERER_VALUE);
-    if let Some(uid) = user_id {
-        req = req.header("X-User-Id", uid);
+    // 2026-08-31 鉴权迭代：会话 token 替代固定 X-App-Token / X-User-Id
+    if let Some(tok) = auth_token {
+        req = req.header("X-Auth-Token", tok);
     }
     if let Some(tok) = admin_token {
         let value = format!("Bearer {tok}");
@@ -183,34 +219,84 @@ async fn send<T: DeserializeOwned>(
             .body(serde_json::to_vec(&b)?);
     }
 
-    let resp = req.send().await.map_err(|e| {
-        if e.is_timeout() {
-            IcodeError::gateway(format!("社区请求超时：{e}"))
-        } else if e.is_connect() {
-            IcodeError::gateway(format!("无法连接社区服务：{e}"))
-        } else {
-            IcodeError::gateway(format!("社区请求失败：{e}"))
-        }
-    })?;
+    let (status, text) = send_and_read(req).await?;
+    parse_envelope::<T>(status, &text)
+}
 
-    let status = resp.status();
-    let text = resp.text().await.map_err(|e| {
-        IcodeError::gateway(format!("读取社区响应失败：{e}"))
-    })?;
+// ===== 鉴权端点（2026-08-31 迭代，见 docs/proposals/community-auth-accounts.md §5.2）=====
 
-    if !status.is_success() {
-        let message = extract_message(&text, status);
-        return Err(map_status(status.as_u16(), message));
-    }
+/// 匿名进入：以本机 `X-User-Id`（64 hex）换取匿名 token（Worker 每 IP 3 次/分钟限流）
+pub async fn auth_anonymous(base_url: &str, user_id: &str) -> IcodeResult<AuthResult> {
+    let client = build_client(true)?;
+    let url = format!("{}/auth/anonymous", base_url.trim_end_matches('/'));
+    tracing::info!("[community] POST {url}");
+    let req = client.post(&url).header(REFERER, REFERER_VALUE).header("X-User-Id", user_id);
+    let (status, text) = send_and_read(req).await?;
+    parse_envelope::<AuthResult>(status, &text)
+}
 
-    // 成功响应：解析 { code, message, data }
-    let env: ApiEnvelope<T> = serde_json::from_str(&text)
-        .map_err(|e| IcodeError::gateway(format!("社区响应解析失败：{e}")))?;
-    if env.code != 0 {
-        return Err(IcodeError::gateway(env.message));
-    }
-    env.data
-        .ok_or_else(|| IcodeError::gateway("社区响应缺少 data"))
+/// 注册账号（D4：Worker 创建全新独立身份，账号与设备解耦）
+pub async fn auth_register(base_url: &str, input: &AccountAuthInput) -> IcodeResult<AuthResult> {
+    send(
+        base_url,
+        Method::POST,
+        "auth/register",
+        None,
+        None,
+        None,
+        Some(serde_json::to_value(input)?),
+        true,
+    )
+    .await
+}
+
+/// 账号登录（凭密码；Worker 侧按 IP 防爆破）
+pub async fn auth_login(base_url: &str, input: &AccountAuthInput) -> IcodeResult<AuthResult> {
+    send(
+        base_url,
+        Method::POST,
+        "auth/login",
+        None,
+        None,
+        None,
+        Some(serde_json::to_value(input)?),
+        true,
+    )
+    .await
+}
+
+/// 匿名身份升级账号（D3）：需携带当前匿名 token；成功后 Worker 吊销原 token 并签发 account token
+pub async fn auth_bind(
+    base_url: &str,
+    auth_token: &str,
+    input: &AccountAuthInput,
+) -> IcodeResult<AuthResult> {
+    send(
+        base_url,
+        Method::POST,
+        "auth/bind",
+        None,
+        Some(auth_token),
+        None,
+        Some(serde_json::to_value(input)?),
+        true,
+    )
+    .await
+}
+
+/// 登出：吊销当前会话（幂等）
+pub async fn auth_logout(base_url: &str, auth_token: &str) -> IcodeResult<LogoutData> {
+    send(
+        base_url,
+        Method::POST,
+        "auth/logout",
+        None,
+        Some(auth_token),
+        None,
+        None,
+        true,
+    )
+    .await
 }
 
 // ===== 用户接口 =====
@@ -218,7 +304,7 @@ async fn send<T: DeserializeOwned>(
 /// 帖子列表（游标分页；`section` = Some 时按板块过滤，None = 最近/全部）
 pub async fn list_posts(
     base_url: &str,
-    user_id: &str,
+    auth_token: &str,
     cursor: Option<String>,
     limit: Option<u32>,
     section: Option<&str>,
@@ -238,7 +324,7 @@ pub async fn list_posts(
         Method::GET,
         "posts",
         if query.is_empty() { None } else { Some(query) },
-        Some(user_id),
+        Some(auth_token),
         None,
         None,
         false,
@@ -249,7 +335,7 @@ pub async fn list_posts(
 /// 帖子详情 + 评论区（含楼中楼）
 pub async fn get_post(
     base_url: &str,
-    user_id: &str,
+    auth_token: &str,
     post_id: i64,
 ) -> IcodeResult<PostDetailData> {
     send(
@@ -257,7 +343,7 @@ pub async fn get_post(
         Method::GET,
         &format!("posts/{post_id}"),
         None,
-        Some(user_id),
+        Some(auth_token),
         None,
         None,
         false,
@@ -268,7 +354,7 @@ pub async fn get_post(
 /// 发帖，返回 post_id
 pub async fn create_post(
     base_url: &str,
-    user_id: &str,
+    auth_token: &str,
     input: &CreatePostInput,
 ) -> IcodeResult<i64> {
     let data: PostCreated = send(
@@ -276,7 +362,7 @@ pub async fn create_post(
         Method::POST,
         "posts",
         None,
-        Some(user_id),
+        Some(auth_token),
         None,
         Some(serde_json::to_value(input)?),
         true,
@@ -288,7 +374,7 @@ pub async fn create_post(
 /// 回复 / 楼中楼，返回 reply_id
 pub async fn create_reply(
     base_url: &str,
-    user_id: &str,
+    auth_token: &str,
     post_id: i64,
     input: &CreateReplyInput,
 ) -> IcodeResult<i64> {
@@ -297,7 +383,7 @@ pub async fn create_reply(
         Method::POST,
         &format!("posts/{post_id}/replies"),
         None,
-        Some(user_id),
+        Some(auth_token),
         None,
         Some(serde_json::to_value(input)?),
         true,
@@ -309,7 +395,7 @@ pub async fn create_reply(
 /// 点赞帖子（点赞迭代：作者不能自赞由 Worker 校验；1 赞 = 作者 +1 积分），返回最新点赞态
 pub async fn like_post(
     base_url: &str,
-    user_id: &str,
+    auth_token: &str,
     post_id: i64,
 ) -> IcodeResult<PostLikeData> {
     send(
@@ -317,7 +403,7 @@ pub async fn like_post(
         Method::POST,
         &format!("posts/{post_id}/like"),
         None,
-        Some(user_id),
+        Some(auth_token),
         None,
         None,
         true,
@@ -328,7 +414,7 @@ pub async fn like_post(
 /// 取消点赞（积分同步扣回），返回最新点赞态
 pub async fn unlike_post(
     base_url: &str,
-    user_id: &str,
+    auth_token: &str,
     post_id: i64,
 ) -> IcodeResult<PostLikeData> {
     send(
@@ -336,7 +422,7 @@ pub async fn unlike_post(
         Method::DELETE,
         &format!("posts/{post_id}/like"),
         None,
-        Some(user_id),
+        Some(auth_token),
         None,
         None,
         true,
@@ -347,7 +433,7 @@ pub async fn unlike_post(
 /// 打赏帖子（打赏迭代：1~66 积分 / 不能自赏 / 每人每帖一次不可撤销，Worker 校验），返回打赏结果
 pub async fn tip_post(
     base_url: &str,
-    user_id: &str,
+    auth_token: &str,
     post_id: i64,
     input: &TipPostInput,
 ) -> IcodeResult<PostTipData> {
@@ -356,7 +442,7 @@ pub async fn tip_post(
         Method::POST,
         &format!("posts/{post_id}/tip"),
         None,
-        Some(user_id),
+        Some(auth_token),
         None,
         Some(serde_json::to_value(input)?),
         true,
@@ -367,7 +453,7 @@ pub async fn tip_post(
 /// 帖内打赏列表（游标分页；实名展示打赏人）
 pub async fn list_post_tips(
     base_url: &str,
-    user_id: &str,
+    auth_token: &str,
     post_id: i64,
     cursor: Option<String>,
     limit: Option<u32>,
@@ -384,7 +470,7 @@ pub async fn list_post_tips(
         Method::GET,
         &format!("posts/{post_id}/tips"),
         if query.is_empty() { None } else { Some(query) },
-        Some(user_id),
+        Some(auth_token),
         None,
         None,
         false,
@@ -393,13 +479,13 @@ pub async fn list_post_tips(
 }
 
 /// 我的资料 + 签到统计
-pub async fn get_profile(base_url: &str, user_id: &str) -> IcodeResult<ProfileData> {
+pub async fn get_profile(base_url: &str, auth_token: &str) -> IcodeResult<ProfileData> {
     send(
         base_url,
         Method::GET,
         "users/me",
         None,
-        Some(user_id),
+        Some(auth_token),
         None,
         None,
         false,
@@ -410,7 +496,7 @@ pub async fn get_profile(base_url: &str, user_id: &str) -> IcodeResult<ProfileDa
 /// 改昵称 / 头像，返回最新用户资料
 pub async fn update_profile(
     base_url: &str,
-    user_id: &str,
+    auth_token: &str,
     input: &UpdateProfileInput,
 ) -> IcodeResult<ProfileUser> {
     let data: ProfileUserData = send(
@@ -418,7 +504,7 @@ pub async fn update_profile(
         Method::PUT,
         "users/me",
         None,
-        Some(user_id),
+        Some(auth_token),
         None,
         Some(serde_json::to_value(input)?),
         true,
@@ -428,13 +514,13 @@ pub async fn update_profile(
 }
 
 /// 签到；同 UTC 日重复签到 Worker 返回 409；返回统计 + 本次获得积分
-pub async fn check_in(base_url: &str, user_id: &str) -> IcodeResult<CheckInResult> {
+pub async fn check_in(base_url: &str, auth_token: &str) -> IcodeResult<CheckInResult> {
     send(
         base_url,
         Method::POST,
         "users/me/check-in",
         None,
-        Some(user_id),
+        Some(auth_token),
         None,
         None,
         true,
@@ -445,7 +531,7 @@ pub async fn check_in(base_url: &str, user_id: &str) -> IcodeResult<CheckInResul
 /// 我的帖子
 pub async fn list_my_posts(
     base_url: &str,
-    user_id: &str,
+    auth_token: &str,
     cursor: Option<String>,
     limit: Option<u32>,
 ) -> IcodeResult<MyPostsData> {
@@ -461,7 +547,7 @@ pub async fn list_my_posts(
         Method::GET,
         "users/me/posts",
         if query.is_empty() { None } else { Some(query) },
-        Some(user_id),
+        Some(auth_token),
         None,
         None,
         false,
@@ -472,7 +558,7 @@ pub async fn list_my_posts(
 /// 我的回复（含所在帖子标题）
 pub async fn list_my_replies(
     base_url: &str,
-    user_id: &str,
+    auth_token: &str,
     cursor: Option<String>,
     limit: Option<u32>,
 ) -> IcodeResult<MyRepliesData> {
@@ -488,7 +574,7 @@ pub async fn list_my_replies(
         Method::GET,
         "users/me/replies",
         if query.is_empty() { None } else { Some(query) },
-        Some(user_id),
+        Some(auth_token),
         None,
         None,
         false,
@@ -499,7 +585,7 @@ pub async fn list_my_replies(
 /// 编辑自己的帖子（title / content / section 至少一项；Worker 校验归属）
 pub async fn update_my_post(
     base_url: &str,
-    user_id: &str,
+    auth_token: &str,
     post_id: i64,
     input: &UpdateMyPostInput,
 ) -> IcodeResult<()> {
@@ -508,7 +594,7 @@ pub async fn update_my_post(
         Method::PUT,
         &format!("users/me/posts/{post_id}"),
         None,
-        Some(user_id),
+        Some(auth_token),
         None,
         Some(serde_json::to_value(input)?),
         true,
@@ -520,7 +606,7 @@ pub async fn update_my_post(
 /// 删除自己的帖子（Worker 级联删除其全部回复与相关举报）
 pub async fn delete_my_post(
     base_url: &str,
-    user_id: &str,
+    auth_token: &str,
     post_id: i64,
 ) -> IcodeResult<()> {
     send::<serde_json::Value>(
@@ -528,7 +614,7 @@ pub async fn delete_my_post(
         Method::DELETE,
         &format!("users/me/posts/{post_id}"),
         None,
-        Some(user_id),
+        Some(auth_token),
         None,
         None,
         true,
@@ -540,7 +626,7 @@ pub async fn delete_my_post(
 /// 编辑自己的回复（≤ 1000 字 + 敏感词校验；Worker 校验归属）
 pub async fn update_my_reply(
     base_url: &str,
-    user_id: &str,
+    auth_token: &str,
     reply_id: i64,
     content: &str,
 ) -> IcodeResult<()> {
@@ -550,7 +636,7 @@ pub async fn update_my_reply(
         Method::PUT,
         &format!("users/me/replies/{reply_id}"),
         None,
-        Some(user_id),
+        Some(auth_token),
         None,
         Some(body),
         true,
@@ -562,7 +648,7 @@ pub async fn update_my_reply(
 /// 删除自己的回复（顶层评论级联楼中楼；Worker 回减 reply_count）
 pub async fn delete_my_reply(
     base_url: &str,
-    user_id: &str,
+    auth_token: &str,
     reply_id: i64,
 ) -> IcodeResult<()> {
     send::<serde_json::Value>(
@@ -570,7 +656,7 @@ pub async fn delete_my_reply(
         Method::DELETE,
         &format!("users/me/replies/{reply_id}"),
         None,
-        Some(user_id),
+        Some(auth_token),
         None,
         None,
         true,
@@ -582,7 +668,7 @@ pub async fn delete_my_reply(
 /// 举报帖子 / 回复，返回 report_id
 pub async fn report(
     base_url: &str,
-    user_id: &str,
+    auth_token: &str,
     input: &ReportInput,
 ) -> IcodeResult<i64> {
     let data: ReportCreated = send(
@@ -590,7 +676,7 @@ pub async fn report(
         Method::POST,
         "reports",
         None,
-        Some(user_id),
+        Some(auth_token),
         None,
         Some(serde_json::to_value(input)?),
         true,
@@ -602,14 +688,14 @@ pub async fn report(
 /// 全站治理开关（D11：用户端只读，用于前端禁用发帖 / 回复入口）
 pub async fn get_site_governance(
     base_url: &str,
-    user_id: &str,
+    auth_token: &str,
 ) -> IcodeResult<SiteGovernance> {
     send(
         base_url,
         Method::GET,
         "site-settings",
         None,
-        Some(user_id),
+        Some(auth_token),
         None,
         None,
         false,
@@ -620,7 +706,7 @@ pub async fn get_site_governance(
 /// 积分排行（offset 分页；Worker 侧聚合 points_ledger，过滤封禁用户，禁言用户仍展示）
 pub async fn get_points_leaderboard(
     base_url: &str,
-    user_id: &str,
+    auth_token: &str,
     offset: Option<i64>,
     limit: Option<u32>,
 ) -> IcodeResult<PointsLeaderboardData> {
@@ -636,7 +722,7 @@ pub async fn get_points_leaderboard(
         Method::GET,
         "points/leaderboard",
         if query.is_empty() { None } else { Some(query) },
-        Some(user_id),
+        Some(auth_token),
         None,
         None,
         false,
@@ -647,7 +733,7 @@ pub async fn get_points_leaderboard(
 /// 签到排行（offset 分页；Worker 侧返回累计 `total` 与连续 `streak` 两列表，共用同一分页）
 pub async fn get_checkin_leaderboard(
     base_url: &str,
-    user_id: &str,
+    auth_token: &str,
     offset: Option<i64>,
     limit: Option<u32>,
 ) -> IcodeResult<CheckInLeaderboardData> {
@@ -663,7 +749,7 @@ pub async fn get_checkin_leaderboard(
         Method::GET,
         "checkins/leaderboard",
         if query.is_empty() { None } else { Some(query) },
-        Some(user_id),
+        Some(auth_token),
         None,
         None,
         false,
@@ -1055,7 +1141,7 @@ pub async fn admin_set_post_pin(
 /// 通知列表（游标分页；顺带返回未读数供小红点）
 pub async fn list_notifications(
     base_url: &str,
-    user_id: &str,
+    auth_token: &str,
     cursor: Option<String>,
     limit: Option<u32>,
 ) -> IcodeResult<NotificationListData> {
@@ -1071,7 +1157,7 @@ pub async fn list_notifications(
         Method::GET,
         "users/me/notifications",
         if query.is_empty() { None } else { Some(query) },
-        Some(user_id),
+        Some(auth_token),
         None,
         None,
         false,
@@ -1082,14 +1168,14 @@ pub async fn list_notifications(
 /// 未读通知数（小红点）
 pub async fn get_unread_count(
     base_url: &str,
-    user_id: &str,
+    auth_token: &str,
 ) -> IcodeResult<UnreadCountData> {
     send(
         base_url,
         Method::GET,
         "users/me/notifications/unread-count",
         None,
-        Some(user_id),
+        Some(auth_token),
         None,
         None,
         false,
@@ -1100,14 +1186,14 @@ pub async fn get_unread_count(
 /// 全部标记已读（返回本次更新的条数）
 pub async fn read_all_notifications(
     base_url: &str,
-    user_id: &str,
+    auth_token: &str,
 ) -> IcodeResult<ReadAllNotificationsData> {
     send(
         base_url,
         Method::POST,
         "users/me/notifications/read-all",
         None,
-        Some(user_id),
+        Some(auth_token),
         None,
         None,
         true,
@@ -1120,7 +1206,7 @@ pub async fn read_all_notifications(
 /// 发起分享（作者本人 + 扣 100 积分，Worker 校验），返回带直链的 ShareLink
 pub async fn create_share_link(
     base_url: &str,
-    user_id: &str,
+    auth_token: &str,
     post_id: i64,
     input: &ShareLinkInput,
 ) -> IcodeResult<ShareLink> {
@@ -1129,7 +1215,7 @@ pub async fn create_share_link(
         Method::POST,
         &format!("posts/{post_id}/shares"),
         None,
-        Some(user_id),
+        Some(auth_token),
         None,
         Some(serde_json::to_value(input)?),
         true,
@@ -1140,7 +1226,7 @@ pub async fn create_share_link(
 /// 该帖分享列表（游标分页；仅作者本人可见，Worker 校验归属）
 pub async fn list_post_share_links(
     base_url: &str,
-    user_id: &str,
+    auth_token: &str,
     post_id: i64,
     cursor: Option<String>,
     limit: Option<u32>,
@@ -1157,7 +1243,7 @@ pub async fn list_post_share_links(
         Method::GET,
         &format!("posts/{post_id}/shares"),
         if query.is_empty() { None } else { Some(query) },
-        Some(user_id),
+        Some(auth_token),
         None,
         None,
         false,

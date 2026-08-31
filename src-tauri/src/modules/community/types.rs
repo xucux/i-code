@@ -17,8 +17,10 @@ pub fn default_base_url() -> String {
 /// 社区本地状态
 ///
 /// 只保存在本机（`app_settings.community_json`），不随社区请求上传：
-/// - `user_id`：机器标识加盐哈希（64 hex），null = 未生成
+/// - `user_id`：机器标识加盐哈希（64 hex），null = 未生成；仅用于「匿名进入」换 token
 /// - `nickname` / `avatar_index`：本地缓存，启动/拉取资料时以 /users/me 为准
+/// - `auth_token` / `auth_mode` / `username`：登录态（2026-08-31 鉴权迭代），
+///   token 由 Worker sessions 表签发（60 天有效），业务接口一律凭 token 鉴权
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CommunityLocalState {
@@ -37,6 +39,15 @@ pub struct CommunityLocalState {
     /// 本地缓存的头像索引（0~29 预设 emoji）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub avatar_index: Option<i64>,
+    /// 会话 token（Worker 签发，60 天有效）；null = 未登录 / 已登出 / 到期清除
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auth_token: Option<String>,
+    /// 登录模式：'anonymous' | 'account'；null = 未登录
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auth_mode: Option<String>,
+    /// 账号模式用户名（展示用）；匿名模式为 None
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub username: Option<String>,
 }
 
 impl Default for CommunityLocalState {
@@ -47,8 +58,40 @@ impl Default for CommunityLocalState {
             user_id: None,
             nickname: None,
             avatar_index: None,
+            auth_token: None,
+            auth_mode: None,
+            username: None,
         }
     }
+}
+
+/// 匿名 / 注册 / 登录 / 绑定共用输入（校验规则服务端权威，见 Worker accounts.ts）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AccountAuthInput {
+    /// 用户名：^[A-Za-z][A-Za-z0-9]{3,31}$（英文字母开头，≥4 位，区分大小写）
+    pub username: String,
+    /// 密码：8~64 位
+    pub password: String,
+}
+
+/// 鉴权端点统一响应（data：token / mode / user）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AuthResult {
+    /// 会话 token（60 天有效，Worker 签发）
+    pub token: String,
+    /// 'anonymous' | 'account'
+    pub mode: String,
+    /// 当前用户资料（与 GET /users/me 的 user 结构一致）
+    pub user: ProfileUser,
+}
+
+/// 登出响应
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LogoutData {
+    pub ok: bool,
 }
 
 // ===== 帖子 =====

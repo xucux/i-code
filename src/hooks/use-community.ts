@@ -9,6 +9,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { invokeCommand } from '@/hooks/use-command'
 import type {
+  AccountAuthInput,
   AdminLoginData,
   AdminMuteInput,
   AdminPostListData,
@@ -17,12 +18,14 @@ import type {
   AdminUpdateGovernanceInput,
   AdminUpdatePostInput,
   AdminUserItem,
+  AuthResult,
   CheckInLeaderboardData,
   CheckInResult,
   CommunityLocalState,
   CommunitySection,
   CreatePostInput,
   CreateReplyInput,
+  LogoutData,
   MyPostsData,
   MyRepliesData,
   NotificationListData,
@@ -56,6 +59,33 @@ export async function getCommunityState(): Promise<CommunityLocalState> {
 /** 设置门禁开关（开启时后端自动生成设备身份） */
 export async function setCommunityEnabled(enabled: boolean): Promise<CommunityLocalState> {
   return invokeCommand<CommunityLocalState>('community_set_enabled', { enabled })
+}
+
+// ===== 鉴权（2026-08-31 迭代，见 docs/proposals/community-auth-accounts.md）=====
+
+/** 匿名进入：以本机机器码身份换取匿名 token（老用户升级自动补换） */
+export async function communityAuthAnonymous(): Promise<AuthResult> {
+  return invokeCommand<AuthResult>('community_auth_anonymous')
+}
+
+/** 账号登录（Worker 校验密码并签发 account token；按 IP 防爆破） */
+export async function communityAuthLogin(input: AccountAuthInput): Promise<AuthResult> {
+  return invokeCommand<AuthResult>('community_auth_login', { input })
+}
+
+/** 注册账号（D4：Worker 创建全新独立身份，账号与设备解耦） */
+export async function communityAuthRegister(input: AccountAuthInput): Promise<AuthResult> {
+  return invokeCommand<AuthResult>('community_auth_register', { input })
+}
+
+/** 匿名身份升级账号（D3：绑定用户名密码，Worker 吊销原匿名 token 并签发 account token） */
+export async function communityAuthBind(input: AccountAuthInput): Promise<AuthResult> {
+  return invokeCommand<AuthResult>('community_auth_bind', { input })
+}
+
+/** 登出：吊销远端会话并清空本地登录态（回到登录卡） */
+export async function communityAuthLogout(): Promise<LogoutData> {
+  return invokeCommand<LogoutData>('community_auth_logout')
 }
 
 /** 帖子列表（游标分页；section 缺省 = 最近/全部板块） */
@@ -575,8 +605,13 @@ let profileCache: ProfileCacheEntry | null = null
  *
  * - 初始加载（进入社区）优先命中新鲜缓存（< 6h）直接展示；
  * - `refresh` 总是强制请求并更新缓存，供签到 / 改资料 / 发帖后保持最新。
+ * - 会话失效（Worker 401，Service 已清本地登录态）→ 触发 `onUnauthorized` 回调
+ *   （2026-08-31 鉴权迭代：前端据此重新拉取本地状态回到登录卡）。
  */
-export function useCommunityProfile(enabled: boolean): {
+export function useCommunityProfile(
+  enabled: boolean,
+  onUnauthorized?: () => void,
+): {
   profile: ProfileData | null
   loading: boolean
   notFound: boolean
@@ -596,7 +631,13 @@ export function useCommunityProfile(enabled: boolean): {
       // 写入模块级缓存：下次进入社区新鲜期内直接复用
       profileCache = { profile: data, cachedAt: Date.now() }
       return data
-    } catch {
+    } catch (e) {
+      // 2026-08-31 鉴权迭代：会话失效（session 过期 / 被封后吊销）→ 通知父级回登录卡
+      // 后端错误码为 SCREAMING_SNAKE_CASE（'UNAUTHORIZED'），前端 ErrorCode 联合类型不含该值，
+      // 此处按运行时字符串判定。
+      if ((e as { code?: unknown } | null)?.code === 'UNAUTHORIZED') {
+        onUnauthorized?.()
+      }
       // 新设备尚未在 Worker 注册（404）→ 引导设置资料
       setProfile(null)
       setNotFound(true)
@@ -604,6 +645,7 @@ export function useCommunityProfile(enabled: boolean): {
     } finally {
       setLoading(false)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled])
 
   useEffect(() => {

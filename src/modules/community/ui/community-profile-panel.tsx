@@ -1,8 +1,8 @@
 /**
  * 社区右侧个人栏（§8.3）
  *
- * 个人卡：头像 + 昵称 + 编辑、签到按钮、发帖/数据统计、
- * 我的帖子 / 我的回复入口（切换左列视图）、关闭社区。
+ * 个人卡：头像 + 昵称 + 登录模式徽章 + 编辑、签到按钮、发帖/数据统计、
+ * 我的帖子 / 我的回复入口（切换左列视图）、登录管理（匿名绑定 / 账号退出）、关闭社区。
  */
 
 import { useState } from 'react'
@@ -24,6 +24,14 @@ export interface CommunityProfilePanelProps {
   onCheckIn: () => void
   checkInPending: boolean
   onCloseCommunity: () => void
+  /** 登录模式：'anonymous' | 'account'（2026-08-31 鉴权迭代） */
+  authMode: 'anonymous' | 'account' | null
+  /** 账号模式用户名（展示用） */
+  username: string | null
+  /** 匿名用户：绑定用户名密码（打开绑定弹窗） */
+  onBindAccount: () => void
+  /** 账号用户：退出登录 */
+  onLogout: () => void
 }
 
 export function CommunityProfilePanel({
@@ -34,9 +42,14 @@ export function CommunityProfilePanel({
   onCheckIn,
   checkInPending,
   onCloseCommunity,
+  authMode,
+  username,
+  onBindAccount,
+  onLogout,
 }: CommunityProfilePanelProps) {
   const { t } = useTranslation('community')
   const [confirmClose, setConfirmClose] = useState(false)
+  const [confirmLogout, setConfirmLogout] = useState(false)
   const { user, stats } = profile
 
   return (
@@ -50,6 +63,17 @@ export function CommunityProfilePanel({
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1">
               <span className="truncate text-sm font-medium">{user.nickname}</span>
+              {/* 登录模式徽章（2026-08-31 鉴权迭代） */}
+              {authMode === 'account' && (
+                <Badge variant="secondary" className="h-4 shrink-0 px-1 text-[10px]">
+                  {t('auth.modeAccount')}
+                </Badge>
+              )}
+              {authMode === 'anonymous' && (
+                <Badge variant="outline" className="h-4 shrink-0 px-1 text-[10px]">
+                  {t('auth.modeAnonymous')}
+                </Badge>
+              )}
               {user.banned && (
                 <Badge variant="destructive" className="h-4 px-1 text-[10px]">
                   {t('profile.banned')}
@@ -141,6 +165,50 @@ export function CommunityProfilePanel({
           active={activeView === 'checkInLeaderboard'}
           onClick={() => onViewChange('checkInLeaderboard')}
         />
+      </div>
+
+      {/* 登录管理（2026-08-31 鉴权迭代）：匿名 → 绑定账号；账号 → 退出登录 */}
+      <div className="rounded-lg border bg-card p-1">
+        {authMode === 'account' ? (
+          confirmLogout ? (
+            <div className="space-y-1.5">
+              <p className="text-muted-foreground text-[11px]">{t('auth.logoutConfirm')}</p>
+              <div className="flex gap-1.5">
+                <Button variant="destructive" size="sm" className="h-6 flex-1 text-[11px]" onClick={onLogout}>
+                  {t('auth.logoutYes')}
+                </Button>
+                <Button variant="outline" size="sm" className="h-6 flex-1 text-[11px]" onClick={() => setConfirmLogout(false)}>
+                  {t('auth.logoutNo')}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground h-7 w-full justify-start text-xs hover:text-destructive"
+              onClick={() => setConfirmLogout(true)}
+            >
+              <i className="fa-solid fa-right-from-bracket mr-1.5 size-3" />
+              {t('auth.logout')}
+            </Button>
+          )
+        ) : (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground h-7 w-full justify-start text-xs"
+            onClick={onBindAccount}
+          >
+            <i className="fa-solid fa-link mr-1.5 size-3" />
+            {t('auth.bind')}
+          </Button>
+        )}
+        {authMode === 'account' && username && (
+          <p className="text-muted-foreground px-3 pb-1 text-[10px]">
+            {t('auth.loggedInAs', { username })}
+          </p>
+        )}
       </div>
 
       {/* 关闭社区（二次确认，防误触） */}

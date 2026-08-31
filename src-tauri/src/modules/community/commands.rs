@@ -10,13 +10,14 @@ use crate::error::IcodeResult;
 
 use super::service::CommunityHandle;
 use super::types::{
-    AdminLoginData, AdminLoginInput, AdminMuteInput, AdminPostListData, AdminReportItem,
-    AdminShareListData, AdminUpdateGovernanceInput, AdminUpdatePostInput, AdminUserItem,
-    CheckInLeaderboardData, CheckInResult, CommunityLocalState, CreatePostInput, CreateReplyInput,
-    MyPostsData, MyRepliesData, NotificationListData, PointsLeaderboardData, PostDetailData,
-    PostLikeData, PostListData, PostTipData, PostTipListData, ProfileData, ProfileUser,
-    ReadAllNotificationsData, ReportInput, ShareLink, ShareLinkInput, ShareLinkListData,
-    SiteGovernance, TipPostInput, UnreadCountData, UpdateMyPostInput, UpdateProfileInput,
+    AccountAuthInput, AdminLoginData, AdminLoginInput, AdminMuteInput, AdminPostListData,
+    AdminReportItem, AdminShareListData, AdminUpdateGovernanceInput, AdminUpdatePostInput,
+    AdminUserItem, AuthResult, CheckInLeaderboardData, CheckInResult, CommunityLocalState,
+    CreatePostInput, CreateReplyInput, LogoutData, MyPostsData, MyRepliesData,
+    NotificationListData, PointsLeaderboardData, PostDetailData, PostLikeData, PostListData,
+    PostTipData, PostTipListData, ProfileData, ProfileUser, ReadAllNotificationsData, ReportInput,
+    ShareLink, ShareLinkInput, ShareLinkListData, SiteGovernance, TipPostInput, UnreadCountData,
+    UpdateMyPostInput, UpdateProfileInput,
 };
 
 /// 列表分页上限（与 Worker 侧 MAX_LIST_LIMIT 对齐）
@@ -269,6 +270,49 @@ pub async fn community_read_all_notifications(
     state: State<'_, CommunityHandle>,
 ) -> IcodeResult<ReadAllNotificationsData> {
     state.service().read_all_notifications().await
+}
+
+// ===== 鉴权（2026-08-31 迭代，docs/proposals/community-auth-accounts.md）=====
+
+/// 匿名进入：以本机机器码身份换取匿名 token（老用户升级自动补换，保持匿名模式）
+#[tauri::command]
+pub async fn community_auth_anonymous(
+    state: State<'_, CommunityHandle>,
+) -> IcodeResult<AuthResult> {
+    state.service().auth_anonymous().await
+}
+
+/// 账号登录（Worker 校验密码并签发 account token；按 IP 防爆破）
+#[tauri::command]
+pub async fn community_auth_login(
+    state: State<'_, CommunityHandle>,
+    input: AccountAuthInput,
+) -> IcodeResult<AuthResult> {
+    state.service().auth_login(input).await
+}
+
+/// 注册账号（D4：Worker 创建全新独立身份，账号与设备解耦）
+#[tauri::command]
+pub async fn community_auth_register(
+    state: State<'_, CommunityHandle>,
+    input: AccountAuthInput,
+) -> IcodeResult<AuthResult> {
+    state.service().auth_register(input).await
+}
+
+/// 匿名身份升级账号（D3：绑定用户名密码，Worker 吊销原匿名 token 并签发 account token）
+#[tauri::command]
+pub async fn community_auth_bind(
+    state: State<'_, CommunityHandle>,
+    input: AccountAuthInput,
+) -> IcodeResult<AuthResult> {
+    state.service().auth_bind(input).await
+}
+
+/// 登出：吊销远端会话并清空本地登录态（回到登录卡）
+#[tauri::command]
+pub async fn community_auth_logout(state: State<'_, CommunityHandle>) -> IcodeResult<LogoutData> {
+    state.service().auth_logout().await
 }
 
 // ===== 门禁与本地状态（不进 Worker）=====

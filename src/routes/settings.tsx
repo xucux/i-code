@@ -694,7 +694,7 @@ function SettingsPage() {
                 <ChangelogButton />
               </div>
               <div className="flex items-center gap-1">
-                <span className="text-xs text-muted-foreground tabular-nums">0.2.14</span>
+                <span className="text-xs text-muted-foreground tabular-nums">0.3.0</span>
                 <UpdateCheck />
               </div>
             </div>

@@ -20,6 +20,37 @@ export interface CommunityLocalState {
   nickname: string | null
   /** 本地缓存的头像索引（emoji 预设下标，见 avatars.ts，0 ~ COUNT-1） */
   avatarIndex: number | null
+  /** 会话 token（Worker 签发，60 天有效）；null = 未登录 / 已登出 / 到期清除（2026-08-31 鉴权迭代） */
+  authToken: string | null
+  /** 登录模式：'anonymous' | 'account'；null = 未登录 */
+  authMode: 'anonymous' | 'account' | null
+  /** 账号模式用户名（展示用）；匿名模式为 null */
+  username: string | null
+}
+
+// ===== 鉴权（2026-08-31 迭代，见 docs/proposals/community-auth-accounts.md）=====
+
+/** 匿名 / 注册 / 登录 / 绑定共用输入（校验规则服务端权威） */
+export interface AccountAuthInput {
+  /** 用户名：^[A-Za-z][A-Za-z0-9]{3,31}$（英文字母开头，≥4 位，区分大小写） */
+  username: string
+  /** 密码：8~64 位 */
+  password: string
+}
+
+/** 鉴权端点统一响应 */
+export interface AuthResult {
+  /** 会话 token（60 天有效） */
+  token: string
+  /** 'anonymous' | 'account' */
+  mode: 'anonymous' | 'account'
+  /** 当前用户资料 */
+  user: ProfileUser
+}
+
+/** 登出响应 */
+export interface LogoutData {
+  ok: boolean
 }
 
 // ===== 帖子 =====
