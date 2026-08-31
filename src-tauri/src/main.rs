@@ -481,6 +481,94 @@ fn update_tray_balance_items(
     }
 }
 
+/// 托盘「代理」类型菜单项 ID → 全局代理类型；未知 ID 返回 None
+fn proxy_type_from_tray_id(id: &str) -> Option<modules::shared::ProxyType> {
+    match id {
+        "proxy-type-direct" => Some(modules::shared::ProxyType::Direct),
+        "proxy-type-system" => Some(modules::shared::ProxyType::System),
+        "proxy-type-http" => Some(modules::shared::ProxyType::Http),
+        "proxy-type-socks" => Some(modules::shared::ProxyType::Socks),
+        _ => None,
+    }
+}
+
+/// 托盘「代理」类型菜单项 ID → 中文标签（不含选中标记）
+fn tray_proxy_type_label(id: &str) -> &'static str {
+    match id {
+        "proxy-type-direct" => "直连",
+        "proxy-type-system" => "系统代理",
+        "proxy-type-http" => "HTTP 代理",
+        "proxy-type-socks" => "SOCKS 代理",
+        _ => "",
+    }
+}
+
+/// 构造托盘「代理」类型菜单项文字：当前选中项以 "✓ " 前缀标记
+fn tray_proxy_type_text(id: &str, current: modules::shared::ProxyType) -> String {
+    let label = tray_proxy_type_label(id);
+    let checked = proxy_type_from_tray_id(id) == Some(current);
+    if checked {
+        format!("✓ {label}")
+    } else {
+        label.to_string()
+    }
+}
+
+/// 刷新托盘「代理」子菜单文字
+///
+/// 由托盘菜单点击（proxy-toggle / proxy-type-*）、`settings:changed` 事件监听、
+/// 定时线程兜底刷新共用，保证托盘展示与 DB 配置实时一致。
+/// - `toggle_item`：全局代理开关文字（✓/✗）
+/// - `type_items`：代理类型单选组文字（当前项带 ✓ 前缀）
+/// - `url_item`：代理地址展示文字（http/socks 且已配置 URL 时显示脱敏地址）
+fn refresh_tray_proxy_menu(
+    dto: &modules::settings::types::AppSettingsDto,
+    toggle_item: &Arc<Mutex<Option<MenuItem<tauri::Wry>>>>,
+    type_items: &Arc<Mutex<Vec<MenuItem<tauri::Wry>>>>,
+    url_item: &Arc<Mutex<Option<MenuItem<tauri::Wry>>>>,
+) {
+    // 1. 更新开关文字
+    let toggle_text = if dto.global_proxy_enabled {
+        "全局代理: ✓"
+    } else {
+        "全局代理: ✗"
+    };
+    if let Ok(lock) = toggle_item.lock() {
+        if let Some(item) = lock.as_ref() {
+            let _ = item.set_text(toggle_text);
+        }
+    }
+
+    // 2. 更新类型单选组（当前项加 ✓ 前缀；无配置时默认直连）
+    let current = dto
+        .global_proxy
+        .as_ref()
+        .map(|c| c.proxy_type)
+        .unwrap_or(modules::shared::ProxyType::Direct);
+    if let Ok(lock) = type_items.lock() {
+        for item in lock.iter() {
+            let id: String = item.id().as_ref().to_string();
+            let _ = item.set_text(&tray_proxy_type_text(&id, current));
+        }
+    }
+
+    // 3. 更新地址展示（仅 http/socks 且已配置 URL 时显示，认证信息脱敏）
+    let url_text = match dto.global_proxy.as_ref() {
+        Some(cfg) if matches!(cfg.proxy_type, modules::shared::ProxyType::Http | modules::shared::ProxyType::Socks) => {
+            match cfg.url.as_deref().filter(|s| !s.is_empty()) {
+                Some(url) => format!("地址: {}", modules::shared::redact_proxy_url(url)),
+                None => "地址: 未设置".to_string(),
+            }
+        }
+        _ => "地址: —".to_string(),
+    };
+    if let Ok(lock) = url_item.lock() {
+        if let Some(item) = lock.as_ref() {
+            let _ = item.set_text(&url_text);
+        }
+    }
+}
+
 /// 打开迷你面板窗口；若已存在则显示并聚焦
 #[tauri::command]
 async fn open_mini_panel(app: tauri::AppHandle) -> Result<(), String> {
@@ -1216,6 +1304,80 @@ fn main() {
             let balance_items_handle: Arc<Mutex<Vec<MenuItem<_>>>> = Arc::new(Mutex::new(initial_balance_items));
             let balance_empty_handle: Arc<Mutex<Option<MenuItem<_>>>> = Arc::new(Mutex::new(initial_balance_empty));
 
+            // ===== 全局代理子菜单 =====
+            // 与「设置 → 本地网络 → 全局代理」共用同一份 DB 配置（app_settings.global_proxy_*），
+            // 托盘内支持：开关（proxy-toggle）、类型切换（proxy-type-*）、只读展示代理地址。
+            // 因系统托盘菜单不支持文本输入，代理 URL 需在设置页录入后在此展示（认证信息脱敏）。
+            let proxy_read = modules::settings::service::SettingsServiceHandle::new()
+                .service()
+                .get_settings();
+            let proxy_enabled = proxy_read.as_ref().map(|s| s.global_proxy_enabled).unwrap_or(false);
+            let proxy_current_type = proxy_read
+                .as_ref()
+                .ok()
+                .and_then(|s| s.global_proxy.as_ref())
+                .map(|c| c.proxy_type)
+                .unwrap_or(modules::shared::ProxyType::Direct);
+            // 1. 全局代理开关（点击切换 ✓/✗，交互与开机自启项一致）
+            let proxy_toggle_i = MenuItem::with_id(
+                app,
+                "proxy-toggle",
+                if proxy_enabled { "全局代理: ✓" } else { "全局代理: ✗" },
+                true,
+                None::<&str>,
+            )?;
+            // 2. 代理类型单选组（当前项以 "✓ " 前缀标记）
+            let proxy_type_ids = [
+                "proxy-type-direct",
+                "proxy-type-system",
+                "proxy-type-http",
+                "proxy-type-socks",
+            ];
+            let proxy_type_is: Vec<MenuItem<_>> = proxy_type_ids
+                .iter()
+                .map(|id| {
+                    let text = tray_proxy_type_text(id, proxy_current_type);
+                    MenuItem::with_id(app, *id, &text, true, None::<&str>)
+                        .expect("failed to create proxy type menu item")
+                })
+                .collect();
+            // 3. 代理地址展示（只读）：仅 http/socks 且已配置 URL 时显示（认证信息脱敏）
+            let proxy_url_text = match proxy_read.as_ref().ok().and_then(|s| s.global_proxy.as_ref()) {
+                Some(cfg) if matches!(cfg.proxy_type, modules::shared::ProxyType::Http | modules::shared::ProxyType::Socks) => {
+                    match cfg.url.as_deref().filter(|s| !s.is_empty()) {
+                        Some(url) => format!("地址: {}", modules::shared::redact_proxy_url(url)),
+                        None => "地址: 未设置".to_string(),
+                    }
+                }
+                _ => "地址: —".to_string(),
+            };
+            let proxy_url_i = MenuItem::with_id(app, "proxy-url", &proxy_url_text, false, None::<&str>)?;
+            // 组装「代理」子菜单
+            let proxy_sep = PredefinedMenuItem::separator(app)?;
+            let proxy_sep2 = PredefinedMenuItem::separator(app)?;
+            let proxy_refs: Vec<&dyn IsMenuItem<_>> = vec![
+                &proxy_toggle_i,
+                &proxy_sep,
+                &proxy_type_is[0],
+                &proxy_type_is[1],
+                &proxy_type_is[2],
+                &proxy_type_is[3],
+                &proxy_sep2,
+                &proxy_url_i,
+            ];
+            let proxy_submenu = Submenu::with_items(app, "代理", true, &proxy_refs)?;
+            // 持有菜单项引用供后续刷新；on_menu_event 闭包为 move，
+            // 故额外 clone 一份供 settings:changed 监听与定时线程兜底刷新使用
+            let proxy_toggle_item = Arc::new(Mutex::new(Some(proxy_toggle_i.clone())));
+            let proxy_type_items = Arc::new(Mutex::new(proxy_type_is));
+            let proxy_url_item = Arc::new(Mutex::new(Some(proxy_url_i.clone())));
+            let proxy_toggle_item_for_listener = proxy_toggle_item.clone();
+            let proxy_type_items_for_listener = proxy_type_items.clone();
+            let proxy_url_item_for_listener = proxy_url_item.clone();
+            let proxy_toggle_item_for_timer = proxy_toggle_item.clone();
+            let proxy_type_items_for_timer = proxy_type_items.clone();
+            let proxy_url_item_for_timer = proxy_url_item.clone();
+
             // ===== 新增托盘菜单项 =====
             // 今日 token 消耗（只读）
             let today_tokens_i = MenuItem::with_id(app, "today-tokens", "今日 Tokens: —", false, None::<&str>)?;
@@ -1261,6 +1423,7 @@ fn main() {
                     &open_website_i,
                     &model_stats_i,
                     &balance_submenu,
+                    &proxy_submenu,
                     &separator2,
                     &today_tokens_i,
                     &auto_start_i,
@@ -1278,6 +1441,9 @@ fn main() {
                 .show_menu_on_left_click(true)
                 .on_menu_event(move |app, event| {
                     let auto_start_item = auto_start_item.clone();
+                    let proxy_toggle_item = proxy_toggle_item.clone();
+                    let proxy_type_items = proxy_type_items.clone();
+                    let proxy_url_item = proxy_url_item.clone();
                     match event.id.as_ref() {
                         "quit" => app.exit(0),
                         "show" => {
@@ -1364,6 +1530,54 @@ fn main() {
                             // 通过事件机制触发网关启停，不再直接调用 Service
                             // 后端监听 gateway:toggle-request 事件执行实际操作
                             let _ = app.emit("gateway:toggle-request", ());
+                        }
+                        "proxy-toggle" => {
+                            // 切换全局代理开关（与设置页「全局代理」开关共用同一 DB 配置）
+                            let _guard = crate::core::trace_id_layer::enter_operation("tray:proxy_toggle");
+                            let settings_handle = app.state::<modules::settings::service::SettingsServiceHandle>();
+                            let current = settings_handle.service().get_settings().map(|s| s.global_proxy_enabled).unwrap_or(false);
+                            let new_val = !current;
+                            let input = modules::settings::types::UpdateSettingsInput {
+                                global_proxy_enabled: Some(new_val),
+                                ..Default::default()
+                            };
+                            if let Ok(dto) = settings_handle.service().update_settings(input) {
+                                refresh_tray_proxy_menu(&dto, &proxy_toggle_item, &proxy_type_items, &proxy_url_item);
+                                let msg = format!("全局代理开关已{}（托盘）", if new_val { "开启" } else { "关闭" });
+                                tracing::info!("{}", msg);
+                                app.state::<modules::logger::LoggerServiceHandle>().service().log_system(
+                                    crate::modules::logger::types::LogLevel::Info,
+                                    &msg,
+                                    Some(file!()),
+                                );
+                            }
+                        }
+                        "proxy-type-direct" | "proxy-type-system" | "proxy-type-http" | "proxy-type-socks" => {
+                            // 切换代理类型：保留已有 URL 与 no_proxy 列表，仅更新 type
+                            let _guard = crate::core::trace_id_layer::enter_operation("tray:proxy_type");
+                            let settings_handle = app.state::<modules::settings::service::SettingsServiceHandle>();
+                            let current_cfg = settings_handle.service().get_settings().map(|s| s.global_proxy).ok().flatten();
+                            let new_type = proxy_type_from_tray_id(event.id.as_ref())
+                                .expect("已知的托盘代理类型菜单项 ID");
+                            let new_cfg = modules::shared::ProxyConfig {
+                                proxy_type: new_type,
+                                url: current_cfg.as_ref().and_then(|c| c.url.clone()),
+                                no_proxy: current_cfg.map(|c| c.no_proxy).unwrap_or_default(),
+                            };
+                            let input = modules::settings::types::UpdateSettingsInput {
+                                global_proxy: Some(new_cfg),
+                                ..Default::default()
+                            };
+                            if let Ok(dto) = settings_handle.service().update_settings(input) {
+                                refresh_tray_proxy_menu(&dto, &proxy_toggle_item, &proxy_type_items, &proxy_url_item);
+                                let msg = format!("全局代理类型已切换为 {}（托盘）", tray_proxy_type_label(event.id.as_ref()));
+                                tracing::info!("{}", msg);
+                                app.state::<modules::logger::LoggerServiceHandle>().service().log_system(
+                                    crate::modules::logger::types::LogLevel::Info,
+                                    &msg,
+                                    Some(file!()),
+                                );
+                            }
                         }
                         "model-stats" => {
                             // 显示主窗口并通过事件让前端导航到模型统计页
@@ -1468,6 +1682,22 @@ fn main() {
                 }
             });
 
+            // 5) 监听 settings:changed：设置页更新全局代理后同步刷新托盘「代理」子菜单
+            //    主渠道为托盘点击后的手动刷新；此监听覆盖「在设置页修改后立即开托盘」的场景
+            app.listen("settings:changed", move |_| {
+                let settings = modules::settings::service::SettingsServiceHandle::new()
+                    .service()
+                    .get_settings();
+                if let Ok(dto) = settings {
+                    refresh_tray_proxy_menu(
+                        &dto,
+                        &proxy_toggle_item_for_listener,
+                        &proxy_type_items_for_listener,
+                        &proxy_url_item_for_listener,
+                    );
+                }
+            });
+
             // ===== 开机自启时恢复网关 & 隐藏主窗口 =====
             // 如果启动参数含 --autostart（由 tauri-plugin-autostart 注入），说明本次为开机自启调用：
             //   1. 隐藏主窗口到托盘（开机自启时不需要显示窗口）
@@ -1548,6 +1778,17 @@ fn main() {
                         &balance_items_handle_for_timer,
                         &balance_empty_handle_for_timer,
                         &rows,
+                    );
+                }
+
+                // 代理子菜单兜底刷新：从 DB 读取最新全局代理配置刷新托盘文字
+                // 主渠道为托盘点击与 settings:changed 事件监听，此处兜底保证一致性
+                if let Ok(proxy_dto) = app_handle.state::<modules::settings::service::SettingsServiceHandle>().service().get_settings() {
+                    refresh_tray_proxy_menu(
+                        &proxy_dto,
+                        &proxy_toggle_item_for_timer,
+                        &proxy_type_items_for_timer,
+                        &proxy_url_item_for_timer,
                     );
                 }
             });
