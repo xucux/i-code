@@ -11,6 +11,8 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { DashboardTokenChart, DashboardRequestChart } from '@/modules/call-records/ui/dashboard-charts'
 import { GatewayApiDocsDialog } from '@/modules/gateway-runtime/ui/gateway-api-docs-dialog'
+import { PortInUseDialog } from '@/modules/ai-gateway/ui/port-in-use-dialog'
+import { toIcodeError } from '@/core/errors'
 import { useLocalIps } from '@/hooks/use-local-ips'
 
 /** 图表显隐状态持久化键 */
@@ -31,6 +33,8 @@ function IndexPage() {
   // 当网关监听 0.0.0.0 / :: 时，解析本机 LAN 地址用于接口文档弹窗
   const resolved = useLocalIps(status.boundHost, status.boundPort)
   const [apiDocsOpen, setApiDocsOpen] = useState(false)
+  // 网关启动失败（端口被占用/权限不足等）时弹出帮助弹窗
+  const [portInUsePort, setPortInUsePort] = useState<number | null>(null)
 
   // 图表显隐状态（持久化到 localStorage）
   const [chartsVisible, setChartsVisible] = useState(() => {
@@ -70,7 +74,14 @@ function IndexPage() {
           toast.error(result.error ?? t('dashboard.gatewayStartFailed'))
         }
       } catch (err) {
-        toast.error(String(err))
+        const error = toIcodeError(err)
+        // 绑定失败（端口被占用 / 权限不足 / 地址不可用）时复用端口帮助弹窗，
+        // 与网关页启动行为保持一致
+        if (error.details?.reason && typeof error.details.port === 'number') {
+          setPortInUsePort(error.details.port)
+        } else {
+          toast.error(error.message)
+        }
       }
     }
   }
@@ -181,6 +192,15 @@ function IndexPage() {
         hosts={resolved.hosts}
         defaultHost={resolved.displayHost}
         port={status.boundPort}
+      />
+
+      {/* 网关启动失败帮助弹窗：端口被占用/权限不足时复用端口排查指引 */}
+      <PortInUseDialog
+        open={portInUsePort !== null}
+        port={portInUsePort}
+        onOpenChange={(v) => !v && setPortInUsePort(null)}
+        title={tg('gatewayOverview.gatewayPortInUseTitle')}
+        description={tg('gatewayOverview.gatewayPortInUseDesc', { port: portInUsePort ?? '' })}
       />
 
       <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">

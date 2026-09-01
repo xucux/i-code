@@ -62,6 +62,92 @@ async function copyToClipboard(text: string): Promise<boolean> {
 }
 
 /**
+ * 检测当前操作系统平台（用于端口占用指引选择命令）
+ */
+function detectOs(): 'windows' | 'macos' | 'linux' {
+  if (typeof navigator === 'undefined') return 'linux'
+  if (navigator.userAgent.includes('Windows')) return 'windows'
+  if (navigator.userAgent.includes('Mac')) return 'macos'
+  return 'linux'
+}
+
+/**
+ * 三平台「查找 + 结束」占用端口进程的命令，与 PortInUseDialog 保持一致
+ */
+const PORT_KILL_COMMANDS: Record<
+  'windows' | 'macos' | 'linux',
+  { titleKey: string; find: (port: number) => string; kill: string; extra?: { labelKey: string; cmd: string } }
+> = {
+  windows: {
+    titleKey: 'portInUse.windowsTitle',
+    find: (p) => `netstat -ano | findstr :${p}`,
+    kill: 'taskkill /PID <PID> /F',
+    // Windows 保留端口（Hyper-V / WSL 预留的动态端口范围）可能导致固定端口无法绑定，
+    // 重启 winnat 服务可重置动态端口保留，需管理员权限。
+    extra: { labelKey: 'portInUse.windowsWinnatStep', cmd: 'net stop winnat; net start winnat' },
+  },
+  macos: {
+    titleKey: 'portInUse.macosTitle',
+    find: (p) => `lsof -i :${p}`,
+    kill: 'kill -9 <PID>',
+  },
+  linux: {
+    titleKey: 'portInUse.linuxTitle',
+    find: (p) => `sudo lsof -i :${p}`,
+    kill: 'sudo kill -9 <PID>',
+  },
+}
+
+/**
+ * 监听端口占用清理指引（HelpIcon 弹层内容）
+ *
+ * 复用 PortInUseDialog 的分平台命令，按当前平台展示「查找占用进程 → 结束进程」
+ * 两条命令并附带复制按钮，供用户在网关设置页主动排查端口被占用问题。
+ */
+function PortHelpContent({ port }: { port: number }) {
+  const { t } = useTranslation('aiGateway')
+  const profile = PORT_KILL_COMMANDS[detectOs()]
+  const items = [
+    { label: t('gatewaySettings.portHelpFind'), cmd: profile.find(port) },
+    { label: t('gatewaySettings.portHelpKill'), cmd: profile.kill },
+    // 平台附加命令（Windows 重启 winnat 服务释放保留端口）
+    ...(profile.extra ? [{ label: t(profile.extra.labelKey), cmd: profile.extra.cmd }] : []),
+  ]
+  return (
+    <div className="space-y-2">
+      <p className="text-xs font-medium">{t('gatewaySettings.portHelpTitle')}</p>
+      <p className="whitespace-pre-line text-muted-foreground text-[11px]">{t('gatewaySettings.portHelpDesc')}</p>
+      <div className="flex items-center gap-1.5 text-primary text-[10px]">
+        <i className="fa-solid fa-desktop size-2.5" />
+        <span>{t(profile.titleKey)}</span>
+      </div>
+      {items.map((item) => (
+        <div key={item.cmd} className="space-y-0.5">
+          <p className="text-muted-foreground text-[11px]">{item.label}</p>
+          <div className="flex items-center gap-1">
+            <code className="flex-1 truncate rounded bg-muted px-1.5 py-0.5 font-mono text-[11px]">{item.cmd}</code>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-6 shrink-0"
+              title={t('portInUse.copyCmd')}
+              onClick={() => {
+                void copyToClipboard(item.cmd).then((ok) => {
+                  if (ok) toast.success(t('portInUse.copied'))
+                  else toast.error(t('gatewaySettings.copyFailed'))
+                })
+              }}
+            >
+              <i className="fa-solid fa-copy text-[10px]" />
+            </Button>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/**
  * 将 API Key 掩码展示：保留前缀与随后 6 位，其余用 `*` 替代
  * 例如 `sk-icode-affefa************************`
  */
@@ -178,7 +264,19 @@ export function GatewayBasicSettings() {
             </div>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs">{t('gatewaySettings.port')}</Label>
+            <div className="flex items-center gap-1">
+              <Label className="text-xs">{t('gatewaySettings.port')}</Label>
+              <HelpIcon
+                type="popover"
+                side="top"
+                align="start"
+                size="sm"
+                contentClassName="w-80 text-xs"
+                ariaLabel={t('gatewaySettings.portHelpTitle')}
+              >
+                <PortHelpContent port={settings.gatewayPort} />
+              </HelpIcon>
+            </div>
             <Input
               type="number"
               value={settings.gatewayPort}

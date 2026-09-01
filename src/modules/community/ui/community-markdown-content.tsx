@@ -559,14 +559,23 @@ export function CommunityMarkdownContent({
 }
 
 /**
- * 图片放大查看遮罩：半透明黑底 + 等比居中显示原图
+ * 图片放大查看遮罩：半透明黑底 + 等比居中显示原图，支持自由缩放
  *
  * 触发关闭：点击遮罩 / 点右上角关闭 / ESC。
+ * 缩放：底部透明按钮组 缩小 / 重置 / 放大（0.25 步进，范围 0.5 ~ 4 倍）。
  */
 function CommunityImageLightbox({ src, onClose }: { src: string; onClose: () => void }) {
+  // 缩放倍数：初始 1；0.25 步进，范围 [0.5, 4]
+  const [scale, setScale] = useState(1)
+  const handleZoom = (delta: number) => {
+    setScale((s) => {
+      const next = Math.round((s + delta) * 100) / 100
+      return Math.min(4, Math.max(0.5, next))
+    })
+  }
   return createPortal(
     <div
-      className="fixed inset-0 z-[100] flex cursor-zoom-out items-center justify-center bg-black/70 p-6"
+      className="fixed inset-0 z-[100] flex cursor-zoom-out items-center justify-center overflow-hidden bg-black/70 p-6"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -583,11 +592,47 @@ function CommunityImageLightbox({ src, onClose }: { src: string; onClose: () => 
       >
         <i className="fa-solid fa-xmark size-4" />
       </button>
-      {/* 原图：等比显示，不超过可视区域；点击图片自身不关闭（可拖动查看细节的交互预留） */}
+      {/* 底部缩放控制：半透明按钮组（点击不冒泡）；缩小 / 当前比例 / 重置 / 放大 */}
+      <div
+        className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-0.5 rounded-md bg-white/10 p-1 backdrop-blur-sm"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          className="flex size-7 items-center justify-center rounded text-white/80 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-30"
+          title="缩小"
+          disabled={scale <= 0.5}
+          onClick={() => handleZoom(-0.25)}
+        >
+          <i className="fa-solid fa-magnifying-glass-minus size-3.5" />
+        </button>
+        <span className="w-11 text-center text-xs text-white/80 tabular-nums">
+          {Math.round(scale * 100)}%
+        </span>
+        <button
+          type="button"
+          className="flex size-7 items-center justify-center rounded text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+          title="重置为原始大小"
+          onClick={() => setScale(1)}
+        >
+          <i className="fa-solid fa-arrows-to-circle size-3" />
+        </button>
+        <button
+          type="button"
+          className="flex size-7 items-center justify-center rounded text-white/80 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-30"
+          title="放大"
+          disabled={scale >= 4}
+          onClick={() => handleZoom(0.25)}
+        >
+          <i className="fa-solid fa-magnifying-glass-plus size-3.5" />
+        </button>
+      </div>
+      {/* 原图：等比显示不超过可视区域；transform scale 实现缩放；点击图片自身不关闭 */}
       <img
         src={src}
         alt=""
-        className="max-h-full max-w-full cursor-zoom-out rounded-md object-contain shadow-2xl"
+        className="max-h-full max-w-full cursor-zoom-out rounded-md object-contain shadow-2xl transition-transform duration-150"
+        style={{ transform: `scale(${scale})` }}
         onClick={(e) => e.stopPropagation()}
       />
     </div>,
