@@ -580,10 +580,10 @@ function CommunityImageLightbox({ src, onClose }: { src: string; onClose: () => 
       role="dialog"
       aria-modal="true"
     >
-      {/* 右上角关闭按钮（事件不冒泡，避免触发遮罩关闭外的重复逻辑） */}
+      {/* 右上角关闭按钮（事件不冒泡，避免触发遮罩关闭外的重复逻辑）；z 高于图片，放大后仍可点 */}
       <button
         type="button"
-        className="absolute right-3 top-3 flex size-8 items-center justify-center rounded-md text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+        className="absolute right-3 top-3 z-10 flex size-8 items-center justify-center rounded-md text-white/80 transition-colors hover:bg-white/10 hover:text-white"
         title="关闭"
         onClick={(e) => {
           e.stopPropagation()
@@ -592,9 +592,9 @@ function CommunityImageLightbox({ src, onClose }: { src: string; onClose: () => 
       >
         <i className="fa-solid fa-xmark size-4" />
       </button>
-      {/* 底部缩放控制：半透明按钮组（点击不冒泡）；缩小 / 当前比例 / 重置 / 放大 */}
+      {/* 底部缩放控制：半透明按钮组（点击不冒泡）；z 高于图片，放大后仍可点 */}
       <div
-        className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-0.5 rounded-md bg-white/10 p-1 backdrop-blur-sm"
+        className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 items-center gap-0.5 rounded-md bg-white/10 p-1 backdrop-blur-sm"
         onClick={(e) => e.stopPropagation()}
       >
         <button
