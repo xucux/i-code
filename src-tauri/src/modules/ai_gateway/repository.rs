@@ -65,6 +65,7 @@ pub fn insert_provider(
     let now = now();
     let is_enabled_i: i64 = if input.is_enabled { 1 } else { 0 };
     let auto_fetch_i: i64 = if input.auto_fetch_official_models { 1 } else { 0 };
+    let is_media_generation_i: i64 = if input.is_media_generation { 1 } else { 0 };
     let sort_order = input.sort_order.unwrap_or(0);
 
     conn.execute(
@@ -73,9 +74,9 @@ pub fn insert_provider(
              transport, service_tier, auth_json, auth_expires_at, auth_method,
              balance_provider_json, timeout_json, retry_json, proxy_json,
              auto_fetch_official_models, context_cache_json, well_known_template_id,
-             is_enabled, sort_order, created_at, updated_at, script_variables_json)
+             is_enabled, is_media_generation, sort_order, created_at, updated_at, script_variables_json)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, NULL, ?9, ?10, ?11,
-                 ?12, ?13, ?14, ?15, ?16, NULL, NULL, ?17, ?18, ?19, ?20, ?21)",
+                 ?12, ?13, ?14, ?15, ?16, NULL, NULL, ?17, ?18, ?19, ?20, ?21, ?22)",
         rusqlite::params![
             id,
             input.slug,
@@ -94,6 +95,7 @@ pub fn insert_provider(
             input.proxy_json,
             auto_fetch_i,
             is_enabled_i,
+            is_media_generation_i,
             sort_order,
             now,
             now,
@@ -231,6 +233,11 @@ pub fn update_provider(
     }
     if let Some(v) = input.is_enabled {
         sets.push(format!("is_enabled = ?{idx}"));
+        params.push(Box::new(v as i64));
+        idx += 1;
+    }
+    if let Some(v) = input.is_media_generation {
+        sets.push(format!("is_media_generation = ?{idx}"));
         params.push(Box::new(v as i64));
         idx += 1;
     }
@@ -655,9 +662,16 @@ pub fn list_gateway_models_by_provider(provider_id: &str) -> IcodeResult<Vec<Gat
 /// 列出所有已暴露的网关模型（用于 `/v1/models` 接口）
 ///
 /// 关联查询 `providers` 表，仅返回供应商已启用且模型已暴露的记录。
+/// 隔离约束：排除媒体生成协议族供应商的全部模型（其模型不进入 `/v1/models`）。
 pub fn list_exposed_gateway_models() -> IcodeResult<Vec<ExposedGatewayModelRow>> {
     let conn = get_conn()?;
-    let mut stmt = conn.prepare(
+    // 动态构造媒体生成协议族的 NOT IN 占位符
+    let media_placeholders = crate::modules::ai_gateway::types::MEDIA_GENERATION_PROVIDER_TYPES
+        .iter()
+        .map(|_| "?")
+        .collect::<Vec<_>>()
+        .join(", ");
+    let sql = format!(
         "SELECT g.id, g.provider_id, g.model_config_id, g.model_id,
                 g.display_name, g.family, p.slug AS provider_slug, p.display_name AS provider_display_name,
                 mc.thinking_json
@@ -665,21 +679,28 @@ pub fn list_exposed_gateway_models() -> IcodeResult<Vec<ExposedGatewayModelRow>>
          INNER JOIN providers p ON p.id = g.provider_id
          LEFT JOIN model_configs mc ON mc.id = g.model_config_id
          WHERE g.is_exposed = 1 AND p.is_enabled = 1
+           AND p.provider_type NOT IN ({media_placeholders})
          ORDER BY p.sort_order ASC, g.model_id ASC",
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map(
+        rusqlite::params_from_iter(
+            crate::modules::ai_gateway::types::MEDIA_GENERATION_PROVIDER_TYPES.iter(),
+        ),
+        |row| {
+            Ok(ExposedGatewayModelRow {
+                id: row.get(0)?,
+                provider_id: row.get(1)?,
+                model_config_id: row.get(2)?,
+                model_id: row.get(3)?,
+                display_name: row.get(4)?,
+                family: row.get(5)?,
+                provider_slug: row.get(6)?,
+                provider_display_name: row.get(7)?,
+                thinking_json: row.get(8)?,
+            })
+        },
     )?;
-    let rows = stmt.query_map([], |row| {
-        Ok(ExposedGatewayModelRow {
-            id: row.get(0)?,
-            provider_id: row.get(1)?,
-            model_config_id: row.get(2)?,
-            model_id: row.get(3)?,
-            display_name: row.get(4)?,
-            family: row.get(5)?,
-            provider_slug: row.get(6)?,
-            provider_display_name: row.get(7)?,
-            thinking_json: row.get(8)?,
-        })
-    })?;
     let mut result = Vec::new();
     for row in rows {
         result.push(row?);
@@ -794,7 +815,7 @@ const PROVIDER_SELECT_SQL: &str = "SELECT p.id, p.slug, p.display_name, p.provid
     p.balance_provider_json, p.timeout_json, p.retry_json, p.proxy_json,
     p.auto_fetch_official_models, p.context_cache_json, p.well_known_template_id,
     p.is_enabled, p.sort_order, p.created_at, p.updated_at,
-    p.script_variables_json
+    p.script_variables_json, p.is_media_generation
     FROM providers p";
 
 /// providers 表行映射器：将数据库行转换为 Provider DTO
@@ -803,6 +824,7 @@ fn provider_row_mapper(row: &rusqlite::Row<'_>) -> rusqlite::Result<Provider> {
     let use_raw: i64 = row.get(5)?;
     let auto_fetch: i64 = row.get(16)?;
     let is_enabled: i64 = row.get(19)?;
+    let is_media_generation: i64 = row.get(24)?;
     Ok(Provider {
         id: row.get(0)?,
         slug: row.get(1)?,
@@ -824,6 +846,7 @@ fn provider_row_mapper(row: &rusqlite::Row<'_>) -> rusqlite::Result<Provider> {
         context_cache_json: row.get(17)?,
         well_known_template_id: row.get(18)?,
         is_enabled: is_enabled != 0,
+        is_media_generation: is_media_generation != 0,
         sort_order: row.get(20)?,
         created_at: row.get(21)?,
         updated_at: row.get(22)?,

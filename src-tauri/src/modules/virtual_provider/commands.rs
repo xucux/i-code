@@ -80,12 +80,14 @@ pub async fn virtual_provider_create(
 /// 保存虚拟模型（含子级路由）
 ///
 /// 前端一次性提交父级虚拟模型与全部子级真实模型路由；后端在事务中完成创建/更新并重新关联子级路由。
+/// 注入 ai_gateway Service 用于隔离校验（视觉生成供应商不允许加入虚拟路由）。
 #[tauri::command]
 pub async fn virtual_model_save(
     state: State<'_, VirtualProviderHandle>,
+    ai_gateway: State<'_, AiGatewayServiceHandle>,
     input: SaveVirtualModelInput,
 ) -> IcodeResult<VirtualModel> {
-    state.service().save_model(input)
+    state.service().save_model(ai_gateway.service(), input)
 }
 
 /// 更新虚拟供应商

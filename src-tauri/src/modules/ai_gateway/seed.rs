@@ -89,6 +89,10 @@ pub struct BuiltinProvider {
     /// 是否默认开启官方模型自动拉取
     #[serde(default)]
     pub auto_fetch_official_models: bool,
+    /// 是否视觉生成供应商（仅 vision 预设携带 true；
+    /// 该类供应商不进入原网关转发逻辑与虚拟供应商逻辑，其模型不进入 /v1/models）
+    #[serde(default)]
+    pub is_media_generation: bool,
     /// 排序优先级
     pub sort_order: i64,
     /// 默认附加请求头（用户创建供应商时自动填充到 provider_extra_headers 表）

@@ -845,6 +845,12 @@ fn main() {
             modules::ai_gateway::commands::gateway_builtin_models_by_provider_type,
             modules::ai_gateway::commands::gateway_builtin_media_providers_list,
             modules::ai_gateway::commands::gateway_builtin_media_models_list,
+            modules::media_generation::commands::media_generate_image,
+            modules::media_generation::commands::media_history_list,
+            modules::media_generation::commands::media_history_delete,
+            modules::media_generation::commands::media_asset_read,
+            modules::media_generation::commands::media_asset_copy,
+            modules::media_generation::commands::media_asset_export,
             modules::ai_gateway::commands::gateway_fetch_official_models,
             modules::ai_gateway::commands::gateway_fetch_models_by_protocol,
             modules::ai_gateway::commands::gateway_settings_get,
@@ -1062,6 +1068,13 @@ fn main() {
             modules::balance::script::host_storage::init_script_storage(&app_config_dir)
                 .expect("脚本公共存储初始化失败");
             tracing::info!("脚本公共存储初始化完成：{}", app_config_dir.display());
+
+            // ===== 初始化媒体产物存储 =====
+            // 图像生成产物下载到 {app_config_dir}/media/，
+            // DB 仅存相对路径（供应商 URL 存在过期机制，必须本地化）。
+            modules::media_generation::asset_store::init_assets_dir(&app_config_dir)
+                .expect("媒体产物存储初始化失败");
+            tracing::info!("媒体产物存储初始化完成：{}", app_config_dir.display());
 
             // ===== 初始化 Settings 模块 =====
             // Settings 无需启动期加载缓存，每次调用直接查库。

@@ -83,6 +83,12 @@ log = "0.4"
 # - tracing-log 的 LogTracer：log:: 宏 → tracing 事件（log→tracing 方向）
 #   桥接现有 180 处 log::info! 等宏调用，零改动继续工作
 tracing = { version = "0.1", features = ["log"] }
+
+# ===== 媒体生成（media-generation 模块）=====
+# 图片解码：产物 PNG/JPG → RGBA（供剪贴板位图写入；剪贴板读写复用下方 arboard）
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+# 原生文件对话框：产物「另存为」（在同步 Command 的主线程上调用）
+rfd = "0.15"
 tracing-subscriber = { version = "0.3", features = ["registry", "env-filter"] }
 tracing-log = "0.2"
 # 文件按天滚动 appender（配合自定义 SizeAwareFileAppender 实现按大小分片）
@@ -111,6 +117,18 @@ local-ip-address = "0.6"
 machine-uid = "0.5"
 # 跨平台系统剪贴板读取（Windows / macOS / Linux X11+Wayland）
 arboard = "3"
+
+[target.'cfg(windows)'.dependencies]
+# Windows 平台直接 FFI 调用 Win32 剪贴板 API（绕开 arboard 在 spawn_blocking 线程上的
+# 「无消息泵 + 无 owner 窗口」缺陷，避免 SetClipboardData 偶发 os error 1418）
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_System_DataExchange",
+    "Win32_System_Memory",
+    "Win32_System_Ole",
+    "Win32_Graphics_Gdi",
+    "Win32_UI_WindowsAndMessaging",
+] }
 
 [dev-dependencies]
 # 测试用临时目录（SizeAwareFileAppender 单元测试用）

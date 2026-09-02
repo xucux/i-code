@@ -291,7 +291,11 @@ impl VirtualProviderService {
     /// 1. 创建或更新虚拟模型；
     /// 2. 删除该虚拟模型的全部已有路由；
     /// 3. 按提交顺序重新写入子级路由。
-    pub fn save_model(&self, input: SaveVirtualModelInput) -> IcodeResult<VirtualModel> {
+    pub fn save_model(
+        &self,
+        ai_gateway: &AiGatewayService,
+        input: SaveVirtualModelInput,
+    ) -> IcodeResult<VirtualModel> {
         if input.model_id.trim().is_empty() {
             return Err(IcodeError::validation("虚拟模型 model_id 不能为空"));
         }
@@ -306,6 +310,17 @@ impl VirtualProviderService {
             }
             if route.target_model_id.trim().is_empty() {
                 return Err(IcodeError::validation("路由目标模型 ID 不能为空"));
+            }
+            // 隔离约束：视觉生成供应商的模型不允许加入虚拟路由
+            // （媒体生成协议族不参与聊天转发与故障转移选路）
+            let target_provider = ai_gateway.get_provider(&route.target_provider_id)?;
+            if crate::modules::ai_gateway::types::is_media_generation_provider_type(
+                &target_provider.provider_type,
+            ) {
+                return Err(IcodeError::validation(format!(
+                    "路由目标供应商 '{}' 为视觉生成供应商，不允许加入虚拟路由",
+                    target_provider.slug
+                )));
             }
             // timeout_ms 不允许负值；None 表示继承
             if let Some(t) = route.timeout_ms {
@@ -1034,14 +1049,17 @@ impl VirtualProviderService {
                 })
                 .collect();
 
-            let model = self.save_model(SaveVirtualModelInput {
-                id: None,
-                virtual_provider_id: provider.id.clone(),
-                model_id: slot.model_id.clone(),
-                display_name: slot.display_name.clone(),
-                is_enabled: true,
-                routes: route_inputs,
-            })?;
+            let model = self.save_model(
+                ai_gateway,
+                SaveVirtualModelInput {
+                    id: None,
+                    virtual_provider_id: provider.id.clone(),
+                    model_id: slot.model_id.clone(),
+                    display_name: slot.display_name.clone(),
+                    is_enabled: true,
+                    routes: route_inputs,
+                },
+            )?;
 
             slot_results.push(SlotGenerationResult {
                 key: slot.key.clone(),

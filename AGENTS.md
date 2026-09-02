@@ -209,16 +209,14 @@ i-code/
 典型模式：
 
 ```tsx
-// 1. 测量页面总高度
-const [pageHeight, pageRef] = useAvailableHeight()
-// 2. 测量固定表头/工具栏高度
-const [headerHeight, headerRef] = useAvailableHeight()
-// 3. 计算内容区可用高度
-const contentHeight = Math.max(0, pageHeight - headerHeight - padding)
-// 4. 传入滚动容器
-<ScrollPage style={{ height: contentHeight || undefined }} variant="borderless" />
-// 或直接传入内容组件（组件需接受 style prop）
-<LogViewer style={{ height: contentHeight || undefined }} />
+// 1. 根节点必须受父级高度约束（h-full），否则测量值会被内容撑大
+// 2. 内容 wrapper 用 flex-1 min-h-0 定尺寸，并直接测量其自身
+const [contentHeight, contentRef] = useAvailableHeight()
+// 3. 把实测值传给内部滚动组件
+<div ref={contentRef} className="min-h-0 flex-1 overflow-hidden">
+  <ScrollPage style={{ height: contentHeight || undefined }} variant="borderless" />
+</div>
+// 非滚动的自适应布局（如左右分栏）直接走 flex，无需数值高度
 ```
 
 关键规则：
@@ -226,13 +224,35 @@ const contentHeight = Math.max(0, pageHeight - headerHeight - padding)
 | 规则 | 说明 |
 |------|------|
 | 使用 `useAvailableHeight` | 禁止用 `h-full` / `flex-1` 猜测高度；必须实测后传入 |
+| 测量节点必须有确定性高度 | `useAvailableHeight` 测量的是元素**自身** `getBoundingClientRect().height`；测量 ref 所在节点必须受父级约束（根节点 `h-full` + flex-col），否则高度被内容撑开、测量值随内容膨胀形成恶性循环 |
+| 禁止对测量值做多项手工加减 | `pageHeight - toolbarHeight - 12` 这类算术极易漏掉根节点 padding、wrapper margin 等（每漏一项即等量溢出）；应**直接测量目标容器自身**（wrapper 用 flex-1 定尺寸后测量，再把实测值传给内部滚动组件） |
 | 滚动容器用 `ScrollPage` | 统一使用 `components/ui/scroll-page`，支持 `variant` / `scrollbarVisible` 等定制 |
 | flex 子项加 `min-h-0` | flex 子项内含 ScrollArea / ScrollPage 时必须加 `min-h-0`，否则内容溢出不触发滚动 |
 | 组件接受 `style` prop | 需要精确高度的组件（如 LogViewer）应声明 `style?: React.CSSProperties`，由父级传入计算值 |
 | TabsContent 内的滚动 | Tab 页内容区高度 = 页面高度 - Tab 栏 - 筛选栏 - 内边距；不同 Tab 可共享同一计算值 |
 | 禁止双层滚动容器 | 已使用 `useAvailableHeight` + `ScrollableTable` 做内部滚动的组件，**禁止**外层再包 `ScrollPage`；Radix ScrollArea 会注入 `display: table; min-width: 100%` 的包裹 div，导致内容按固有尺寸撑开、固定高度失效 |
+| 非 flex 主轴的填充区禁用 `h-full` | 父容器内含 Label 等兄弟节点时，子元素 `h-full`（= 父高 100%）+ 兄弟高度必然溢出；应将父容器设为 `flex flex-col`，子元素用 `flex-1 min-h-0` 占据剩余空间 |
 
 **典型反例**：`ModelList` 已内部管理滚动，若外层再套 `<ScrollPage>`，Card 会被 Radix 的 table 包裹层撑开，表格无法滚动。正确做法是父级容器直接给固定高度并加 `overflow-hidden`。
+
+### 5.6 技术事故复盘
+
+#### 2026-09-02 视觉生成页内容溢出窗口（滚动布局测量链断裂）
+
+**现象**：`/vision` 页参数面板与画布底部（水印/提示/生成按钮）被推出窗口外，两轮修复后才收敛。
+
+**根因（三条叠加，逐轮暴露）**：
+
+1. **全局视口 36px 裁切**：`__root.tsx` 用 `pt-9` 为固定标题栏预留空间，但 `app-layout.tsx` 内部容器是 `h-screen`（= 100vh），从标题栏下方 36px 处开始渲染，底部 36px 被外层 `overflow-hidden` 裁掉——**所有页面**实际可用高度是 `100vh - 36px`，而页面按 `100vh` 测量。修复：AppLayout 容器 `h-screen` → `h-full`（父容器 padding 已预留标题栏空间）。
+2. **测量值算术漏项**：`contentHeight = pageHeight - toolbarHeight - 12` 未扣除根节点自身 `pt-2` / `pb-3` 与 wrapper 的 `mt-2`，每项漏计都等量转化为底部溢出。修复：废弃手工加减，改为**直接测量内容 wrapper 自身**（flex-1 定尺寸后 ResizeObserver 实测），把实测值传给画廊 ScrollPage；工作台为非滚动双列布局，直接走 flex 自适应。
+3. **textarea 高度链断裂（初始爆点）**：提示词 textarea 用 `h-full`（= 父容器 100%），但父容器内还有 Label，`Label + 100%` 必然溢出，且父容器非 flex 无法收缩 → 内容膨胀 → 测量节点（绑定在被内容撑开的根 div 上）测出更大的高度 → 恶性循环直到撑出窗口。
+
+**沉淀的规约**（已并入 §5.5 规则表）：
+
+- 测量 ref 所在节点必须有确定性高度约束；测量值与内容禁止互相反馈。
+- 禁止对测量值做多步手工加减；优先「flex 定尺寸 + 直接测量目标容器」。
+- 含兄弟节点的填充区禁用 `h-full`，用 `flex-1 min-h-0`。
+- 布局改动的验证标准：**在 900×700 真实窗口内核验底部元素完整可见**，type-check 无法发现此类问题。
 
 ---
 

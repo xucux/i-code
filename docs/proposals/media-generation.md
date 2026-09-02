@@ -246,7 +246,7 @@
 |------|------|------|
 | **Phase 1**（已部分完成） | 数据层：vision 扩展预设 + `sensenova-image-generation` 协议硬编码 | ✅ 已落地 |
 | **Phase 2** | **标识与隔离**：供应商新增 `is_media_generation` 字段（含迁移、DTO 同步）+ `MEDIA_GENERATION_FAMILY` 协议族判定 + 列表 tag + 三条隔离约束落地（网关拦截 / 虚拟供应商排除 / `/v1/models` 过滤）；vision 预设独立加载（仅来自 vision JSON，不合并通用列表，专用 Command 暴露）——**已落地** | Phase 1 |
-| **Phase 3** | 文生图供应商直连：`media-generation` 后端（image client + 生成历史 + 产物本地化）+ 工作台 / 画廊 UI；接入 logger / call-records | Phase 2 |
+| **Phase 3** | 文生图供应商直连：`media-generation` 后端（image client + 生成历史 + 产物本地化）+ 工作台 / 画廊 UI；接入 logger / call-records——**已落地**（call-records 以 `source=internal` 记录；MCP / 网关暴露后续阶段） | Phase 2 |
 | **Phase 4** | 网关暴露 `POST /v1/images/generations` + 聊天气泡内嵌生图 | Phase 3 |
 | **Phase 5** | 文生视频：任务状态机 + 轮询 + 进度事件 + 视频产物存储 | Phase 3 |
 | **Phase 6** | 本软件以 MCP Server 形式对外暴露生图工具（挂载网关端口，复用网关认证）；图生图 / 编辑能力 | Phase 3 稳定 |

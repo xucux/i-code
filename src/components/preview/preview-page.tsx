@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { Link } from '@tanstack/react-router'
+import { Link, useRouter } from '@tanstack/react-router'
 import { useTranslation } from '@/modules/i18n/use-translation'
 import { useTheme } from '@/modules/theme/use-theme'
 import type { AppLocale, AppTheme } from '@/core/types'
@@ -116,6 +116,7 @@ import {
 } from '@/components/preview/chart-examples'
 import { FileDropZone } from '@/components/preview/file-drop-zone'
 import { CodeEditor } from '@/components/preview/code-editor'
+import { usePreviewStore } from '@/components/preview/preview-store'
 // 自定义组件库新增组件：标题栏配置与托盘信息
 import { TitleBarConfig } from '@/components/preview/title-bar-config'
 import { TrayInfo } from '@/components/ui/tray-info'
@@ -326,6 +327,14 @@ function VerticalMenu() {
 export default function PreviewPage() {
   const { t, i18n } = useTranslation('preview')
   const { theme, setTheme, toggleTheme } = useTheme()
+  const router = useRouter()
+  const setPreviewVisible = usePreviewStore((s) => s.setVisible)
+
+  // 退出并隐藏：移除侧边栏入口并返回首页
+  const handleExitAndHide = () => {
+    setPreviewVisible(false)
+    void router.navigate({ to: '/' })
+  }
   const [enabled, setEnabled] = useState(true)
   const [sliderValue, setSliderValue] = useState([50])
   const [radioValue, setRadioValue] = useState('comfortable')
@@ -426,6 +435,10 @@ export default function PreviewPage() {
                 ) : (
                   <i className={iconClass('sun', 'size-4')} />
                 )}
+              </Button>
+
+              <Button variant="outline" size="icon" onClick={handleExitAndHide} title={t('exitAndHide')}>
+                <i className={iconClass('right-from-bracket', 'size-4')} />
               </Button>
 
               <Button variant="outline" size="icon" asChild>

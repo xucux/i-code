@@ -9,7 +9,7 @@
 ///
 /// 与 `src-tauri/src/db/migrations/V{n}__*.sql` 文件名中的 `{n}` 对应。
 /// 每次新增增量迁移时同步更新。
-pub const SCHEMA_VERSION: u32 = 9;
+pub const SCHEMA_VERSION: u32 = 10;
 
 /// 所有业务表名常量
 ///
@@ -74,6 +74,10 @@ pub mod table {
     pub const VIRTUAL_ROUTE_ATTEMPTS: &str = "virtual_route_attempts";
     /// 额度监控脚本模板表
     pub const SCRIPT_TEMPLATES: &str = "script_templates";
+    /// 图像生成历史表
+    pub const MEDIA_GENERATIONS: &str = "media_generations";
+    /// 视频生成任务表
+    pub const MEDIA_VIDEO_TASKS: &str = "media_video_tasks";
     /// 迁移版本记录表
     pub const SCHEMA_MIGRATIONS: &str = "schema_migrations";
     /// 网关设置单例表
@@ -115,6 +119,8 @@ pub const TABLE_NAMES: &[&str] = &[
     table::VIRTUAL_MODEL_ROUTES,
     table::VIRTUAL_ROUTE_ATTEMPTS,
     table::SCRIPT_TEMPLATES,
+    table::MEDIA_GENERATIONS,
+    table::MEDIA_VIDEO_TASKS,
     table::SCHEMA_MIGRATIONS,
     table::GATEWAY_SETTINGS,
     table::GATEWAY_AUTH_KEYS,

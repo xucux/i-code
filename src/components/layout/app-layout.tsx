@@ -6,6 +6,7 @@ import { useTranslation } from '@/modules/i18n/use-translation'
 import { BACKEND_EVENTS } from '@/core/events'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { usePreviewStore } from '@/components/preview/preview-store'
 
 /**
  * 导航菜单项配置
@@ -33,6 +34,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation()
   const location = useRouterState({ select: (s) => s.location })
   const router = useRouter()
+  // 组件预览入口：默认隐藏，需在设置页触发显示
+  const previewVisible = usePreviewStore((s) => s.visible)
 
   // 监听托盘菜单导航请求（如「模型统计」）：跳转到后端指定的路由路径
   useEffect(() => {
@@ -47,21 +50,24 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     }
   }, [router])
 
-  // 顶部菜单：核心业务入口
+  // 顶部菜单：核心业务入口（组件预览需在设置页连击触发后才展示，置于菜单树末尾）
   const mainNavItems: NavItem[] = [
     { to: '/', icon: 'fa-solid fa-house', labelKey: 'nav.dashboard', end: true },
     { to: '/gateways', icon: 'fa-solid fa-network-wired', labelKey: 'nav.aiGateway' },
     { to: '/chat', icon: 'fa-solid fa-comments', labelKey: 'nav.chat' },
+    { to: '/vision', icon: 'fa-solid fa-wand-magic-sparkles', labelKey: 'nav.visionGeneration' },
     { to: '/cli', icon: 'fa-solid fa-terminal', labelKey: 'nav.cli' },
     { to: '/community', icon: 'fa-solid fa-users', labelKey: 'nav.community' },
     { to: '/logs', icon: 'fa-solid fa-file-lines', labelKey: 'nav.logs' },
     { to: '/backups', icon: 'fa-solid fa-cloud-arrow-up', labelKey: 'nav.backup' },
+    ...(previewVisible
+      ? [{ to: '/preview', icon: 'fa-solid fa-palette', labelKey: 'nav.preview' }]
+      : []),
   ]
 
-  // 底部菜单：系统与开发入口
+  // 底部菜单：系统入口
   const systemNavItems: NavItem[] = [
     { to: '/settings', icon: 'fa-solid fa-gear', labelKey: 'nav.settings' },
-    { to: '/preview', icon: 'fa-solid fa-palette', labelKey: 'nav.preview' },
   ]
 
   /**
@@ -77,7 +83,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="flex h-screen w-screen overflow-hidden">
+      {/* h-full 而非 h-screen：父容器（__root）已用 pt-9 为固定标题栏预留 36px，
+          h-screen 会从标题栏下方 36px 处开始渲染导致底部被全局裁切 */}
+      <div className="flex h-full w-full overflow-hidden">
         {/* 左侧导航栏 */}
         <aside className="flex w-16 flex-col border-r bg-card">
           {/* 应用图标 */}

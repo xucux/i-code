@@ -16,6 +16,7 @@
 //! - [`gateway_runtime`]：本地 HTTP 网关生命周期与请求路由
 //! - [`virtual_provider`]：虚拟供应商与模型故障转移
 //! - [`call_records`]：模型调用记录与统计
+//! - [`media_generation`]：媒体生成（文生图 / 文生视频）、产物存储与历史
 //! - [`update_version`]：版本更新检查
 //!
 //! ## 跨模块调用规则
@@ -33,6 +34,7 @@ pub mod cli_management;
 pub mod community;
 pub mod gateway_runtime;
 pub mod logger;
+pub mod media_generation;
 pub mod scheduler;
 pub mod script_template;
 pub mod secret;

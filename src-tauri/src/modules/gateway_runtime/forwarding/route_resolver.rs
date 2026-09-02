@@ -3,6 +3,7 @@
 //! 解析客户端请求中的 `model` 字段，返回真实供应商或虚拟供应商路由。
 
 use crate::error::{IcodeError, IcodeResult};
+use crate::modules::ai_gateway::types::is_media_generation_provider_type;
 use crate::modules::gateway_runtime::service::GatewaySharedState;
 use crate::modules::virtual_provider::types::VirtualModelRoute;
 
@@ -73,6 +74,12 @@ pub fn resolve_route(
     // 优先：真实供应商
     let providers = shared.ai_gateway_handle.service().list_enabled_providers()?;
     if let Some(provider) = providers.into_iter().find(|p| p.slug == provider_slug) {
+        // 隔离约束：视觉生成供应商不进入原网关转发逻辑，
+        // 对外返回 model not found 语义的标准错误体（不路由、不桥接、不透传）
+        if is_media_generation_provider_type(&provider.provider_type) {
+            return Err(IcodeError::not_found("Model", Some(model_id)));
+        }
+
         let gateway_models = shared
             .ai_gateway_handle
             .service()
@@ -125,7 +132,22 @@ pub fn resolve_route(
             .service()
             .resolve_routes_by_strategy(&vp.id, &upstream_model_id, &strategy)?;
 
-        if routes.is_empty() {
+        // 隔离约束：过滤掉目标供应商属于媒体生成协议族的路由
+        // （虚拟模型不允许挂载视觉生成供应商，此处为运行时兜底过滤）
+        let mut filtered_routes: Vec<VirtualModelRoute> = Vec::with_capacity(routes.len());
+        for route in routes {
+            let is_media = shared
+                .ai_gateway_handle
+                .service()
+                .get_provider(&route.target_provider_id)
+                .map(|p| is_media_generation_provider_type(&p.provider_type))
+                .unwrap_or(false);
+            if !is_media {
+                filtered_routes.push(route);
+            }
+        }
+
+        if filtered_routes.is_empty() {
             return Err(IcodeError::not_found(
                 "VirtualModelRoute",
                 Some(&format!("{}/{}", provider_slug, upstream_model_id)),
@@ -133,7 +155,7 @@ pub fn resolve_route(
         }
 
         Ok(ResolvedRoute::Virtual {
-            routes,
+            routes: filtered_routes,
             alias: provider_slug,
             gateway_model_id: model_id.to_string(),
             upstream_model_id,
@@ -170,6 +192,14 @@ pub fn build_virtual_context(
     if !provider.is_enabled {
         return Err(IcodeError::validation(format!(
             "虚拟供应商路由目标 '{}' 已禁用",
+            provider.slug
+        )));
+    }
+
+    // 隔离约束兜底：视觉生成供应商不参与虚拟供应商转发
+    if is_media_generation_provider_type(&provider.provider_type) {
+        return Err(IcodeError::validation(format!(
+            "虚拟供应商路由目标 '{}' 为视觉生成供应商，不允许参与聊天转发",
             provider.slug
         )));
     }

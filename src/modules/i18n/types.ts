@@ -18,6 +18,7 @@ export type Namespace =
   | 'logger'
   | 'chat'
   | 'browser'
+  | 'vision'
 
 export interface I18nState {
   locale: AppLocale

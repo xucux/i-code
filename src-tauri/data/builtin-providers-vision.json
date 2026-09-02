@@ -19,6 +19,7 @@
         "method": "api-key"
       },
       "autoFetchOfficialModels": false,
+      "isMediaGeneration": true,
       "sortOrder": 69,
       "displayCnName": "日日新图像生成（商汤科技）"
     }

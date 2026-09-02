@@ -358,16 +358,34 @@ pub fn list_models_by_provider(virtual_provider_id: &str) -> IcodeResult<Vec<Vir
 /// 列出所有已启用的虚拟供应商下已启用的虚拟模型
 ///
 /// 用于 `/v1/models` 接口数据源，返回结果可直接构造 `{virtual_alias}/{model_id}` 对外 ID。
+/// 隔离约束：排除挂载了「视觉生成供应商」路由的虚拟模型（媒体生成协议族不进入 `/v1/models`）。
 pub fn list_exposed_virtual_models() -> IcodeResult<Vec<ExposedVirtualModel>> {
     let conn = get_conn()?;
-    let mut stmt = conn.prepare(
+    // 动态构造媒体生成协议族的 IN 占位符
+    let media_placeholders = crate::modules::ai_gateway::types::MEDIA_GENERATION_PROVIDER_TYPES
+        .iter()
+        .map(|_| "?")
+        .collect::<Vec<_>>()
+        .join(", ");
+    let sql = format!(
         "SELECT vm.id, vm.virtual_provider_id, vp.alias, vm.model_id, vm.display_name
          FROM virtual_models vm
          INNER JOIN virtual_providers vp ON vp.id = vm.virtual_provider_id
          WHERE vp.is_enabled = 1 AND vm.is_enabled = 1
+           AND NOT EXISTS (
+               SELECT 1 FROM virtual_model_routes r
+               INNER JOIN providers p ON p.id = r.target_provider_id
+               WHERE r.virtual_model_id = vm.id
+                 AND p.provider_type IN ({media_placeholders})
+           )
          ORDER BY vp.alias ASC, vm.model_id ASC",
-    )?;
-    let rows = stmt.query_map([], |row| {
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map(
+        rusqlite::params_from_iter(
+            crate::modules::ai_gateway::types::MEDIA_GENERATION_PROVIDER_TYPES.iter(),
+        ),
+        |row| {
         let model_id: String = row.get(3)?;
         let alias: String = row.get(2)?;
         let display_name: Option<String> = row.get(4)?;

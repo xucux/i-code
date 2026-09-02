@@ -121,6 +121,7 @@ export function ProviderList() {
     useRawBaseUrl: boolean
     authMethod: 'none' | 'api-key'
     isEnabled: boolean
+    isMediaGeneration?: boolean
     sortOrder: number
     extraHeaders?: Record<string, string>
     defaultModels?: BuiltinProviderDefaultModel[]
@@ -207,6 +208,7 @@ export function ProviderList() {
       useRawBaseUrl: builtin.useRawBaseUrl,
       authMethod: inferAuthMethod(builtin.defaultAuthJson),
       isEnabled: true,
+      isMediaGeneration: builtin.isMediaGeneration ?? false,
       sortOrder: 0,
       extraHeaders: builtin.defaultExtraHeaders,
       defaultModels: builtin.defaultModels,
@@ -388,6 +390,8 @@ export function ProviderList() {
           transport: values.transport,
           auth: values.auth,
           isEnabled: values.isEnabled,
+          // 视觉生成标识：来自内置预设（vision JSON）填充，手动创建时为 false
+          isMediaGeneration: initialFormValues?.isMediaGeneration ?? false,
           sortOrder: values.sortOrder,
           balanceProviderJson: values.balanceProviderJson,
           proxyJson: values.proxyJson,
@@ -518,6 +522,15 @@ export function ProviderList() {
                   <div className="min-w-0 flex-1 space-y-0.5">
                     <div className="flex items-center gap-2">
                       <span className="truncate text-sm font-medium">{provider.displayName}</span>
+                      {provider.isMediaGeneration && (
+                        <Badge
+                          variant="outline"
+                          className="shrink-0 border-primary/40 text-primary px-1 py-0 text-[10px]"
+                        >
+                          <i className="fa-solid fa-wand-magic-sparkles mr-0.5 text-[9px]" />
+                          {t('aiGateway.providerList.mediaGenerationTag')}
+                        </Badge>
+                      )}
                       <Badge variant="outline" className="text-[10px]">
                         {provider.providerType}
                       </Badge>

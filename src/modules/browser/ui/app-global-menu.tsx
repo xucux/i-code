@@ -163,6 +163,14 @@ export function AppGlobalMenu() {
   // 全局右键接管：弹出 粘贴 / 复制 / 刷新 / 回到主页
   const handleContextMenu = useCallback(
     (e: MouseEvent) => {
+      // 页面声明的右键接管区域（data-suppress-global-contextmenu，如视觉生成页的图片菜单）：
+      // 仅抑制 WebView2 原生菜单，不弹全局菜单，由页面自行展示专属右键
+      const target = e.target as HTMLElement | null
+      if (target?.closest?.('[data-suppress-global-contextmenu]')) {
+        e.preventDefault()
+        return
+      }
+
       e.preventDefault()
       const selection = window.getSelection()?.toString() ?? ''
       const items: MenuItem[] = [

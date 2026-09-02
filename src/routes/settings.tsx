@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from '@/modules/i18n/use-translation'
 import { useTheme } from '@/modules/theme/use-theme'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -44,6 +44,7 @@ import { DateTimeRangePicker } from '@/components/ui/date-time-range-picker'
 import type { DateRange } from 'react-day-picker'
 import { UpdateCheck } from '@/modules/settings/ui/update-check'
 import { ChangelogButton } from '@/modules/settings/ui/changelog-dialog'
+import { usePreviewStore } from '@/components/preview/preview-store'
 
 /**
  * 设置页面
@@ -53,6 +54,26 @@ import { ChangelogButton } from '@/modules/settings/ui/changelog-dialog'
 function SettingsPage() {
   const { t, i18n } = useTranslation()
   const { theme, setTheme } = useTheme()
+
+  // 组件预览入口：默认隐藏，「关于和更新」标题 icon 连击 5 次后展示
+  const previewVisible = usePreviewStore((s) => s.visible)
+  const setPreviewVisible = usePreviewStore((s) => s.setVisible)
+  const aboutIconClicks = useRef(0)
+
+  // 连击「关于和更新」标题 icon：满 5 次展示组件预览入口，已展示时点击则隐藏
+  const handleAboutIconClick = () => {
+    if (previewVisible) {
+      setPreviewVisible(false)
+      aboutIconClicks.current = 0
+      return
+    }
+    aboutIconClicks.current += 1
+    if (aboutIconClicks.current >= 5) {
+      aboutIconClicks.current = 0
+      setPreviewVisible(true)
+      toast.success(t('settings.about.previewUnlocked'))
+    }
+  }
 
   const [settings, setSettings] = useState<AppSettingsDto | null>(null)
 
@@ -677,8 +698,15 @@ function SettingsPage() {
         {/* 关于 */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">
-              <i className={cn('fa-solid fa-circle-info mr-2 text-muted-foreground')} />
+            <CardTitle className="flex items-center text-base">
+              <button
+                type="button"
+                onClick={handleAboutIconClick}
+                className="-ml-1 flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+                aria-label={t('settings.about.title')}
+              >
+                <i className="fa-solid fa-circle-info" />
+              </button>
               {t('settings.about.title')}
             </CardTitle>
           </CardHeader>

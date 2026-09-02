@@ -133,6 +133,7 @@ async fn refresh_with_script(
         context_cache_json: None,
         well_known_template_id: None,
         is_enabled: input.provider_is_enabled.unwrap_or(true),
+        is_media_generation: false,
         sort_order: 0,
         created_at: String::new(),
         updated_at: String::new(),

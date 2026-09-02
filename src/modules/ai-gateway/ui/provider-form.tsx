@@ -2078,11 +2078,15 @@ function ModelManagementSection({ provider }: ModelManagementSectionProps) {
   }
 
   // 加载内置模型列表（默认展示全部，前端再按 providerType 筛选）
+  // 视觉生成供应商使用独立的 vision 预设（builtin-models-vision.json），不与通用列表混合
   const loadBuiltinModels = async () => {
     if (!provider) return
     setBuiltinLoading(true)
     try {
-      const result = await invokeCommand<BuiltinModel[]>('gateway_builtin_models_list')
+      const command = provider.isMediaGeneration
+        ? 'gateway_builtin_media_models_list'
+        : 'gateway_builtin_models_list'
+      const result = await invokeCommand<BuiltinModel[]>(command)
       setBuiltinModels(result)
     } catch (err) {
       setBuiltinModels([])
@@ -2098,11 +2102,16 @@ function ModelManagementSection({ provider }: ModelManagementSectionProps) {
     }
   }
 
-  // 加载全部内置模型（用于官方模型预填充）
+  // 加载全部内置模型（用于官方模型预填充与编辑弹窗选项匹配）
+  // 合并通用预设与视觉生成预设（vision JSON），保证视觉模型也能被 findBuiltinByModelId 命中
   const loadAllBuiltinModels = async () => {
     try {
       const result = await invokeCommand<BuiltinModel[]>('gateway_builtin_models_list')
-      setAllBuiltinModels(result)
+      // 视觉生成预设追加在后；拉取失败静默忽略（仅影响预填充匹配，不阻断主流程）
+      const media = await invokeCommand<BuiltinModel[]>('gateway_builtin_media_models_list').catch(
+        () => [] as BuiltinModel[],
+      )
+      setAllBuiltinModels([...result, ...media])
     } catch (err) {
       setAllBuiltinModels([])
       const error = toIcodeError(err)

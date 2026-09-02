@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as VisionRouteImport } from './routes/vision'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as PreviewRouteImport } from './routes/preview'
 import { Route as MiniPanelRouteImport } from './routes/mini-panel'
@@ -26,6 +27,11 @@ import { Route as GatewaysModelsRouteImport } from './routes/gateways/models'
 import { Route as CommunityAdminRouteImport } from './routes/community/admin'
 import { Route as CommunityPostIdRouteImport } from './routes/community/post.$id'
 
+const VisionRoute = VisionRouteImport.update({
+  id: '/vision',
+  path: '/vision',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -113,6 +119,7 @@ export interface FileRoutesByFullPath {
   '/mini-panel': typeof MiniPanelRoute
   '/preview': typeof PreviewRoute
   '/settings': typeof SettingsRoute
+  '/vision': typeof VisionRoute
   '/community/admin': typeof CommunityAdminRoute
   '/gateways/models': typeof GatewaysModelsRoute
   '/gateways/providers': typeof GatewaysProvidersRoute
@@ -131,6 +138,7 @@ export interface FileRoutesByTo {
   '/mini-panel': typeof MiniPanelRoute
   '/preview': typeof PreviewRoute
   '/settings': typeof SettingsRoute
+  '/vision': typeof VisionRoute
   '/community/admin': typeof CommunityAdminRoute
   '/gateways/models': typeof GatewaysModelsRoute
   '/gateways/providers': typeof GatewaysProvidersRoute
@@ -150,6 +158,7 @@ export interface FileRoutesById {
   '/mini-panel': typeof MiniPanelRoute
   '/preview': typeof PreviewRoute
   '/settings': typeof SettingsRoute
+  '/vision': typeof VisionRoute
   '/community/admin': typeof CommunityAdminRoute
   '/gateways/models': typeof GatewaysModelsRoute
   '/gateways/providers': typeof GatewaysProvidersRoute
@@ -170,6 +179,7 @@ export interface FileRouteTypes {
     | '/mini-panel'
     | '/preview'
     | '/settings'
+    | '/vision'
     | '/community/admin'
     | '/gateways/models'
     | '/gateways/providers'
@@ -188,6 +198,7 @@ export interface FileRouteTypes {
     | '/mini-panel'
     | '/preview'
     | '/settings'
+    | '/vision'
     | '/community/admin'
     | '/gateways/models'
     | '/gateways/providers'
@@ -206,6 +217,7 @@ export interface FileRouteTypes {
     | '/mini-panel'
     | '/preview'
     | '/settings'
+    | '/vision'
     | '/community/admin'
     | '/gateways/models'
     | '/gateways/providers'
@@ -225,6 +237,7 @@ export interface RootRouteChildren {
   MiniPanelRoute: typeof MiniPanelRoute
   PreviewRoute: typeof PreviewRoute
   SettingsRoute: typeof SettingsRoute
+  VisionRoute: typeof VisionRoute
   CommunityAdminRoute: typeof CommunityAdminRoute
   GatewaysModelsRoute: typeof GatewaysModelsRoute
   GatewaysProvidersRoute: typeof GatewaysProvidersRoute
@@ -240,6 +253,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/vision': {
+      id: '/vision'
+      path: '/vision'
+      fullPath: '/vision'
+      preLoaderRoute: typeof VisionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings': {
       id: '/settings'
       path: '/settings'
@@ -361,6 +381,7 @@ const rootRouteChildren: RootRouteChildren = {
   MiniPanelRoute: MiniPanelRoute,
   PreviewRoute: PreviewRoute,
   SettingsRoute: SettingsRoute,
+  VisionRoute: VisionRoute,
   CommunityAdminRoute: CommunityAdminRoute,
   GatewaysModelsRoute: GatewaysModelsRoute,
   GatewaysProvidersRoute: GatewaysProvidersRoute,

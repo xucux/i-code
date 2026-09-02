@@ -41,7 +41,28 @@ pub enum ProviderType {
     Custom,
 }
 
+/// 媒体（视觉）生成协议族的 `provider_type` 字符串集合
+///
+/// 运行时隔离的唯一判定源：
+/// - 网关 `/v1/chat/completions`、`/v1/messages`、`/v1/responses` 命中该族供应商时前置拦截；
+/// - `/v1/models` 聚合时过滤该族供应商的全部模型；
+/// - 虚拟供应商保存 / 选路时排除该族供应商。
+/// 新增媒体生成协议（如 `openai-images`、视频类协议）时同步追加此处。
+pub const MEDIA_GENERATION_PROVIDER_TYPES: &[&str] = &["sensenova-image-generation"];
+
+/// 判断 `provider_type` 字符串是否属于媒体（视觉）生成协议族
+pub fn is_media_generation_provider_type(provider_type: &str) -> bool {
+    MEDIA_GENERATION_PROVIDER_TYPES.contains(&provider_type)
+}
+
 impl ProviderType {
+    /// 是否属于媒体（视觉）生成协议族
+    ///
+    /// 该协议族的供应商不进入原网关转发逻辑与虚拟供应商逻辑，其模型不进入 `/v1/models`。
+    pub fn is_media_generation(&self) -> bool {
+        matches!(self, Self::SensenovaImageGeneration)
+    }
+
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
             "anthropic" => Some(Self::Anthropic),
@@ -730,6 +751,13 @@ pub struct Provider {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub well_known_template_id: Option<String>,
     pub is_enabled: bool,
+    /// 是否视觉生成供应商
+    ///
+    /// 该类供应商不进入原网关转发逻辑与虚拟供应商逻辑，其模型不进入 `/v1/models`；
+    /// 运行时隔离判定以 `is_media_generation_provider_type`（协议族常量）为准，
+    /// 本字段仅用于列表 tag 展示与内置预设填充。
+    #[serde(default)]
+    pub is_media_generation: bool,
     pub sort_order: i64,
     pub created_at: String,
     pub updated_at: String,
@@ -916,6 +944,9 @@ pub struct CreateProviderInput {
     pub auto_fetch_official_models: bool,
     #[serde(default)]
     pub is_enabled: bool,
+    /// 是否视觉生成供应商（从内置预设创建时自动填充）
+    #[serde(default)]
+    pub is_media_generation: bool,
     #[serde(default)]
     pub sort_order: Option<i64>,
     /// 额度监控配置 JSON
@@ -980,6 +1011,9 @@ pub struct UpdateProviderInput {
     pub auto_fetch_official_models: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub is_enabled: Option<bool>,
+    /// 是否视觉生成供应商（None 表示不修改）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_media_generation: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sort_order: Option<i64>,
     /// 额度监控配置 JSON
@@ -1309,6 +1343,9 @@ pub struct ExportedProvider {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub well_known_template_id: Option<String>,
     pub is_enabled: bool,
+    /// 是否视觉生成供应商（导出/导入保留标识）
+    #[serde(default)]
+    pub is_media_generation: bool,
     pub sort_order: i64,
     /// 供应商级附加请求头（key → value）
     #[serde(skip_serializing_if = "Option::is_none")]

@@ -94,6 +94,8 @@ export interface Provider {
   contextCacheJson?: string
   wellKnownTemplateId?: string
   isEnabled: boolean
+  /** 是否视觉生成供应商（不进入原网关转发与虚拟供应商逻辑，其模型不进入 /v1/models） */
+  isMediaGeneration: boolean
   sortOrder: number
   createdAt: Timestamp
   updatedAt: Timestamp
@@ -587,6 +589,8 @@ export interface BuiltinProvider {
   extraHeadersJson?: string
   extraBodyJson?: string
   autoFetchOfficialModels: boolean
+  /** 是否视觉生成供应商（仅 vision 预设为 true，创建时自动填充） */
+  isMediaGeneration?: boolean
   sortOrder: number
   createdAt: Timestamp
   /** 默认附加请求头（来自种子数据，创建供应商时自动填充） */
@@ -782,6 +786,8 @@ export interface CreateProviderInput {
   auth?: AuthConfig
   autoFetchOfficialModels?: boolean
   isEnabled?: boolean
+  /** 是否视觉生成供应商（从内置预设创建时自动填充） */
+  isMediaGeneration?: boolean
   sortOrder?: number
   /** 额度监控配置 JSON */
   balanceProviderJson?: string
@@ -824,6 +830,8 @@ export interface UpdateProviderInput {
   auth?: AuthConfig
   autoFetchOfficialModels?: boolean
   isEnabled?: boolean
+  /** 是否视觉生成供应商（不传=不修改） */
+  isMediaGeneration?: boolean
   sortOrder?: number
   /** 额度监控配置 JSON */
   balanceProviderJson?: string
