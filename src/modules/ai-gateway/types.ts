@@ -24,6 +24,8 @@ export type ProviderType =
   | 'openai-codex'
   | 'openai-responses'
   | 'xai-grok-build'
+  /** 日日新 SenseNova U1 图像生成协议（独立接口 POST {base_url}/images/generations，非 Chat Completions） */
+  | 'sensenova-image-generation'
   | 'ollama'
   | 'custom'
 

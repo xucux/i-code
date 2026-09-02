@@ -274,18 +274,6 @@ CREATE TABLE IF NOT EXISTS cli_profiles (
   updated_at TEXT NOT NULL
 );
 
--- ===== 工作区表 =====
-CREATE TABLE IF NOT EXISTS workspaces (
-  id TEXT PRIMARY KEY,
-  slug TEXT NOT NULL UNIQUE,
-  display_name TEXT NOT NULL,
-  root_path TEXT NOT NULL,
-  is_active INTEGER NOT NULL DEFAULT 0,
-  last_applied_at TEXT,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-
 -- ===== 模型调用统计（按小时聚合） =====
 CREATE TABLE IF NOT EXISTS "model_call_stats_hourly" (
   id TEXT PRIMARY KEY,
@@ -490,18 +478,6 @@ CREATE TABLE IF NOT EXISTS cli_providers (
   updated_at TEXT NOT NULL
 );
 
--- ===== 工作区 × CLI 配置头 =====
-CREATE TABLE IF NOT EXISTS workspace_cli_configs (
-  id TEXT PRIMARY KEY,
-  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-  cli_profile_id TEXT NOT NULL REFERENCES cli_profiles(id) ON DELETE CASCADE,
-  is_applied INTEGER NOT NULL DEFAULT 0,
-  pending_apply INTEGER NOT NULL DEFAULT 1,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL,
-  UNIQUE(workspace_id, cli_profile_id)
-);
-
 -- ===== 模型调用日志 =====
 CREATE TABLE IF NOT EXISTS model_call_logs (
   id TEXT PRIMARY KEY,
@@ -556,41 +532,6 @@ CREATE TABLE IF NOT EXISTS cli_model_mappings (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   UNIQUE(cli_provider_id, cli_model_alias)
-);
-
--- ===== 工作区 MCP 服务器 =====
-CREATE TABLE IF NOT EXISTS workspace_mcp_servers (
-  id TEXT PRIMARY KEY,
-  workspace_cli_config_id TEXT NOT NULL REFERENCES workspace_cli_configs(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  transport TEXT NOT NULL,
-  config_json TEXT NOT NULL,
-  is_enabled INTEGER NOT NULL DEFAULT 1,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-
--- ===== 工作区 Prompt =====
-CREATE TABLE IF NOT EXISTS workspace_prompts (
-  id TEXT PRIMARY KEY,
-  workspace_cli_config_id TEXT NOT NULL REFERENCES workspace_cli_configs(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  content TEXT NOT NULL,
-  sort_order INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-
--- ===== 工作区 Skill =====
-CREATE TABLE IF NOT EXISTS workspace_skills (
-  id TEXT PRIMARY KEY,
-  workspace_cli_config_id TEXT NOT NULL REFERENCES workspace_cli_configs(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  source_path TEXT,
-  content TEXT,
-  is_enabled INTEGER NOT NULL DEFAULT 1,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
 );
 
 -- ===== 索引 =====

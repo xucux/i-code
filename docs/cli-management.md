@@ -1,11 +1,11 @@
 # CLI 管理模块设计
 
 > 状态：v0.2 实施中  
-> 关联：`docs/development.md` §5.6、`docs/database.md` §4.18-§4.20、`docs/proposals/cli-workspace-implementation.md`
+> 关联：`docs/development.md` §5.6、`docs/database.md` §4.18-§4.20
 
 ## 1. 目标
 
-CLI 管理用于配置外部 AI CLI 如何使用 i-code 中已有的供应商与模型，不负责编辑工作区 Prompt、MCP 或 Skill。
+CLI 管理用于配置外部 AI CLI 如何使用 i-code 中已有的供应商与模型。
 
 首批内置客户端固定为：
 
@@ -101,7 +101,7 @@ CLI 管理用于配置外部 AI CLI 如何使用 i-code 中已有的供应商与
 │ │ 读取 opencode.json，结构化编辑 provider 模块              │  │
 │ │ 每个 provider: id / name / npm / baseURL / apiKey / models │  │
 │ │ 支持：添加、编辑、删除 provider 和 model                  │  │
-│ │ MCP 模块属于工作区，暂不在本 Tab 编辑                     │  │
+│ │ MCP 模块暂不在本 Tab 编辑                                 │  │
 │ └─────────────────────────────────────────────────────────────┘  │
 │ ┌ Oh-My-OpenAgent 配置管理 ──────────────────────────────────┐  │
 │ │ 配置列表：名称 / Agent 数 / 已应用状态                    │  │
@@ -201,17 +201,7 @@ routes/cli/index.tsx
 - 表单组件只收集输入，不直接调用 Tauri Command。
 - 所有滚动区域由父级通过 `useAvailableHeight` 传入明确高度，禁止双层 `ScrollPage`。
 
-## 7. 与 Workspace 的边界
-
-CLI 管理定义“客户端连接到哪些供应商、模型别名如何路由”；Workspace 定义“当前工作区有哪些 Prompt、MCP、Skill，并在用户点击应用后写入客户端”。
-
-两者共享 `cli_profiles`，但页面与写入时机分离：
-
-- 修改 CLI 供应商或模型映射：立即写数据库，不触发 Workspace 应用。
-- 修改 Workspace 子配置：标记 `pending_apply`，用户点击“应用”后才写客户端文件。
-- 设置 Tab 修改配置文件路径：只改变未来应用/生成的目标路径。
-
-## 8. 本轮验收标准
+## 7. 本轮验收标准
 
 - `/cli` 默认显示 Claude CLI，并提供 Claude CLI、Codex、OpenCode、设置四个 Tab。
 - 三个客户端 Tab 布局和功能各不相同，不再共用同一个 `CliClientPanel`。
@@ -224,7 +214,7 @@ CLI 管理定义“客户端连接到哪些供应商、模型别名如何路由�
 - 设置页可自动探测默认路径、显示存在性与语法状态，并保存自定义路径。
 - 中文与英文文案同步；`pnpm type-check`、`cargo check` 通过。
 
-## 9. 后续迭代
+## 8. 后续迭代
 
 1. 为每个客户端实现原生配置渲染器与字段级 Merge/Patch。
 2. 写入前提供 diff 预览、备份与失败回滚。

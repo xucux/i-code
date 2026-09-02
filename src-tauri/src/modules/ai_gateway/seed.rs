@@ -203,23 +203,52 @@ pub fn load_builtin_models() -> IcodeResult<Vec<BuiltinModel>> {
     Ok(manifest.models)
 }
 
-/// 按 ID 查找内置供应商
+/// 加载内置视觉生成供应商预设（编译时嵌入二进制）
+///
+/// 视觉生成供应商预设**仅来自** `data/builtin-providers-vision.json`，
+/// 不合并进通用内置列表（`load_builtin_providers` 不返回视觉生成条目）。
+pub fn load_builtin_media_providers() -> IcodeResult<Vec<BuiltinProvider>> {
+    const JSON: &str = include_str!("../../../data/builtin-providers-vision.json");
+    let manifest: BuiltinProvidersManifest = serde_json::from_str(JSON)?;
+    Ok(manifest.providers)
+}
+
+/// 加载内置视觉生成模型预设（编译时嵌入二进制）
+///
+/// 视觉生成模型预设**仅来自** `data/builtin-models-vision.json`，
+/// 不合并进通用内置列表（`load_builtin_models` 不返回视觉生成条目）。
+pub fn load_builtin_media_models() -> IcodeResult<Vec<BuiltinModel>> {
+    const JSON: &str = include_str!("../../../data/builtin-models-vision.json");
+    let manifest: BuiltinModelsManifest = serde_json::from_str(JSON)?;
+    Ok(manifest.models)
+}
+
+/// 按 ID 查找内置供应商（先查通用预设，再查视觉生成预设）
 #[allow(dead_code)]
 pub fn find_builtin_provider(id: &str) -> IcodeResult<Option<BuiltinProvider>> {
-    let providers = load_builtin_providers()?;
-    Ok(providers.into_iter().find(|p| p.id == id))
+    if let Some(p) = load_builtin_providers()?.into_iter().find(|p| p.id == id) {
+        return Ok(Some(p));
+    }
+    Ok(load_builtin_media_providers()?
+        .into_iter()
+        .find(|p| p.id == id))
 }
 
-/// 按 ID 查找内置模型
+/// 按 ID 查找内置模型（先查通用预设，再查视觉生成预设）
 #[allow(dead_code)]
 pub fn find_builtin_model(id: &str) -> IcodeResult<Option<BuiltinModel>> {
-    let models = load_builtin_models()?;
-    Ok(models.into_iter().find(|m| m.id == id))
+    if let Some(m) = load_builtin_models()?.into_iter().find(|m| m.id == id) {
+        return Ok(Some(m));
+    }
+    Ok(load_builtin_media_models()?
+        .into_iter()
+        .find(|m| m.id == id))
 }
 
-/// 按供应商类型筛选内置模型
+/// 按供应商类型筛选内置模型（含通用与视觉生成预设）
 pub fn filter_builtin_models_by_provider_type(provider_type: &str) -> IcodeResult<Vec<BuiltinModel>> {
-    let models = load_builtin_models()?;
+    let mut models = load_builtin_models()?;
+    models.extend(load_builtin_media_models()?);
     Ok(models
         .into_iter()
         .filter(|m| m.provider_types.iter().any(|pt| pt == provider_type))
@@ -279,6 +308,30 @@ mod tests {
         let models = load_builtin_models().unwrap();
         assert!(!models.is_empty());
         assert!(models.iter().any(|m| m.id == "gpt-4.1"));
+    }
+
+    #[test]
+    fn test_media_presets_exclusive_source() {
+        // 视觉生成预设仅来自 vision JSON：通用列表不含视觉生成条目
+        let generic_providers = load_builtin_providers().unwrap();
+        assert!(generic_providers.iter().all(|p| p.id != "sensenova-image"));
+        let generic_models = load_builtin_models().unwrap();
+        assert!(generic_models.iter().all(|m| m.id != "sensenova-u1-fast"));
+
+        // 视觉生成预设加载自 vision JSON
+        let media_providers = load_builtin_media_providers().unwrap();
+        assert!(media_providers.iter().any(|p| p.id == "sensenova-image"));
+        let media_models = load_builtin_media_models().unwrap();
+        assert!(media_models.iter().any(|m| m.id == "sensenova-u1-fast"));
+
+        // 按 ID 查找可同时命中两个来源
+        assert!(find_builtin_provider("sensenova-image").unwrap().is_some());
+        assert!(find_builtin_model("sensenova-u1-fast").unwrap().is_some());
+
+        // 按协议类型筛选可命中视觉生成模型
+        let filtered =
+            filter_builtin_models_by_provider_type("sensenova-image-generation").unwrap();
+        assert!(filtered.iter().any(|m| m.id == "sensenova-u1-fast"));
     }
 
     #[test]

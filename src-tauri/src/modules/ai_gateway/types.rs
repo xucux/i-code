@@ -34,6 +34,9 @@ pub enum ProviderType {
     OpenaiResponses,
     #[serde(rename = "xai-grok-build")]
     XaiGrokBuild,
+    /// 日日新 SenseNova U1 图像生成协议（独立接口 `POST {base_url}/images/generations`，非 Chat Completions）
+    #[serde(rename = "sensenova-image-generation")]
+    SensenovaImageGeneration,
     Ollama,
     Custom,
 }
@@ -52,6 +55,7 @@ impl ProviderType {
             "openai-codex" => Some(Self::OpenaiCodex),
             "openai-responses" => Some(Self::OpenaiResponses),
             "xai-grok-build" => Some(Self::XaiGrokBuild),
+            "sensenova-image-generation" => Some(Self::SensenovaImageGeneration),
             "ollama" => Some(Self::Ollama),
             "custom" => Some(Self::Custom),
             _ => None,
@@ -71,6 +75,7 @@ impl ProviderType {
             Self::OpenaiCodex => "openai-codex",
             Self::OpenaiResponses => "openai-responses",
             Self::XaiGrokBuild => "xai-grok-build",
+            Self::SensenovaImageGeneration => "sensenova-image-generation",
             Self::Ollama => "ollama",
             Self::Custom => "custom",
         }
@@ -1555,6 +1560,7 @@ mod tests {
             ProviderType::OpenaiCodex,
             ProviderType::OpenaiResponses,
             ProviderType::XaiGrokBuild,
+            ProviderType::SensenovaImageGeneration,
             ProviderType::Ollama,
             ProviderType::Custom,
         ] {

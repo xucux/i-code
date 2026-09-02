@@ -1,0 +1,28 @@
+{
+  "version": "1.0.0",
+  "description": "i-code 内置模型扩展预设（图像或视频生成模型）。该文件随项目发版变更，不在运行时被用户修改，也不导入数据库。",
+  "models": [
+    {
+      "id": "sensenova-u1-fast",
+      "displayName": "SenseNova U1 Fast",
+      "background": "SenseNova U1 的加速版，基于 Neo-unify 架构，理解生成高效统一，信息图生成效果突出。使用独立的图像生成接口（POST {base_url}/images/generations），非 Chat Completions 接口；不支持图像输入；返回的图片 URL 为临时链接，固定有效期 1 小时；无水印生成（watermark=false）公测期间免费。",
+      "family": "sensenova",
+      "providerTypes": [
+        "sensenova-image-generation"
+      ],
+      "maxInputTokens": 4096,
+      "maxOutputTokens": null,
+      "tokenCountMultiplier": 1,
+      "stream": false,
+      "parallelToolCalling": false,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": false,
+        "imageInput": false
+      },
+      "thinking": {
+        "type": "disabled"
+      }
+    }
+  ]
+}

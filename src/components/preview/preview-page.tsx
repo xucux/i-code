@@ -138,7 +138,6 @@ import type { DateRange } from 'react-day-picker'
 import { LogTimeRangeFilter, type LogTimeRangeValue } from '@/modules/logger/ui/log-time-range-filter'
 // 本次新增的业务组件演示
 import { CliManagementDemo } from '@/components/preview/cli-management-demo'
-import { WorkspaceDemo } from '@/components/preview/workspace-demo'
 
 // Font Awesome 图标类名辅助函数，便于统一维护尺寸与样式
 function iconClass(name: string, className?: string) {
@@ -1131,10 +1130,6 @@ export default function PreviewPage() {
                             <p className="text-sm font-medium">CLI 管理</p>
                               <CliManagementDemo />
                           </div>
-                            <div className="space-y-2">
-                              <p className="text-sm font-medium">工作区</p>
-                                <WorkspaceDemo />
-                            </div>
                           </CardContent>
                         </Card>
 

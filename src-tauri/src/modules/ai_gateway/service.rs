@@ -2209,6 +2209,20 @@ impl AiGatewayService {
         seed::load_builtin_models()
     }
 
+    /// 列出内置视觉生成供应商预设
+    ///
+    /// 数据**仅来自** `data/builtin-providers-vision.json`，不与通用内置列表合并。
+    pub fn list_builtin_media_providers(&self) -> IcodeResult<Vec<BuiltinProvider>> {
+        seed::load_builtin_media_providers()
+    }
+
+    /// 列出内置视觉生成模型预设
+    ///
+    /// 数据**仅来自** `data/builtin-models-vision.json`，不与通用内置列表合并。
+    pub fn list_builtin_media_models(&self) -> IcodeResult<Vec<BuiltinModel>> {
+        seed::load_builtin_media_models()
+    }
+
     /// 按供应商类型筛选内置模型
     pub fn list_builtin_models_by_provider_type(
         &self,

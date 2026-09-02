@@ -10,8 +10,7 @@ i-code 使用 SQLite 作为唯一本地配置存储，支撑以下核心能力�
 
 1. **AI Gateways**：多供应商 CRUD、模型列表、代理与认证配置
 2. **CLI 管理**：CLI 实例、路由模式、模型映射、额度信息
-3. **工作区隔离**：按工作区隔离 Prompts / MCP / Skill，切换应用时才写入 CLI 实际配置
-4. **网关路由**：对外模型 ID 格式为 `{providerId}/{modelId}`，网关层解析后路由到真实供应商
+3. **网关路由**：对外模型 ID 格式为 `{providerId}/{modelId}`，网关层解析后路由到真实供应商
 
 设计参考：`参考项目/vscode-unify-chat-provider-7.12.3/src` 中的 `ProviderConfig`、`ModelConfig`、`AuthConfig`、`ProxyConfig` 等类型定义。
 
@@ -24,7 +23,7 @@ i-code 使用 SQLite 作为唯一本地配置存储，支撑以下核心能力�
 | 约定 | 说明 |
 |------|------|
 | 表主键 | 统一使用 `TEXT` UUID（`uuid v4`） |
-| 业务唯一键 | `providers.slug`、`cli_profiles.slug`、`workspaces.slug` 全局唯一 |
+| 业务唯一键 | `providers.slug`、`cli_profiles.slug` 全局唯一 |
 | 时间戳 | `created_at` / `updated_at` 使用 ISO 8601 UTC 文本或 Unix 毫秒整数 |
 
 ### 2.2 敏感数据
@@ -81,12 +80,6 @@ erDiagram
     cli_profiles ||--o{ cli_providers : binds
     providers ||--o{ cli_providers : routes_to
     cli_profiles ||--o{ cli_model_mappings : maps
-
-    workspaces ||--o{ workspace_cli_configs : isolates
-    cli_profiles ||--o{ workspace_cli_configs : targets
-    workspace_cli_configs ||--o{ workspace_prompts : stores
-    workspace_cli_configs ||--o{ workspace_mcp_servers : stores
-    workspace_cli_configs ||--o{ workspace_skills : stores
 
     providers ||--o{ model_call_logs : logs
     gateway_models ||--o{ model_call_logs : logs
@@ -781,146 +774,7 @@ CREATE TABLE cli_model_mappings (
 
 ---
 
-### 4.21 `workspaces` — 工作区
-
-| 列名 | 类型 | 约束 | 说明 |
-|------|------|------|------|
-| `id` | TEXT | PK | UUID |
-| `slug` | TEXT | UNIQUE NOT NULL | |
-| `display_name` | TEXT | NOT NULL | |
-| `root_path` | TEXT | NOT NULL | 本地工作区目录 |
-| `is_active` | INTEGER | NOT NULL DEFAULT 0 | 当前激活工作区 |
-| `last_applied_at` | TEXT | | 上次应用到 CLI 的时间 |
-| `created_at` | TEXT | NOT NULL | |
-| `updated_at` | TEXT | NOT NULL | |
-
-```sql
-CREATE TABLE workspaces (
-  id TEXT PRIMARY KEY,
-  slug TEXT NOT NULL UNIQUE,
-  display_name TEXT NOT NULL,
-  root_path TEXT NOT NULL,
-  is_active INTEGER NOT NULL DEFAULT 0,
-  last_applied_at TEXT,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-```
-
----
-
-### 4.22 `workspace_cli_configs` — 工作区 × CLI 配置头
-
-每个工作区对每个 CLI 一条配置头，隔离 Prompts/MCP/Skill。
-
-| 列名 | 类型 | 约束 | 说明 |
-|------|------|------|------|
-| `id` | TEXT | PK | UUID |
-| `workspace_id` | TEXT | FK NOT NULL | |
-| `cli_profile_id` | TEXT | FK NOT NULL | |
-| `is_applied` | INTEGER | NOT NULL DEFAULT 0 | 是否已写入 CLI 实际配置 |
-| `pending_apply` | INTEGER | NOT NULL DEFAULT 1 | 切换后待应用 |
-| `created_at` | TEXT | NOT NULL | |
-| `updated_at` | TEXT | NOT NULL | |
-
-```sql
-CREATE TABLE workspace_cli_configs (
-  id TEXT PRIMARY KEY,
-  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-  cli_profile_id TEXT NOT NULL REFERENCES cli_profiles(id) ON DELETE CASCADE,
-  is_applied INTEGER NOT NULL DEFAULT 0,
-  pending_apply INTEGER NOT NULL DEFAULT 1,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL,
-  UNIQUE(workspace_id, cli_profile_id)
-);
-```
-
----
-
-### 4.23 `workspace_prompts` — 工作区 Prompts
-
-| 列名 | 类型 | 约束 | 说明 |
-|------|------|------|------|
-| `id` | TEXT | PK | UUID |
-| `workspace_cli_config_id` | TEXT | FK NOT NULL | |
-| `name` | TEXT | NOT NULL | |
-| `content` | TEXT | NOT NULL | |
-| `sort_order` | INTEGER | DEFAULT 0 | |
-| `created_at` | TEXT | NOT NULL | |
-| `updated_at` | TEXT | NOT NULL | |
-
-```sql
-CREATE TABLE workspace_prompts (
-  id TEXT PRIMARY KEY,
-  workspace_cli_config_id TEXT NOT NULL REFERENCES workspace_cli_configs(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  content TEXT NOT NULL,
-  sort_order INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-```
-
----
-
-### 4.24 `workspace_mcp_servers` — 工作区 MCP 配置
-
-| 列名 | 类型 | 约束 | 说明 |
-|------|------|------|------|
-| `id` | TEXT | PK | UUID |
-| `workspace_cli_config_id` | TEXT | FK NOT NULL | |
-| `name` | TEXT | NOT NULL | |
-| `transport` | TEXT | NOT NULL | `stdio` / `sse` / `http` |
-| `config_json` | TEXT | NOT NULL | MCP server 完整配置 |
-| `is_enabled` | INTEGER | NOT NULL DEFAULT 1 | |
-| `created_at` | TEXT | NOT NULL | |
-| `updated_at` | TEXT | NOT NULL | |
-
-```sql
-CREATE TABLE workspace_mcp_servers (
-  id TEXT PRIMARY KEY,
-  workspace_cli_config_id TEXT NOT NULL REFERENCES workspace_cli_configs(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  transport TEXT NOT NULL,
-  config_json TEXT NOT NULL,
-  is_enabled INTEGER NOT NULL DEFAULT 1,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-```
-
----
-
-### 4.25 `workspace_skills` — 工作区 Skill 配置
-
-| 列名 | 类型 | 约束 | 说明 |
-|------|------|------|------|
-| `id` | TEXT | PK | UUID |
-| `workspace_cli_config_id` | TEXT | FK NOT NULL | |
-| `name` | TEXT | NOT NULL | |
-| `source_path` | TEXT | | 本地 skill 路径 |
-| `content` | TEXT | | 内联 skill 内容 |
-| `is_enabled` | INTEGER | NOT NULL DEFAULT 1 | |
-| `created_at` | TEXT | NOT NULL | |
-| `updated_at` | TEXT | NOT NULL | |
-
-```sql
-CREATE TABLE workspace_skills (
-  id TEXT PRIMARY KEY,
-  workspace_cli_config_id TEXT NOT NULL REFERENCES workspace_cli_configs(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  source_path TEXT,
-  content TEXT,
-  is_enabled INTEGER NOT NULL DEFAULT 1,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-```
-
----
-
-### 4.26 `model_call_logs` — 模型调用记录
+### 4.21 `model_call_logs` — 模型调用记录
 
 记录每个模型每次被调用的详细信息，用于用量统计、成本分析和缓存效率评估。
 
@@ -984,7 +838,7 @@ CREATE INDEX idx_model_call_logs_stats ON model_call_logs(provider_id, model_id,
 
 ---
 
-### 4.27 `gateway_settings` — 网关设置
+### 4.22 `gateway_settings` — 网关设置
 
 单例表（`id = 'default'`），管理本地 AI Gateway 的监听地址、端口、默认 API Key 与启用状态。原 `app_settings` 中的 `gateway_host`、`gateway_port`、`gateway_api_key_secret_id` 字段已通过 V005 迁移至此表。
 
@@ -1014,7 +868,7 @@ CREATE TABLE gateway_settings (
 
 ---
 
-### 4.28 `gateway_auth_keys` — 网关认证 API Key
+### 4.23 `gateway_auth_keys` — 网关认证 API Key
 
 管理多个网关认证 API Key，支持启用/禁用、过期时间、排序与最近使用时间记录。运行时校验请求中的 `Authorization: Bearer {key}` 或 `X-API-Key: {key}`。
 
@@ -1048,7 +902,7 @@ CREATE TABLE gateway_auth_keys (
 
 ---
 
-### 4.29 `log_settings` — 日志配置表
+### 4.24 `log_settings` — 日志配置表
 
 > 单行配置表，`id` 固定为 `'default'`，所有日志相关配置集中管理。
 
@@ -1080,7 +934,7 @@ CREATE TABLE gateway_auth_keys (
 
 ---
 
-### 4.30 `virtual_providers` — 虚拟供应商（故障转移组）
+### 4.25 `virtual_providers` — 虚拟供应商（故障转移组）
 
 聚合多个真实供应商并按策略进行故障转移的虚拟层。对外表现为普通供应商，模型 ID 格式为 `{virtual_alias}/{model_id}`。
 
@@ -1112,7 +966,7 @@ CREATE TABLE virtual_providers (
 );
 ```
 
-### 4.31 `virtual_models` — 虚拟供应商模型
+### 4.26 `virtual_models` — 虚拟供应商模型
 
 虚拟供应商对外暴露的模型标识，背后通过 `virtual_model_routes` 映射到一组真实模型。
 
@@ -1139,7 +993,7 @@ CREATE TABLE virtual_models (
 );
 ```
 
-### 4.32 `virtual_model_routes` — 虚拟模型路由（故障转移目标）
+### 4.27 `virtual_model_routes` — 虚拟模型路由（故障转移目标）
 
 一条从虚拟模型到真实供应商模型的映射。`fallback` 策略下按 `priority` 升序尝试；失败超过虚拟供应商级 `max_retries` 后该路由健康度降级。
 
@@ -1181,7 +1035,7 @@ CREATE TABLE virtual_model_routes (
 );
 ```
 
-### 4.33 `script_templates` — 额度监控脚本模板
+### 4.28 `script_templates` — 额度监控脚本模板
 
 用户自定义 Rhai 脚本，用于对接未内置的供应商额度接口。供应商通过 `balance_provider_json.method = "script"` + `scriptTemplateId` 引用；仅 `status = active` 可被正式额度刷新使用。
 
@@ -1957,17 +1811,7 @@ JOIN providers p ON p.id = m.provider_id
 WHERE p.is_enabled = 1 AND m.is_exposed = 1;
 ```
 
-### 6.3 工作区切换与应用
-
-```
-1. 用户切换 workspace → workspaces.is_active 更新
-2. 编辑 Prompts/MCP/Skill → 仅写 workspace_* 表，pending_apply = 1
-3. 用户点击「应用」→ 读取 workspace_cli_configs
-   → 生成 CLI 配置文件 → 写入 cli_profiles.config_file_path
-   → is_applied = 1, pending_apply = 0
-```
-
-### 6.4 CLI 路由模式
+### 6.3 CLI 路由模式
 
 ```
 route_mode = 1:
@@ -1980,7 +1824,7 @@ route_mode = 0:
   model = cli_model_mappings.raw_model_id
 ```
 
-### 6.5 从内置模型列表添加
+### 6.4 从内置模型列表添加
 
 对应参考项目“从内置模型列表中添加”功能：
 
@@ -2069,7 +1913,6 @@ INSERT INTO schema_migrations (version, applied_at) VALUES (1, datetime('now'));
 | 内置模型覆盖匹配 | `idx_builtin_model_overrides_model`；按 `builtin_model_id` 预加载并按 `matcher_type` 分组 |
 | 内置模型别名匹配 | `builtin_model_aliases` 按 `alias` 建立索引或启动时构建 `Map<alias, builtin_model_id>` |
 | 认证方式筛选 | `builtin_provider_auth_types` 按 `auth_method` 建立索引，支持 UI 按认证方式过滤供应商 |
-| 工作区切换 | 按 `workspace_id` 批量预加载三类子配置 |
 | 官方模型刷新 | `official_model_cache.expires_at` 做 TTL |
 | 密钥解析 | 启动时预热 `secrets` LRU 缓存 |
 

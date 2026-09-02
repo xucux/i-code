@@ -207,7 +207,6 @@ function IndexPage() {
         {[
           { to: '/gateways', label: t('dashboard.aiGateway'), icon: 'fa-solid fa-network-wired', desc: t('dashboard.aiGatewayDesc') },
           { to: '/cli', label: t('nav.cli'), icon: 'fa-solid fa-terminal', desc: t('dashboard.cliDesc') },
-          // { to: '/workspaces', label: t('nav.workspace'), icon: 'fa-solid fa-briefcase', desc: t('dashboard.workspaceDesc') },
           { to: '/backups', label: t('nav.backup'), icon: 'fa-solid fa-cloud-arrow-up', desc: t('dashboard.backupDesc') },
           // { to: '/preview', label: t('nav.preview'), icon: 'fa-solid fa-palette', desc: t('dashboard.previewDesc') },
           { to: '/chat', label: t('nav.chat'), icon: 'fa-solid fa-comments', desc: t('dashboard.chatDesc') },

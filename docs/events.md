@@ -20,7 +20,7 @@
 
 | 范围 | 命名风格 | 示例 |
 |------|----------|------|
-| 前端内部事件 | `模块:动作` | `provider:changed`、`workspace:switched` |
+| 前端内部事件 | `模块:动作` | `provider:changed`、`secret:changed` |
 | 后端事件 | `模块:动作` 或 `模块-动作` | `gateway:status-changed`、`memory-usage`、`log:new-entry` |
 
 > 历史原因：`provider-changed`（托盘菜单）使用连字符，与前端常量 `provider:changed` 不同名，接入时需注意。
@@ -34,7 +34,6 @@
 | `GATEWAY_STATUS_CHANGED` | `gateway:status-changed` | [`gateway_runtime/service.rs`](file:///d:/ProjectApp/i-code/src-tauri/src/modules/gateway_runtime/service.rs#L147-L151) `start()` / `stop()` | `GatewayRuntimeState` | [`hooks/use-gateway-status.ts`](file:///d:/ProjectApp/i-code/src/hooks/use-gateway-status.ts#L62-L66) | 网关启停后广播当前运行状态 |
 | `LOG_NEW_ENTRY` | `log:new-entry` | [`logger/commands.rs`](file:///d:/ProjectApp/i-code/src-tauri/src/modules/logger/commands.rs) `log_write` / `log_message` | `LoggerLogEntry` | [`hooks/use-logs.ts`](file:///d:/ProjectApp/i-code/src/hooks/use-logs.ts#L101-L111) | 新日志写入后实时推送到日志面板 |
 | `LOG_CLEARED` | `log:cleared` | [`logger/commands.rs`](file:///d:/ProjectApp/i-code/src-tauri/src/modules/logger/commands.rs#L66-L79) `log_clear` | `()` | [`hooks/use-logs.ts`](file:///d:/ProjectApp/i-code/src/hooks/use-logs.ts#L114-L118) | 日志缓冲区被清空 |
-| `WORKSPACE_APPLIED` | `workspace:applied` | [`workspace/commands.rs`](file:///d:/ProjectApp/i-code/src-tauri/src/modules/workspace/commands.rs#L242-L250) `workspace_apply` | `ApplyWorkspaceResult` | 暂无 | 工作区配置已写入 CLI 配置文件 |
 | `MEMORY_USAGE` | `memory-usage` | [`main.rs`](file:///d:/ProjectApp/i-code/src-tauri/src/main.rs#L461-L473) 托盘定时线程 | `number`（KB） | [`modules/system/use-memory-usage.ts`](file:///d:/ProjectApp/i-code/src/modules/system/use-memory-usage.ts#L43-L48) | 每 5 秒广播一次进程物理内存 |
 | `CALL_RECORD_UPDATED` | `call-record:updated` | [`gateway_runtime/upstream.rs`](file:///d:/ProjectApp/i-code/src-tauri/src/modules/gateway_runtime/upstream.rs#L685-L686) `finish_call_log_full` | `ModelCallLog` | 暂无 | 网关请求完成、调用记录落库后广播 |
 | `PROVIDER_CHANGED` | `provider:changed` | [`ai_gateway/commands.rs`](file:///d:/ProjectApp/i-code/src-tauri/src/modules/ai_gateway/commands.rs#L72-L122) `gateway_provider_create` / `update` / `delete` | `{ action: 'create'\|'update'\|'delete', providerId: string }` | 暂无（托盘已监听） | 供应商增删改后广播，托盘额度子菜单据此动态增删菜单项 |
@@ -59,8 +58,6 @@
 | 常量 | 事件名 | payload | 状态 |
 |------|--------|---------|------|
 | `PROVIDER_CHANGED` | `provider:changed` | `{ providerId?, action?: 'create' \| 'update' \| 'delete' }` | 保留类型，当前无 emit |
-| `WORKSPACE_SWITCHED` | `workspace:switched` | `{ workspaceId: string }` | 保留类型，当前无 emit |
-| `WORKSPACE_APPLIED` | `workspace:applied` | `{ workspaceId: string; appliedAt: string }` | 保留类型，当前无 emit |
 | `GATEWAY_STATUS_CHANGED` | `gateway:status-changed` | `{ isRunning: boolean; error?: string }` | 保留类型，当前无 emit |
 | `SETTINGS_CHANGED` | `settings:changed` | `{ key: string; value: unknown }` | 保留类型，当前无 emit |
 | `LOCALE_CHANGED` | `locale:changed` | `{ locale: string }` | 保留类型，当前无 emit |
@@ -91,5 +88,4 @@
 以下位置目前仍依赖轮询，可改为监听后端事件：
 
 - 仪表盘统计 / 模型调用记录：可监听 `BACKEND_EVENTS.CALL_RECORD_UPDATED`，在收到事件后刷新统计。
-- 工作区 / CLI 管理页面：可监听 `BACKEND_EVENTS.WORKSPACE_APPLIED`，刷新 `pending_apply` 状态。
 - 余额展示：可监听 `BACKEND_EVENTS.BALANCE_SNAPSHOT_UPDATED`，直接更新 provider 余额快照。

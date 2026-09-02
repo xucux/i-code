@@ -12,7 +12,6 @@
 1. **管理 AI Gateway 供应商**：集中维护多 LLM 供应商（OpenAI、Anthropic、Gemini、OpenRouter 等），支持多协议与认证。
 2. **提供本地 API Gateway**：统一暴露模型 ID 为 `{provider_slug}/{model_id}`，本地监听并代理请求。
 3. **管理 CLI 配置**：为 Claude Code、Codex、Gemini CLI 等维护配置档案，支持直连或路由到本地 Gateway。
-4. **工作区隔离**：按 Workspace 隔离 Prompts / MCP / Skill；**切换并「应用」后**才写入 CLI 实际配置文件。
 
 版本：`0.3.2`  
 包管理：`pnpm@11`  
@@ -27,7 +26,6 @@
 | CLI 路由模式 | `base_url` 指向本地网关，`model` 字段保留前缀 |
 | 敏感数据 | API Key / Token **禁止明文落库**；配置中仅存 `$SECRET:{uuid}$` |
 | Secret 边界 | 加解密**仅在 Rust 后端**；前端只传明文一次，不缓存 |
-| 工作区应用 | 修改 Prompts/MCP/Skill 后标记 `pending_apply`；用户点「应用」才写 CLI 文件 |
 
 ---
 
@@ -61,7 +59,7 @@ core/shared（零业务依赖）
     ↑
 theme / i18n / secret / db / balance / logger / backup
     ↑
-settings / ai-gateway / cli-management / workspace / gateway-runtime / virtual-provider
+settings / ai-gateway / cli-management / gateway-runtime / virtual-provider
     ↑
 frontend (components / routes / hooks)
 ```
@@ -75,7 +73,6 @@ frontend (components / routes / hooks)
 | `virtual-provider` | 虚拟供应商、故障转移路由 | ✅ | ⚠️ 部分 |
 | `script-template` | 额度监控 Rhai 脚本模板 CRUD / 试运行 | ✅ | ✅ |
 | `cli-management` | CLI 档案、绑定、模型映射 | ⚠️ 类型/骨架 | ⚠️ 骨架 |
-| `workspace` | 工作区、Prompts/MCP/Skill | ⚠️ 类型/骨架 | ⚠️ 骨架 |
 | `secret` | 敏感数据加密与引用 | 仅输入组件 | ✅ AES 本地 |
 | `settings` | 主题/语言/网关地址等 | ✅ | ✅ |
 | `balance` | 额度查询（含自定义脚本） | ✅ | ✅ |
@@ -163,7 +160,6 @@ i-code/
 | `/` | 仪表盘 |
 | `/gateways`、`/gateways/providers`、`/gateways/models`、`/gateways/settings` | AI Gateway |
 | `/cli` | CLI 管理 |
-| `/workspaces` | 工作区 |
 | `/logs` | 日志 |
 | `/settings` | 设置 |
 | `/preview` | 组件预览（开发用） |
@@ -300,7 +296,7 @@ Rust 侧在 `src-tauri/` 下用 `cargo check` / `cargo test`（按需）。
 | 虚拟供应商 | 部分（策略枚举可能与文档不一致，改前查代码） |
 | 额度脚本模板（Rhai） | 已实现 CRUD / 试运行 / 刷新分发；编辑器高亮用 JS 近似 |
 | 脚本模板市场（公共仓浏览 / 一键应用） | 已实现 Phase 1 MVP（列表/筛选/预览/应用/draft） |
-| CLI / Workspace 业务 | 类型与骨架为主，完整流程待迭代 |
+| CLI 业务 | 类型与骨架为主，完整流程待迭代 |
 | 系统密钥链 Secret | 未实现（仅 AES 本地） |
 | 内置 seed 数据 | 以 `data/builtin-*.json` 与迁移为准 |
 
@@ -353,13 +349,6 @@ CLI / 外部客户端
     → 若虚拟供应商：virtual-provider 故障转移选路
     → 解析 $SECRET: 后转发真实上游
     → 响应拦截器异步写 logger + call-records
-```
-
-工作区：
-
-```
-编辑 Prompts/MCP/Skill → pending_apply=1 → 用户「应用」。
-    → 按 CLI 类型生成配置 → 写入 cli_profiles.config_file_path
 ```
 
 ### 10.1 网关响应格式硬约束

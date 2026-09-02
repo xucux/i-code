@@ -1,0 +1,26 @@
+{
+  "version": "1.0.0",
+  "description": "i-code 内置供应商扩展预设（图像或视频生成通道）。该文件随项目发版变更，不在运行时被用户修改，也不导入数据库。",
+  "providers": [
+    {
+      "id": "sensenova-image",
+      "displayName": "Sensenova Image",
+      "category": "General",
+      "providerType": "sensenova-image-generation",
+      "providerTypes": [
+        "sensenova-image-generation"
+      ],
+      "baseUrl": "https://token.sensenova.cn/v1",
+      "useRawBaseUrl": true,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 69,
+      "displayCnName": "日日新图像生成（商汤科技）"
+    }
+  ]
+}

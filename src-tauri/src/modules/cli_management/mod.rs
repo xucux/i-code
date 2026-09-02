@@ -15,12 +15,10 @@
 //! - CLI 档案 CRUD
 //! - CLI 供应商绑定 CRUD（含路由模式校验）
 //! - CLI 模型映射 CRUD（含输入模式校验）
-//! - 向 workspace 模块暴露 `list_profile_ids` 以初始化工作区配置头
 //!
 //! ## 与其他模块的关系
 //!
 //! - 依赖 [`ai_gateway`](crate::modules::ai_gateway) 校验 `provider_id` 存在性
-//! - 被 [`workspace`](crate::modules::workspace) 调用以维护 `workspace_cli_configs`
 
 pub mod commands;
 pub mod repository;

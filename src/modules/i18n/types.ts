@@ -7,7 +7,6 @@ export type Namespace =
   | 'settings'
   | 'aiGateway'
   | 'cli'
-  | 'workspace'
   | 'virtualProvider'
   | 'scriptTemplate'
   | 'community'

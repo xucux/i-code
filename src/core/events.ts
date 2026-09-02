@@ -21,8 +21,6 @@ import mitt from 'mitt'
  */
 export const EVENT_NAMES = {
   PROVIDER_CHANGED: 'provider:changed',
-  WORKSPACE_SWITCHED: 'workspace:switched',
-  WORKSPACE_APPLIED: 'workspace:applied',
   GATEWAY_STATUS_CHANGED: 'gateway:status-changed',
   SETTINGS_CHANGED: 'settings:changed',
   LOCALE_CHANGED: 'locale:changed',
@@ -41,8 +39,6 @@ export const EVENT_NAMES = {
  */
 export type FrontendEvents = {
   [EVENT_NAMES.PROVIDER_CHANGED]: { providerId?: string; action?: 'create' | 'update' | 'delete' }
-  [EVENT_NAMES.WORKSPACE_SWITCHED]: { workspaceId: string }
-  [EVENT_NAMES.WORKSPACE_APPLIED]: { workspaceId: string; appliedAt: string }
   [EVENT_NAMES.GATEWAY_STATUS_CHANGED]: { isRunning: boolean; error?: string }
   [EVENT_NAMES.SETTINGS_CHANGED]: { key: string; value: unknown }
   [EVENT_NAMES.LOCALE_CHANGED]: { locale: string }
@@ -68,8 +64,6 @@ export const BACKEND_EVENTS = {
   LOG_NEW_ENTRY: 'log:new-entry',
   /** 日志缓冲区被清空 */
   LOG_CLEARED: 'log:cleared',
-  /** 工作区应用完成（写入 CLI 配置文件） */
-  WORKSPACE_APPLIED: 'workspace:applied',
   /** 进程内存使用情况，用于标题栏 MemoryInfo 展示 */
   MEMORY_USAGE: 'memory-usage',
   /** 模型调用记录写入完成，用于仪表盘统计更新 */

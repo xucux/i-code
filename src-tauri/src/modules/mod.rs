@@ -13,7 +13,6 @@
 //! - [`backup`]：数据库压缩备份与恢复
 //! - [`ai_gateway`]：供应商、模型、认证、额度、代理
 //! - [`cli_management`]：CLI 档案、CLI 供应商绑定、模型映射
-//! - [`workspace`]：工作区、Prompts、MCP、Skill
 //! - [`gateway_runtime`]：本地 HTTP 网关生命周期与请求路由
 //! - [`virtual_provider`]：虚拟供应商与模型故障转移
 //! - [`call_records`]：模型调用记录与统计
@@ -43,4 +42,3 @@ pub mod tokenizer;
 pub mod tracing_webview;
 pub mod update_version;
 pub mod virtual_provider;
-pub mod workspace;

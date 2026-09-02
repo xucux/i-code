@@ -7,7 +7,6 @@
 //! - CLI 档案 CRUD 与唯一性校验
 //! - CLI 供应商绑定 CRUD，校验路由模式与必填字段
 //! - CLI 模型映射 CRUD，校验输入模式与关联关系
-//! - 供 workspace 模块查询当前所有 CLI 档案 ID
 //!
 //! ## 跨模块调用
 //!
@@ -328,13 +327,6 @@ impl CliManagementService {
     pub fn delete_profile(&self, id: &str) -> IcodeResult<()> {
         let _ = self.get_profile(id)?;
         self.repo.delete_profile(id)
-    }
-
-    /// 获取所有 CLI 档案 ID
-    ///
-    /// 供 workspace 模块在新建工作区时初始化 `workspace_cli_configs`。
-    pub fn list_profile_ids(&self) -> IcodeResult<Vec<String>> {
-        self.repo.list_profile_ids()
     }
 
     // ===== CLI 供应商绑定 =====

@@ -53,7 +53,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     { to: '/gateways', icon: 'fa-solid fa-network-wired', labelKey: 'nav.aiGateway' },
     { to: '/chat', icon: 'fa-solid fa-comments', labelKey: 'nav.chat' },
     { to: '/cli', icon: 'fa-solid fa-terminal', labelKey: 'nav.cli' },
-    // { to: '/workspaces', icon: 'fa-solid fa-briefcase', labelKey: 'nav.workspace' },
     { to: '/community', icon: 'fa-solid fa-users', labelKey: 'nav.community' },
     { to: '/logs', icon: 'fa-solid fa-file-lines', labelKey: 'nav.logs' },
     { to: '/backups', icon: 'fa-solid fa-cloud-arrow-up', labelKey: 'nav.backup' },

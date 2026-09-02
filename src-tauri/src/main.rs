@@ -843,6 +843,8 @@ fn main() {
             modules::ai_gateway::commands::gateway_builtin_providers_list,
             modules::ai_gateway::commands::gateway_builtin_models_list,
             modules::ai_gateway::commands::gateway_builtin_models_by_provider_type,
+            modules::ai_gateway::commands::gateway_builtin_media_providers_list,
+            modules::ai_gateway::commands::gateway_builtin_media_models_list,
             modules::ai_gateway::commands::gateway_fetch_official_models,
             modules::ai_gateway::commands::gateway_fetch_models_by_protocol,
             modules::ai_gateway::commands::gateway_settings_get,
@@ -873,34 +875,6 @@ fn main() {
             modules::cli_management::commands::cli_config_save,
             modules::cli_management::commands::cli_client_check,
             modules::cli_management::commands::cli_apply_claude_config,
-            // ===== Workspace 模块 =====
-            modules::workspace::commands::workspace_list,
-            modules::workspace::commands::workspace_get,
-            modules::workspace::commands::workspace_get_active,
-            modules::workspace::commands::workspace_create,
-            modules::workspace::commands::workspace_update,
-            modules::workspace::commands::workspace_delete,
-            modules::workspace::commands::workspace_switch,
-            modules::workspace::commands::workspace_cli_config_list,
-            modules::workspace::commands::workspace_prompt_list,
-            modules::workspace::commands::workspace_prompt_get,
-            modules::workspace::commands::workspace_prompt_create,
-            modules::workspace::commands::workspace_prompt_update,
-            modules::workspace::commands::workspace_prompt_delete,
-            modules::workspace::commands::workspace_mcp_server_list,
-            modules::workspace::commands::workspace_mcp_server_get,
-            modules::workspace::commands::workspace_mcp_server_create,
-            modules::workspace::commands::workspace_mcp_server_update,
-            modules::workspace::commands::workspace_mcp_server_delete,
-            modules::workspace::commands::workspace_skill_list,
-            modules::workspace::commands::workspace_skill_get,
-            modules::workspace::commands::workspace_skill_create,
-            modules::workspace::commands::workspace_skill_update,
-            modules::workspace::commands::workspace_skill_delete,
-            modules::workspace::commands::workspace_apply,
-            modules::workspace::commands::workspace_aggregate,
-            modules::workspace::commands::workspace_preview,
-            modules::workspace::commands::workspace_apply_cli_config,
             // ===== Script Template 模块 =====
             modules::script_template::commands::script_template_list,
             modules::script_template::commands::script_template_get,
@@ -1190,17 +1164,7 @@ fn main() {
                     virtual_provider_handle.clone(),
                 );
             tracing::info!("CLI Management 模块初始化完成");
-            // 克隆句柄给 workspace 模块使用（原句柄注册为 Tauri State）
-            let cli_management_handle_for_workspace = cli_management_handle.clone();
             app.manage(cli_management_handle);
-
-            // ===== 初始化 Workspace 模块 =====
-            // Workspace 依赖 CLI Management 获取 CLI 档案列表与路径。
-            let workspace_handle = modules::workspace::WorkspaceServiceHandle::new(
-                cli_management_handle_for_workspace,
-            );
-            tracing::info!("Workspace 模块初始化完成");
-            app.manage(workspace_handle);
 
             // ===== 初始化 Script Template 模块 =====
             // 依赖 AI Gateway 做试运行时的 Secret 解密与供应商加载。

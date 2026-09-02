@@ -362,6 +362,22 @@ pub async fn gateway_builtin_models_by_provider_type(
     state.service().list_builtin_models_by_provider_type(&provider_type)
 }
 
+/// 列出内置视觉生成供应商预设（仅来自 builtin-providers-vision.json，不含在通用列表中）
+#[tauri::command]
+pub async fn gateway_builtin_media_providers_list(
+    state: State<'_, AiGatewayServiceHandle>,
+) -> IcodeResult<Vec<BuiltinProvider>> {
+    state.service().list_builtin_media_providers()
+}
+
+/// 列出内置视觉生成模型预设（仅来自 builtin-models-vision.json，不含在通用列表中）
+#[tauri::command]
+pub async fn gateway_builtin_media_models_list(
+    state: State<'_, AiGatewayServiceHandle>,
+) -> IcodeResult<Vec<BuiltinModel>> {
+    state.service().list_builtin_media_models()
+}
+
 /// 实时从供应商 API 拉取官方模型列表
 ///
 /// 不做缓存，每次触发都实时请求。

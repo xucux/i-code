@@ -58,16 +58,6 @@ pub mod table {
     pub const CLI_PROVIDERS: &str = "cli_providers";
     /// CLI 模型映射
     pub const CLI_MODEL_MAPPINGS: &str = "cli_model_mappings";
-    /// 工作区表
-    pub const WORKSPACES: &str = "workspaces";
-    /// 工作区 × CLI 配置头
-    pub const WORKSPACE_CLI_CONFIGS: &str = "workspace_cli_configs";
-    /// 工作区 Prompts
-    pub const WORKSPACE_PROMPTS: &str = "workspace_prompts";
-    /// 工作区 MCP 配置
-    pub const WORKSPACE_MCP_SERVERS: &str = "workspace_mcp_servers";
-    /// 工作区 Skill 配置
-    pub const WORKSPACE_SKILLS: &str = "workspace_skills";
     /// 模型调用统计（按天聚合）
     pub const MODEL_CALL_STATS_DAILY: &str = "model_call_stats_daily";
     /// 模型调用统计（按小时聚合）
@@ -119,11 +109,6 @@ pub const TABLE_NAMES: &[&str] = &[
     table::CLI_PROFILES,
     table::CLI_PROVIDERS,
     table::CLI_MODEL_MAPPINGS,
-    table::WORKSPACES,
-    table::WORKSPACE_CLI_CONFIGS,
-    table::WORKSPACE_PROMPTS,
-    table::WORKSPACE_MCP_SERVERS,
-    table::WORKSPACE_SKILLS,
     table::MODEL_CALL_LOGS,
     table::VIRTUAL_PROVIDERS,
     table::VIRTUAL_MODELS,

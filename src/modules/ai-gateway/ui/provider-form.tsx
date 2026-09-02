@@ -59,6 +59,7 @@ const providerTypes: ProviderType[] = [
   'google-gemini-cli',
   'github-copilot',
   'xai-grok-build',
+  'sensenova-image-generation',
   'ollama',
   'custom',
 ]

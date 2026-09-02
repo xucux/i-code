@@ -14,7 +14,6 @@ import { Route as PreviewRouteImport } from './routes/preview'
 import { Route as MiniPanelRouteImport } from './routes/mini-panel'
 import { Route as BrowserRouteImport } from './routes/browser'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as WorkspacesIndexRouteImport } from './routes/workspaces/index'
 import { Route as LogsIndexRouteImport } from './routes/logs/index'
 import { Route as GatewaysIndexRouteImport } from './routes/gateways/index'
 import { Route as CommunityIndexRouteImport } from './routes/community/index'
@@ -50,11 +49,6 @@ const BrowserRoute = BrowserRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const WorkspacesIndexRoute = WorkspacesIndexRouteImport.update({
-  id: '/workspaces/',
-  path: '/workspaces/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LogsIndexRoute = LogsIndexRouteImport.update({
@@ -129,7 +123,6 @@ export interface FileRoutesByFullPath {
   '/community/': typeof CommunityIndexRoute
   '/gateways/': typeof GatewaysIndexRoute
   '/logs/': typeof LogsIndexRoute
-  '/workspaces/': typeof WorkspacesIndexRoute
   '/community/post/$id': typeof CommunityPostIdRoute
 }
 export interface FileRoutesByTo {
@@ -148,7 +141,6 @@ export interface FileRoutesByTo {
   '/community': typeof CommunityIndexRoute
   '/gateways': typeof GatewaysIndexRoute
   '/logs': typeof LogsIndexRoute
-  '/workspaces': typeof WorkspacesIndexRoute
   '/community/post/$id': typeof CommunityPostIdRoute
 }
 export interface FileRoutesById {
@@ -168,7 +160,6 @@ export interface FileRoutesById {
   '/community/': typeof CommunityIndexRoute
   '/gateways/': typeof GatewaysIndexRoute
   '/logs/': typeof LogsIndexRoute
-  '/workspaces/': typeof WorkspacesIndexRoute
   '/community/post/$id': typeof CommunityPostIdRoute
 }
 export interface FileRouteTypes {
@@ -189,7 +180,6 @@ export interface FileRouteTypes {
     | '/community/'
     | '/gateways/'
     | '/logs/'
-    | '/workspaces/'
     | '/community/post/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -208,7 +198,6 @@ export interface FileRouteTypes {
     | '/community'
     | '/gateways'
     | '/logs'
-    | '/workspaces'
     | '/community/post/$id'
   id:
     | '__root__'
@@ -227,7 +216,6 @@ export interface FileRouteTypes {
     | '/community/'
     | '/gateways/'
     | '/logs/'
-    | '/workspaces/'
     | '/community/post/$id'
   fileRoutesById: FileRoutesById
 }
@@ -247,7 +235,6 @@ export interface RootRouteChildren {
   CommunityIndexRoute: typeof CommunityIndexRoute
   GatewaysIndexRoute: typeof GatewaysIndexRoute
   LogsIndexRoute: typeof LogsIndexRoute
-  WorkspacesIndexRoute: typeof WorkspacesIndexRoute
   CommunityPostIdRoute: typeof CommunityPostIdRoute
 }
 
@@ -286,13 +273,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/workspaces/': {
-      id: '/workspaces/'
-      path: '/workspaces'
-      fullPath: '/workspaces/'
-      preLoaderRoute: typeof WorkspacesIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/logs/': {
@@ -391,7 +371,6 @@ const rootRouteChildren: RootRouteChildren = {
   CommunityIndexRoute: CommunityIndexRoute,
   GatewaysIndexRoute: GatewaysIndexRoute,
   LogsIndexRoute: LogsIndexRoute,
-  WorkspacesIndexRoute: WorkspacesIndexRoute,
   CommunityPostIdRoute: CommunityPostIdRoute,
 }
 export const routeTree = rootRouteImport

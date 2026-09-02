@@ -144,14 +144,6 @@ impl CliManagementRepository {
         Ok(())
     }
 
-    /// 获取所有 CLI 档案 ID（供 workspace 模块初始化配置头使用）
-    pub fn list_profile_ids(&self) -> IcodeResult<Vec<String>> {
-        let conn = get_conn()?;
-        let mut stmt = conn.prepare("SELECT id FROM cli_profiles")?;
-        let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
-        collect_rows(rows)
-    }
-
     // ===== cli_providers =====
 
     /// 列出某 CLI 档案绑定的所有供应商

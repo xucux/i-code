@@ -17,7 +17,6 @@ i-code 是一款基于 Tauri 2.x 的本地桌面应用，用于：
 1. **管理 AI Gateway 供应商**：集中维护多个 LLM API 供应商（OpenAI、Anthropic、Gemini、OpenRouter 等），支持多种协议与认证方式。
 2. **提供本地 API Gateway**：将所有已配置模型统一暴露为 `{provider_slug}/{model_id}` 格式，本地监听并代理请求。
 3. **管理 CLI 配置**：为 Claude Code、Codex、Gemini CLI 等受管 CLI 维护配置档案，支持直连或路由到本地 Gateway。
-4. **工作区隔离**：按工作区（Workspace）隔离 Prompts、MCP、Skill 配置，切换并应用后才写入 CLI 实际配置文件。
 
 ### 1.2 核心目标
 
@@ -58,7 +57,6 @@ i-code 是一款基于 Tauri 2.x 的本地桌面应用，用于：
 
 - `ai-gateway`：供应商、模型、认证、额度、代理。
 - `cli-management`：CLI 档案、CLI 供应商绑定、模型映射。
-- `workspace`：工作区、Prompts、MCP、Skill。
 - `gateway-runtime`：本地 HTTP 网关生命周期与请求路由。
 - `virtual-provider`：虚拟供应商、模型路由、故障转移、健康检查。
 - `secret`：敏感数据加密与密钥链。
@@ -97,7 +95,7 @@ core/shared
     ↑
 theme / i18n / secret / db / balance / logger / backup
     ↑
-settings / ai-gateway / cli-management / workspace / gateway-runtime / virtual-provider
+settings / ai-gateway / cli-management / gateway-runtime / virtual-provider
     ↑
 frontend (components / pages / hooks)
 ```
@@ -131,8 +129,7 @@ i-code/
 │   │   ├── use-command.ts       # 封装 Tauri invoke + 错误处理 + 加载态
 │   │   ├── use-gateway-status.ts
 │   │   ├── use-provider-list.ts
-│   │   ├── use-model-list.ts
-│   │   └── use-workspace-applier.ts
+│   │   └── use-model-list.ts
 │   ├── components/              # 跨模块通用 UI 组件（shadcn/ui 扩展）
 │   │   └── ui/                  # shadcn/ui 基础组件与自定义全局组件
 │   │       ├── error-boundary.tsx   # 全局错误边界
@@ -175,9 +172,6 @@ i-code/
 │   │   ├── cli-management/      # CLI 管理模块
 │   │   │   ├── types.ts
 │   │   │   └── ui/
-│   │   ├── workspace/           # 工作区模块
-│   │   │   ├── types.ts
-│   │   │   └── ui/
 │   │   ├── gateway-runtime/     # 本地网关运行时（前端仅状态查看）
 │   │   │   ├── types.ts
 │   │   │   └── ui/
@@ -209,7 +203,6 @@ i-code/
 │   │   ├── index.tsx            # 首页/仪表盘
 │   │   ├── gateways/
 │   │   ├── cli/
-│   │   ├── workspaces/
 │   │   └── settings.tsx
 │   ├── App.tsx
 │   └── main.tsx
@@ -234,10 +227,6 @@ i-code/
 │   │   │   ├── cli-management/
 │   │   │   │   ├── commands.rs
 │   │   │   │   ├── service.rs
-│   │   │   │   └── repository.rs
-│   │   │   ├── workspace/
-│   │   │   │   ├── commands.rs
-│   │   │   │   ├── service.rs     # 含配置文件写入逻辑
 │   │   │   │   └── repository.rs
 │   │   │   ├── gateway-runtime/
 │   │   │   │   ├── commands.rs
@@ -301,7 +290,7 @@ i-code/
   - `GatewayError`：网关请求转发异常。
 - **events.ts**：
   - **前端事件总线**：使用 `mitt`，仅在 `src/hooks/` 和 `src/modules/*/ui/` 内使用，用于模块间 UI 状态同步（如弹窗关闭后刷新列表）。
-  - **后端事件（Tauri Event）**：后端通过 `app_handle.emit()` 推送事件到前端。前端通过 `listen()` 接收。后端事件用于推送跨进程状态变化（如 Gateway 启停、工作区应用完成）。
+  - **后端事件（Tauri Event）**：后端通过 `app_handle.emit()` 推送事件到前端。前端通过 `listen()` 接收。后端事件用于推送跨进程状态变化（如 Gateway 启停）。
   - **事件流方向**：
     ```
     后端状态变化 → Tauri Event emit → 前端 listen() → Zustand store 更新 → UI 重渲染
@@ -451,7 +440,7 @@ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Micr
 
 - `i18n.ts`：初始化 i18next，加载语言包，默认语言从 `app_settings.locale` 读取。
 - `use-translation.ts`：封装 `useTranslation`，支持命名空间（如 `t('provider.form.title')`）。
-- `locales/*.json`：按模块命名空间组织键名，例如 `ai-gateway.provider.name`、`workspace.prompt.empty`。
+- `locales/*.json`：按模块命名空间组织键名，例如 `ai-gateway.provider.name`、`cli.profile.empty`。
 - 所有用户可见字符串必须走 i18n；键名采用 `模块.页面.元素` 三段式。
 - 新增语言时需同步：`src/modules/i18n/locales/` 下新增 JSON、`src/core/types.ts` 的 `Locale` 联合类型、`src-tauri/src/modules/settings/types.rs` 的 `Locale` 枚举、设置页与预览页的语言选项。日期组件 locale 在 `use-date-locale.ts` 中映射。
 
@@ -600,41 +589,12 @@ interface ProviderShareConfig {
 - **路由模式**：当 `route_mode = 1` 时，CLI base_url 指向本地 Gateway，`model` 字段保持 `{provider_slug}/{model_id}`；网关层拆分后路由。
 - **模型映射**：支持从列表选择（填充 `gateway_model_id`）或手动输入（填充 `raw_model_id`）。
 - **额度展示**：读取 `CliProvider.balance_json` 并渲染。
-- **配置写入**：在「应用」工作区时，将当前工作区对应 CLI 的配置写入 `cli_profiles.config_file_path`。
 
 #### 5.6.3 UI 职责
 
 - CLI 列表页、CLI 档案表单。
 - CLI 供应商绑定弹窗（选择 Gateway Provider + 是否路由模式）。
 - 模型映射表格（CLI 模型别名 ↔ Gateway 模型/真实模型）。
-
-### 5.7 workspace
-
-职责：按工作区隔离 Prompts、MCP、Skill，并在切换/应用时才修改 CLI 实际配置文件。
-
-#### 5.7.1 核心类型
-
-- `Workspace`：对应 `workspaces` 表，`is_active` 标识当前激活工作区。
-- `WorkspaceCliConfig`：对应 `workspace_cli_configs` 表，每个工作区 × 每个 CLI 一条记录。
-- `WorkspacePrompt` / `WorkspaceMcpServer` / `WorkspaceSkill`：三类子配置。
-
-#### 5.7.2 Service 职责
-
-- **Workspace CRUD**：增删改查工作区，切换激活状态。
-- **子配置隔离**：为每个 `WorkspaceCliConfig` 维护独立的 Prompts、MCP、Skill 列表。
-- **应用工作区**：
-  1. 读取当前激活工作区下所有 `workspace_cli_configs`。
-  2. 按 CLI 类型生成对应配置文件内容（JSON/YAML）。
-  3. 写入 `cli_profiles.config_file_path`。
-  4. 更新 `is_applied = 1`、`pending_apply = 0`、`last_applied_at`。
-- **待应用提示**：当用户修改工作区子配置后，设置 `pending_apply = 1`，UI 显示「有未应用变更」。
-
-#### 5.7.3 UI 职责
-
-- 工作区侧边栏/下拉切换。
-- 工作区编辑表单。
-- 每个 CLI 的 Prompts / MCP / Skill 编辑页。
-- 「应用」按钮与待应用状态提示。
 
 ### 5.8 gateway-runtime
 
@@ -1199,7 +1159,7 @@ interface MiniPanelSettings {
 
 | 页面 | 路径 | 说明 |
 |------|------|------|
-| 首页/仪表盘 | `/` | 展示 Gateway 运行状态、已配置 CLI、激活工作区 |
+| 首页/仪表盘 | `/` | 展示 Gateway 运行状态、已配置 CLI |
 | AI Gateways | `/gateways` | 供应商列表（布局见 §8.1 ASCII 图） |
 | 供应商表单 | `/gateways/new`、`/gateways/:id/edit` | 新增/编辑供应商 |
 | 内置供应商选择 | `/gateways/builtin`（或弹窗） | 从 `builtin_providers` 网格选择预设 |
@@ -1207,8 +1167,6 @@ interface MiniPanelSettings {
 | 模型管理 | `/gateways/:providerId/models` | 该供应商下的模型列表 |
 | CLI 管理 | `/cli` | CLI 档案列表 |
 | CLI 表单 | `/cli/new`、`/cli/:id/edit` | CLI 档案配置 |
-| 工作区 | `/workspaces` | 工作区列表与切换 |
-| 工作区配置 | `/workspaces/:id/:cliSlug` | Prompts / MCP / Skill 编辑 |
 | 设置 | `/settings` | 主题、语言、Gateway 地址、代理 |
 | 日志控制台 | `/logs` | 日志查看、过滤、导出、实时推送 |
 | 迷你面板 | `/mini-panel` | 独立悬浮小窗口，紧凑展示供应商/模型/额度/网关状态，支持最小化竖长条模式 |
@@ -1220,7 +1178,6 @@ interface MiniPanelSettings {
 - `use-command`：封装 `invoke` 与错误处理、加载态、超时重试。
 - `use-gateway-status`：通过 Tauri Event 监听或轮询 Gateway 运行状态。
 - `use-provider-list` / `use-model-list`：按模块缓存列表数据。
-- `use-workspace-applier`：封装「应用工作区」流程与待应用状态。
 - `use-logger`：日志实时订阅、过滤条件管理、导出触发。
 
 ### 6.4 状态管理
@@ -1228,7 +1185,6 @@ interface MiniPanelSettings {
 - **Zustand 全局 Store**：
   - `settingsStore`：主题、语言、Gateway 地址。
   - `gatewayStore`：供应商列表、模型列表、运行时状态。
-  - `workspaceStore`：当前工作区、待应用状态。
 - **本地组件状态**：表单、弹窗、折叠面板等使用 `useState` / `useReducer`。
 
 > 架构决策：不使用 React Query / SWR。数据获取走 Tauri Command 的一次性调用模式（非 REST 轮询），无需客户端缓存框架。Gateway 运行时状态通过 Tauri Event 推送更新。
@@ -1262,7 +1218,6 @@ interface MiniPanelSettings {
 - `gateway_model_list`、`gateway_model_create`、`gateway_model_delete`、`gateway_model_add_from_builtin`、`gateway_model_add_from_official`
 - `cli_profile_list`、`cli_profile_create`、`cli_profile_update`、`cli_profile_delete`
 - `cli_provider_bind_gateway`、`cli_model_mapping_create`
-- `workspace_list`、`workspace_create`、`workspace_switch`、`workspace_apply`
 - `gateway_runtime_start`、`gateway_runtime_stop`、`gateway_runtime_status`
 - `secret_save`、`secret_read`、`secret_delete`
 - `balance_refresh`、`balance_query`
@@ -1332,11 +1287,11 @@ Rust Service 层实现业务规则，不直接执行 SQL。职责包括：
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-- **左侧导航栏**：固定宽度图标 + 文字导航，包含 AI Gateways、CLI、Workspaces、Logger、Settings。
+- **左侧导航栏**：固定宽度图标 + 文字导航，包含 AI Gateways、CLI、Logger、Settings。
 - **顶部标签栏**：在 AI Gateways 页面内切换 Claude Code / Codex / Gemini / OpenCode / AI Gateways 等视图（类似浏览器标签）。
 - **主内容区**：卡片列表或表单。
 - **右上角主操作**：蓝色「+」按钮用于新增当前视图主实体。
-- **状态栏底部**：显示 Gateway 运行状态、同步时间、待应用变更提示。
+- **状态栏底部**：显示 Gateway 运行状态、同步时间。
 
 ### 8.2 供应商列表
 
@@ -1387,13 +1342,6 @@ Rust Service 层实现业务规则，不直接执行 SQL。职责包括：
 - 选择 Gateway Provider 下拉框。
 - 开关「路由模式」：开启后自动填充本地 Gateway base_url；关闭后允许填写直连地址。
 - 模型映射表格：每行包含 CLI 模型别名、选择/输入切换、目标模型。
-
-### 8.8 工作区编辑
-
-- 左侧工作区列表，点击切换激活。
-- 右侧按 CLI 分 Tab（Prompts / MCP / Skill）。
-- 每个 Tab 内为列表编辑，支持新增、删除、排序、启用/禁用。
-- 顶部显示「有未应用变更」badge 与「应用」按钮。
 
 ---
 
@@ -1507,25 +1455,6 @@ Rust Service 层实现业务规则，不直接执行 SQL。职责包括：
 
 > 注意：`gateway_base_url` 仅作为缓存/覆盖。当 `app_settings` 中的网关地址变更时，所有 `gateway_base_url` 为空的 CLI 自动使用新地址。
 
-### 9.9 工作区切换与应用
-
-```
-1. 用户切换 workspace → Service 开启事务：
-   - 将所有 workspaces.is_active 置 0。
-   - 将目标 workspace.is_active 置 1。
-   - 提交事务（保证原子性，避免出现多个激活工作区）。
-2. 如果在切换时 Gateway 有活跃请求，切换操作记录 pending，等待请求完成后执行。
-3. 用户编辑 Prompts/MCP/Skill → 仅写 workspace_* 表，设置 workspace_cli_configs.pending_apply = 1。
-4. 用户点击「应用」：
-   - 后端 workspace/commands.rs 接收「应用」命令。
-   - workspace/service.rs 读取当前工作区下所有 workspace_cli_configs。
-   - 对每个 cli_profile，按 cli_type 生成配置文件（如 claude-code 的 JSON、codex 的 yaml）。
-   - 通过 Rust 文件系统 API 写入 cli_profiles.config_file_path。
-   - 更新 is_applied = 1、pending_apply = 0、last_applied_at。
-   - 写入 model_call_logs 记录本次应用操作的调用详情。
-5. 发送 Tauri Event `workspace:applied`，前端 UI 刷新待应用状态。
-```
-
 ### 9.10 Gateway 请求路由
 
 ```
@@ -1620,15 +1549,15 @@ Rust Service 层实现业务规则，不直接执行 SQL。职责包括：
   - `gateway-runtime` 的模型 ID 解析、请求体重写。
 - **集成测试**：
   - Repository 层使用内存 SQLite 测试迁移与 CRUD。
-  - Service 层测试工作区应用、供应商保存事务。
+  - Service 层测试供应商保存事务。
 - **E2E 测试**：
-  - 使用 Playwright 测试新增供应商、添加模型、切换工作区流程。
+  - 使用 Playwright 测试新增供应商、添加模型流程。
 
 ### 11.6 性能建议
 
 - 启动时预加载：
   - `builtin_*` 全表载入内存。
-  - `app_settings`、当前激活 `workspace`、Gateway 状态。
+  - `app_settings`、Gateway 状态。
 - 运行时缓存：
   - `gateway_models` 路由映射缓存（LRU）。
   - `secrets` LRU 缓存（明文仅在后端内存中短暂驻留）。

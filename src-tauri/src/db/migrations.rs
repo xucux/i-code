@@ -213,7 +213,7 @@ mod tests {
             .query_row(
                 "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN (
                     'app_settings', 'global_configs', 'providers', 'gateway_models', 'secrets',
-                    'cli_profiles', 'workspaces', 'model_call_logs',
+                    'cli_profiles', 'model_call_logs',
                     'gateway_settings', 'gateway_auth_keys', 'log_settings',
                     'virtual_providers', 'virtual_models', 'model_call_stats_daily',
                     'model_call_stats_hourly', 'webdav_configs', 'script_templates'
@@ -222,7 +222,7 @@ mod tests {
                 |row| row.get(0),
             )
             .unwrap();
-        assert_eq!(table_count, 17);
+        assert_eq!(table_count, 16);
 
         // 验证聚合后的关键列已存在
         let check_column = |table: &str, column: &str| {

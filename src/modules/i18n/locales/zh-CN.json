@@ -28,7 +28,6 @@
     "aiGateway": "AI Gateway",
     "chat": "聊天",
     "cli": "CLI 管理",
-    "workspace": "工作区",
     "logs": "日志",
     "backup": "备份",
     "settings": "设置",
@@ -1278,76 +1277,6 @@
       "description": "确认删除「{{name}}」？"
     }
   },
-  "workspace": {
-    "title": "工作区",
-    "description": "按工作区隔离 Prompts、MCP 与 Skill 配置",
-    "tabs": {
-      "overview": "CLI 概览",
-      "prompts": "提示词",
-      "skills": "技能",
-      "mcp": "MCP"
-    },
-    "selector": {
-      "placeholder": "选择工作区",
-      "new": "新建工作区"
-    },
-    "empty": {
-      "noWorkspace": "暂无工作区，请先创建一个工作区",
-      "noCliConfig": "当前工作区下暂无 CLI 配置",
-      "noPrompts": "暂无提示词",
-      "noSkills": "暂无技能",
-      "noMcp": "暂无 MCP 配置",
-      "noContent": "无内容"
-    },
-    "actions": {
-      "newPrompt": "新建提示词",
-      "newSkill": "新建技能",
-      "newMcp": "新建 MCP",
-      "apply": "应用",
-      "applyAll": "应用全部",
-      "preview": "预览",
-      "edit": "编辑",
-      "delete": "删除",
-      "belongsTo": "所属 CLI"
-    },
-    "status": {
-      "applied": "已应用",
-      "pending": "待应用"
-    },
-    "messages": {
-      "workspaceCreated": "工作区已创建",
-      "workspaceUpdated": "工作区已更新",
-      "workspaceActivated": "已激活工作区「{{name}}」",
-      "promptCreated": "Prompt 已创建",
-      "promptUpdated": "Prompt 已更新",
-      "mcpCreated": "MCP Server 已创建",
-      "mcpUpdated": "MCP Server 已更新",
-      "skillCreated": "Skill 已创建",
-      "skillUpdated": "Skill 已更新",
-      "applyAllSuccess": "已应用 {{appliedCount}} 个 CLI 配置，失败 {{failedCount}} 个",
-      "applyCliSuccess": "CLI 配置已应用",
-      "applyFailed": "应用失败",
-      "activateFailed": "激活失败",
-      "deleteSuccess": "删除成功",
-      "deleteFailed": "删除失败",
-      "saveFailed": "保存失败"
-    },
-    "delete": {
-      "workspaceTitle": "删除工作区",
-      "promptTitle": "删除 Prompt",
-      "mcpTitle": "删除 MCP Server",
-      "skillTitle": "删除 Skill",
-      "description": "确认删除「{{name}}」？"
-    },
-    "cliSelect": {
-      "title": "选择 CLI 配置",
-      "description": "请选择要关联到的 CLI 档案"
-    },
-    "preview": {
-      "title": "配置预览",
-      "empty": "无可预览内容"
-    }
-  },
   "tokenizer": {
     "title": "分词器",
     "default": "默认（约4字符/token）",
@@ -1382,7 +1311,6 @@
     "aiGateway": "AI Gateway",
     "aiGatewayDesc": "管理供应商与模型",
     "cliDesc": "CLI 档案与绑定",
-    "workspaceDesc": "工作区子配置",
     "backupDesc": "本地与 WebDAV 备份恢复",
     "previewDesc": "组件库预览",
     "chatDesc": "与 AI 模型聊天"

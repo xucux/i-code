@@ -28,7 +28,6 @@
     "aiGateway": "AI Gateway",
     "chat": "チャット",
     "cli": "CLI 管理",
-    "workspace": "ワークスペース",
     "logs": "ログ",
     "backup": "バックアップ",
     "settings": "設定",
@@ -1261,76 +1260,6 @@
       "description": "「{{name}}」を削除しますか？"
     }
   },
-  "workspace": {
-    "title": "ワークスペース",
-    "description": "ワークスペースごとに Prompts、MCP、Skill 設定を分離します",
-    "tabs": {
-      "overview": "CLI 概要",
-      "prompts": "プロンプト",
-      "skills": "スキル",
-      "mcp": "MCP"
-    },
-    "selector": {
-      "placeholder": "ワークスペースを選択",
-      "new": "新しいワークスペース"
-    },
-    "empty": {
-      "noWorkspace": "ワークスペースがありません。先に作成してください",
-      "noCliConfig": "現在のワークスペースに CLI 設定はありません",
-      "noPrompts": "プロンプトはありません",
-      "noSkills": "スキルはありません",
-      "noMcp": "MCP 設定はありません",
-      "noContent": "コンテンツなし"
-    },
-    "actions": {
-      "newPrompt": "新しいプロンプト",
-      "newSkill": "新しいスキル",
-      "newMcp": "新しい MCP",
-      "apply": "適用",
-      "applyAll": "すべて適用",
-      "preview": "プレビュー",
-      "edit": "編集",
-      "delete": "削除",
-      "belongsTo": "所属 CLI"
-    },
-    "status": {
-      "applied": "適用済み",
-      "pending": "適用待ち"
-    },
-    "messages": {
-      "workspaceCreated": "ワークスペースを作成しました",
-      "workspaceUpdated": "ワークスペースを更新しました",
-      "workspaceActivated": "ワークスペース「{{name}}」をアクティブにしました",
-      "promptCreated": "Prompt を作成しました",
-      "promptUpdated": "Prompt を更新しました",
-      "mcpCreated": "MCP Server を作成しました",
-      "mcpUpdated": "MCP Server を更新しました",
-      "skillCreated": "Skill を作成しました",
-      "skillUpdated": "Skill を更新しました",
-      "applyAllSuccess": "{{appliedCount}} 件の CLI 設定を適用しました。失敗 {{failedCount}} 件",
-      "applyCliSuccess": "CLI 設定を適用しました",
-      "applyFailed": "適用に失敗しました",
-      "activateFailed": "アクティブ化に失敗しました",
-      "deleteSuccess": "削除しました",
-      "deleteFailed": "削除に失敗しました",
-      "saveFailed": "保存に失敗しました"
-    },
-    "delete": {
-      "workspaceTitle": "ワークスペースを削除",
-      "promptTitle": "Prompt を削除",
-      "mcpTitle": "MCP Server を削除",
-      "skillTitle": "Skill を削除",
-      "description": "「{{name}}」を削除しますか？"
-    },
-    "cliSelect": {
-      "title": "CLI 設定を選択",
-      "description": "関連付ける CLI プロファイルを選択してください"
-    },
-    "preview": {
-      "title": "設定プレビュー",
-      "empty": "プレビューできる内容はありません"
-    }
-  },
   "tokenizer": {
     "title": "トークナイザー",
     "default": "デフォルト（約4文字/token）",
@@ -1365,7 +1294,6 @@
     "aiGateway": "AI Gateway",
     "aiGatewayDesc": "プロバイダーとモデルを管理",
     "cliDesc": "CLI プロファイルと連携",
-    "workspaceDesc": "ワークスペースのサブ設定",
     "backupDesc": "ローカルと WebDAV のバックアップ復元",
     "previewDesc": "コンポーネントライブラリのプレビュー",
     "chatDesc": "AI モデルとチャット"

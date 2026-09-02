@@ -28,7 +28,6 @@
     "aiGateway": "AI Gateway",
     "chat": "Chat",
     "cli": "CLI",
-    "workspace": "Workspace",
     "logs": "Logs",
     "backup": "Backup",
     "settings": "Settings",
@@ -1265,76 +1264,6 @@
       "description": "Delete “{{name}}”?"
     }
   },
-  "workspace": {
-    "title": "Workspace",
-    "description": "Isolate Prompts, MCP and Skill configs by workspace",
-    "tabs": {
-      "overview": "CLI Overview",
-      "prompts": "Prompts",
-      "skills": "Skills",
-      "mcp": "MCP"
-    },
-    "selector": {
-      "placeholder": "Select workspace",
-      "new": "New Workspace"
-    },
-    "empty": {
-      "noWorkspace": "No workspaces yet, please create one first",
-      "noCliConfig": "No CLI configs under current workspace",
-      "noPrompts": "No prompts yet",
-      "noSkills": "No skills yet",
-      "noMcp": "No MCP configs yet",
-      "noContent": "No content"
-    },
-    "actions": {
-      "newPrompt": "New Prompt",
-      "newSkill": "New Skill",
-      "newMcp": "New MCP",
-      "apply": "Apply",
-      "applyAll": "Apply All",
-      "preview": "Preview",
-      "edit": "Edit",
-      "delete": "Delete",
-      "belongsTo": "Belongs to CLI"
-    },
-    "status": {
-      "applied": "Applied",
-      "pending": "Pending"
-    },
-    "messages": {
-      "workspaceCreated": "Workspace created",
-      "workspaceUpdated": "Workspace updated",
-      "workspaceActivated": "Workspace \"{{name}}\" activated",
-      "promptCreated": "Prompt created",
-      "promptUpdated": "Prompt updated",
-      "mcpCreated": "MCP Server created",
-      "mcpUpdated": "MCP Server updated",
-      "skillCreated": "Skill created",
-      "skillUpdated": "Skill updated",
-      "applyAllSuccess": "Applied {{appliedCount}} CLI configs, {{failedCount}} failed",
-      "applyCliSuccess": "CLI config applied",
-      "applyFailed": "Apply failed",
-      "activateFailed": "Activation failed",
-      "deleteSuccess": "Deleted",
-      "deleteFailed": "Delete failed",
-      "saveFailed": "Save failed"
-    },
-    "delete": {
-      "workspaceTitle": "Delete Workspace",
-      "promptTitle": "Delete Prompt",
-      "mcpTitle": "Delete MCP Server",
-      "skillTitle": "Delete Skill",
-      "description": "Delete \"{{name}}\"?"
-    },
-    "cliSelect": {
-      "title": "Select CLI Config",
-      "description": "Choose the CLI profile to associate with"
-    },
-    "preview": {
-      "title": "Config Preview",
-      "empty": "Nothing to preview"
-    }
-  },
   "tokenizer": {
     "title": "Tokenizer",
     "default": "Default (~4 chars/token)",
@@ -1369,7 +1298,6 @@
     "aiGateway": "AI Gateway",
     "aiGatewayDesc": "Manage providers and models",
     "cliDesc": "CLI profiles and bindings",
-    "workspaceDesc": "Workspace sub-configs",
     "backupDesc": "Local & WebDAV backup and restore",
     "previewDesc": "Component library preview",
     "chatDesc": "Chat with AI models"

@@ -1,7 +1,7 @@
 //! # 全局雪花 ID 生成器
 //!
 //! 基于 `rs-snowflake` 为数据库主键提供趋势递增的 64 位分布式 ID。
-//! 所有表级 ID（providers、workspaces、secrets 等）统一通过 [`generate_id`] 生成，
+//! 所有表级 ID（providers、virtual_providers、secrets 等）统一通过 [`generate_id`] 生成，
 //! 以十进制字符串形式存入 SQLite TEXT 主键列。
 
 use once_cell::sync::Lazy;
