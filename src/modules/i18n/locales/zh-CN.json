@@ -741,6 +741,8 @@
       "deleteDescription": "确定删除供应商「{{name}}」？",
       "builtinDialogTitle": "选择内置供应商预设",
       "builtinDialogDescription": "从内置预设快速创建供应商",
+      "builtinTabGeneral": "通用",
+      "builtinTabMedia": "视觉生成",
       "builtinSearchPlaceholder": "搜索预设...",
       "builtinNoMatches": "无匹配预设：{{query}}",
       "builtinEmpty": "暂无内置预设",

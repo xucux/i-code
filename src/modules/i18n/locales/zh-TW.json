@@ -737,6 +737,8 @@
       "deleteDescription": "確定刪除供應商「{{name}}」？",
       "builtinDialogTitle": "選擇內建供應商預設",
       "builtinDialogDescription": "從內建預設快速建立供應商",
+      "builtinTabGeneral": "通用",
+      "builtinTabMedia": "視覺生成",
       "builtinSearchPlaceholder": "搜尋預設...",
       "builtinNoMatches": "無匹配預設：{{query}}",
       "builtinEmpty": "暫無內建預設",

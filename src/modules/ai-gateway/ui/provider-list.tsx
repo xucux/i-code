@@ -1,6 +1,6 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useTranslation } from '@/modules/i18n/use-translation'
-import { useProviderList, useBuiltinProviders } from '@/hooks/use-provider-list'
+import { useProviderList, useBuiltinProviders, useBuiltinMediaProviders } from '@/hooks/use-provider-list'
 import { useBalanceSnapshots, refreshProviderBalance } from '@/hooks/use-balance-snapshots'
 import {
   createProvider,
@@ -107,6 +107,7 @@ export function ProviderList() {
   const { t } = useTranslation()
   const { providers, loading, refetch } = useProviderList()
   const { builtinProviders, loading: builtinLoading, refetch: refetchBuiltin } = useBuiltinProviders()
+  const { builtinMediaProviders } = useBuiltinMediaProviders()
 
   const [searchQuery, setSearchQuery] = useState('')
   const [formOpen, setFormOpen] = useState(false)
@@ -171,16 +172,21 @@ export function ProviderList() {
   }, [providers, searchQuery])
 
   // 内置预设搜索过滤：支持 id、displayName、displayCnName 模糊匹配
-  const filteredBuiltinProviders = useMemo(() => {
-    if (!builtinSearchQuery.trim()) return builtinProviders
-    const q = builtinSearchQuery.toLowerCase()
-    return builtinProviders.filter(
-      (b) =>
-        b.id.toLowerCase().includes(q) ||
-        b.displayName.toLowerCase().includes(q) ||
-        b.displayCnName.toLowerCase().includes(q)
-    )
-  }, [builtinProviders, builtinSearchQuery])
+  const filterBuiltin = useCallback(
+    (list: BuiltinProvider[]) => {
+      if (!builtinSearchQuery.trim()) return list
+      const q = builtinSearchQuery.toLowerCase()
+      return list.filter(
+        (b) =>
+          b.id.toLowerCase().includes(q) ||
+          b.displayName.toLowerCase().includes(q) ||
+          b.displayCnName.toLowerCase().includes(q)
+      )
+    },
+    [builtinSearchQuery]
+  )
+  const filteredBuiltinProviders = useMemo(() => filterBuiltin(builtinProviders), [builtinProviders, filterBuiltin])
+  const filteredMediaBuiltinProviders = useMemo(() => filterBuiltin(builtinMediaProviders), [builtinMediaProviders, filterBuiltin])
 
   const openCreate = () => {
     setEditingProvider(null)
@@ -662,6 +668,7 @@ export function ProviderList() {
         open={builtinOpen}
         onOpenChange={setBuiltinOpen}
         builtinProviders={filteredBuiltinProviders}
+        mediaProviders={filteredMediaBuiltinProviders}
         searchQuery={builtinSearchQuery}
         onSearchChange={setBuiltinSearchQuery}
         onSelect={openCreateFromBuiltin}
@@ -747,33 +754,70 @@ export function ProviderList() {
 interface ProviderBuiltinDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** 通用内置供应商预设（builtin-providers.json） */
   builtinProviders: BuiltinProvider[]
+  /** 视觉生成供应商预设（builtin-providers-vision.json） */
+  mediaProviders: BuiltinProvider[]
   searchQuery: string
   onSearchChange: (q: string) => void
   onSelect: (builtin: BuiltinProvider) => void
 }
 
+/** 预设来源 Tab：通用 / 视觉生成 */
+type BuiltinTab = 'general' | 'media'
+
 /**
  * 内置供应商预设选择对话框
- * 支持搜索过滤
+ * 顶部矮 Tab 栏切换通用预设与视觉生成预设，支持搜索过滤
  */
 function ProviderBuiltinDialog({
   open,
   onOpenChange,
   builtinProviders,
+  mediaProviders,
   searchQuery,
   onSearchChange,
   onSelect,
 }: ProviderBuiltinDialogProps) {
   const { t } = useTranslation('aiGateway')
+  const [activeTab, setActiveTab] = useState<BuiltinTab>('general')
+
+  // 打开时重置为通用预设 Tab
+  useEffect(() => {
+    if (open) setActiveTab('general')
+  }, [open])
+
+  const activeProviders = activeTab === 'media' ? mediaProviders : builtinProviders
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl">
+    <Dialog open={open} onOpenChange={onOpenChange}  >
+      <DialogContent className="max-w-xl gap-2">
         <DialogHeader>
           <DialogTitle className="text-base">{t('providerList.builtinDialogTitle')}</DialogTitle>
-          <DialogDescription className="text-xs">{t('providerList.builtinDialogDescription')}</DialogDescription>
+          <DialogDescription className="sr-only">{t('providerList.builtinDialogDescription')}</DialogDescription>
         </DialogHeader>
+        {/* 矮 Tab 栏：切换通用预设 / 视觉生成预设 */}
+        <div className="mb-2 flex h-6 w-fit items-center gap-0.5 rounded-md bg-muted/60 p-0.5">
+          {(
+            [
+              { key: 'general', label: t('providerList.builtinTabGeneral') },
+              { key: 'media', label: t('providerList.builtinTabMedia') },
+            ] as Array<{ key: BuiltinTab; label: string }>
+          ).map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveTab(tab.key)}
+              className={`h-5 rounded-[4px] px-2 text-[11px] leading-none transition-colors ${
+                activeTab === tab.key
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
         <div className="relative mb-2">
           <i className="fa-solid fa-search text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2 text-xs" />
           <Input
@@ -785,12 +829,12 @@ function ProviderBuiltinDialog({
         </div>
         <ScrollArea className="max-h-[360px]">
           <div className="space-y-1.5">
-            {builtinProviders.length === 0 && (
+            {activeProviders.length === 0 && (
               <p className="text-muted-foreground py-4 text-center text-sm">
                 {searchQuery ? t('providerList.builtinNoMatches', { query: searchQuery }) : t('aiGateway.providerList.builtinEmpty')}
               </p>
             )}
-            {builtinProviders.map((builtin) => (
+            {activeProviders.map((builtin) => (
               <button
                 key={builtin.id}
                 type="button"

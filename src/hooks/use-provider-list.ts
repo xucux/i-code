@@ -63,3 +63,38 @@ export function useBuiltinProviders(): {
 
   return { builtinProviders, loading, refetch: load }
 }
+
+/**
+ * 获取内置视觉生成供应商预设列表
+ *
+ * 调用后端 `gateway_builtin_media_providers_list` 命令。
+ * 视觉生成预设仅来自 builtin-providers-vision.json，不与通用预设合并。
+ */
+export function useBuiltinMediaProviders(): {
+  builtinMediaProviders: BuiltinProvider[]
+  loading: boolean
+  refetch: () => void
+} {
+  const [builtinMediaProviders, setBuiltinMediaProviders] = useState<BuiltinProvider[]>([])
+  const [loading, setLoading] = useState(false)
+
+  const load = async () => {
+    setLoading(true)
+    try {
+      const result = await invokeCommand<BuiltinProvider[]>('gateway_builtin_media_providers_list')
+      // 按 sortOrder 倒序排列（值越大越靠前）
+      const sorted = [...result].sort((a, b) => b.sortOrder - a.sortOrder)
+      setBuiltinMediaProviders(sorted)
+    } catch {
+      setBuiltinMediaProviders([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void load()
+  }, [])
+
+  return { builtinMediaProviders, loading, refetch: load }
+}

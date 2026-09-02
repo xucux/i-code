@@ -737,6 +737,8 @@
       "deleteDescription": "プロバイダー「{{name}}」を削除しますか？",
       "builtinDialogTitle": "組み込みプロバイダープリセットを選択",
       "builtinDialogDescription": "組み込みプリセットからプロバイダーをすばやく作成",
+      "builtinTabGeneral": "汎用",
+      "builtinTabMedia": "画像生成",
       "builtinSearchPlaceholder": "プリセットを検索...",
       "builtinNoMatches": "一致するプリセットはありません：{{query}}",
       "builtinEmpty": "組み込みプリセットはありません",

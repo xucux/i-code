@@ -741,6 +741,8 @@
       "deleteDescription": "Delete provider \"{{name}}\"?",
       "builtinDialogTitle": "Select Builtin Provider Preset",
       "builtinDialogDescription": "Quickly create a provider from builtin presets",
+      "builtinTabGeneral": "General",
+      "builtinTabMedia": "Media Gen",
       "builtinSearchPlaceholder": "Search presets...",
       "builtinNoMatches": "No matching presets: {{query}}",
       "builtinEmpty": "No builtin presets",
