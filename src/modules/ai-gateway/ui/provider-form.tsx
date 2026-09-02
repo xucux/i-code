@@ -94,6 +94,12 @@ function getThinkingTypeOptions(t: (key: string) => string) {
   ]
 }
 
+/** 推理力度默认可选项；优先使用内置模型的 thinkingEffortOptions，缺省时回退此列表 */
+const DEFAULT_EFFORT_OPTIONS = ['low', 'medium', 'high', 'none']
+
+/** 工具选择策略默认可选项；优先使用内置模型的 toolChoiceOptions，缺省时回退此列表 */
+const DEFAULT_TOOL_CHOICE_OPTIONS = ['auto', 'none', 'required']
+
 
 /**
  * 获取当前协议类型支持的认证方式列表
@@ -356,6 +362,11 @@ const modelEditSchema = z.object({
   thinkingType: z.enum(['', 'enabled', 'disabled', 'auto']),
   thinkingEffort: z.string(),
   thinkingBudgetTokens: z.string(),
+  toolChoice: z.string(),
+  n: z.string(),
+  stop: z.string(),
+  seed: z.string(),
+  includeUsage: z.boolean().default(false),
 })
 
 /** 模型编辑弹窗表单值 */
@@ -414,6 +425,73 @@ function parseThinkingForm(thinkingJson?: string): Pick<ModelEditFormValues, 'th
     }
   } catch {
     return defaultValues
+  }
+}
+
+/**
+ * 从 tool_choice 表单值序列化为 JSON 字符串；未选择时返回 undefined
+ *
+ * 支持字符串形式（"auto" / "none" / "required"）与对象形式（指定工具时）。
+ * 此处下拉仅产出简单字符串，复杂指定工具场景由后续迭代通过附加请求体实现。
+ */
+function buildToolChoiceJson(value: string): string | undefined {
+  const trimmed = value.trim()
+  if (!trimmed) return undefined
+  // 已是 JSON（对象或带引号字符串）时原样透传
+  try {
+    JSON.parse(trimmed)
+    return trimmed
+  } catch {
+    return JSON.stringify(trimmed)
+  }
+}
+
+/**
+ * 解析 tool_choice JSON 字符串为表单值（只还原简单字符串，对象形态返回空）
+ */
+function parseToolChoiceForm(toolChoiceJson?: string): string {
+  if (!toolChoiceJson) return ''
+  try {
+    const parsed = JSON.parse(toolChoiceJson)
+    return typeof parsed === 'string' ? parsed : ''
+  } catch {
+    return ''
+  }
+}
+
+/**
+ * 从 stop 表单值序列化为 JSON 字符串；未填时返回 undefined
+ *
+ * 支持逗号分隔字符串 → 数组，或已是 JSON（字符串/数组）时原样透传。
+ */
+function buildStopJson(value: string): string | undefined {
+  const trimmed = value.trim()
+  if (!trimmed) return undefined
+  // 已是 JSON（字符串或数组）时原样透传
+  try {
+    JSON.parse(trimmed)
+    return trimmed
+  } catch {
+    // 逗号分隔 → JSON 字符串数组
+    const parts = trimmed
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+    return parts.length > 0 ? JSON.stringify(parts) : undefined
+  }
+}
+
+/**
+ * 解析 stop JSON 字符串为表单值（还原为可编辑文本：数组用逗号连接）
+ */
+function parseStopForm(stopJson?: string): string {
+  if (!stopJson) return ''
+  try {
+    const parsed = JSON.parse(stopJson)
+    if (Array.isArray(parsed)) return parsed.join(', ')
+    return typeof parsed === 'string' ? parsed : ''
+  } catch {
+    return ''
   }
 }
 
@@ -1876,6 +1954,11 @@ function ModelManagementSection({ provider }: ModelManagementSectionProps) {
       thinkingType: '',
       thinkingEffort: '',
       thinkingBudgetTokens: '',
+      toolChoice: '',
+      n: '',
+      stop: '',
+      seed: '',
+      includeUsage: false,
     },
   })
 
@@ -2061,6 +2144,8 @@ function ModelManagementSection({ provider }: ModelManagementSectionProps) {
     if (editingGatewayModel && editingModelConfig) {
       const caps = parseCapabilitiesForm(editingModelConfig.capabilitiesJson)
       const thinking = parseThinkingForm(editingModelConfig.thinkingJson)
+      const toolChoice = parseToolChoiceForm(editingModelConfig.toolChoiceJson)
+      const stop = parseStopForm(editingModelConfig.stopJson)
       modelEditForm.reset({
         modelId: editingGatewayModel.modelId,
         displayName: editingGatewayModel.displayName ?? editingModelConfig.name ?? '',
@@ -2075,6 +2160,11 @@ function ModelManagementSection({ provider }: ModelManagementSectionProps) {
         topP: editingModelConfig.topP?.toString() ?? '',
         ...caps,
         ...thinking,
+        toolChoice,
+        n: editingModelConfig.n?.toString() ?? '',
+        stop,
+        seed: editingModelConfig.seed?.toString() ?? '',
+        includeUsage: editingModelConfig.includeUsage ?? false,
       })
     }
   }, [editingGatewayModel, editingModelConfig, modelEditForm])
@@ -2099,6 +2189,8 @@ function ModelManagementSection({ provider }: ModelManagementSectionProps) {
       // 2. 更新 ModelConfig
       const capabilities = buildCapabilitiesJson(values)
       const thinking = buildThinkingJson(values)
+      const toolChoice = buildToolChoiceJson(values.toolChoice)
+      const stop = buildStopJson(values.stop)
       await invokeCommand<ModelConfig>('gateway_model_config_update', {
         id: editingModelConfig.id,
         input: {
@@ -2114,6 +2206,11 @@ function ModelManagementSection({ provider }: ModelManagementSectionProps) {
           topP: values.topP ? Number(values.topP) : undefined,
           capabilitiesJson: capabilities,
           thinkingJson: thinking,
+          toolChoiceJson: toolChoice,
+          n: values.n ? Number(values.n) : undefined,
+          stopJson: stop,
+          seed: values.seed ? Number(values.seed) : undefined,
+          includeUsage: values.includeUsage,
         },
       })
 
@@ -2181,6 +2278,16 @@ function ModelManagementSection({ provider }: ModelManagementSectionProps) {
     return containsMatches[0]
   }
 
+  // 模型编辑弹窗中「努力程度 / 工具选择策略」下拉选项：
+  // 优先取当前编辑模型在内置预设中声明的推荐枚举列表，缺省回退通用默认列表。
+  const editingBuiltin = editingGatewayModel ? findBuiltinByModelId(editingGatewayModel.modelId) : undefined
+  const effortOptions = editingBuiltin?.thinkingEffortOptions?.length
+    ? editingBuiltin.thinkingEffortOptions
+    : DEFAULT_EFFORT_OPTIONS
+  const toolChoiceOptions = editingBuiltin?.toolChoiceOptions?.length
+    ? editingBuiltin.toolChoiceOptions
+    : DEFAULT_TOOL_CHOICE_OPTIONS
+
   // 快速创建模型配置并关联到供应商
   const addModels = async (
     modelsToAdd: Array<{
@@ -2209,6 +2316,8 @@ function ModelManagementSection({ provider }: ModelManagementSectionProps) {
             stream: builtin?.stream,
             temperature: builtin?.temperature,
             topP: builtin?.topP,
+            frequencyPenalty: builtin?.frequencyPenalty,
+            presencePenalty: builtin?.presencePenalty,
             capabilitiesJson: builtin?.capabilities ? JSON.stringify(builtin.capabilities) : undefined,
             thinkingJson: builtin?.thinking ? JSON.stringify(builtin.thinking) : undefined,
           },
@@ -2703,6 +2812,24 @@ function ModelManagementSection({ provider }: ModelManagementSectionProps) {
                       <Input id="model-edit-topP" type="number" step="0.1" {...modelEditForm.register('topP')} className="h-8 text-xs" />
                     </div>
                   </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs" htmlFor="model-edit-n">{t('aiGateway.providerForm.modelEdit.n', '回复数 n')}</Label>
+                      <Input id="model-edit-n" type="number" min={1} max={7} {...modelEditForm.register('n')} className="h-8 text-xs" placeholder="1–7" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs" htmlFor="model-edit-seed">{t('aiGateway.providerForm.modelEdit.seed', '随机种子 seed')}</Label>
+                      <Input id="model-edit-seed" type="number" min={0} max={9999999} {...modelEditForm.register('seed')} className="h-8 text-xs" placeholder="0–9999999" />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs" htmlFor="model-edit-stop">{t('aiGateway.providerForm.modelEdit.stop', '停止序列 stop')}</Label>
+                    <Input id="model-edit-stop" {...modelEditForm.register('stop')} className="h-8 text-xs" placeholder={t('aiGateway.providerForm.modelEdit.stopPlaceholder', '逗号分隔或 JSON')} />
+                  </div>
+                  <label className="flex items-center gap-2 rounded border p-2 text-xs">
+                    <Switch checked={modelEditForm.watch('includeUsage')} onCheckedChange={(v) => modelEditForm.setValue('includeUsage', v)} />
+                    {t('aiGateway.providerForm.modelEdit.includeUsage', '流式响应返回 usage')}
+                  </label>
                 </TabsContent>
                 <TabsContent value="capabilities" className="space-y-3">
                   <div className="space-y-2">
@@ -2723,6 +2850,16 @@ function ModelManagementSection({ provider }: ModelManagementSectionProps) {
                         </SelectContent>
                       </Select>
                     </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">{t('aiGateway.providerForm.modelEdit.toolChoice', '工具选择策略')}</Label>
+                      <Select value={modelEditForm.watch('toolChoice')} onValueChange={(v) => modelEditForm.setValue('toolChoice', v)}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder={t('aiGateway.providerForm.modelEdit.toolChoicePlaceholder', '不指定')} /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="" className="text-xs">{t('aiGateway.providerForm.modelEdit.toolChoiceNone', '不指定')}</SelectItem>
+                          {toolChoiceOptions.map((v) => (<SelectItem key={v} value={v} className="text-xs">{v}</SelectItem>))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </TabsContent>
                 <TabsContent value="thinking" className="space-y-3">
@@ -2738,8 +2875,17 @@ function ModelManagementSection({ provider }: ModelManagementSectionProps) {
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1">
-                        <Label className="text-xs" htmlFor="model-edit-thinkingEffort">{t('aiGateway.providerForm.modelEdit.thinkingEffort', '努力程度')}</Label>
-                        <Input id="model-edit-thinkingEffort" {...modelEditForm.register('thinkingEffort')} className="h-8 text-xs" />
+                        <Label className="text-xs">{t('aiGateway.providerForm.modelEdit.thinkingEffort', '努力程度')}</Label>
+                        <Select
+                          value={modelEditForm.watch('thinkingEffort')}
+                          onValueChange={(v) => modelEditForm.setValue('thinkingEffort', v)}
+                        >
+                          <SelectTrigger className="h-8 text-xs"><SelectValue placeholder={t('aiGateway.providerForm.modelEdit.thinkingEffortPlaceholder', '不指定')} /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="" className="text-xs">{t('aiGateway.providerForm.modelEdit.thinkingEffortNone', '不指定')}</SelectItem>
+                            {effortOptions.map((v) => (<SelectItem key={v} value={v} className="text-xs">{v}</SelectItem>))}
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div className="space-y-1">
                         <Label className="text-xs" htmlFor="model-edit-thinkingBudgetTokens">{t('aiGateway.providerForm.modelEdit.thinkingBudgetTokens', '预算 Token')}</Label>

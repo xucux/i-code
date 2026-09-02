@@ -262,6 +262,10 @@ pub struct SendChatMessageInput {
     /// 当前应用 locale；首条消息时后端会注入为 system 消息
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub locale: Option<String>,
+    /// 本轮推理力度（reasoning_effort），如 `low` / `medium` / `high` / `none`；
+    /// 非空时按协议注入请求体（chat → reasoning_effort，responses → reasoning.effort）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thinking_effort: Option<String>,
 }
 
 /// 发送消息后的即时回执（用户消息 + 占位助手消息）

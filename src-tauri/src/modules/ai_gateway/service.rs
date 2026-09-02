@@ -242,8 +242,10 @@ impl AiGatewayService {
                             .unwrap_or_else(crate::modules::ai_gateway::types::default_token_multiplier),
                         price_per_1m_tokens: None,
                         stream: builtin.as_ref().and_then(|b| b.stream),
-                        temperature: None,
-                        top_p: None,
+                        temperature: builtin.as_ref().and_then(|b| b.temperature),
+                        top_p: builtin.as_ref().and_then(|b| b.top_p),
+                        frequency_penalty: builtin.as_ref().and_then(|b| b.frequency_penalty),
+                        presence_penalty: builtin.as_ref().and_then(|b| b.presence_penalty),
                         parallel_tool_calling: builtin
                             .as_ref()
                             .and_then(|b| b.parallel_tool_calling),
@@ -255,6 +257,13 @@ impl AiGatewayService {
                             .as_ref()
                             .and_then(|b| b.thinking.as_ref())
                             .map(|t| serde_json::to_string(t).unwrap_or_default()),
+                        // tool_choice 推荐枚举仅用于表单选项提示，不设置具体默认值（由用户按需配置）
+                        tool_choice_json: None,
+                        // 请求参数（n/stop/seed/include_usage）非内置默认，由用户按需配置
+                        n: None,
+                        stop_json: None,
+                        seed: None,
+                        include_usage: None,
                     };
                     let config = repository::insert_model_config(&config_input)?;
                     let gateway_input = CreateGatewayModelInput {
@@ -487,6 +496,11 @@ impl AiGatewayService {
                     verbosity: config.verbosity.clone(),
                     capabilities_json: config.capabilities_json.clone(),
                     thinking_json: config.thinking_json.clone(),
+                    tool_choice_json: config.tool_choice_json.clone(),
+                    n: config.n,
+                    stop_json: config.stop_json.clone(),
+                    seed: config.seed,
+                    include_usage: config.include_usage,
                     multi_agent_json: config.multi_agent_json.clone(),
                     web_search_json: config.web_search_json.clone(),
                     memory_tool: config.memory_tool,
@@ -633,9 +647,16 @@ impl AiGatewayService {
                 stream: exported_model.model_config.stream,
                 temperature: exported_model.model_config.temperature,
                 top_p: exported_model.model_config.top_p,
+                frequency_penalty: exported_model.model_config.frequency_penalty,
+                presence_penalty: exported_model.model_config.presence_penalty,
                 parallel_tool_calling: exported_model.model_config.parallel_tool_calling,
                 capabilities_json: exported_model.model_config.capabilities_json,
                 thinking_json: exported_model.model_config.thinking_json,
+                tool_choice_json: exported_model.model_config.tool_choice_json,
+                n: exported_model.model_config.n,
+                stop_json: exported_model.model_config.stop_json,
+                seed: exported_model.model_config.seed,
+                include_usage: exported_model.model_config.include_usage,
             };
             let config = repository::insert_model_config(&config_input)?;
 

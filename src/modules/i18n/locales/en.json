@@ -302,9 +302,20 @@
         "thinkingEnabled": "Enabled",
         "thinkingDisabled": "Disabled",
         "thinkingAuto": "Auto",
+        "thinkingEffort": "Reasoning effort",
+        "thinkingEffortPlaceholder": "Not set",
+        "thinkingEffortNone": "Not set",
+        "toolChoice": "Tool choice",
+        "toolChoicePlaceholder": "Not set",
+        "toolChoiceNone": "Not set",
         "validation": {
           "modelIdRequired": "Please enter model ID"
-        }
+        },
+        "n": "n (responses)",
+        "seed": "seed",
+        "stop": "stop sequences",
+        "stopPlaceholder": "comma-separated or JSON",
+        "includeUsage": "Return usage in stream"
       },
       "editTitle": "Edit Provider",
       "createTitle": "Create Provider",
@@ -1505,6 +1516,8 @@
       "protocolChat": "Chat",
       "protocolMessages": "Messages",
       "protocolResponses": "Responses",
+      "thinkingEffort": "Reasoning effort",
+      "thinkingEffortDefault": "Default",
       "exportHtml": "Export as HTML",
       "exportSuccess": "Exported to: {{path}}",
       "exportFailed": "Export failed",

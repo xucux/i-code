@@ -142,6 +142,16 @@ export interface ModelConfig {
   verbosity?: 'low' | 'medium' | 'high'
   capabilitiesJson?: string
   thinkingJson?: string
+  /** 工具选择策略 JSON：可存字符串（"auto" 等）或对象（{"type":"function",...}） */
+  toolChoiceJson?: string
+  /** 回复数量 n（范围 1–7） */
+  n?: number
+  /** 停止序列 JSON：可存字符串或字符串数组 */
+  stopJson?: string
+  /** 随机种子 seed（Beta，范围 [0,9999999]） */
+  seed?: number
+  /** 是否在流式响应中返回 usage（stream_options.include_usage） */
+  includeUsage?: boolean
   multiAgentJson?: string
   webSearchJson?: string
   memoryTool?: boolean
@@ -612,6 +622,10 @@ export interface BuiltinModel {
   webSearchJson?: string
   memoryTool?: boolean
   presetTemplatesJson?: string
+  /** 推理力度（reasoning_effort）推荐枚举值列表，如 ["low","medium","high","none"] */
+  thinkingEffortOptions?: string[]
+  /** 工具选择策略（tool_choice）推荐枚举值列表，如 ["auto","none","required"] */
+  toolChoiceOptions?: string[]
   sortOrder: number
   createdAt: Timestamp
 }
@@ -817,9 +831,13 @@ export interface CreateModelConfigInput {
   stream?: boolean
   temperature?: number
   topP?: number
+  frequencyPenalty?: number
+  presencePenalty?: number
   parallelToolCalling?: boolean
   capabilitiesJson?: string
   thinkingJson?: string
+  /** 工具选择策略 JSON：可存字符串（"auto" 等）或对象（{"type":"function",...}） */
+  toolChoiceJson?: string
   balanceProviderJson?: string
   timeoutJson?: string
   retryJson?: string
@@ -850,6 +868,16 @@ export interface UpdateModelConfigInput {
   verbosity?: string
   capabilitiesJson?: string
   thinkingJson?: string
+  /** 工具选择策略 JSON：可存字符串（"auto" 等）或对象（{"type":"function",...}） */
+  toolChoiceJson?: string
+  /** 回复数量 n（范围 1–7） */
+  n?: number
+  /** 停止序列 JSON：可存字符串或字符串数组 */
+  stopJson?: string
+  /** 随机种子 seed（Beta，范围 [0,9999999]） */
+  seed?: number
+  /** 是否在流式响应中返回 usage（stream_options.include_usage） */
+  includeUsage?: boolean
   multiAgentJson?: string
   webSearchJson?: string
   memoryTool?: boolean

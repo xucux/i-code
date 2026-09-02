@@ -9,7 +9,7 @@
 ///
 /// 与 `src-tauri/src/db/migrations/V{n}__*.sql` 文件名中的 `{n}` 对应。
 /// 每次新增增量迁移时同步更新。
-pub const SCHEMA_VERSION: u32 = 8;
+pub const SCHEMA_VERSION: u32 = 10;
 
 /// 所有业务表名常量
 ///

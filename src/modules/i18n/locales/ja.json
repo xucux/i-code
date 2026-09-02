@@ -302,9 +302,20 @@
         "thinkingEnabled": "有効",
         "thinkingDisabled": "無効",
         "thinkingAuto": "自動",
+        "thinkingEffort": "努力レベル",
+        "thinkingEffortPlaceholder": "未指定",
+        "thinkingEffortNone": "未指定",
+        "toolChoice": "ツール選択戦略",
+        "toolChoicePlaceholder": "未指定",
+        "toolChoiceNone": "未指定",
         "validation": {
           "modelIdRequired": "モデル ID を入力してください"
-        }
+        },
+        "n": "応答数 n",
+        "seed": "ランダムシード seed",
+        "stop": "停止シーケンス stop",
+        "stopPlaceholder": "カンマ区切りまたは JSON",
+        "includeUsage": "ストリーム応答で usage を返す"
       },
       "editTitle": "プロバイダーを編集",
       "createTitle": "新しいプロバイダー",
@@ -1501,6 +1512,8 @@
       "protocolChat": "Chat",
       "protocolMessages": "Messages",
       "protocolResponses": "Responses",
+      "thinkingEffort": "推論レベル（reasoning_effort）",
+      "thinkingEffortDefault": "デフォルト",
       "exportHtml": "HTML としてエクスポート",
       "exportSuccess": "エクスポート先: {{path}}",
       "exportFailed": "エクスポートに失敗しました",

@@ -490,6 +490,7 @@ impl ChatService {
         }
         let model = summary.model.clone();
         let stream = matches!(transport_mode, ChatTransportMode::Sse);
+        let thinking_effort = input.thinking_effort.filter(|s| !s.trim().is_empty());
 
         let this = Arc::clone(self);
         let session_id = summary.id.clone();
@@ -505,6 +506,7 @@ impl ChatService {
                 gateway_messages,
                 protocol,
                 stream,
+                thinking_effort,
                 abort_rx,
             )
             .await;
@@ -547,6 +549,7 @@ impl ChatService {
         messages: Vec<Value>,
         protocol: ChatProtocol,
         stream: bool,
+        thinking_effort: Option<String>,
         abort_rx: oneshot::Receiver<()>,
     ) {
         let result = self
@@ -558,6 +561,7 @@ impl ChatService {
                 messages,
                 protocol,
                 stream,
+                thinking_effort,
                 abort_rx,
             )
             .await;
@@ -646,6 +650,7 @@ impl ChatService {
         messages: Vec<Value>,
         protocol: ChatProtocol,
         stream: bool,
+        thinking_effort: Option<String>,
         mut abort_rx: oneshot::Receiver<()>,
     ) -> IcodeResult<(String, String, Option<ChatTokenUsage>, bool)> {
         // 返回值：(content, thinking, usage, aborted)
@@ -658,14 +663,28 @@ impl ChatService {
         };
         let url = format!("{}{}", base_url.trim_end_matches('/'), endpoint);
 
+        // 注入推理力度：chat → reasoning_effort；responses → reasoning.effort；messages 协议不注入
+        let reasoning_effort = thinking_effort.as_deref().filter(|s| !s.is_empty());
         let body = match protocol {
-            ChatProtocol::Chat => json!({
-                "model": model,
-                "messages": messages,
-                "stream": stream,
-            }),
+            ChatProtocol::Chat => {
+                let mut body = json!({
+                    "model": model,
+                    "messages": messages,
+                    "stream": stream,
+                });
+                if let Some(effort) = reasoning_effort {
+                    body["reasoning_effort"] = json!(effort);
+                }
+                body
+            }
+            ChatProtocol::Responses => {
+                let mut body = build_responses_request_body(model, &messages, stream);
+                if let Some(effort) = reasoning_effort {
+                    body["reasoning"] = json!({ "effort": effort });
+                }
+                body
+            }
             ChatProtocol::Messages => build_anthropic_request_body(model, &messages, stream),
-            ChatProtocol::Responses => build_responses_request_body(model, &messages, stream),
         };
 
         let mut builder = self

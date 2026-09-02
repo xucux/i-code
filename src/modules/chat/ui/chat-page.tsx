@@ -67,6 +67,7 @@ interface PendingSend {
   attachments: PendingAttachment[]
   transportMode: ChatTransportMode
   protocol: ChatProtocol
+  thinkingEffort: string
 }
 
 /**
@@ -97,6 +98,8 @@ export function ChatPage() {
   const [attachments, setAttachments] = useState<PendingAttachment[]>([])
   const [transportMode, setTransportMode] = useState<ChatTransportMode>('sse')
   const [protocol, setProtocol] = useState<ChatProtocol>('chat')
+  /** 本轮推理力度（reasoning_effort），空串表示不指定 */
+  const [thinkingEffort, setThinkingEffort] = useState('')
   const [selectedModel, setSelectedModel] = useState('')
   const pendingSendRef = useRef<PendingSend | null>(null)
   /** 正在自动创建草稿会话，避免输入过程中重复 create */
@@ -160,7 +163,7 @@ export function ChatPage() {
     if (!pending || !activeId || pending.sessionId !== activeId) return
     pendingSendRef.current = null
     void (async () => {
-      const ok = await send(pending.content, pending.attachments, pending.transportMode, pending.protocol)
+      const ok = await send(pending.content, pending.attachments, pending.transportMode, pending.protocol, pending.thinkingEffort)
       if (!ok) {
         toast.error(t('errors.sendFailed'))
         setInput(pending.content)
@@ -352,6 +355,7 @@ export function ChatPage() {
         attachments: atts,
         transportMode: effectiveMode,
         protocol: effectiveProtocol,
+        thinkingEffort,
       }
       // activeId 可能已由 ensure 设置；若尚未对齐 hook，pending 发送 effect 会接手
       setActiveId(sessionId)
@@ -364,7 +368,7 @@ export function ChatPage() {
 
     setInput('')
     setAttachments([])
-    const ok = await send(content, atts, effectiveMode, effectiveProtocol)
+    const ok = await send(content, atts, effectiveMode, effectiveProtocol, thinkingEffort)
     if (!ok) {
       toast.error(t('errors.sendFailed'))
       setInput(content)
@@ -480,6 +484,8 @@ export function ChatPage() {
           onTransportModeChange={(m) => void handleModeChange(m)}
           protocol={effectiveProtocol}
           onProtocolChange={(p) => void handleProtocolChange(p)}
+          thinkingEffort={thinkingEffort}
+          onThinkingEffortChange={setThinkingEffort}
           models={modelOptions}
           selectedModel={effectiveModel}
           onModelChange={(m) => void handleModelChange(m)}

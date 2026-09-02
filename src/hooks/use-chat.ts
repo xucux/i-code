@@ -81,6 +81,7 @@ export async function sendChatMessage(input: {
   attachments?: PendingAttachment[]
   transportMode?: ChatTransportMode
   protocol?: ChatProtocol
+  thinkingEffort?: string
 }): Promise<SendChatMessageResult> {
   const attachments = (input.attachments ?? []).map((a) => ({
     name: a.name,
@@ -98,6 +99,7 @@ export async function sendChatMessage(input: {
       transportMode: input.transportMode,
       protocol: input.protocol,
       locale: getLocale(),
+      thinkingEffort: input.thinkingEffort,
     },
   })
 }
@@ -220,7 +222,7 @@ export function useChatSession(sessionId: string | null): {
   activeRequestId: string | null
   sending: boolean
   reload: (id?: string) => Promise<void>
-  send: (content: string, attachments: PendingAttachment[], transportMode?: ChatTransportMode, protocol?: ChatProtocol) => Promise<boolean>
+  send: (content: string, attachments: PendingAttachment[], transportMode?: ChatTransportMode, protocol?: ChatProtocol, thinkingEffort?: string) => Promise<boolean>
   abort: () => Promise<void>
   /** 删除单条消息：后端移除 JSONL 条目，前端同步 state */
   deleteMessage: (messageId: string) => Promise<boolean>
@@ -385,7 +387,8 @@ export function useChatSession(sessionId: string | null): {
       content: string,
       attachments: PendingAttachment[],
       transportMode?: ChatTransportMode,
-      protocol?: ChatProtocol
+      protocol?: ChatProtocol,
+      thinkingEffort?: string
     ) => {
       if (!sessionId) return false
       setSending(true)
@@ -396,6 +399,7 @@ export function useChatSession(sessionId: string | null): {
           attachments,
           transportMode,
           protocol,
+          thinkingEffort,
         })
         setSession((prev) =>
           prev

@@ -143,6 +143,24 @@ pub struct BuiltinModel {
     /// 分词器选项，如 `openai`、`deepseek`、`default`
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tokenizer: Option<String>,
+    /// 默认采样温度（API 默认值）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub temperature: Option<f64>,
+    /// 默认核采样 top_p
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub top_p: Option<f64>,
+    /// 默认频率惩罚
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub frequency_penalty: Option<f64>,
+    /// 默认存在惩罚
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub presence_penalty: Option<f64>,
+    /// 推理力度（reasoning_effort）推荐枚举值列表，如 `["low","medium","high","none"]`
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thinking_effort_options: Option<Vec<String>>,
+    /// 工具选择策略（tool_choice）推荐枚举值列表，如 `["auto","none","required"]`
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_choice_options: Option<Vec<String>>,
     /// 模型能力配置
     #[serde(skip_serializing_if = "Option::is_none")]
     pub capabilities: Option<BuiltinModelCapabilities>,

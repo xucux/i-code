@@ -2676,6 +2676,44 @@
         "type": "enabled",
         "effort": "high"
       }
+    },
+    {
+      "id": "sensenova-6.8-flash-lite",
+      "displayName": "SenseNova 6.8 Flash Lite",
+      "background": "日日新轻量高效的多模态智能体模型（2026），重点提升多模态 Agent 场景能力，复杂数据分析能力显著增强，支持主/次 Agent 协作与原生多模态交付物生成。",
+      "family": "sensenova",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": null,
+      "maxOutputTokens": 65536,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "temperature": 0.6,
+      "topP": 0.95,
+      "frequencyPenalty": 0,
+      "presencePenalty": 0,
+      "thinkingEffortOptions": [
+        "low",
+        "medium",
+        "high",
+        "none"
+      ],
+      "toolChoiceOptions": [
+        "auto",
+        "none",
+        "required"
+      ],
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "medium"
+      }
     }
   ]
 }

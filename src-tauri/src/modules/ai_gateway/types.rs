@@ -833,6 +833,21 @@ pub struct ModelConfig {
     pub capabilities_json: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub thinking_json: Option<String>,
+    /// 工具选择策略 JSON：可存字符串（`"auto"` 等）或对象（`{"type":"function",...}`）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_choice_json: Option<String>,
+    /// 回复数量 n（范围 1–7）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub n: Option<i64>,
+    /// 停止序列 JSON：可存字符串或字符串数组
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stop_json: Option<String>,
+    /// 随机种子 seed（Beta，范围 [0,9999999]）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub seed: Option<i64>,
+    /// 是否在流式响应中返回 usage（stream_options.include_usage）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub include_usage: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub multi_agent_json: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1010,11 +1025,30 @@ pub struct CreateModelConfigInput {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub top_p: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub frequency_penalty: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub presence_penalty: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub parallel_tool_calling: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub capabilities_json: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub thinking_json: Option<String>,
+    /// 工具选择策略 JSON：可存字符串（`"auto"` 等）或对象（`{"type":"function",...}`）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_choice_json: Option<String>,
+    /// 回复数量 n（范围 1–7）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub n: Option<i64>,
+    /// 停止序列 JSON：可存字符串或字符串数组
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stop_json: Option<String>,
+    /// 随机种子 seed（Beta，范围 [0,9999999]）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub seed: Option<i64>,
+    /// 是否在流式响应中返回 usage（stream_options.include_usage）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub include_usage: Option<bool>,
 }
 
 /// 更新模型配置的输入参数
@@ -1060,6 +1094,21 @@ pub struct UpdateModelConfigInput {
     pub capabilities_json: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub thinking_json: Option<String>,
+    /// 工具选择策略 JSON：可存字符串（`"auto"` 等）或对象（`{"type":"function",...}`）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_choice_json: Option<String>,
+    /// 回复数量 n（范围 1–7）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub n: Option<i64>,
+    /// 停止序列 JSON：可存字符串或字符串数组
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stop_json: Option<String>,
+    /// 随机种子 seed（Beta，范围 [0,9999999]）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub seed: Option<i64>,
+    /// 是否在流式响应中返回 usage（stream_options.include_usage）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub include_usage: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub multi_agent_json: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1326,6 +1375,21 @@ pub struct ExportedModelConfig {
     pub capabilities_json: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub thinking_json: Option<String>,
+    /// 工具选择策略 JSON：可存字符串（`"auto"` 等）或对象（`{"type":"function",...}`）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_choice_json: Option<String>,
+    /// 回复数量 n（范围 1–7）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub n: Option<i64>,
+    /// 停止序列 JSON：可存字符串或字符串数组
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stop_json: Option<String>,
+    /// 随机种子 seed（Beta，范围 [0,9999999]）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub seed: Option<i64>,
+    /// 是否在流式响应中返回 usage（stream_options.include_usage）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub include_usage: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub multi_agent_json: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

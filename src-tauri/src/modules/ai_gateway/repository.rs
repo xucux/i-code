@@ -317,10 +317,11 @@ pub fn insert_model_config(input: &CreateModelConfigInput) -> IcodeResult<ModelC
             (id, name, family, max_input_tokens, max_output_tokens, tokenizer,
              token_count_multiplier, price_per_1m_tokens, stream, temperature, top_k, top_p,
              frequency_penalty, presence_penalty, parallel_tool_calling, service_tier,
-             verbosity, capabilities_json, thinking_json, multi_agent_json,
-             web_search_json, memory_tool, preset_templates_json, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, NULL, ?11, NULL, NULL, ?12,
-                 NULL, NULL, ?13, ?14, NULL, NULL, NULL, NULL, ?15, ?16)",
+             verbosity, capabilities_json, thinking_json, tool_choice_json, n, stop_json,
+             seed, include_usage, multi_agent_json, web_search_json, memory_tool,
+             preset_templates_json, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, NULL, ?11, ?12, ?13, ?14,
+                 NULL, NULL, ?15, ?16, ?17, ?18, ?19, ?20, ?21, NULL, NULL, NULL, NULL, ?22, ?23)",
         rusqlite::params![
             id,
             input.name,
@@ -333,9 +334,16 @@ pub fn insert_model_config(input: &CreateModelConfigInput) -> IcodeResult<ModelC
             input.stream.map(|b| b as i64),
             input.temperature,
             input.top_p,
+            input.frequency_penalty,
+            input.presence_penalty,
             input.parallel_tool_calling.map(|b| b as i64),
             input.capabilities_json,
             input.thinking_json,
+            input.tool_choice_json,
+            input.n,
+            input.stop_json,
+            input.seed,
+            input.include_usage.map(|b| b as i64),
             now,
             now,
         ],
@@ -469,6 +477,31 @@ pub fn update_model_config(id: &str, input: &UpdateModelConfigInput) -> IcodeRes
     if let Some(v) = &input.thinking_json {
         sets.push(format!("thinking_json = ?{idx}"));
         params.push(Box::new(v.clone()));
+        idx += 1;
+    }
+    if let Some(v) = &input.tool_choice_json {
+        sets.push(format!("tool_choice_json = ?{idx}"));
+        params.push(Box::new(v.clone()));
+        idx += 1;
+    }
+    if let Some(v) = input.n {
+        sets.push(format!("n = ?{idx}"));
+        params.push(Box::new(v));
+        idx += 1;
+    }
+    if let Some(v) = &input.stop_json {
+        sets.push(format!("stop_json = ?{idx}"));
+        params.push(Box::new(v.clone()));
+        idx += 1;
+    }
+    if let Some(v) = input.seed {
+        sets.push(format!("seed = ?{idx}"));
+        params.push(Box::new(v));
+        idx += 1;
+    }
+    if let Some(v) = input.include_usage {
+        sets.push(format!("include_usage = ?{idx}"));
+        params.push(Box::new(v as i64));
         idx += 1;
     }
     if let Some(v) = &input.multi_agent_json {
@@ -796,15 +829,17 @@ fn provider_row_mapper(row: &rusqlite::Row<'_>) -> rusqlite::Result<Provider> {
 const MODEL_CONFIG_SELECT_SQL: &str = "SELECT m.id, m.name, m.family, m.max_input_tokens,
     m.max_output_tokens, m.tokenizer, m.token_count_multiplier, m.price_per_1m_tokens, m.stream,
     m.temperature, m.top_k, m.top_p, m.frequency_penalty, m.presence_penalty, m.parallel_tool_calling,
-    m.service_tier, m.verbosity, m.capabilities_json, m.thinking_json, m.multi_agent_json,
-    m.web_search_json, m.memory_tool, m.preset_templates_json, m.created_at, m.updated_at
+    m.service_tier, m.verbosity, m.capabilities_json, m.thinking_json, m.tool_choice_json,
+    m.n, m.stop_json, m.seed, m.include_usage, m.multi_agent_json, m.web_search_json,
+    m.memory_tool, m.preset_templates_json, m.created_at, m.updated_at
     FROM model_configs m";
 
 /// model_configs 表行映射器
 fn model_config_row_mapper(row: &rusqlite::Row<'_>) -> rusqlite::Result<ModelConfig> {
     let stream_i: Option<i64> = row.get(8)?;
     let parallel_i: Option<i64> = row.get(14)?;
-    let memory_i: Option<i64> = row.get(21)?;
+    let include_usage_i: Option<i64> = row.get(23)?;
+    let memory_i: Option<i64> = row.get(26)?;
     Ok(ModelConfig {
         id: row.get(0)?,
         name: row.get(1)?,
@@ -825,12 +860,17 @@ fn model_config_row_mapper(row: &rusqlite::Row<'_>) -> rusqlite::Result<ModelCon
         verbosity: row.get(16)?,
         capabilities_json: row.get(17)?,
         thinking_json: row.get(18)?,
-        multi_agent_json: row.get(19)?,
-        web_search_json: row.get(20)?,
+        tool_choice_json: row.get(19)?,
+        n: row.get(20)?,
+        stop_json: row.get(21)?,
+        seed: row.get(22)?,
+        include_usage: include_usage_i.map(|v| v != 0),
+        multi_agent_json: row.get(24)?,
+        web_search_json: row.get(25)?,
         memory_tool: memory_i.map(|v| v != 0),
-        preset_templates_json: row.get(22)?,
-        created_at: row.get(23)?,
-        updated_at: row.get(24)?,
+        preset_templates_json: row.get(27)?,
+        created_at: row.get(28)?,
+        updated_at: row.get(29)?,
     })
 }
 

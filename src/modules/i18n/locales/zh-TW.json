@@ -302,9 +302,20 @@
         "thinkingEnabled": "啟用",
         "thinkingDisabled": "停用",
         "thinkingAuto": "自動",
+        "thinkingEffort": "努力程度",
+        "thinkingEffortPlaceholder": "不指定",
+        "thinkingEffortNone": "不指定",
+        "toolChoice": "工具選擇策略",
+        "toolChoicePlaceholder": "不指定",
+        "toolChoiceNone": "不指定",
         "validation": {
           "modelIdRequired": "請輸入模型 ID"
-        }
+        },
+        "n": "回覆數 n",
+        "seed": "隨機種子 seed",
+        "stop": "停止序列 stop",
+        "stopPlaceholder": "逗號分隔或 JSON",
+        "includeUsage": "流式回應返回 usage"
       },
       "editTitle": "編輯供應商",
       "createTitle": "新建供應商",
@@ -1501,6 +1512,8 @@
       "protocolChat": "Chat",
       "protocolMessages": "Messages",
       "protocolResponses": "Responses",
+      "thinkingEffort": "推理力度（reasoning_effort）",
+      "thinkingEffortDefault": "預設",
       "exportHtml": "匯出為 HTML",
       "exportSuccess": "已匯出到：{{path}}",
       "exportFailed": "匯出失敗",

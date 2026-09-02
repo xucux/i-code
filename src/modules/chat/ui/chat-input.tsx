@@ -52,6 +52,9 @@ export interface ChatInputProps {
   /** 网关入口协议：Chat / Messages / Responses */
   protocol: ChatProtocol
   onProtocolChange: (protocol: ChatProtocol) => void
+  /** 本轮推理力度（reasoning_effort），空串表示不指定 */
+  thinkingEffort?: string
+  onThinkingEffortChange?: (effort: string) => void
   modelLabel?: string
   /** 可选模型：`value` 为路由 ID，`label` 为展示名 */
   models: Array<{ value: string; label: string }>
@@ -75,6 +78,8 @@ export function ChatInput({
   onTransportModeChange,
   protocol,
   onProtocolChange,
+  thinkingEffort,
+  onThinkingEffortChange,
   models,
   selectedModel,
   onModelChange,
@@ -233,6 +238,26 @@ export function ChatInput({
             <SelectItem value="responses" className="text-xs">
               {t('input.protocolResponses')}
             </SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={thinkingEffort || undefined}
+          onValueChange={(v) => onThinkingEffortChange?.(v)}
+          disabled={sending || disabled}
+        >
+          <SelectTrigger className="h-7 w-[92px] text-xs" title={t('input.thinkingEffort')}>
+            <SelectValue placeholder={t('input.thinkingEffortDefault')} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="" className="text-xs">
+              {t('input.thinkingEffortDefault')}
+            </SelectItem>
+            {['none', 'low', 'medium', 'high'].map((v) => (
+              <SelectItem key={v} value={v} className="text-xs">
+                {v}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
 

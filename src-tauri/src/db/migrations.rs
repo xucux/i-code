@@ -69,6 +69,14 @@ const V007__VIRTUAL_ROUTE_ITERATION: &str =
 const V008__COMMUNITY_LOCAL_STATE: &str =
     include_str!("./migrations/V008__community_local_state.sql");
 
+/// 模型工具选择策略：model_configs 表新增 tool_choice_json 列
+const V009__MODEL_CONFIG_TOOL_CHOICE: &str =
+    include_str!("./migrations/V009__model_config_tool_choice.sql");
+
+/// 模型请求参数设置：model_configs 表新增 n / stop_json / seed / include_usage 列
+const V010__MODEL_CONFIG_REQUEST_PARAMS: &str =
+    include_str!("./migrations/V010__model_config_request_params.sql");
+
 /// 内置迁移列表：(版本号, 描述, SQL 内容)
 ///
 /// 增量迁移模式：V001 为基线，V002+ 为增量变更。
@@ -82,6 +90,8 @@ const BUILTIN_MIGRATIONS: &[(u32, &str, &str)] = &[
     (6, "gateway_settings_deepseek_fix", V006__GATEWAY_SETTINGS_DEEPSEEK_FIX),
     (7, "virtual_route_iteration", V007__VIRTUAL_ROUTE_ITERATION),
     (8, "community_local_state", V008__COMMUNITY_LOCAL_STATE),
+    (9, "model_config_tool_choice", V009__MODEL_CONFIG_TOOL_CHOICE),
+    (10, "model_config_request_params", V010__MODEL_CONFIG_REQUEST_PARAMS),
 ];
 
 /// 执行所有未应用的迁移
@@ -237,6 +247,11 @@ mod tests {
         check_column("app_settings", "backup_settings_json");
         check_column("app_settings", "config_key");
         check_column("model_configs", "price_per_1m_tokens");
+        check_column("model_configs", "tool_choice_json");
+        check_column("model_configs", "n");
+        check_column("model_configs", "stop_json");
+        check_column("model_configs", "seed");
+        check_column("model_configs", "include_usage");
         check_column("model_call_logs", "api_key_secret_id");
         check_column("webdav_configs", "password");
         check_column("providers", "script_variables_json");
