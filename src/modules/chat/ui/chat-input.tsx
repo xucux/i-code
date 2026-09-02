@@ -7,7 +7,7 @@
  * 1. **附件预览条**（有附件时显示）
  *    - 普通文件：小字文件名 + 回形针图标 + 移除按钮
  *    - 图片：约 40×40 缩略图 + 文件名 + hover 移除
- * 2. **工具栏**：模型选择、传输模式（SSE/HTTP）、协议选择、选文件、选图片
+ * 2. **工具栏**：模型选择（浮层内含思考强度子面板）、轻量化传输模式/协议下拉、选文件、选图片
  * 3. **输入行**：多行 Textarea + 发送按钮；发送中切换为红色「中断」
  *
  * 主题色全部走 CSS 变量（`bg-card` / `border` / `muted-foreground` 等）。
@@ -26,18 +26,14 @@
 import { useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { LightSelect } from '@/components/ui/light-select'
 import { useTranslation } from '@/modules/i18n/use-translation'
 import type { ChatProtocol, ChatTransportMode, PendingAttachment } from '@/modules/chat/types'
 import { readFileAsPendingAttachment } from '@/hooks/use-chat'
 import { cn } from '@/lib/utils'
 import { PromptPickerDialog } from './prompt-picker-dialog'
+import { BenchmarkDialog } from './benchmark-dialog'
+import { ModelThinkingPicker, type ModelThinkingPickerModel } from './model-thinking-picker'
 
 /** 输入区 Props：受控文本/附件 + 模型与传输模式 + 发送/中断 */
 export interface ChatInputProps {
@@ -52,19 +48,23 @@ export interface ChatInputProps {
   /** 网关入口协议：Chat / Messages / Responses */
   protocol: ChatProtocol
   onProtocolChange: (protocol: ChatProtocol) => void
-  /** 本轮推理力度（reasoning_effort），空串表示不指定 */
-  thinkingEffort?: string
-  onThinkingEffortChange?: (effort: string) => void
-  modelLabel?: string
-  /** 可选模型：`value` 为路由 ID，`label` 为展示名 */
-  models: Array<{ value: string; label: string }>
+  /** 可选模型：`value` 为路由 ID，`thinkingJson` 为模型思考配置 */
+  models: ModelThinkingPickerModel[]
   selectedModel: string
   onModelChange: (model: string) => void
+  /** 是否开启思考（推理） */
+  thinkingEnabled: boolean
+  onThinkingEnabledChange: (enabled: boolean) => void
+  /** 本轮推理力度（reasoning_effort），空串表示不指定 */
+  thinkingEffort: string
+  onThinkingEffortChange: (effort: string) => void
   /** 是否正在等待助手回复（显示中断按钮） */
   sending: boolean
   disabled?: boolean
   onSend: () => void
   onAbort: () => void
+  /** 发送检测题目（点击题目表「发送」后回调，参数为题目文本） */
+  onSendQuestion?: (question: string) => void
   /** 导出当前会话为 HTML */
   onExportHtml?: () => void
 }
@@ -78,21 +78,26 @@ export function ChatInput({
   onTransportModeChange,
   protocol,
   onProtocolChange,
-  thinkingEffort,
-  onThinkingEffortChange,
   models,
   selectedModel,
   onModelChange,
+  thinkingEnabled,
+  onThinkingEnabledChange,
+  thinkingEffort,
+  onThinkingEffortChange,
   sending,
   disabled,
   onSend,
   onAbort,
+  onSendQuestion,
   onExportHtml,
 }: ChatInputProps) {
   const { t } = useTranslation('chat')
   const fileRef = useRef<HTMLInputElement>(null)
   const imageRef = useRef<HTMLInputElement>(null)
   const [promptOpen, setPromptOpen] = useState(false)
+  /** 检测题目弹窗开关 */
+  const [benchmarkOpen, setBenchmarkOpen] = useState(false)
 
   /** 应用提示词：追加到输入框（已有内容则换行分隔） */
   const handleApplyPrompt = (content: string) => {
@@ -185,81 +190,40 @@ export function ChatInput({
       )}
 
       <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
-        <Select
-          value={selectedModel || undefined}
-          onValueChange={onModelChange}
-          disabled={sending || disabled || models.length === 0}
-        >
-          <SelectTrigger className="h-7 w-[min(100%,220px)] text-xs">
-            <SelectValue placeholder={models.length === 0 ? t('input.noModels') : t('input.selectModel')} />
-          </SelectTrigger>
-          <SelectContent>
-            {models.map((m) => (
-              <SelectItem key={m.value} value={m.value} className="text-xs">
-                {m.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {/* 模型选择 + 思考强度子级面板（选中模型后浮层内自动展示思考面板） */}
+        <ModelThinkingPicker
+          models={models}
+          selectedModel={selectedModel}
+          onModelChange={onModelChange}
+          thinkingEnabled={thinkingEnabled}
+          onThinkingEnabledChange={onThinkingEnabledChange}
+          thinkingEffort={thinkingEffort}
+          onThinkingEffortChange={onThinkingEffortChange}
+          disabled={sending || disabled}
+        />
 
-        <Select
+        {/* 传输模式：轻量化下拉（无边框无胶囊） */}
+        <LightSelect
           value={transportMode}
-          onValueChange={(v) => onTransportModeChange(v as ChatTransportMode)}
+          onChange={(v) => onTransportModeChange(v as ChatTransportMode)}
           disabled={sending || disabled}
-        >
-          <SelectTrigger className="h-7 w-[60px] text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="sse" className="text-xs">
-              SSE
-            </SelectItem>
-            <SelectItem value="http" className="text-xs">
-              HTTP
-            </SelectItem>
-          </SelectContent>
-        </Select>
+          options={[
+            { value: 'sse', label: 'SSE' },
+            { value: 'http', label: 'HTTP' },
+          ]}
+        />
 
-        <Select
+        {/* 网关入口协议：轻量化下拉（无边框无胶囊） */}
+        <LightSelect
           value={protocol}
-          onValueChange={(v) => onProtocolChange(v as ChatProtocol)}
+          onChange={(v) => onProtocolChange(v as ChatProtocol)}
           disabled={sending || disabled}
-        >
-          <SelectTrigger className="h-7 w-[100px] text-xs" title={t('input.protocol')}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="chat" className="text-xs">
-              {t('input.protocolChat')}
-            </SelectItem>
-            <SelectItem value="messages" className="text-xs">
-              {t('input.protocolMessages')}
-            </SelectItem>
-            <SelectItem value="responses" className="text-xs">
-              {t('input.protocolResponses')}
-            </SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Select
-          value={thinkingEffort || undefined}
-          onValueChange={(v) => onThinkingEffortChange?.(v)}
-          disabled={sending || disabled}
-        >
-          <SelectTrigger className="h-7 w-[92px] text-xs" title={t('input.thinkingEffort')}>
-            <SelectValue placeholder={t('input.thinkingEffortDefault')} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="" className="text-xs">
-              {t('input.thinkingEffortDefault')}
-            </SelectItem>
-            {['none', 'low', 'medium', 'high'].map((v) => (
-              <SelectItem key={v} value={v} className="text-xs">
-                {v}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          options={[
+            { value: 'chat', label: t('input.protocolChat') },
+            { value: 'messages', label: t('input.protocolMessages') },
+            { value: 'responses', label: t('input.protocolResponses') },
+          ]}
+        />
 
         <Button
           type="button"
@@ -271,6 +235,18 @@ export function ChatInput({
           title={t('input.prompts')}
         >
           <i className="fa-solid fa-bookmark" />
+        </Button>
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-7 px-2 text-xs"
+          disabled={sending || disabled}
+          onClick={() => setBenchmarkOpen(true)}
+          title={t('benchmark.title')}
+        >
+          <i className="fa-solid fa-clipboard-question" />
         </Button>
 
         <Button
@@ -370,6 +346,14 @@ export function ChatInput({
         open={promptOpen}
         onOpenChange={setPromptOpen}
         onApply={handleApplyPrompt}
+      />
+
+      {/* 检测题目弹窗：发送动作交由父级走会话发送链路 */}
+      <BenchmarkDialog
+        open={benchmarkOpen}
+        onOpenChange={setBenchmarkOpen}
+        onSend={(question) => onSendQuestion?.(question)}
+        disabled={sending || disabled}
       />
     </div>
   )

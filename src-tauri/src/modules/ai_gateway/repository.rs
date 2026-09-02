@@ -659,9 +659,11 @@ pub fn list_exposed_gateway_models() -> IcodeResult<Vec<ExposedGatewayModelRow>>
     let conn = get_conn()?;
     let mut stmt = conn.prepare(
         "SELECT g.id, g.provider_id, g.model_config_id, g.model_id,
-                g.display_name, g.family, p.slug AS provider_slug, p.display_name AS provider_display_name
+                g.display_name, g.family, p.slug AS provider_slug, p.display_name AS provider_display_name,
+                mc.thinking_json
          FROM gateway_models g
          INNER JOIN providers p ON p.id = g.provider_id
+         LEFT JOIN model_configs mc ON mc.id = g.model_config_id
          WHERE g.is_exposed = 1 AND p.is_enabled = 1
          ORDER BY p.sort_order ASC, g.model_id ASC",
     )?;
@@ -675,6 +677,7 @@ pub fn list_exposed_gateway_models() -> IcodeResult<Vec<ExposedGatewayModelRow>>
             family: row.get(5)?,
             provider_slug: row.get(6)?,
             provider_display_name: row.get(7)?,
+            thinking_json: row.get(8)?,
         })
     })?;
     let mut result = Vec::new();
@@ -692,9 +695,11 @@ pub fn list_all_gateway_models() -> IcodeResult<Vec<ExposedGatewayModelRow>> {
     let conn = get_conn()?;
     let mut stmt = conn.prepare(
         "SELECT g.id, g.provider_id, g.model_config_id, g.model_id,
-                g.display_name, g.family, p.slug AS provider_slug, p.display_name AS provider_display_name
+                g.display_name, g.family, p.slug AS provider_slug, p.display_name AS provider_display_name,
+                mc.thinking_json
          FROM gateway_models g
          INNER JOIN providers p ON p.id = g.provider_id
+         LEFT JOIN model_configs mc ON mc.id = g.model_config_id
          WHERE p.is_enabled = 1
          ORDER BY p.sort_order ASC, g.model_id ASC",
     )?;
@@ -708,6 +713,7 @@ pub fn list_all_gateway_models() -> IcodeResult<Vec<ExposedGatewayModelRow>> {
             family: row.get(5)?,
             provider_slug: row.get(6)?,
             provider_display_name: row.get(7)?,
+            thinking_json: row.get(8)?,
         })
     })?;
     let mut result = Vec::new();
@@ -912,6 +918,8 @@ pub struct ExposedGatewayModelRow {
     pub family: Option<String>,
     pub provider_slug: String,
     pub provider_display_name: String,
+    /// 模型思考配置 JSON（`model_configs.thinking_json`），供聊天输入区读取推理力度选项
+    pub thinking_json: Option<String>,
 }
 
 // ===== gateway_settings 表 =====

@@ -1518,6 +1518,13 @@
       "protocolResponses": "Responses",
       "thinkingEffort": "Reasoning effort",
       "thinkingEffortDefault": "Default",
+      "thinkingIntensity": "Thinking intensity",
+      "thinkingToggle": "Enable thinking",
+      "thinkingEffortCustom": "Custom",
+      "thinkingEffortApply": "Apply custom effort",
+      "thinkingNoConfig": "This model has no thinking config; you can enable it manually",
+      "searchModel": "Search model",
+      "searchNoMatch": "No matching model",
       "exportHtml": "Export as HTML",
       "exportSuccess": "Exported to: {{path}}",
       "exportFailed": "Export failed",
@@ -1534,6 +1541,15 @@
       "empty": "No prompts yet. Place .md files in the prompt/ folder of the app config directory.",
       "loadFailed": "Failed to load prompts",
       "truncatedWarn": "Prompt too long, truncated to the first 125000 characters"
+    },
+    "benchmark": {
+      "title": "Benchmark questions",
+      "description": "Click send to post the question text to the current session (answer not included); verify the model's answer manually against the answer column.",
+      "colIndex": "No.",
+      "colQuestion": "Question",
+      "colAnswer": "Answer",
+      "colAction": "Action",
+      "send": "Send question"
     },
     "errors": {
       "noModel": "Expose a model first",

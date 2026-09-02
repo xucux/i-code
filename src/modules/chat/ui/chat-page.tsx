@@ -53,6 +53,7 @@ import { Button } from '@/components/ui/button'
 import { toIcodeError } from '@/core/errors'
 import { buildModelId } from '@/core/utils'
 import type { ChatMessage, ChatProtocol, ChatTransportMode, PendingAttachment } from '@/modules/chat/types'
+import { parseModelThinking } from './model-thinking-picker'
 import { SessionList } from './session-list'
 import { MessageList } from './message-list'
 import { ChatInput } from './chat-input'
@@ -98,6 +99,8 @@ export function ChatPage() {
   const [attachments, setAttachments] = useState<PendingAttachment[]>([])
   const [transportMode, setTransportMode] = useState<ChatTransportMode>('sse')
   const [protocol, setProtocol] = useState<ChatProtocol>('chat')
+  /** 是否开启思考（推理） */
+  const [thinkingEnabled, setThinkingEnabled] = useState(false)
   /** 本轮推理力度（reasoning_effort），空串表示不指定 */
   const [thinkingEffort, setThinkingEffort] = useState('')
   const [selectedModel, setSelectedModel] = useState('')
@@ -123,13 +126,30 @@ export function ChatPage() {
     return exposedModels.map((m) => {
       const value = buildModelId(m.providerSlug, m.modelId)
       const label = m.displayName ? `${m.displayName} (${value})` : value
-      return { value, label }
+      return { value, label, thinkingJson: m.thinkingJson }
     })
+  }, [exposedModels])
+
+  /** 模型路由 ID → thinking_json（来自模型配置），用于模型切换时重置思考状态 */
+  const modelThinkingMap = useMemo(() => {
+    const map = new Map<string, string | undefined>()
+    for (const m of exposedModels) {
+      map.set(buildModelId(m.providerSlug, m.modelId), m.thinkingJson)
+    }
+    return map
   }, [exposedModels])
 
   const effectiveModel = selectedModel || session?.model || modelOptions[0]?.value || ''
   const effectiveMode = transportMode || session?.transportMode || 'sse'
   const effectiveProtocol = protocol || session?.protocol || 'chat'
+
+  // 切换模型时，按模型思考配置重置「开启思考」与默认推理力度：
+  // thinking_json 存在 {"type":"enabled","effort":"high"} 时默认开启，等级取 effort 值。
+  useEffect(() => {
+    const parsed = parseModelThinking(modelThinkingMap.get(effectiveModel))
+    setThinkingEnabled(parsed.enabled)
+    setThinkingEffort(parsed.enabled ? parsed.effort : '')
+  }, [effectiveModel, modelThinkingMap])
 
   /** 当前会话累计 Token（汇总各助手消息 usage） */
   const tokenTotals = useMemo(() => {
@@ -319,6 +339,17 @@ export function ChatPage() {
     }
   }
 
+  /** 开启/关闭思考：关闭时清空推理力度（不注入 reasoning_effort） */
+  const handleThinkingEnabledChange = (enabled: boolean) => {
+    setThinkingEnabled(enabled)
+    if (!enabled) setThinkingEffort('')
+    else {
+      // 开启时默认取模型配置的 effort（如 {"type":"enabled","effort":"high"}）
+      const parsed = parseModelThinking(modelThinkingMap.get(effectiveModel))
+      setThinkingEffort(parsed.effort)
+    }
+  }
+
   /**
    * 发送消息
    *
@@ -373,6 +404,52 @@ export function ChatPage() {
       toast.error(t('errors.sendFailed'))
       setInput(content)
       setAttachments(atts)
+    } else {
+      void refetchSessions()
+    }
+  }
+
+  /**
+   * 发送检测题目（题目表「发送」按钮）
+   *
+   * 与 handleSend 同链路，但不经过输入框：内容固定为题目文本、无附件；
+   * 无会话时先 ensure 草稿并挂 pendingSend，其余校验（网关/模型）一致。
+   */
+  const handleSendQuestion = async (question: string) => {
+    if (!gatewayStatus.isRunning) {
+      toast.error(t('errors.gatewayStopped'))
+      return
+    }
+    const model = effectiveModel || modelOptions[0]?.value
+    if (!model) {
+      toast.error(t('errors.noModel'))
+      return
+    }
+    if (sending || !question.trim()) return
+
+    let sessionId = activeId
+    if (!sessionId) {
+      sessionId = await ensureActiveSession({ silent: false })
+      if (!sessionId) return
+      pendingSendRef.current = {
+        sessionId,
+        content: question,
+        attachments: [],
+        transportMode: effectiveMode,
+        protocol: effectiveProtocol,
+        thinkingEffort,
+      }
+      setActiveId(sessionId)
+      return
+    }
+
+    if (session?.model !== model || session?.transportMode !== effectiveMode || session?.protocol !== effectiveProtocol) {
+      await update(sessionId, { model, transportMode: effectiveMode, protocol: effectiveProtocol })
+    }
+
+    const ok = await send(question, [], effectiveMode, effectiveProtocol, thinkingEffort)
+    if (!ok) {
+      toast.error(t('errors.sendFailed'))
     } else {
       void refetchSessions()
     }
@@ -484,6 +561,8 @@ export function ChatPage() {
           onTransportModeChange={(m) => void handleModeChange(m)}
           protocol={effectiveProtocol}
           onProtocolChange={(p) => void handleProtocolChange(p)}
+          thinkingEnabled={thinkingEnabled}
+          onThinkingEnabledChange={handleThinkingEnabledChange}
           thinkingEffort={thinkingEffort}
           onThinkingEffortChange={setThinkingEffort}
           models={modelOptions}
@@ -493,6 +572,7 @@ export function ChatPage() {
           disabled={false}
           onSend={() => void handleSend()}
           onAbort={() => void handleAbort()}
+          onSendQuestion={(q) => void handleSendQuestion(q)}
           onExportHtml={() => void handleExportHtml()}
         />
       </div>

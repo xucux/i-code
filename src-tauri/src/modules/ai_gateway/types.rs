@@ -1174,6 +1174,11 @@ pub struct ExposedModel {
     pub family: Option<String>,
     pub provider_id: String,
     pub gateway_model_id: String,
+    /// 模型思考配置 JSON（`model_configs.thinking_json`），
+    /// 结构含 `type` / `effort` / `budgetTokens` / `thinkingEffortOptions`，
+    /// 供聊天输入区渲染「推理力度」下拉与默认等级。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thinking_json: Option<String>,
 }
 
 // ===== 网关设置 =====

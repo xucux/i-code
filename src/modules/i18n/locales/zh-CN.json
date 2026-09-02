@@ -1531,6 +1531,13 @@
       "protocolResponses": "Responses",
       "thinkingEffort": "推理力度（reasoning_effort）",
       "thinkingEffortDefault": "默认",
+      "thinkingIntensity": "思考强度",
+      "thinkingToggle": "开启思考",
+      "thinkingEffortCustom": "自定义",
+      "thinkingEffortApply": "应用自定义力度",
+      "thinkingNoConfig": "该模型未声明思考配置，可手动开启并设置力度",
+      "searchModel": "搜索模型",
+      "searchNoMatch": "无匹配模型",
       "exportHtml": "导出为 HTML",
       "exportSuccess": "已导出到：{{path}}",
       "exportFailed": "导出失败",
@@ -1547,6 +1554,15 @@
       "empty": "暂无提示词。请在应用配置目录下的 prompt/ 文件夹放入 .md 文件。",
       "loadFailed": "读取提示词失败",
       "truncatedWarn": "提示词过长已截取前 125000 字符"
+    },
+    "benchmark": {
+      "title": "检测题目",
+      "description": "点击「发送」将题目文本发送到当前会话（不含答案）；模型回答是否正确请对照答案列人工核对。",
+      "colIndex": "序号",
+      "colQuestion": "题目",
+      "colAnswer": "答案",
+      "colAction": "操作",
+      "send": "发送本题"
     },
     "errors": {
       "noModel": "请先配置并暴露可用模型",

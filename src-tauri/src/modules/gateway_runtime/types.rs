@@ -74,6 +74,11 @@ pub struct CatalogModel {
     pub display_name: String,
     /// 是否虚拟供应商模型
     pub is_virtual: bool,
+    /// 模型思考配置 JSON（`model_configs.thinking_json`，仅真实模型非空），
+    /// 结构含 `type` / `effort` / `budgetTokens` / `thinkingEffortOptions`，
+    /// 供聊天输入区渲染「推理力度」下拉与默认等级。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thinking_json: Option<String>,
 }
 
 /// 目录供应商条目（真实供应商 + 虚拟供应商合并）

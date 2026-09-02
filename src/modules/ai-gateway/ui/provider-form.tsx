@@ -381,14 +381,19 @@ function buildCapabilitiesJson(values: Pick<ModelEditFormValues, 'toolCalling' |
   return Object.keys(caps).length > 0 ? JSON.stringify(caps) : undefined
 }
 
-/** 从 thinking 表单值序列化为 JSON 字符串；未选择类型时返回 undefined */
-function buildThinkingJson(values: Pick<ModelEditFormValues, 'thinkingType' | 'thinkingEffort' | 'thinkingBudgetTokens'>): string | undefined {
+/** 从 thinking 表单值序列化为 JSON 字符串；未选择类型时返回 undefined
+ * 同时将可选枚举列表（thinkingEffortOptions）写入，保证下拉选项随模型配置持久化。 */
+function buildThinkingJson(
+  values: Pick<ModelEditFormValues, 'thinkingType' | 'thinkingEffort' | 'thinkingBudgetTokens'>,
+  effortOptions: string[] = [],
+): string | undefined {
   if (!values.thinkingType) return undefined
   const thinking: ModelThinkingConfig = {
     type: values.thinkingType as 'enabled' | 'disabled' | 'auto',
   }
   if (values.thinkingEffort.trim()) thinking.effort = values.thinkingEffort.trim()
   if (values.thinkingBudgetTokens.trim()) thinking.budgetTokens = Number(values.thinkingBudgetTokens.trim())
+  if (effortOptions.length > 0) thinking.thinkingEffortOptions = effortOptions
   return JSON.stringify(thinking)
 }
 
@@ -429,34 +434,100 @@ function parseThinkingForm(thinkingJson?: string): Pick<ModelEditFormValues, 'th
 }
 
 /**
- * 从 tool_choice 表单值序列化为 JSON 字符串；未选择时返回 undefined
- *
- * 支持字符串形式（"auto" / "none" / "required"）与对象形式（指定工具时）。
- * 此处下拉仅产出简单字符串，复杂指定工具场景由后续迭代通过附加请求体实现。
+ * 解析 thinking JSON 字符串，返回完整配置对象（含 thinkingEffortOptions 枚举列表）
  */
-function buildToolChoiceJson(value: string): string | undefined {
-  const trimmed = value.trim()
-  if (!trimmed) return undefined
-  // 已是 JSON（对象或带引号字符串）时原样透传
+function parseThinkingConfig(thinkingJson?: string): ModelThinkingConfig | undefined {
+  if (!thinkingJson) return undefined
   try {
-    JSON.parse(trimmed)
-    return trimmed
+    return JSON.parse(thinkingJson) as ModelThinkingConfig
   } catch {
-    return JSON.stringify(trimmed)
+    return undefined
   }
 }
 
 /**
- * 解析 tool_choice JSON 字符串为表单值（只还原简单字符串，对象形态返回空）
+ * 从 tool_choice 表单值序列化为 JSON 字符串；未选择且无推荐枚举时返回 undefined
+ *
+ * 支持字符串形式（"auto" / "none" / "required"）与对象形式（指定工具时）。
+ * 当模型声明了推荐枚举列表（toolChoiceOptions）时统一为对象形态：
+ * `{ "value": <选择值|null>, "toolChoiceOptions": [...] }`，供编辑弹窗与后续迭代读取。
+ * 未声明推荐枚举时保持原有简单字符串/JSON 形态。
+ */
+function buildToolChoiceJson(value: string, toolChoiceOptions: string[] = []): string | undefined {
+  const trimmed = value.trim()
+  let valueContent: unknown
+  if (trimmed) {
+    try {
+      valueContent = JSON.parse(trimmed)
+    } catch {
+      valueContent = trimmed
+    }
+  }
+  if (toolChoiceOptions.length > 0) {
+    // 声明了推荐枚举 → 统一对象形态（value 可为 null）
+    return JSON.stringify({
+      value: trimmed ? valueContent : null,
+      toolChoiceOptions,
+    })
+  }
+  if (!trimmed) return undefined
+  // 已是 JSON（对象或带引号字符串）时原样透传，否则包成 JSON 字符串
+  return JSON.stringify(valueContent)
+}
+
+/**
+ * 解析 tool_choice JSON 字符串为表单值（对象形态取 `value`，仅还原简单字符串）
  */
 function parseToolChoiceForm(toolChoiceJson?: string): string {
   if (!toolChoiceJson) return ''
   try {
     const parsed = JSON.parse(toolChoiceJson)
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && 'value' in parsed) {
+      const v = (parsed as { value?: unknown }).value
+      return typeof v === 'string' ? v : ''
+    }
     return typeof parsed === 'string' ? parsed : ''
   } catch {
     return ''
   }
+}
+
+/**
+ * 解析 tool_choice JSON 字符串中的推荐枚举列表（toolChoiceOptions）
+ */
+function parseToolChoiceOptions(toolChoiceJson?: string): string[] {
+  if (!toolChoiceJson) return []
+  try {
+    const parsed = JSON.parse(toolChoiceJson)
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      const opts = (parsed as { toolChoiceOptions?: unknown }).toolChoiceOptions
+      if (Array.isArray(opts)) return opts.filter((o): o is string => typeof o === 'string')
+    }
+    return []
+  } catch {
+    return []
+  }
+}
+
+/**
+ * 由内置模型预设构造 thinking_json：内置 thinking（type/effort/budgetTokens）
+ * 合并 thinkingEffortOptions 推荐枚举列表；两者皆无时返回 undefined。
+ */
+function buildBuiltinThinkingJson(builtin?: BuiltinModel): string | undefined {
+  if (!builtin) return undefined
+  if (!builtin.thinking && !builtin.thinkingEffortOptions?.length) return undefined
+  const thinking: ModelThinkingConfig = builtin.thinking ? { ...builtin.thinking } : { type: 'auto' }
+  if (builtin.thinkingEffortOptions?.length) thinking.thinkingEffortOptions = builtin.thinkingEffortOptions
+  return JSON.stringify(thinking)
+}
+
+/**
+ * 由内置模型预设构造 tool_choice_json：模型声明了推荐枚举（toolChoiceOptions）
+ * 时以对象形态持久化，供编辑弹窗与后续迭代读取；否则返回 undefined。
+ */
+function buildBuiltinToolChoiceJson(builtin?: BuiltinModel): string | undefined {
+  if (!builtin?.toolChoiceOptions?.length) return undefined
+  return JSON.stringify({ value: null, toolChoiceOptions: builtin.toolChoiceOptions })
 }
 
 /**
@@ -2188,8 +2259,8 @@ function ModelManagementSection({ provider }: ModelManagementSectionProps) {
 
       // 2. 更新 ModelConfig
       const capabilities = buildCapabilitiesJson(values)
-      const thinking = buildThinkingJson(values)
-      const toolChoice = buildToolChoiceJson(values.toolChoice)
+      const thinking = buildThinkingJson(values, effortOptions)
+      const toolChoice = buildToolChoiceJson(values.toolChoice, toolChoiceOptions)
       const stop = buildStopJson(values.stop)
       await invokeCommand<ModelConfig>('gateway_model_config_update', {
         id: editingModelConfig.id,
@@ -2279,14 +2350,21 @@ function ModelManagementSection({ provider }: ModelManagementSectionProps) {
   }
 
   // 模型编辑弹窗中「努力程度 / 工具选择策略」下拉选项：
-  // 优先取当前编辑模型在内置预设中声明的推荐枚举列表，缺省回退通用默认列表。
+  // 优先取当前模型配置 JSON 中持久化的推荐枚举列表，其次内置预设声明，最后回退通用默认列表。
   const editingBuiltin = editingGatewayModel ? findBuiltinByModelId(editingGatewayModel.modelId) : undefined
-  const effortOptions = editingBuiltin?.thinkingEffortOptions?.length
-    ? editingBuiltin.thinkingEffortOptions
-    : DEFAULT_EFFORT_OPTIONS
-  const toolChoiceOptions = editingBuiltin?.toolChoiceOptions?.length
-    ? editingBuiltin.toolChoiceOptions
-    : DEFAULT_TOOL_CHOICE_OPTIONS
+  const editingThinkingConfig = parseThinkingConfig(editingModelConfig?.thinkingJson)
+  const effortOptions = editingThinkingConfig?.thinkingEffortOptions?.length
+    ? editingThinkingConfig.thinkingEffortOptions
+    : editingBuiltin?.thinkingEffortOptions?.length
+      ? editingBuiltin.thinkingEffortOptions
+      : DEFAULT_EFFORT_OPTIONS
+  const toolChoiceOptions = (() => {
+    const fromConfig = parseToolChoiceOptions(editingModelConfig?.toolChoiceJson)
+    if (fromConfig.length > 0) return fromConfig
+    return editingBuiltin?.toolChoiceOptions?.length
+      ? editingBuiltin.toolChoiceOptions
+      : DEFAULT_TOOL_CHOICE_OPTIONS
+  })()
 
   // 快速创建模型配置并关联到供应商
   const addModels = async (
@@ -2319,7 +2397,8 @@ function ModelManagementSection({ provider }: ModelManagementSectionProps) {
             frequencyPenalty: builtin?.frequencyPenalty,
             presencePenalty: builtin?.presencePenalty,
             capabilitiesJson: builtin?.capabilities ? JSON.stringify(builtin.capabilities) : undefined,
-            thinkingJson: builtin?.thinking ? JSON.stringify(builtin.thinking) : undefined,
+            thinkingJson: buildBuiltinThinkingJson(builtin),
+            toolChoiceJson: buildBuiltinToolChoiceJson(builtin),
           },
         })
         // 2. 创建 gateway_model

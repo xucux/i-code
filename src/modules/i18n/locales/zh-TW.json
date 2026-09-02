@@ -1514,6 +1514,13 @@
       "protocolResponses": "Responses",
       "thinkingEffort": "推理力度（reasoning_effort）",
       "thinkingEffortDefault": "預設",
+      "thinkingIntensity": "思考強度",
+      "thinkingToggle": "開啟思考",
+      "thinkingEffortCustom": "自訂",
+      "thinkingEffortApply": "套用自訂力度",
+      "thinkingNoConfig": "該模型未宣告思考配置，可手動開啟並設定力度",
+      "searchModel": "搜尋模型",
+      "searchNoMatch": "無符合模型",
       "exportHtml": "匯出為 HTML",
       "exportSuccess": "已匯出到：{{path}}",
       "exportFailed": "匯出失敗",
@@ -1530,6 +1537,15 @@
       "empty": "暫無提示詞。請在應用配置目錄下的 prompt/ 資料夾放入 .md 檔案。",
       "loadFailed": "讀取提示詞失敗",
       "truncatedWarn": "提示詞過長已擷取前 125000 字元"
+    },
+    "benchmark": {
+      "title": "檢測題目",
+      "description": "點擊「傳送」將題目文字傳送到目前會話（不含答案）；模型回答是否正確請對照答案列人工核對。",
+      "colIndex": "序號",
+      "colQuestion": "題目",
+      "colAnswer": "答案",
+      "colAction": "操作",
+      "send": "傳送本題"
     },
     "errors": {
       "noModel": "請先配置並暴露可用模型",

@@ -191,6 +191,7 @@ impl GatewayRuntimeService {
                 model_id: m.model_id,
                 display_name: m.display_name,
                 is_virtual: false,
+                thinking_json: m.thinking_json,
             })
             .collect();
         for vm in virtual_models {
@@ -200,6 +201,7 @@ impl GatewayRuntimeService {
                 model_id: vm.model_id,
                 display_name: vm.display_name,
                 is_virtual: true,
+                thinking_json: None,
             });
         }
         Ok(out)

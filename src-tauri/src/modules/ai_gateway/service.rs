@@ -253,12 +253,36 @@ impl AiGatewayService {
                             .as_ref()
                             .and_then(|b| b.capabilities.as_ref())
                             .map(|c| serde_json::to_string(c).unwrap_or_default()),
-                        thinking_json: builtin
-                            .as_ref()
-                            .and_then(|b| b.thinking.as_ref())
-                            .map(|t| serde_json::to_string(t).unwrap_or_default()),
-                        // tool_choice 推荐枚举仅用于表单选项提示，不设置具体默认值（由用户按需配置）
-                        tool_choice_json: None,
+                        thinking_json: builtin.as_ref().map(|b| {
+                            // 思考配置 JSON：内置 thinking（type/effort/budgetTokens）
+                            // 合并 thinkingEffortOptions 推荐枚举列表，供聊天/编辑表单读取。
+                            let mut thinking_value = b
+                                .thinking
+                                .as_ref()
+                                .map(|t| serde_json::to_value(t).unwrap_or_else(|_| serde_json::json!({})))
+                                .unwrap_or_else(|| serde_json::json!({}));
+                            if let Some(opts) = b.thinking_effort_options.as_ref() {
+                                if !opts.is_empty() {
+                                    thinking_value["thinkingEffortOptions"] = serde_json::json!(opts);
+                                }
+                            }
+                            serde_json::to_string(&thinking_value).unwrap_or_default()
+                        }),
+                        // tool_choice 推荐枚举仅用于表单选项提示，不设置具体默认值（由用户按需配置）。
+                        // 模型声明了推荐枚举时以对象形态持久化，供编辑弹窗与后续迭代读取。
+                        tool_choice_json: builtin.as_ref().and_then(|b| {
+                            let options = b.tool_choice_options.as_ref()?;
+                            if options.is_empty() {
+                                return None;
+                            }
+                            Some(
+                                serde_json::json!({
+                                    "value": serde_json::Value::Null,
+                                    "toolChoiceOptions": options,
+                                })
+                                .to_string(),
+                            )
+                        }),
                         // 请求参数（n/stop/seed/include_usage）非内置默认，由用户按需配置
                         n: None,
                         stop_json: None,
@@ -867,6 +891,7 @@ impl AiGatewayService {
                     family: r.family,
                     provider_id: r.provider_id,
                     gateway_model_id: r.id,
+                    thinking_json: r.thinking_json,
                 }
             })
             .collect())

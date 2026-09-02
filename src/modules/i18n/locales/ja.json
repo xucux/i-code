@@ -1514,6 +1514,13 @@
       "protocolResponses": "Responses",
       "thinkingEffort": "推論レベル（reasoning_effort）",
       "thinkingEffortDefault": "デフォルト",
+      "thinkingIntensity": "思考強度",
+      "thinkingToggle": "思考を有効化",
+      "thinkingEffortCustom": "カスタム",
+      "thinkingEffortApply": "カスタムレベルを適用",
+      "thinkingNoConfig": "このモデルには思考設定がありません。手動で有効化できます",
+      "searchModel": "モデルを検索",
+      "searchNoMatch": "一致するモデルがありません",
       "exportHtml": "HTML としてエクスポート",
       "exportSuccess": "エクスポート先: {{path}}",
       "exportFailed": "エクスポートに失敗しました",
@@ -1530,6 +1537,15 @@
       "empty": "プロンプトはありません。アプリ設定ディレクトリの prompt/ フォルダに .md ファイルを置いてください。",
       "loadFailed": "プロンプトの読み込みに失敗しました",
       "truncatedWarn": "プロンプトが長すぎるため、先頭 125000 文字に切り詰めました"
+    },
+    "benchmark": {
+      "title": "検定問題",
+      "description": "「送信」をクリックすると問題文を現在のセッションに送信します（解答は含みません）。モデルの回答が正しいかは解答列と照らし合わせて手動で確認してください。",
+      "colIndex": "番号",
+      "colQuestion": "問題",
+      "colAnswer": "解答",
+      "colAction": "操作",
+      "send": "この問題を送信"
     },
     "errors": {
       "noModel": "まず利用可能なモデルを設定して公開してください",

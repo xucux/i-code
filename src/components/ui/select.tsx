@@ -11,19 +11,36 @@ const SelectGroup = SelectPrimitive.Group
 
 const SelectValue = SelectPrimitive.Value
 
+/** SelectTrigger 附加属性 */
+interface SelectTriggerProps
+  extends React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger> {
+  /** 触发器中选定值的水平对齐方式：`left`（默认）/ `center` / `right` */
+  valueAlign?: "left" | "center" | "right"
+}
+
 const SelectTrigger = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Trigger>,
-  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>
->(({ className, children, ...props }, ref) => (
+  SelectTriggerProps
+>(({ className, children, valueAlign = "left", ...props }, ref) => (
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background data-[placeholder]:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1",
+      "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background data-[placeholder]:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
       className
     )}
     {...props}
   >
-    {children}
+    {/* 选定值容器：占满除箭头外的空间，对齐方式由 valueAlign 控制 */}
+    <span
+      className={cn(
+        "min-w-0 flex-1 truncate",
+        valueAlign === "left" && "text-left",
+        valueAlign === "center" && "text-center",
+        valueAlign === "right" && "text-right"
+      )}
+    >
+      {children}
+    </span>
     {/* 下拉触发器右侧的下拉箭头图标 */}
     <SelectPrimitive.Icon asChild>
       <i className="fa-solid fa-chevron-down h-4 w-4 text-xs opacity-50" />

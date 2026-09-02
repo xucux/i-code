@@ -55,6 +55,8 @@ export interface ModelThinkingConfig {
   type: 'enabled' | 'disabled' | 'auto'
   effort?: string
   budgetTokens?: number
+  /** 推理力度（reasoning_effort）推荐枚举值列表，如 ["low","medium","high","none"] */
+  thinkingEffortOptions?: string[]
 }
 
 /**
@@ -538,6 +540,21 @@ export interface ThinkingConfig {
   summary?: 'none' | 'auto' | 'concise' | 'detailed'
   mode?: 'standard' | 'pro'
   context?: 'auto' | 'current_turn' | 'all_turns'
+  /** 推理力度（reasoning_effort）推荐枚举值列表，如 ["low","medium","high","none"] */
+  thinkingEffortOptions?: string[]
+}
+
+/**
+ * 工具选择策略配置
+ * 对应 `model_configs.tool_choice_json` 列。
+ * 支持简单字符串（"auto"/"none"/"required"）与对象形态（指定工具）；
+ * 当模型声明推荐枚举列表（toolChoiceOptions）时统一为对象形态：`{ value, toolChoiceOptions }`。
+ */
+export interface ToolChoiceConfig {
+  /** 工具选择策略值：简单字符串（"auto"/"none"/"required"）或指定工具的对象 */
+  value?: string | { type: string; function?: unknown }
+  /** 工具选择策略（tool_choice）推荐枚举值列表，如 ["auto","none","required"] */
+  toolChoiceOptions?: string[]
 }
 
 // ===== 内置数据 =====
@@ -715,6 +732,11 @@ export interface ExposedModel {
   modelId: string
   displayName: string
   family?: string
+  /**
+   * 模型思考配置 JSON（来自 `model_configs.thinking_json`）。
+   * 结构含 `type` / `effort` / `budgetTokens` / `thinkingEffortOptions`。
+   */
+  thinkingJson?: string
 }
 
 // ===== 分享配置 DTO =====

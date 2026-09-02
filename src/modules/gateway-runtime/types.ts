@@ -150,6 +150,12 @@ export interface CatalogModel {
   displayName: string
   /** 是否虚拟供应商模型 */
   isVirtual: boolean
+  /**
+   * 模型思考配置 JSON（来自 `model_configs.thinking_json`，仅真实模型非空）。
+   * 结构含 `type` / `effort` / `budgetTokens` / `thinkingEffortOptions`，
+   * 供聊天输入区渲染「推理力度」下拉与默认等级。
+   */
+  thinkingJson?: string
 }
 
 /**
