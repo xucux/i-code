@@ -8,6 +8,7 @@
 //! 前端据此控制标题栏更新图标的显示与自动关闭。
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::Emitter;
 
 /// 启动期检查完成后向后端推送的事件名，与前端 `BACKEND_EVENTS.UPDATE_CHECK_RESULT` 保持一致
@@ -15,6 +16,14 @@ const UPDATE_CHECK_RESULT_EVENT: &str = "update-check-result";
 
 /// 下载进度事件名，前端监听此事件获取下载字节数与总大小
 const DOWNLOAD_PROGRESS_EVENT: &str = "update-download-progress";
+
+/// 用户主动取消下载时返回给前端的错误标记
+/// （前端据此区分「用户取消」与真实下载失败）
+const DOWNLOAD_CANCELLED_ERROR: &str = "__UPDATE_DOWNLOAD_CANCELLED__";
+
+/// 更新包下载取消标志：
+/// `cancel_update_download` Command 置位，下载循环检测到后中止并清理临时文件
+static DOWNLOAD_CANCELLED: AtomicBool = AtomicBool::new(false);
 
 /// 下载进度数据
 #[derive(serde::Serialize, Clone)]
@@ -174,11 +183,14 @@ pub async fn check_update(app: tauri::AppHandle) -> Result<CheckUpdateResult, St
 /// 流程：
 ///   1. 通过 reqwest 流式下载安装包到系统临时目录
 ///   2. 下载过程中通过 `update-download-progress` 事件推送进度
-///   3. 下载完成后根据平台打开/执行安装包
+///   3. 下载过程中检测取消标志（`cancel_update_download` 置位），中止并清理临时文件
+///   4. 下载完成后根据平台打开/执行安装包
 ///
 /// 参数：
 ///   - `url`：安装包下载地址（来自 latest.json platforms）
 ///   - `file_name`：保存的文件名（如 `i-code_0.0.3_x64-setup.exe`）
+///
+/// 用户主动取消时返回 `__UPDATE_DOWNLOAD_CANCELLED__` 标记错误（前端据此静默处理）
 #[tauri::command]
 pub async fn download_and_install_update(
     app: tauri::AppHandle,
@@ -187,6 +199,9 @@ pub async fn download_and_install_update(
 ) -> Result<(), String> {
     use futures::StreamExt;
     use tokio::io::AsyncWriteExt;
+
+    // 重置取消标志，开始一次全新下载
+    DOWNLOAD_CANCELLED.store(false, Ordering::SeqCst);
 
     tracing::info!("[download_update] 开始下载: {}", url);
 
@@ -222,6 +237,14 @@ pub async fn download_and_install_update(
     let mut downloaded: u64 = 0;
 
     while let Some(chunk) = stream.next().await {
+        // 用户请求停止下载：删除半成品文件并返回取消标记
+        if DOWNLOAD_CANCELLED.load(Ordering::SeqCst) {
+            drop(file);
+            let _ = tokio::fs::remove_file(&file_path).await;
+            tracing::info!("[download_update] 用户取消下载，已清理临时文件: {:?}", file_path);
+            return Err(DOWNLOAD_CANCELLED_ERROR.into());
+        }
+
         let chunk = chunk.map_err(|e| format!("下载中断: {}", e))?;
         file.write_all(&chunk)
             .await
@@ -244,6 +267,13 @@ pub async fn download_and_install_update(
         .await
         .map_err(|e| format!("刷新文件缓冲失败: {}", e))?;
     drop(file);
+
+    // 下载完成瞬间用户仍可能点击停止：安装前做最后一次取消检查
+    if DOWNLOAD_CANCELLED.load(Ordering::SeqCst) {
+        let _ = tokio::fs::remove_file(&file_path).await;
+        tracing::info!("[download_update] 用户取消下载，已清理临时文件: {:?}", file_path);
+        return Err(DOWNLOAD_CANCELLED_ERROR.into());
+    }
 
     tracing::info!("[download_update] 下载完成，触发安装: {:?}", file_path);
 
@@ -315,6 +345,18 @@ pub async fn download_and_install_update(
 
     Ok(())
 }
+
+/// 用户请求停止下载更新包
+///
+/// 仅置位取消标志；`download_and_install_update` 的下载循环检测到后
+/// 会中止下载、删除已下载的临时文件并返回取消标记。
+#[tauri::command]
+pub async fn cancel_update_download() -> Result<(), String> {
+    DOWNLOAD_CANCELLED.store(true, Ordering::SeqCst);
+    tracing::info!("[download_update] 收到取消下载请求");
+    Ok(())
+}
+
 ///
 /// 无论是否有更新（甚至请求失败）都会推送 `update-check-result` 事件，
 /// 前端依据 `has_update` / `is_beta` 决定是否在标题栏展示更新入口：

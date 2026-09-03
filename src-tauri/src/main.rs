@@ -755,6 +755,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             modules::update_version::check_update,
             modules::update_version::download_and_install_update,
+            modules::update_version::cancel_update_download,
             open_url,
             clipboard_read_text,
             get_memory_usage,
