@@ -257,6 +257,11 @@
           "modelId": "muse-spark-1.2-contributor-free",
           "displayName": "Muse Spark 1.2 Contributor（美区）",
           "matchModelId": "muse-spark-1.2-contributor"
+        },
+        {
+          "modelId": "muse-spark-1.3-contributor-free",
+          "displayName": "Muse Spark 1.3 Contributor（美区）",
+          "matchModelId": "muse-spark-1.3-contributor"
         }
       ]
     },

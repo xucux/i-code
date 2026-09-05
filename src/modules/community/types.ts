@@ -200,7 +200,7 @@ export interface PostDetailData {
 
 // ===== 发帖 / 回复输入 =====
 
-/** 发帖输入（标题 ≤ 80 字，正文 ≤ 5000 字） */
+/** 发帖输入（标题 ≤ 80 字，正文 ≤ 10000 字） */
 export interface CreatePostInput {
   title: string
   content: string

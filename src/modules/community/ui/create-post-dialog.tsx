@@ -1,7 +1,7 @@
 /**
  * 发帖弹层（§8.3 顶部「发帖」按钮）
  *
- * 标题 ≤ 80 字、正文 ≤ 5000 字，前后端双重校验（§6 字数限制）。
+ * 标题 ≤ 80 字、正文 ≤ 10000 字，前后端双重校验（§6 字数限制）。
  * 正文支持 Markdown：编辑 / 预览双 Tab，预览实时渲染（GFM + GitHub Alert）。
  */
 
@@ -29,7 +29,7 @@ import {
 
 /** 字数上限（与 Worker / Rust 侧一致） */
 const TITLE_MAX = 80
-const CONTENT_MAX = 5000
+const CONTENT_MAX = 10000
 
 /** 板块图标（与 SectionBadge 一致） */
 const SECTION_ICON: Record<CommunitySection, string> = {

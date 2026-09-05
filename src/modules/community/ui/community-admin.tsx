@@ -1445,11 +1445,11 @@ function ReportHandleDialog({
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
                       <Label className="text-xs">{t('post.contentLabel')}</Label>
-                      <span className="text-muted-foreground text-[10px] tabular-nums">{editContent.length}/5000</span>
+                      <span className="text-muted-foreground text-[10px] tabular-nums">{editContent.length}/10000</span>
                     </div>
                     <Textarea
                       value={editContent}
-                      maxLength={5000}
+                      maxLength={10000}
                       onChange={(e) => setEditContent(e.target.value)}
                       className="h-40 resize-none text-xs leading-relaxed"
                     />
@@ -2224,7 +2224,7 @@ function AdminPostEditDialog({
   }, [isOpen, postId])
 
   const titleValid = title.trim().length > 0 && title.trim().length <= 80
-  const contentValid = content.trim().length > 0 && content.length <= 5000
+  const contentValid = content.trim().length > 0 && content.length <= 10000
 
   const handleSubmit = async () => {
     if (postId == null || !titleValid || !contentValid || submitting) return
@@ -2330,7 +2330,7 @@ function AdminPostEditDialog({
                   {t('post.contentLabel')}
                 </Label>
                 <span className="text-muted-foreground text-[10px] tabular-nums">
-                  {content.length}/5000
+                  {content.length}/10000
                 </span>
               </div>
               {/* 新 Markdown 编辑器（工具栏 / 预览，全屏时铺满） */}
@@ -2338,7 +2338,7 @@ function AdminPostEditDialog({
                 id="admin-post-content"
                 value={content}
                 onChange={setContent}
-                maxLength={5000}
+                maxLength={10000}
                 placeholder={t('post.contentPlaceholder')}
                 heightClass="h-[50vh]"
                 fill={expanded}

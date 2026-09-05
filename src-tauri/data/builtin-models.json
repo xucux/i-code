@@ -1564,6 +1564,38 @@
       }
     },
     {
+      "id": "muse-spark-1.3-contributor",
+      "displayName": "Muse Spark 1.3 Contributor",
+      "background": "Muse Spark 1.3 Contributor（2026-09），开源社区贡献版，1M 上下文 + 多模态，代理/编码效率较 1.2 提升（工具调用约减 20%、token 约减 25%），参数量未公开。",
+      "family": "meta",
+      "providerTypes": [
+        "openai-chat-completion",
+        "openai-responses",
+        "anthropic"
+      ],
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 131072,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "thinkingEffortOptions": [
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "high"
+      }
+    },
+    {
       "id": "qwen3-32b",
       "displayName": "Qwen3 32B",
       "background": "Qwen3-32B（2025-04），32.8B 稠密开源，128K 上下文（可扩至 262K），思考/非思考双模式。",

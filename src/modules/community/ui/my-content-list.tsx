@@ -450,7 +450,7 @@ function EditMyPostDialog({
   }, [isOpen, postId])
 
   const titleValid = title.trim().length > 0 && title.trim().length <= 80
-  const contentValid = content.trim().length > 0 && content.length <= 5000
+  const contentValid = content.trim().length > 0 && content.length <= 10000
 
   const handleSubmit = async () => {
     if (postId == null || !titleValid || !contentValid || submitting) return
@@ -555,7 +555,7 @@ function EditMyPostDialog({
                   {t('post.contentLabel')}
                 </Label>
                 <span className="text-muted-foreground text-[10px] tabular-nums">
-                  {content.length}/5000
+                  {content.length}/10000
                 </span>
               </div>
               {/* 新 Markdown 编辑器（工具栏 / 预览，全屏时铺满） */}
@@ -563,7 +563,7 @@ function EditMyPostDialog({
                 id="my-post-content"
                 value={content}
                 onChange={setContent}
-                maxLength={5000}
+                maxLength={10000}
                 placeholder={t('post.contentPlaceholder')}
                 heightClass="h-[50vh]"
                 fill={expanded}
