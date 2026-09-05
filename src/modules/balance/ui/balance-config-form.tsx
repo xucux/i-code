@@ -24,12 +24,12 @@ import { useActiveScriptTemplates } from '@/hooks/use-script-templates'
 import { useTranslation } from '@/modules/i18n/use-translation'
 import type { BalanceMethod, BalanceConfig } from '@/modules/balance/types'
 
-/** 内置监控方法选项（不含 Grok Build，其 label 走 i18n） */
-const BUILTIN_METHOD_OPTIONS: { value: BalanceMethod; label: string }[] = [
-  { value: 'none', label: '不监控' },
+/** 内置监控方法选项（不含 Grok Build，其 label 走 i18n）；`labelKey` 标记需要 i18n 的选项，其余为品牌名直接展示 */
+const BUILTIN_METHOD_OPTIONS: { value: BalanceMethod; label?: string; labelKey?: string }[] = [
+  { value: 'none', labelKey: 'balanceForm.methodNone' },
   { value: 'deepseek', label: 'DeepSeek' },
   { value: 'openrouter', label: 'OpenRouter' },
-  { value: 'siliconflow', label: '硅基流动' },
+  { value: 'siliconflow', labelKey: 'balanceForm.methodSiliconflow' },
   { value: 'moonshot-ai', label: 'Moonshot AI' },
   { value: 'kimi-code', label: 'Kimi Code' },
   { value: 'newapi', label: 'New API' },
@@ -59,12 +59,13 @@ export function BalanceConfigForm({ value, onChange }: BalanceConfigFormProps) {
   const { t } = useTranslation('scriptTemplate')
   const { items: activeScripts } = useActiveScriptTemplates()
 
-  /** 内置监控方法选项（Grok Build label 走 i18n） */
+  /** 内置监控方法选项（`labelKey` 与 Grok Build 的 label 走 i18n） */
   const builtinMethodOptions = useMemo(() => {
-    const options: { value: BalanceMethod; label: string }[] = [
-      ...BUILTIN_METHOD_OPTIONS,
-      { value: 'grok-build', label: t('balanceForm.methodGrokBuild') },
-    ]
+    const options: { value: BalanceMethod; label: string }[] = BUILTIN_METHOD_OPTIONS.map((opt) => ({
+      value: opt.value,
+      label: opt.labelKey ? t(opt.labelKey) : (opt.label ?? opt.value),
+    }))
+    options.push({ value: 'grok-build', label: t('balanceForm.methodGrokBuild') })
     return options
   }, [t])
 
@@ -140,14 +141,14 @@ export function BalanceConfigForm({ value, onChange }: BalanceConfigFormProps) {
   return (
     <div className="space-y-3">
       <div className="space-y-1.5">
-        <Label className="text-xs">监控方法</Label>
+        <Label className="text-xs">{t('balanceForm.methodLabel')}</Label>
         <Select value={selectValue} onValueChange={handleMethodChange}>
           <SelectTrigger className="h-8 text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
-              <SelectLabel className="text-[10px]">内置</SelectLabel>
+              <SelectLabel className="text-[10px]">{t('balanceForm.builtinGroup')}</SelectLabel>
               {builtinMethodOptions.map((opt) => (
                 <SelectItem key={opt.value} value={opt.value} className="text-xs">
                   <span className="font-medium">{opt.label}</span>
@@ -215,9 +216,9 @@ export function BalanceConfigForm({ value, onChange }: BalanceConfigFormProps) {
 
       {method === 'newapi' && (
         <div className="space-y-2 rounded-md border p-3">
-          <div className="text-xs font-medium">New API 配置</div>
+          <div className="text-xs font-medium">{t('balanceForm.newapiConfig')}</div>
           <div className="space-y-1.5">
-            <Label className="text-[11px]">用户 ID</Label>
+            <Label className="text-[11px]">{t('balanceForm.newapiUserId')}</Label>
             <Input
               value={(config as { method: 'newapi'; userId?: string }).userId ?? ''}
               onChange={(e) =>
@@ -227,11 +228,11 @@ export function BalanceConfigForm({ value, onChange }: BalanceConfigFormProps) {
                 })
               }
               className="h-7 text-xs"
-              placeholder="NewAPI 用户 ID"
+              placeholder={t('balanceForm.newapiUserIdPlaceholder')}
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-[11px]">系统 Token</Label>
+            <Label className="text-[11px]">{t('balanceForm.newapiSystemToken')}</Label>
             <Input
               type="password"
               value={(config as { method: 'newapi'; systemToken?: string }).systemToken ?? ''}
@@ -242,18 +243,18 @@ export function BalanceConfigForm({ value, onChange }: BalanceConfigFormProps) {
                 })
               }
               className="h-7 text-xs"
-              placeholder="系统管理 Token"
+              placeholder={t('balanceForm.newapiSystemTokenPlaceholder')}
             />
-            <p className="text-muted-foreground text-[10px]">用于查询 API 管理端额度</p>
+            <p className="text-muted-foreground text-[10px]">{t('balanceForm.newapiSystemTokenHint')}</p>
           </div>
         </div>
       )}
 
       {method === 'claude-relay-service' && (
         <div className="space-y-2 rounded-md border p-3">
-          <div className="text-xs font-medium">Claude Relay 配置</div>
+          <div className="text-xs font-medium">{t('balanceForm.claudeRelayConfig')}</div>
           <div className="space-y-1.5">
-            <Label className="text-[11px]">自定义 API 地址</Label>
+            <Label className="text-[11px]">{t('balanceForm.claudeRelayBaseUrl')}</Label>
             <Input
               value={
                 (config as { method: 'claude-relay-service'; baseUrl?: string }).baseUrl ?? ''
@@ -267,7 +268,7 @@ export function BalanceConfigForm({ value, onChange }: BalanceConfigFormProps) {
               className="h-7 text-xs font-mono"
               placeholder="https://your-relay.example.com/api/stats"
             />
-            <p className="text-muted-foreground text-[10px]">覆盖默认的 apiStats API 地址</p>
+            <p className="text-muted-foreground text-[10px]">{t('balanceForm.claudeRelayBaseUrlHint')}</p>
           </div>
         </div>
       )}
@@ -275,7 +276,7 @@ export function BalanceConfigForm({ value, onChange }: BalanceConfigFormProps) {
       {method !== 'none' && method !== 'synthetic' && method !== 'script' && (
         <p className="text-muted-foreground text-[10px]">
           <i className="fa-solid fa-circle-check mr-1 text-emerald-500" />
-          该供应商额度查询已实现，保存后可刷新查看额度
+          {t('balanceForm.implementedHint')}
         </p>
       )}
     </div>
