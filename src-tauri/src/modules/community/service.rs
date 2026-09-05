@@ -361,8 +361,8 @@ impl CommunityService {
             if c.is_empty() {
                 return Err(IcodeError::validation("内容不能为空"));
             }
-            if c.chars().count() > 5000 {
-                return Err(IcodeError::validation("内容不能超过 5000 字"));
+            if c.chars().count() > 10000 {
+                return Err(IcodeError::validation("内容不能超过 10000 字"));
             }
         }
         if let Some(section) = input.section.as_deref() {
@@ -582,8 +582,8 @@ impl CommunityService {
             if c.is_empty() {
                 return Err(IcodeError::validation("内容不能为空"));
             }
-            if c.chars().count() > 5000 {
-                return Err(IcodeError::validation("内容不能超过 5000 字"));
+            if c.chars().count() > 10000 {
+                return Err(IcodeError::validation("内容不能超过 10000 字"));
             }
         }
         if let Some(section) = input.section.as_deref() {

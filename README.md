@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <strong>Local AI Gateway & CLI Configuration Management Center</strong>
+  <strong>本地 AI 网关与 CLI 配置管理中心</strong>
 </p>
 
 <p align="center">
@@ -17,207 +17,207 @@
   <img src="https://img.shields.io/badge/Rust-2021-000000?style=flat-square&logo=rust" alt="Rust 2021" />
   <img src="https://img.shields.io/badge/pnpm-11.x-F69220?style=flat-square&logo=pnpm" alt="pnpm 11" />
   <a href="https://github.com/xucux/i-code-script-templates">
-    <img src="https://img.shields.io/badge/Script%20Templates-Repository-4B32C3?style=flat-square" alt="Script Templates Repository" />
+    <img src="https://img.shields.io/badge/Script%20Templates-Repository-4B32C3?style=flat-square" alt="脚本模板仓库" />
   </a>
-  <a href="./README.zh-CN.md">
-    <img src="https://img.shields.io/badge/中文-README-blue?style=flat-square" alt="中文 README" />
+  <a href="./README.en.md">
+    <img src="https://img.shields.io/badge/English-README-blue?style=flat-square" alt="English README" />
   </a>
 </p>
 
 <p align="center">
-  <a href="#features">Features</a> •
-  <a href="#screenshots">Screenshots</a> •
-  <a href="#tech-stack">Tech Stack</a> •
-  <a href="#getting-started">Getting Started</a> •
-  <a href="#development">Development</a> •
-  <a href="#architecture">Architecture</a> •
-  <a href="#security">Security</a>
+  <a href="#功能特性">功能特性</a> •
+  <a href="#应用截图">应用截图</a> •
+  <a href="#技术栈">技术栈</a> •
+  <a href="#快速开始">快速开始</a> •
+  <a href="#开发指南">开发指南</a> •
+  <a href="#架构设计">架构设计</a> •
+  <a href="#安全说明">安全说明</a>
 </p>
 
 ---
 
 <p align="center">
-  <a href="./GUIDE.md">User Guide</a> •
-  <a href="./README.zh-CN.md">中文 README</a>
+  <a href="./GUIDE.md">使用指南</a> •
+  <a href="./GUIDE.en.md">English Guide</a> •
+  <a href="./README.en.md">English README</a>
 </p>
 
-## Features
+## 功能特性
 
-- **AI Gateway Management**: Centrally manage multiple LLM providers (OpenAI, Anthropic, Gemini, OpenRouter, etc.) with multi-protocol and authentication support.
-- **Local API Gateway**: Expose a unified local API at `127.0.0.1:54321`, routing models via `{provider_slug}/{model_id}` format.
-- **CLI Configuration Profiles**: Maintain profiles for Claude Code, Codex, Gemini CLI, and more. Route them directly to vendors or through the local gateway.
-- **Chat Interface**: Built-in chat UI for sending messages, streaming responses, and viewing error bubbles with JSONL message storage.
-- **Secret Encryption**: API keys are encrypted via AES-GCM and never persisted in plain text. Config files only store `$SECRET:{uuid}$` references.
-- **Balance & Usage Monitoring**: Track provider balances and model call records.
-- **Backup & Restore**: Local and WebDAV backup support with SQLite Online Backup API.
-- **In-App Diagnostics**: Dual logging system for development traces and operational event logs.
-- **Script Templates & Marketplace**: Create and manage Rhai balance-monitoring script templates with a draft/active/disabled lifecycle, a CodeMirror editor with built-in snippets and system-variable docs, sandboxed trial runs, and an in-app marketplace to browse the public template repository and apply templates with one click.
-- **Cline Free Model Proxy**: Built-in Cline Free provider preset with an automatic `x-client-type: cline-cli` header and default free models (DeepSeek V4 Flash), proxied through the local gateway.
+- **AI 网关管理**：集中管理多 LLM 供应商（OpenAI、Anthropic、Gemini、OpenRouter 等），支持多协议与多种认证方式。
+- **本地 API 网关**：在 `127.0.0.1:54321` 暴露统一本地接口，通过 `{provider_slug}/{model_id}` 路由到真实供应商。
+- **虚拟供应商**：以一个固定对外模型 ID（`{alias}/{model_id}`）隐藏底层真实供应商，支持候选路由优先级与自动故障转移——供应商增减或不可用时客户端无需感知、无缝切换。
+- **CLI 配置档案**：为 Claude Code、Codex、Gemini CLI 等维护配置档案，可直连供应商或路由到本地网关。
+- **聊天界面**：内置聊天 UI，支持发送消息、流式响应、错误气泡展示，消息以 JSONL 格式存储。
+- **图像生成**：内置视觉生成工作台与画廊，直连图像生成供应商，支持文生图与产物本地化存储，并保留生成历史与调用统计。
+- **敏感数据加密**：API Key 等敏感数据通过 AES-GCM 加密存储，配置文件中仅存 `$SECRET:{uuid}$` 引用。
+- **额度与调用监控**：支持供应商额度查询与模型调用记录统计。
+- **备份与恢复**：支持本地备份与 WebDAV 备份，使用 SQLite Online Backup API。
+- **应用内诊断日志**：双日志机制，分别服务开发调试与业务运行时诊断。
+- **脚本模板与模板市场**：支持 Rhai 额度监控脚本模板的增删改查与生命周期管理（草稿/启用/禁用）、CodeMirror 编辑器（内置 snippet 与系统变量/函数文档）与沙箱试运行，并可在应用内浏览公共模板仓库、一键应用为本地模板。
+- **Cline 免费模型代理**：内置 Cline Free 供应商预设（自动附带 `x-client-type: cline-cli` 请求头，默认关联 DeepSeek V4 Flash 免费模型），可经本地网关统一代理访问免费模型。
+- **轻量社区**：内置轻量社区模块（帖子 / 回复 / 积分 / 外链分享），支持 Markdown 渲染，无需离开应用即可交流与沉淀内容。
 
-## Screenshots
+## 应用截图
 
 
 
-### Dashboard
+### 仪表盘
 
 <p align="center">
-  <img src="docs/screenshots/dashboard_en.png" width="720" alt="Dashboard screenshot placeholder" />
+  <img src="docs/screenshots/dashboard.png" width="720" alt="仪表盘截图占位" />
 </p>
 
-
-### AI Gateway Providers
+### AI 网关供应商
 
 <p align="center">
-  <img src="docs/screenshots/gateway-providers_en.png" width="720" alt="AI Gateway providers screenshot placeholder" />
+  <img src="docs/screenshots/gateway-providers.png" width="720" alt="AI 网关供应商截图占位" />
 </p>
 
-
-### CLI Profiles
+### CLI 档案
 
 <p align="center">
-  <img src="docs/screenshots/cli-profiles_en.png" width="720" alt="CLI profiles screenshot placeholder" />
+  <img src="docs/screenshots/cli-profiles.png" width="720" alt="CLI 档案截图占位" />
 </p>
 
-
-### Chat Interface
+### 聊天界面
 
 <p align="center">
-  <img src="docs/screenshots/chat-interface_en.png" width="720" alt="Chat interface screenshot placeholder" />
+  <img src="docs/screenshots/chat-interface.png" width="720" alt="聊天界面截图占位" />
 </p>
 
+## 技术栈
 
-## Tech Stack
-
-| Layer | Technology |
-|-------|------------|
-| Desktop Framework | Tauri 2.x (Rust + WebView) |
-| Frontend | React 19 + TypeScript 5 |
-| Routing | TanStack Router |
+| 层级 | 技术 |
+|------|------|
+| 桌面框架 | Tauri 2.x（Rust + WebView） |
+| 前端 | React 19 + TypeScript 5 |
+| 路由 | TanStack Router |
 | UI | shadcn/ui + Tailwind CSS + Font Awesome |
-| State | Zustand (frontend) + Tauri State (backend) |
-| Forms | react-hook-form + zod |
-| i18n | i18next (zh-CN / en) |
-| Backend HTTP Gateway | axum |
-| Database | SQLite (rusqlite + r2d2) |
-| Encryption | AES-GCM |
-| Type Sync | ts-rs (Rust → TypeScript) |
+| 状态 | Zustand（前端）+ Tauri State（后端） |
+| 表单 | react-hook-form + zod |
+| 国际化 | i18next（zh-CN / en） |
+| 后端 HTTP 网关 | axum |
+| 数据库 | SQLite（rusqlite + r2d2） |
+| 加密 | AES-GCM |
+| 类型同步 | ts-rs（Rust → TypeScript） |
 
-## Getting Started
+## 快速开始
 
-### Prerequisites
+### 环境要求
 
-- [Node.js](https://nodejs.org/) (LTS recommended)
+- [Node.js](https://nodejs.org/)（推荐 LTS）
 - [pnpm](https://pnpm.io/) 11.x
-- [Rust](https://www.rust-lang.org/tools/install) toolchain
+- [Rust](https://www.rust-lang.org/tools/install) 工具链
 
-### Installation
+### 安装
 
 ```bash
-# Clone the repository
+# 克隆仓库
 git clone https://github.com/xucux/i-code.git
 cd i-code
 
-# Install dependencies
+# 安装依赖
 pnpm install
 ```
 
-### Run the App
+### 运行
 
 ```bash
-# Desktop development mode (recommended)
+# 桌面端开发模式（推荐）
 pnpm tauri:dev
 
-# Frontend only
+# 仅前端开发
 pnpm dev
 ```
 
-## Development
+## 开发指南
 
-### Useful Commands
+### 常用命令
 
 ```bash
-pnpm dev              # Frontend Vite dev server
-pnpm tauri:dev        # Desktop development
-pnpm tauri:build      # Build desktop release
-pnpm type-check       # TypeScript check
+pnpm dev              # 仅前端 Vite 开发服务器
+pnpm tauri:dev        # 桌面端开发
+pnpm tauri:build      # 桌面端打包
+pnpm type-check       # TypeScript 类型检查
 pnpm lint             # ESLint
-pnpm test             # Vitest
-pnpm test:rust        # Rust unit tests
-pnpm check            # TypeScript + Rust check
-pnpm check:all        # Full check + lint + tests
+pnpm test             # Vitest 前端测试
+pnpm test:rust        # Rust 单元测试
+pnpm check            # TypeScript + Rust 检查
+pnpm check:all        # 完整检查 + 测试
 ```
 
-### Project Structure
+### 项目结构
 
 ```
 i-code/
-├── docs/                 # Design docs and proposals
-├── scripts/              # Utility scripts
-├── src/                  # Frontend React app
-│   ├── components/       # UI components
-│   ├── core/             # Types, errors, events, utils
-│   ├── hooks/            # Shared hooks
-│   ├── modules/          # Domain modules
-│   └── routes/           # TanStack file routes
-├── src-tauri/            # Rust backend
-│   ├── data/             # Built-in provider/model JSON
-│   ├── src/              # Rust source
+├── docs/                 # 设计文档与提案
+├── scripts/              # 工具脚本
+├── src/                  # 前端 React 应用
+│   ├── components/       # UI 组件
+│   ├── core/             # 类型、错误、事件、工具函数
+│   ├── hooks/            # 共享 hooks
+│   ├── modules/          # 业务模块
+│   └── routes/           # TanStack 文件路由
+├── src-tauri/            # Rust 后端
+│   ├── data/             # 内置供应商/模型 JSON
+│   ├── src/              # Rust 源码
 │   └── tauri.conf.json
 └── README.md
 ```
 
-## Architecture
+## 架构设计
 
 ```
-CLI / External Clients
+CLI / 外部客户端
     ↓
-Local Gateway (axum) @ 127.0.0.1:54321
+本地网关 (axum) @ 127.0.0.1:54321
     ↓
-Parse model = {provider_slug}/{model_id}
+解析 model = {provider_slug}/{model_id}
     ↓
-Virtual Provider fallback routing (if applicable)
+虚拟供应商故障转移路由（如启用）
     ↓
-Resolve $SECRET:{uuid}$ references
+解析 $SECRET:{uuid}$ 引用
     ↓
-Forward to real upstream LLM vendor
+转发至真实上游供应商
     ↓
-Interceptors log to logger + call-records
+拦截器异步写入 logger + call-records
 ```
 
-## Security
+## 安全说明
 
-- API keys and tokens are **never stored or logged in plain text**.
-- Configuration files and the database only contain encrypted references: `$SECRET:{uuid}$`.
-- Secret encryption and decryption happen **only in the Rust backend**.
-- The frontend receives plaintext input once and does not cache secrets.
-- Internal CLI requests must include the `inner-cli-api` header; otherwise, a valid `Authorization: Bearer {gateway_key}` is required.
+- API Key / Token **禁止以明文形式存储或写入日志**。
+- 配置文件与数据库中仅保存加密引用：`$SECRET:{uuid}$`。
+- 加解密操作**仅在 Rust 后端**完成。
+- 前端仅在输入时接触明文，一次性传往后端，不缓存。
+- 内部 CLI 请求必须携带 `inner-cli-api` 请求头；否则需提供有效的 `Authorization: Bearer {gateway_key}`。
 
-## Disclaimer
+## 免责声明
 
-This tool is limited to proxying the APIs of providers you already have; request bodies are passed through almost verbatim, and it involves no reverse engineering or cracking. The author assumes no responsibility if your provider account experiences issues such as bans, rate limiting, or subscription cancellation during use.
+本工具仅限于代理已有供应商 API，请求体几乎完全透传，不涉及逆向、不涉及破解等操作；如果您的供应商账户在使用过程中，出现封禁、限速、订阅取消等问题，作者不承担任何责任。
 
-## Roadmap
+## 路线图
 
-- [x] Provider / model CRUD and settings
-- [x] Secret local encryption
-- [x] Gateway runtime (health / models / chat / messages)
-- [x] Virtual provider routing
-- [x] Backup and restore
-- [x] Complete CLI management workflow
-- [x] In-app chat module
-- [x] System keychain secret storage
+- [x] 供应商 / 模型 CRUD 与设置
+- [x] 敏感数据本地加密
+- [x] 网关运行时（health / models / chat / messages）
+- [x] 虚拟供应商路由
+- [x] 备份与恢复
+- [x] 完整的 CLI 管理业务流程
+- [x] 应用内聊天模块
+- [x] 系统密钥链 Secret 存储
 
-## Acknowledgments
+## 致谢
 
-- [i-code-script-templates](https://github.com/xucux/i-code-script-templates) — Public repository of reusable Rhai script templates for balance monitoring and more.
-- Thanks to [vscode-unify-chat-provider](https://github.com/smallmain/vscode-unify-chat-provider) for providing valuable reference data and design inspiration for provider/model unification.
+- [i-code-script-templates](https://github.com/xucux/i-code-script-templates) — 可复用 Rhai 脚本模板公共仓库，用于额度监控等场景。
+- 感谢 [vscode-unify-chat-provider](https://github.com/smallmain/vscode-unify-chat-provider) 在供应商/模型统一方面提供的宝贵参考数据与设计灵感。
 
-## License
+## 开源协议
 
 [MIT](./LICENSE) © i-code
 
 ---
 
 <p align="center">
-  Built with ❤️ using <a href="https://tauri.app">Tauri</a>, <a href="https://react.dev">React</a>, and <a href="https://www.rust-lang.org">Rust</a>.
+  使用 <a href="https://tauri.app">Tauri</a>、<a href="https://react.dev">React</a> 与 <a href="https://www.rust-lang.org">Rust</a> 构建。
 </p>
