@@ -96,6 +96,10 @@ impl CallRecordsService {
     ///
     /// 当上游响应不含 usage 字段时，`prompt_tokens` 由 tokenizer 估算补充。
     /// 完成后同步累加写入 `model_call_stats_hourly` / `model_call_stats_daily` 聚合表。
+    ///
+    /// 幂等性：通过 `stats_accumulated` 标记保证每条记录只累加一次。流式请求会先
+    /// 以估算值完成一次，流结束后还会以真实 usage 再次完成调用，若无标记则同一
+    /// 记录会被重复累加，造成「聚合汇总」远大于「明细汇总」。
     pub fn finish_call_with_duration_and_tokens(
         &self,
         id: &str,
@@ -122,8 +126,11 @@ impl CallRecordsService {
             },
         )?;
 
-        // 同步累加写入聚合表（失败不影响主流程）
-        let _ = self.accumulate_stats_from_log(&log, status_code, duration_ms, prompt_tokens);
+        // 幂等累加：仅当本次为该记录首次完成（标记 0→1）时累加聚合表；
+        // 标记失败时跳过累加，不影响调用记录主流程
+        if repository::try_mark_call_log_accumulated(id).unwrap_or(false) {
+            let _ = self.accumulate_stats_from_log(&log, status_code, duration_ms, prompt_tokens);
+        }
 
         Ok(log)
     }
@@ -132,7 +139,7 @@ impl CallRecordsService {
     ///
     /// 从上游响应解析的 usage 字段通过 `UpdateModelCallLogInput` 传入，
     /// 包含 completion_tokens / total_tokens / cached_tokens / price_per_1m_tokens 等。
-    /// 完成后同步累加写入聚合表。
+    /// 完成后同步累加写入聚合表（幂等，见 [`Self::finish_call_with_duration_and_tokens`]）。
     pub fn finish_call_with_duration_and_tokens_full(
         &self,
         id: &str,
@@ -141,13 +148,15 @@ impl CallRecordsService {
     ) -> IcodeResult<ModelCallLog> {
         let log = repository::update_call_log(id, input)?;
 
-        // 同步累加写入聚合表（失败不影响主流程）
-        let _ = self.accumulate_stats_from_log(
-            &log,
-            input.status_code,
-            duration_ms,
-            input.prompt_tokens,
-        );
+        // 幂等累加：与基础版 finish 共用同一标记位，保证同一记录只累加一次
+        if repository::try_mark_call_log_accumulated(id).unwrap_or(false) {
+            let _ = self.accumulate_stats_from_log(
+                &log,
+                input.status_code,
+                duration_ms,
+                input.prompt_tokens,
+            );
+        }
 
         Ok(log)
     }

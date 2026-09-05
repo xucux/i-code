@@ -654,7 +654,7 @@ const APP_LOGO_SVG =
  * GitHub 仓库地址
  */
 const APP_GITHUB_URL = 'https://github.com/xucux/i-code'
-const APP_VERSION = '0.3.4'
+const APP_VERSION = '0.3.5'
 
 /**
  * 构建单会话 HTML 导出文档

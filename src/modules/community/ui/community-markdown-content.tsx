@@ -301,6 +301,24 @@ communityMarked.use({
         `</div>`
       )
     },
+    // 自定义图片渲染器：支持 Obsidian 风格尺寸后缀，如 `![alt|690x462](url)` / `![alt|690](url)`。
+    // - `WIDTHxHEIGHT`：按指定宽高像素渲染（高度明确给出，遵原意不强改比例）
+    // - 仅 `WIDTH`：只设宽度，高度随比例自适应
+    // 带尺寸的图片额外标记 `community-img-sized`，供紧凑布局（评论区）跳过 1/3 宽钳制；
+    // 尺寸后缀仅影响展示，不参与 alt 文本；点击放大仍读取 src 走原图 lightbox。
+    image({ href, title, text }: { href: string; title?: string | null; text: string }) {
+      const url = escapeHtml(href || '')
+      const titleAttr = title ? ` title="${escapeHtml(title)}"` : ''
+      const sizeMatch = /^(.+?)\|(\d+)(?:[xX](\d+))?$/.exec(text || '')
+      const alt = sizeMatch ? sizeMatch[1] : text || ''
+      const width = sizeMatch?.[2]
+      const height = sizeMatch?.[3]
+      const styleAttr = width
+        ? ` style="width:${width}px${height ? `;height:${height}px` : ''}"`
+        : ''
+      const sizeClass = width ? ' community-img-sized' : ''
+      return `<img src="${url}" alt="${escapeHtml(alt)}"${titleAttr}${sizeClass ? ` class="${sizeClass.trim()}"` : ''}${styleAttr} />`
+    },
   },
 })
 
@@ -531,9 +549,10 @@ export function CommunityMarkdownContent({
           '[&_.code-fold-fade]:pointer-events-none [&_.code-fold-fade]:absolute [&_.code-fold-fade]:inset-x-0 [&_.code-fold-fade]:bottom-0 [&_.code-fold-fade]:h-14 [&_.code-fold-fade]:bg-gradient-to-t [&_.code-fold-fade]:from-background [&_.code-fold-fade]:to-transparent',
           // 展开/收起按钮（始终可见）
           '[&_.code-fold-toggle]:mt-1 [&_.code-fold-toggle]:flex [&_.code-fold-toggle]:w-full [&_.code-fold-toggle]:items-center [&_.code-fold-toggle]:justify-center [&_.code-fold-toggle]:gap-1 [&_.code-fold-toggle]:rounded-md [&_.code-fold-toggle]:py-1 [&_.code-fold-toggle]:text-[11px] [&_.code-fold-toggle]:text-muted-foreground [&_.code-fold-toggle]:transition-colors [&_.code-fold-toggle]:hover:bg-muted [&_.code-fold-toggle]:hover:text-foreground',
-          // 图片：等比缩放不溢出容器，指针放大态；评论区用 compactImages 时缩为 1/3 宽
+          // 图片：等比缩放不溢出容器，指针放大态；评论区用 compactImages 时缩为 1/3 宽，
+          // 但带显式尺寸的图片（community-img-sized）保持设定尺寸（max-w-full 防溢出）
           compactImages
-            ? 'prose-img:my-1 prose-img:h-auto prose-img:max-w-[33.333%] prose-img:rounded-md prose-img:cursor-zoom-in'
+            ? 'prose-img:my-1 prose-img:h-auto prose-img:rounded-md prose-img:cursor-zoom-in [&_img:not(.community-img-sized)]:max-w-[33.333%] [&_img.community-img-sized]:max-w-full'
             : 'prose-img:my-1 prose-img:max-w-full prose-img:h-auto prose-img:rounded-md prose-img:cursor-zoom-in',
           // GFM 任务列表：input checkbox 美化
           'prose-li:input:mr-1.5 prose-li:input:size-3 prose-li:input:align-middle',

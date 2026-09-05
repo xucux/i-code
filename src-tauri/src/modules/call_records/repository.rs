@@ -160,6 +160,24 @@ pub fn update_call_log(id: &str, input: &UpdateModelCallLogInput) -> IcodeResult
     find_call_log_by_id(id)
 }
 
+/// 将调用记录标记为已累加进预聚合表（幂等）
+///
+/// 通过条件 UPDATE（`stats_accumulated = 0`）原子抢占标记位：
+/// 仅有首次调用返回 `true`，同一记录后续重复调用返回 `false`。
+///
+/// 背景：流式请求会先以估算 token 完成一次 finish，SSE 流结束后再以
+/// 真实 usage 完成一次，若每次都累加聚合表会造成同一调用被重复计数。
+/// 所有 finish 路径在累加前都先经过本函数抢占，保证每条记录只累加一次。
+pub fn try_mark_call_log_accumulated(id: &str) -> IcodeResult<bool> {
+    let conn = get_conn()?;
+    let affected = conn.execute(
+        "UPDATE model_call_logs SET stats_accumulated = 1
+         WHERE id = ?1 AND stats_accumulated = 0",
+        rusqlite::params![id],
+    )?;
+    Ok(affected > 0)
+}
+
 /// 列出调用记录
 ///
 /// 支持按 provider_id / model_id 过滤，按 requested_at 降序排列。

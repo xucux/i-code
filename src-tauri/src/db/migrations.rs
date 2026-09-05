@@ -78,6 +78,12 @@ const V009__MODEL_CONFIG_REQUEST_PARAMS: &str =
 /// 并新增 media_generations 图像生成历史表与 media_video_tasks 视频任务表
 const V010__MEDIA_GENERATION: &str = include_str!("./migrations/V010__media_generation.sql");
 
+/// 调用统计幂等累加：model_call_logs 新增 stats_accumulated 标记列，
+/// 并从明细表全量重建 model_call_stats_hourly / model_call_stats_daily，
+/// 修复流式请求「估算 finish + usage finish」对同一记录重复累加导致的统计数值膨胀
+const V011__CALL_STATS_IDEMPOTENT_ACCUMULATE: &str =
+    include_str!("./migrations/V011__call_stats_idempotent_accumulate.sql");
+
 /// 内置迁移列表：(版本号, 描述, SQL 内容)
 ///
 /// 增量迁移模式：V001 为基线，V002+ 为增量变更。
@@ -93,6 +99,7 @@ const BUILTIN_MIGRATIONS: &[(u32, &str, &str)] = &[
     (8, "community_local_state", V008__COMMUNITY_LOCAL_STATE),
     (9, "model_config_request_params", V009__MODEL_CONFIG_REQUEST_PARAMS),
     (10, "media_generation", V010__MEDIA_GENERATION),
+    (11, "call_stats_idempotent_accumulate", V011__CALL_STATS_IDEMPOTENT_ACCUMULATE),
 ];
 
 /// 执行所有未应用的迁移
