@@ -1513,6 +1513,55 @@
       "autoFetchOfficialModels": false,
       "sortOrder": 68,
       "displayCnName": "日日新 （商汤科技）"
+    },
+    {
+      "id": "experiential",
+      "displayName": "Experiential",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion",
+        "openai-responses"
+      ],
+      "baseUrl": "https://api.experientiallabs.ai/v1",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": true,
+      "sortOrder": 69,
+      "displayCnName": "Experiential",
+      "remark": "OpenAI 兼容模型网关：同一密钥可调用 Chat Completions / Responses / Anthropic Messages 三种协议，Promotional 模型（如 qwen3.8-27b）免费。",
+      "defaultModels": [
+        {
+          "modelId": "qwen3.8-27b",
+          "displayName": "Qwen3.8-27B（免费）",
+          "matchModelId": "qwen3.8-27b"
+        },
+        {
+          "modelId": "deepseek-v4-flash",
+          "displayName": "DeepSeek V4 Flash（免费）",
+          "matchModelId": "deepseek-v4-flash"
+        },
+        {
+          "modelId": "gpt-5.6-luna",
+          "displayName": "GPT-5.6 Luna（免费）",
+          "matchModelId": "gpt-5.6-luna"
+        },
+        {
+          "modelId": "claude-fable-5.1",
+          "displayName": "Claude Fable 5.1（免费）",
+          "matchModelId": "claude-fable-5.1"
+        },
+        {
+          "modelId": "gpt-6-astra",
+          "displayName": "GPT-6 Astra（免费）",
+          "matchModelId": "gpt-6-astra"
+        }
+      ]
     }
   ]
 }

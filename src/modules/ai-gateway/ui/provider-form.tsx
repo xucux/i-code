@@ -532,6 +532,32 @@ function buildBuiltinToolChoiceJson(builtin?: BuiltinModel): string | undefined 
 }
 
 /**
+ * 从官方模型 ID 中提取「模型名主体」候选序列（用于截取 + 精准匹配 + 前缀收缩匹配）。
+ *
+ * 官方模型 ID 常见形态：
+ * - 带供应商前缀：`zai/glm-5.3-flash`、`bigmodel/glm-5.3-flash` → 按 `/` `:` 取最后一段
+ * - 带日期/版本/词缀后缀：`glm-5.3-flash-20260826`、`llama-3.1-8b-instruct-v6` → 逐级去掉尾部连字符段
+ * - 混合形态：`zai/glm-5.3-flash-20260826`
+ *
+ * 返回按优先级从高到低去重后的候选；调用方依次做精确匹配，
+ * 全部未命中再回退到原始 ID 的完整匹配策略（前缀 / 反向前缀 / 包含匹配）。
+ */
+function extractModelNameCandidates(rawId: string): string[] {
+  const candidates: string[] = []
+  // 1. 按路径分隔符取最后一段，去除 "vendor/model" 形式的供应商前缀
+  const segments = rawId.split(/[/:]/)
+  let name = (segments[segments.length - 1] ?? '').trim().toLowerCase()
+  if (!name) return candidates
+  candidates.push(name)
+  // 2. 前缀收缩：逐级去掉尾部连字符段（如 "-20260826"、"-v6"、"-beta"），生成由长到短的候选
+  const parts = name.split('-')
+  for (let i = parts.length - 1; i >= 1; i--) {
+    candidates.push(parts.slice(0, i).join('-'))
+  }
+  return [...new Set(candidates)]
+}
+
+/**
  * 从 stop 表单值序列化为 JSON 字符串；未填时返回 undefined
  *
  * 支持逗号分隔字符串 → 数组，或已是 JSON（字符串/数组）时原样透传。
@@ -2330,18 +2356,30 @@ function ModelManagementSection({ provider }: ModelManagementSectionProps) {
     }
   }
 
-  // 根据模型 ID 在全部内置模型中做匹配，返回首个匹配项
-  // 匹配优先级：精确匹配 > 前缀匹配（modelId 以 builtin.id 开头） > 包含匹配
+  // 根据模型 ID 在全部内置模型中做匹配，返回最佳匹配项
+  // 匹配流程：截取干净名称 → 候选精确匹配 → 前缀收缩（逐级去掉尾部连字符段）再精确匹配
+  //          → 仍未命中时，回退到原始 ID 的完整匹配策略（精确 / 前缀最长 / 反向前缀最短 / 包含最长）
   const findBuiltinByModelId = (modelId: string): BuiltinModel | undefined => {
     const lower = modelId.toLowerCase()
+
+    // 0. 截取 + 精准匹配 + 前缀收缩：
+    //    先从官方 ID 提取模型名主体（去除供应商前缀），沿「由长到短」的收缩候选中精确匹配，
+    //    命中即返回，避免 "zai/glm-5.3-flash" 落入包含匹配被 "glm-5" 抢占
+    for (const candidate of extractModelNameCandidates(lower)) {
+      const hit = allBuiltinModels.find((b) => b.id.toLowerCase() === candidate)
+      if (hit) return hit
+    }
 
     // 1. 精确匹配
     const exact = allBuiltinModels.find((b) => b.id.toLowerCase() === lower)
     if (exact) return exact
 
-    // 2. modelId 以某个 builtin.id 开头（如 "gpt-4o-2024-01-01" 匹配 "gpt-4o"）
-    const prefix = allBuiltinModels.find((b) => lower.startsWith(b.id.toLowerCase()))
-    if (prefix) return prefix
+    // 2. modelId 以某个 builtin.id 开头（如 "gpt-4o-2024-01-01" 匹配 "gpt-4o"）。
+    //    多个候选时选最长 id，避免 "glm-5.3-flash-beta" 被 "glm-5" 抢先命中
+    const prefixes = allBuiltinModels.filter((b) => lower.startsWith(b.id.toLowerCase()))
+    if (prefixes.length > 0) {
+      return prefixes.sort((a, b) => b.id.length - a.id.length)[0]
+    }
 
     // 3. builtin.id 以 modelId 开头（如 "mimo-v2.5" 匹配 "mimo-v2.5-pro" 时优先选最短的）
     const suffixMatches = allBuiltinModels
@@ -2349,14 +2387,19 @@ function ModelManagementSection({ provider }: ModelManagementSectionProps) {
       .sort((a, b) => a.id.length - b.id.length)
     if (suffixMatches.length > 0) return suffixMatches[0]
 
-    // 4. 兜底：双向包含，优先选最短匹配
-    const containsMatches = allBuiltinModels
-      .filter((b) => {
-        const bl = b.id.toLowerCase()
-        return lower.includes(bl) || bl.includes(lower)
-      })
+    // 4. 兜底：双向包含匹配
+    //    a) 内置 id 是 modelId 的子串（官方 ID 带供应商前缀，如 "zai/glm-5.3-flash"）
+    //       → 选最长的内置 id，保证命中 "GLM-5.3-Flash" 而非更短的 "GLM-5"
+    const modelContains = allBuiltinModels
+      .filter((b) => lower.includes(b.id.toLowerCase()))
+      .sort((a, b) => b.id.length - a.id.length)
+    if (modelContains.length > 0) return modelContains[0]
+
+    //    b) modelId 是内置 id 的子串 → 选最短的内置 id
+    const builtinContains = allBuiltinModels
+      .filter((b) => b.id.toLowerCase().includes(lower))
       .sort((a, b) => a.id.length - b.id.length)
-    return containsMatches[0]
+    return builtinContains[0]
   }
 
   // 模型编辑弹窗中「努力程度 / 工具选择策略」下拉选项：

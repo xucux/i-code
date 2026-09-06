@@ -14,6 +14,14 @@ editRules:
 
 ### 🔄变更
 
+## [0.3.6] - 2026-09-05
+
+### 🚀新增
+
+- **内置供应商 Experiential**：新增 Experiential（OpenAI 兼容模型网关）预设，同一密钥支持 Chat Completions / Responses / Anthropic Messages 三种协议，默认开启官方模型拉取，并预置 5 个 Promotional 免费模型（Qwen3.8-27B、DeepSeek V4 Flash、GPT-5.6 Luna、Claude Fable 5.1、GPT-6 Astra）
+
+- **内置模型补充**：新增 24 个新一代主力模型——Claude Fable 5.1 / Claude Opus 5、GPT-5.5 / GPT-5.5 pro / GPT-5.6 Pro 系 / GPT-6 Astra、Gemini 3.8 Flash / Gemini 3.1 Flash Lite、DeepSeek V4 Flash Vision Exp、Qwen3.8-2.4T-A95B / Qwen3.8-Flash / Qwen3.7-Flash / Qwen3.6-27B、Seed 2.0 Code、Hy4 Preview、KAT-Coder-Pro V2.5、Grok 4.20 / Grok Build 0.1、Nemotron 3.5 Lightning / Nemotron 3 Super、Mistral Medium 3.5 / Mistral Small 4
+
 ## [0.3.5] - 2026-09-05
 
 > [!IMPORTANT]

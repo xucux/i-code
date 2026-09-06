@@ -141,6 +141,29 @@
       }
     },
     {
+      "id": "seed-2.0-code",
+      "displayName": "Seed 2.0 Code",
+      "background": "字节跳动 Seed 2.0 Code（2026-08-12），Seed 2.0 代码正式版，262K 上下文，支持图像/视频输入，参数量未公开。",
+      "family": "volcano",
+      "providerTypes": [
+        "openai-responses"
+      ],
+      "maxInputTokens": 262144,
+      "maxOutputTokens": 131072,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": false,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "medium"
+      }
+    },
+    {
       "id": "doubao-seed-2-0-code-preview-260215",
       "displayName": "Doubao Seed 2.0 Code Preview",
       "background": "豆包 Seed 2.0 Code 预览版（2026-02-15），专注代码生成/补全与仓库级理解，参数量未公开。",
@@ -177,6 +200,32 @@
       "tokenCountMultiplier": 1,
       "stream": true,
       "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true,
+        "editTools": "multi-find-replace"
+      },
+      "thinking": {
+        "type": "auto",
+        "effort": "high",
+        "summary": "auto"
+      }
+    },
+    {
+      "id": "claude-fable-5.1",
+      "displayName": "Claude Fable 5.1",
+      "background": "Claude 5 代 \"Fable\" 迭代版（2026-09-01），1M 上下文，Experiential 平台 Promotional 免费模型，参数量未公开。",
+      "family": "anthropic",
+      "providerTypes": [
+        "anthropic",
+        "claude-code"
+      ],
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": false,
       "tokenizer": null,
       "capabilities": {
         "toolCalling": true,
@@ -238,6 +287,32 @@
       "thinking": {
         "type": "auto",
         "effort": "xhigh",
+        "summary": "auto"
+      }
+    },
+    {
+      "id": "claude-opus-5",
+      "displayName": "Claude Opus 5",
+      "background": "Claude Opus 5（2026-07-24），Anthropic 新一代 Opus 旗舰，1M 上下文，支持 PDF 输入，参数量未公开。",
+      "family": "anthropic",
+      "providerTypes": [
+        "anthropic",
+        "claude-code"
+      ],
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": false,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true,
+        "editTools": "multi-find-replace"
+      },
+      "thinking": {
+        "type": "auto",
+        "effort": "high",
         "summary": "auto"
       }
     },
@@ -420,6 +495,30 @@
       }
     },
     {
+      "id": "gpt-6-astra",
+      "displayName": "GPT-6 Astra",
+      "background": "GPT-6 Astra（2026-09-03），OpenAI 第六代首个旗舰，1.05M 上下文，Experiential 平台 Promotional 免费模型，参数量未公开。",
+      "family": "openai",
+      "providerTypes": [
+        "openai-responses"
+      ],
+      "maxInputTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": "openai",
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true,
+        "editTools": "apply-patch"
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "medium"
+      }
+    },
+    {
       "id": "gpt-5.6-sol",
       "displayName": "GPT-5.6 Sol",
       "background": "GPT-5.6 \"Sol\"（2026），旗舰编程/智能体变体，1.05M 上下文，超高强度思考，参数量未公开。",
@@ -441,6 +540,32 @@
       "thinking": {
         "type": "enabled",
         "effort": "xhigh",
+        "mode": "standard",
+        "context": "auto"
+      }
+    },
+    {
+      "id": "gpt-5.6-sol-pro",
+      "displayName": "GPT-5.6 Sol pro",
+      "background": "GPT-5.6 \"Sol\" 增强推理版（2026-07-09），1.05M 上下文，思考力度最高支持 max，参数量未公开。",
+      "family": "openai",
+      "providerTypes": [
+        "openai-responses"
+      ],
+      "maxInputTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": false,
+      "tokenizer": "openai",
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true,
+        "editTools": "apply-patch"
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "medium",
         "mode": "standard",
         "context": "auto"
       }
@@ -472,6 +597,32 @@
       }
     },
     {
+      "id": "gpt-5.6-terra-pro",
+      "displayName": "GPT-5.6 Terra pro",
+      "background": "GPT-5.6 \"Terra\" 增强推理版（2026-07-09），侧重稳定与长任务，1.05M 上下文，参数量未公开。",
+      "family": "openai",
+      "providerTypes": [
+        "openai-responses"
+      ],
+      "maxInputTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": false,
+      "tokenizer": "openai",
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true,
+        "editTools": "apply-patch"
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "medium",
+        "mode": "standard",
+        "context": "auto"
+      }
+    },
+    {
       "id": "gpt-5.6-luna",
       "displayName": "GPT-5.6 Luna",
       "background": "GPT-5.6 \"Luna\"（2026），速度与成本优化的旗舰变体，1.05M 上下文，参数量未公开。",
@@ -495,6 +646,80 @@
         "effort": "xhigh",
         "mode": "standard",
         "context": "auto"
+      }
+    },
+    {
+      "id": "gpt-5.6-luna-pro",
+      "displayName": "GPT-5.6 Luna pro",
+      "background": "GPT-5.6 \"Luna\" 增强推理版（2026-07-09），Luna 系低成本增强版，1.05M 上下文，参数量未公开。",
+      "family": "openai",
+      "providerTypes": [
+        "openai-responses"
+      ],
+      "maxInputTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": false,
+      "tokenizer": "openai",
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true,
+        "editTools": "apply-patch"
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "medium",
+        "mode": "standard",
+        "context": "auto"
+      }
+    },
+    {
+      "id": "gpt-5.5",
+      "displayName": "GPT-5.5",
+      "background": "GPT-5.5（2026-04-24），GPT-5 代际迭代旗舰，1.05M 上下文 + 多模态输入，参数量未公开。",
+      "family": "openai",
+      "providerTypes": [
+        "openai-responses"
+      ],
+      "maxInputTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": false,
+      "tokenizer": "openai",
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true,
+        "editTools": "apply-patch"
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "medium"
+      }
+    },
+    {
+      "id": "gpt-5.5-pro",
+      "displayName": "GPT-5.5 pro",
+      "background": "GPT-5.5 Pro（2026-04-24），GPT-5.5 增强推理版，思考更深、延迟更高，参数量未公开。",
+      "family": "openai",
+      "providerTypes": [
+        "openai-responses"
+      ],
+      "maxInputTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": false,
+      "tokenizer": "openai",
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true,
+        "editTools": "apply-patch"
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "medium"
       }
     },
     {
@@ -1025,6 +1250,26 @@
       }
     },
     {
+      "id": "deepseek-v4-flash-vision-exp",
+      "displayName": "DeepSeek V4 Flash Vision Exp",
+      "background": "DeepSeek V4 Flash 视觉实验版（2026-08-21），1M 上下文 + 图像输入，1M 输出，参数量未公开。",
+      "family": "deepseek",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 1048576,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": "deepseek",
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": null
+    },
+    {
       "id": "deepseek-v4-pro",
       "displayName": "DeepSeek V4 Pro",
       "background": "DeepSeek V4 Pro（2026），旗舰推理模型，1M 上下文，长推理链表现突出，参数量未公开。",
@@ -1386,6 +1631,55 @@
       }
     },
     {
+      "id": "qwen3.8-2.4t-a95b",
+      "displayName": "Qwen3.8-2.4T-A95B",
+      "background": "Qwen3.8-2.4T-A95B（2026-08-12），2.4T 总参/激活 95B 的 MoE 旗舰，1M 上下文，思考力度最高 xhigh。",
+      "family": "alibaba",
+      "providerTypes": [
+        "openai-chat-completion",
+        "openai-responses",
+        "anthropic"
+      ],
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 262144,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": false,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "xhigh"
+      }
+    },
+    {
+      "id": "qwen3.8-flash",
+      "displayName": "Qwen3.8-Flash",
+      "background": "Qwen3.8-Flash（2026-08-26），高速低成本版，1M 上下文 + 多模态，参数量未公开。",
+      "family": "alibaba",
+      "providerTypes": [
+        "openai-chat-completion",
+        "anthropic"
+      ],
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": null,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": false,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "medium"
+      }
+    },
+    {
       "id": "qwen3.7-max",
       "displayName": "Qwen3.7-Max",
       "background": "Qwen3.7-Max（2026），1M 上下文，闭源旗舰迭代，参数量未公开。",
@@ -1432,6 +1726,30 @@
       }
     },
     {
+      "id": "qwen3.7-flash",
+      "displayName": "Qwen3.7-Flash",
+      "background": "Qwen3.7-Flash（2026-07-27），高速型，1M 上下文 + 多模态，参数量未公开。",
+      "family": "alibaba",
+      "providerTypes": [
+        "openai-chat-completion",
+        "anthropic"
+      ],
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 65536,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": false,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "medium"
+      }
+    },
+    {
       "id": "qwen3.6-plus",
       "displayName": "Qwen3.6-Plus",
       "background": "Qwen3.6-Plus（2026），1M 上下文，均衡型主力，参数量未公开。",
@@ -1474,6 +1792,30 @@
       },
       "thinking": {
         "type": "enabled"
+      }
+    },
+    {
+      "id": "qwen3.6-27b",
+      "displayName": "Qwen3.6-27B",
+      "background": "Qwen3.6-27B（2026-04-27），27B 中型开源级，262K 上下文 + 多模态。",
+      "family": "alibaba",
+      "providerTypes": [
+        "openai-chat-completion",
+        "anthropic"
+      ],
+      "maxInputTokens": 262144,
+      "maxOutputTokens": 65536,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": false,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "medium"
       }
     },
     {
@@ -2028,6 +2370,52 @@
       }
     },
     {
+      "id": "grok-4.20",
+      "displayName": "Grok 4.20",
+      "background": "Grok 4.20（2026-03-31），4.20 统一入口版，2M 超长上下文 + 多模态，参数量未公开。",
+      "family": "xai",
+      "providerTypes": [
+        "openai-responses"
+      ],
+      "maxInputTokens": 2000000,
+      "maxOutputTokens": null,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": false,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "medium"
+      }
+    },
+    {
+      "id": "grok-build-0.1",
+      "displayName": "Grok Build 0.1",
+      "background": "Grok Build 0.1（2026-05-20），xAI 面向 Grok Build 编程智能体的特调版，256K 上下文，参数量未公开。",
+      "family": "xai",
+      "providerTypes": [
+        "openai-responses"
+      ],
+      "maxInputTokens": 256000,
+      "maxOutputTokens": null,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": false,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "medium"
+      }
+    },
+    {
       "id": "grok-4.5",
       "displayName": "Grok 4.5",
       "background": "Grok 4.5（2026），500K 上下文，均衡旗舰，参数量未公开。",
@@ -2194,6 +2582,30 @@
       "thinking": null
     },
     {
+      "id": "gemini-3.8-flash",
+      "displayName": "Gemini 3.8 Flash",
+      "background": "Gemini 3.8 Flash（2026-09-02），Google 最新一代 Flash，1M 上下文全模态输入，参数量未公开。",
+      "family": "gemini",
+      "providerTypes": [
+        "google-ai-studio",
+        "google-vertex-ai"
+      ],
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65536,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": false,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "high"
+      }
+    },
+    {
       "id": "gemini-3.7-flash",
       "displayName": "Gemini 3.7 Flash",
       "background": "Gemini 3.7 Flash（2026），1M 上下文多模态，中等思考，高性价比主力，参数量未公开。",
@@ -2335,6 +2747,30 @@
       "thinking": {
         "type": "enabled",
         "effort": "high"
+      }
+    },
+    {
+      "id": "gemini-3.1-flash-lite",
+      "displayName": "Gemini 3.1 Flash Lite",
+      "background": "Gemini 3.1 Flash-Lite 正式版（2026-05-07），1M 上下文，超低延迟低成本，参数量未公开。",
+      "family": "gemini",
+      "providerTypes": [
+        "google-ai-studio",
+        "google-vertex-ai"
+      ],
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65536,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": false,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "medium"
       }
     },
     {
@@ -2521,6 +2957,29 @@
       }
     },
     {
+      "id": "hy4-preview",
+      "displayName": "Hy4 Preview",
+      "background": "腾讯混元 Hy4 预览版（2026-08-28），第四代混元，1M 上下文，高强度思考，参数量未公开。",
+      "family": "tencent",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": null,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": false,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "high"
+      }
+    },
+    {
       "id": "LongCat-2.0",
       "displayName": "LongCat 2.0",
       "background": "LongCat 2.0（2026），美团 MoE，1M 上下文，代码与推理均衡，参数量未公开（LongCat-Flash 开源版为 560B 总参/24B 激活）。",
@@ -2556,6 +3015,27 @@
       "tokenCountMultiplier": 1,
       "stream": true,
       "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": null
+    },
+    {
+      "id": "kat-coder-pro-v2.5",
+      "displayName": "KAT-Coder-Pro V2.5",
+      "background": "KAT Coder Pro v2.5（2026-07-10），万兴 Vanchin 编程特调迭代版，256K 上下文，参数量未公开。",
+      "family": "vanchin",
+      "providerTypes": [
+        "openai-chat-completion",
+        "anthropic"
+      ],
+      "maxInputTokens": 256000,
+      "maxOutputTokens": null,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": false,
       "tokenizer": null,
       "capabilities": {
         "toolCalling": true,
@@ -2710,6 +3190,49 @@
       }
     },
     {
+      "id": "nemotron-3.5-lightning",
+      "displayName": "Nemotron 3.5 Lightning",
+      "background": "NVIDIA Nemotron 3.5 Lightning（2026-08-11），3.5 代高速版，262K 上下文，131K 输出，参数量未公开。",
+      "family": "nvidia",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 262144,
+      "maxOutputTokens": 131072,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": false,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": false,
+        "imageInput": false
+      },
+      "thinking": null
+    },
+    {
+      "id": "nemotron-3-super-120b-a12b",
+      "displayName": "Nemotron 3 Super",
+      "background": "NVIDIA Nemotron 3 Super（2026-03-11），120B MoE（激活 12B），1M 上下文，企业级推理，参数量以命名口径为准。",
+      "family": "nvidia",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 16384,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": false,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": false
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "medium"
+      }
+    },
+    {
       "id": "sensenova-6.8-flash-lite",
       "displayName": "SenseNova 6.8 Flash Lite",
       "background": "日日新轻量高效的多模态智能体模型（2026），重点提升多模态 Agent 场景能力，复杂数据分析能力显著增强，支持主/次 Agent 协作与原生多模态交付物生成。",
@@ -2745,6 +3268,52 @@
       "thinking": {
         "type": "enabled",
         "effort": "medium"
+      }
+    },
+    {
+      "id": "mistral-medium-3-5",
+      "displayName": "Mistral Medium 3.5",
+      "background": "Mistral Medium 3.5（2026-04-30），中档旗舰迭代，262K 上下文 + 多模态，参数量未公开。",
+      "family": "mistral",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 262144,
+      "maxOutputTokens": null,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": false,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "high"
+      }
+    },
+    {
+      "id": "mistral-small-2603",
+      "displayName": "Mistral Small 4",
+      "background": "Mistral Small 迭代版（2026-03-16，2603 快照），262K 上下文 + 图像输入，参数量未公开。",
+      "family": "mistral",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 262144,
+      "maxOutputTokens": null,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": false,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "high"
       }
     }
   ]
