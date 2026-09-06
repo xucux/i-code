@@ -33,6 +33,7 @@ pub mod chat;
 pub mod cli_management;
 pub mod community;
 pub mod gateway_runtime;
+pub mod imagebed;
 pub mod logger;
 pub mod media_generation;
 pub mod scheduler;

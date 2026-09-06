@@ -90,6 +90,8 @@ export const BACKEND_EVENTS = {
   CONSOLE_LOG: 'console:log',
   /** 托盘菜单导航请求（payload: 路由路径），前端监听后跳转对应页面 */
   TRAY_NAVIGATE: 'tray:navigate',
+  /** 图床外链就绪（payload: ImagebedLinkReady），社区编辑器自动插入 */
+  IMAGEBED_LINK_READY: 'imagebed:link-ready',
 } as const
 
 /**

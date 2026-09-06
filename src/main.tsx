@@ -4,6 +4,7 @@ import { RouterProvider, createRouter } from '@tanstack/react-router'
 import type { UnlistenFn } from '@tauri-apps/api/event'
 import { ThemeProvider } from '@/modules/theme/theme-provider'
 import { registerConsoleLogForwarder } from '@/core/events'
+import { registerImagebedEvents } from '@/modules/imagebed/store'
 import '@/modules/i18n/i18n'
 import '@/index.css'
 
@@ -31,6 +32,8 @@ function App() {
     registerConsoleLogForwarder().then((fn) => {
       unlisten = fn
     })
+    // 注册图床外链事件监听（幂等），社区编辑器自动插入上传外链
+    registerImagebedEvents()
     return () => {
       unlisten?.()
     }

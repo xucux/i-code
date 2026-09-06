@@ -1006,6 +1006,10 @@ fn main() {
             modules::community::commands::community_list_post_share_links,
             modules::community::commands::community_admin_get_share_links,
             modules::community::commands::community_admin_revoke_share_link,
+            // ===== Imagebed 模块（社区图床上传：内置浏览器 + 脚本注入）=====
+            modules::imagebed::commands::imagebed_list,
+            modules::imagebed::commands::imagebed_open,
+            modules::imagebed::commands::imagebed_close,
             // ===== Gateway Runtime 模块 =====
             modules::gateway_runtime::commands::gateway_start,
             modules::gateway_runtime::commands::gateway_stop,
@@ -1229,6 +1233,12 @@ fn main() {
             let community_handle = modules::community::CommunityHandle::new();
             tracing::info!("Community 模块初始化完成");
             app.manage(community_handle);
+
+            // ===== 初始化 Imagebed 模块 =====
+            // 社区图床上传：内置浏览器窗口 + 注入脚本 + 标题桥接回传
+            let imagebed_handle = modules::imagebed::ImagebedHandle::new(app.handle().clone());
+            tracing::info!("Imagebed 模块初始化完成");
+            app.manage(imagebed_handle);
 
             // ===== 初始化 Scheduler 模块 =====
             // 定时任务调度器，当前内置 OAuth token 续期、虚拟路由主动健康检查任务。

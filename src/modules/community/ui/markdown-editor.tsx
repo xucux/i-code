@@ -10,8 +10,19 @@
  * 作用于当前行或选中的多行。
  */
 
-import { useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
+import { toast } from 'sonner'
 import { useTranslation } from '@/modules/i18n/use-translation'
+import { invokeCommand } from '@/hooks/use-command'
+import { toIcodeError } from '@/core/errors'
+import { useImagebedStore, registerImagebedEvents } from '@/modules/imagebed/store'
+import type { ImagebedProvider } from '@/modules/imagebed/types'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
@@ -35,11 +46,14 @@ export interface MarkdownEditorProps {
 
 /** 变换结果：新文本 + 光标选区 */
 type Transform = { text: string; sel: [number, number] }
-/** 语法动作：返回依据原始文本(value)与选区(s,e)生成的新文本与选区 */
+/** 语法动作：文本变换（transform）与异步动作（onClick）二选一 */
 type Action = {
   key: string
   icon: string
-  transform: (value: string, s: number, e: number) => Transform
+  /** 返回依据原始文本(value)与选区(s,e)生成的新文本与选区 */
+  transform?: (value: string, s: number, e: number) => Transform
+  /** 非文本变换的异步动作（如图床开窗）；存在时优先于 transform */
+  onClick?: () => void
 }
 
 /** 行首前缀是否已存在（避免重复插入） */
@@ -129,6 +143,57 @@ export function MarkdownEditor({
 
   const tEd = (key: string) => t(`editor.${key}`)
 
+  /** 图床外链：未消费的最新链接（后端 imagebed:link-ready 事件推送） */
+  const pendingImageLink = useImagebedStore((s) => s.pending)
+  /** 内置图床列表（下拉选择） */
+  const providers = useImagebedStore((s) => s.providers)
+  const loadProviders = useImagebedStore((s) => s.loadProviders)
+
+  /** 在编辑器光标处插入一段 Markdown（图床外链回传） */
+  const insertMarkdownAtCursor = (markdown: string) => {
+    const ta = textareaRef.current
+    if (!ta) return
+    const s = ta.selectionStart
+    const e = ta.selectionEnd
+    const part = markdown + '\n'
+    const text = ta.value.slice(0, s) + part + ta.value.slice(e)
+    apply({ text, sel: [s + part.length, s + part.length] })
+  }
+
+  /** 打开指定图床的内置浏览器窗口 */
+  const handleImageBedOpen = useCallback(
+    async (provider: ImagebedProvider) => {
+      try {
+        await invokeCommand<void>('imagebed_open', { providerId: provider.id })
+        toast(t('editor.imagebedOpen'))
+      } catch (e) {
+        toast(toIcodeError(e).message)
+      }
+    },
+    [t]
+  )
+
+  // 图床下拉：懒加载 provider 列表
+  useEffect(() => {
+    void loadProviders()
+  }, [loadProviders])
+
+  // 订阅图床外链：焦点在本编辑器时自动插入，否则提示剪贴板粘贴
+  useEffect(() => {
+    registerImagebedEvents()
+    if (!pendingImageLink) return
+    const link = useImagebedStore.getState().consume()
+    if (!link) return
+    const ta = textareaRef.current
+    if (ta && document.activeElement === ta) {
+      insertMarkdownAtCursor(link.markdown)
+    } else {
+      toast(t('editor.imagebedCopied'))
+    }
+    // pendingImageLink 引用变化即触发；consume 置空避免重复消费
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingImageLink, t])
+
   /** 语法动作表（图标/工具提示/变换逻辑） */
   const actions: Action[] = [
     { key: 'bold', icon: 'fa-bold', transform: (v, s, e) => wrapSelection(v, s, e, '**', '**', tEd('bold')) },
@@ -154,8 +219,8 @@ export function MarkdownEditor({
       key: 'image',
       icon: 'fa-image',
       transform: (v, s, e) => {
-        // 插入图片语法，占位符预选中：![alt](url)
-        const part = '![' + tEd('imageAlt') + '](' + tEd('imageUrl') + ')'
+        // 插入图片语法（含 Obsidian 风格尺寸后缀），占位符预选中：![图片描述|300](https://)
+        const part = '![' + tEd('imageAlt') + '|300](' + tEd('imageUrl') + ')'
         const text = v.slice(0, s) + part + v.slice(e)
         return { text, sel: [s, s + part.length] }
       },
@@ -206,12 +271,50 @@ export function MarkdownEditor({
           onClick={() => {
             const ta = textareaRef.current
             if (!ta) return
-            apply(action.transform(ta.value, ta.selectionStart, ta.selectionEnd))
+            // 异步动作（如图床开窗）优先于文本变换
+            if (action.onClick) {
+              action.onClick()
+              return
+            }
+            apply(action.transform!(ta.value, ta.selectionStart, ta.selectionEnd))
           }}
         >
           <i className={`fa-solid ${action.icon} size-2.5`} />
         </button>
       ))}
+
+      {/* 图床：点击展开内置图床列表，选择后打开浏览器窗口上传 */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            title={tEd('imagebed')}
+            aria-label={tEd('imagebed')}
+            className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-6 items-center justify-center rounded transition-colors"
+            onMouseDown={(ev) => ev.preventDefault() /* 防止失焦丢失选中 */}
+          >
+            <i className="fa-solid fa-cloud-arrow-up size-2.5" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="min-w-44 p-1" sideOffset={4}>
+          {providers.length === 0 ? (
+            <DropdownMenuItem disabled className="text-xs text-muted-foreground">
+              {tEd('imagebedNone')}
+            </DropdownMenuItem>
+          ) : (
+            providers.map((p) => (
+              <DropdownMenuItem
+                key={p.id}
+                className="text-xs"
+                onSelect={() => void handleImageBedOpen(p)}
+              >
+                <i className="fa-solid fa-globe mr-1.5 size-3" />
+                {p.name}
+              </DropdownMenuItem>
+            ))
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   )
 
