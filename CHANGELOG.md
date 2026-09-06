@@ -22,6 +22,12 @@ editRules:
 
 - **内置模型补充**：新增 24 个新一代主力模型——Claude Fable 5.1 / Claude Opus 5、GPT-5.5 / GPT-5.5 pro / GPT-5.6 Pro 系 / GPT-6 Astra、Gemini 3.8 Flash / Gemini 3.1 Flash Lite、DeepSeek V4 Flash Vision Exp、Qwen3.8-2.4T-A95B / Qwen3.8-Flash / Qwen3.7-Flash / Qwen3.6-27B、Seed 2.0 Code、Hy4 Preview、KAT-Coder-Pro V2.5、Grok 4.20 / Grok Build 0.1、Nemotron 3.5 Lightning / Nemotron 3 Super、Mistral Medium 3.5 / Mistral Small 4
 
+- **社区编辑器内置图床上传**：社区 Markdown 编辑器工具栏新增「图床」下拉，列出内置图床，选择后弹出独立浏览器窗口完成上传，无需手动切换浏览器复制外链；发帖 / 编辑帖子 / 一级回复共用编辑器，全场景可用
+
+- **内置图床 img.remit.ee 适配**：上传窗口内注入增强脚本——粘贴 / 拖拽 / 选文件上传面板、结果卡片复制按钮；点击复制后外链自动回插编辑器光标处（剪贴板兜底）
+
+- **内置图床 ooxx.ooo 适配**：粘贴图片进入浮动面板后手动上传，上传后由站点结果区人工复制外链
+
 ## [0.3.5] - 2026-09-05
 
 > [!IMPORTANT]
