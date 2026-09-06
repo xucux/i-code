@@ -2485,32 +2485,6 @@
     },
     {
       "id": "grok-4.6",
-      "displayName": "Grok 4.6",
-      "background": "Grok 4.6（2026），500K 上下文，多模态 + 思考，X 实时数据加持，参数量未公开。",
-      "family": "xai",
-      "providerTypes": [
-        "openai-responses"
-      ],
-      "maxInputTokens": 500000,
-      "maxOutputTokens": 65536,
-      "tokenCountMultiplier": 1,
-      "stream": true,
-      "parallelToolCalling": true,
-      "tokenizer": null,
-      "thinkingEffortOptions": [
-        "low",
-        "medium",
-        "high",
-        "xhigh"
-      ],
-      "capabilities": {
-        "toolCalling": true,
-        "imageInput": true
-      },
-      "thinking": {
-        "type": "enabled",
-        "effort": "high"
-      }
       "displayName": "Grok 4.20",
       "background": "Grok 4.20（2026-03-31），4.20 统一入口版，2M 超长上下文 + 多模态，参数量未公开。",
       "family": "xai",
