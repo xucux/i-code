@@ -13,7 +13,7 @@
 2. **提供本地 API Gateway**：统一暴露模型 ID 为 `{provider_slug}/{model_id}`，本地监听并代理请求。
 3. **管理 CLI 配置**：为 Claude Code、Codex、Gemini CLI 等维护配置档案，支持直连或路由到本地 Gateway。
 
-版本：`0.3.5`  
+版本：`0.3.6`  
 包管理：`pnpm@11`  
 数据库：本地 SQLite（`i-code.db`）  
 默认网关：`127.0.0.1:54321`
