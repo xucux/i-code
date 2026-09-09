@@ -505,7 +505,9 @@
         "fetchHint": "Click the button above to fetch official model list",
         "noOfficialMatches": "No matching models",
         "loadBuiltinFailed": "Failed to load builtin models: {{message}}",
-        "deleteSuccess": "Model deleted"
+        "deleteSuccess": "Model deleted",
+        "selectAll": "Select all",
+        "deselectAll": "Deselect all"
       },
       "modelAdd": {
         "addSuccess": "Added {{count}} models"
@@ -628,7 +630,8 @@
       "expand": "Fullscreen",
       "restore": "Restore",
       "export": "Export CSV",
-      "exportSaved": "CSV exported, check the opened folder"
+      "exportSaved": "CSV exported, check the opened folder",
+      "aggDelayHint": "Aggregation is delayed by ~10 min"
     },
     "timeRange": {
       "1hour": "1h",

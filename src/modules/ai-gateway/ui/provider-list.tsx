@@ -358,6 +358,7 @@ export function ProviderList() {
       if (editingProvider) {
         const result = await updateProvider(editingProvider.id, {
           displayName: values.displayName,
+          providerType: values.providerType,
           baseUrl: values.baseUrl,
           remark: values.remark,
           useRawBaseUrl: values.useRawBaseUrl,

@@ -7,23 +7,23 @@
 //! 在 `gateway_runtime/upstream.rs` 转发请求前调用 [`start_call`] 创建记录，
 //! 请求结束后调用 [`finish_call`] 补充完成信息（耗时、状态码、错误、token 数）。
 //!
-//! V006 新增：`finish_call` 完成时同步累加写入 `model_call_stats_hourly` /
-//! `model_call_stats_daily` 两张聚合表。
+//! 聚合表（`model_call_stats_hourly` / `model_call_stats_daily`）由调度器
+//! 每 10 分钟定时从明细表窗口重算（见 `repository::rebuild_windowed_stats`），
+//! 本层写入调用记录时不再实时累加，避免增量计数不一致。
 //!
 //! V002 新增：`clear_call_stats` 清空统计数据（全部或指定时间范围）；
 //! `get_today_tokens` 供系统托盘显示今日 token 消耗。
 
 use std::sync::Arc;
 
-use chrono::{Timelike, Utc};
+use chrono::Utc;
 
 use crate::error::IcodeResult;
 
 use super::repository;
 use super::types::{
     AggregatedStatsInput, AggregatedStatsRow, CreateModelCallLogInput, ListModelCallLogsInput,
-    ModelCallLog, ModelCallStatsInput, ModelCallStatsRow, StatsAccumulate,
-    UpdateModelCallLogInput,
+    ModelCallLog, ModelCallStatsInput, ModelCallStatsRow, UpdateModelCallLogInput,
 };
 
 /// 调用记录 Service 在 Tauri State 中的句柄
@@ -75,7 +75,10 @@ impl CallRecordsService {
     /// 完成一次调用记录（含耗时）
     ///
     /// 由上层传入从请求开始到响应完成的耗时（毫秒）。
-    #[expect(dead_code)]
+    // 该方法当前无调用方（网关与媒体生成均使用 *_and_tokens* 系列）；
+    // 用 allow 而非 expect：expect(dead_code) 需 Rust 1.81+ 与新版 rust-analyzer，
+    // 旧版分析器会将其误报为未知属性导致 IDE 标红。
+    #[allow(dead_code)]
     pub fn finish_call_with_duration(
         &self,
         id: &str,
@@ -95,11 +98,7 @@ impl CallRecordsService {
     /// 完成一次调用记录（含耗时与估算 token 数）
     ///
     /// 当上游响应不含 usage 字段时，`prompt_tokens` 由 tokenizer 估算补充。
-    /// 完成后同步累加写入 `model_call_stats_hourly` / `model_call_stats_daily` 聚合表。
-    ///
-    /// 幂等性：通过 `stats_accumulated` 标记保证每条记录只累加一次。流式请求会先
-    /// 以估算值完成一次，流结束后还会以真实 usage 再次完成调用，若无标记则同一
-    /// 记录会被重复累加，造成「聚合汇总」远大于「明细汇总」。
+    /// 聚合表由调度器定时从明细表窗口重算，本方法只更新明细记录。
     pub fn finish_call_with_duration_and_tokens(
         &self,
         id: &str,
@@ -109,7 +108,7 @@ impl CallRecordsService {
         prompt_tokens: Option<i64>,
     ) -> IcodeResult<ModelCallLog> {
         let completed_at = Utc::now().to_rfc3339();
-        let log = repository::update_call_log(
+        repository::update_call_log(
             id,
             &UpdateModelCallLogInput {
                 completed_at: Some(completed_at.clone()),
@@ -124,142 +123,23 @@ impl CallRecordsService {
                 time_to_first_token_ms: None,
                 price_per_1m_tokens: None,
             },
-        )?;
-
-        // 幂等累加：仅当本次为该记录首次完成（标记 0→1）时累加聚合表；
-        // 标记失败时跳过累加，不影响调用记录主流程
-        if repository::try_mark_call_log_accumulated(id).unwrap_or(false) {
-            let _ = self.accumulate_stats_from_log(&log, status_code, duration_ms, prompt_tokens);
-        }
-
-        Ok(log)
+        )
     }
 
     /// 完成一次调用记录（含完整 usage 数据）
     ///
     /// 从上游响应解析的 usage 字段通过 `UpdateModelCallLogInput` 传入，
     /// 包含 completion_tokens / total_tokens / cached_tokens / price_per_1m_tokens 等。
-    /// 完成后同步累加写入聚合表（幂等，见 [`Self::finish_call_with_duration_and_tokens`]）。
+    /// 聚合表由调度器定时从明细表窗口重算，本方法只更新明细记录。
     pub fn finish_call_with_duration_and_tokens_full(
         &self,
         id: &str,
         duration_ms: i64,
         input: &UpdateModelCallLogInput,
     ) -> IcodeResult<ModelCallLog> {
-        let log = repository::update_call_log(id, input)?;
-
-        // 幂等累加：与基础版 finish 共用同一标记位，保证同一记录只累加一次
-        if repository::try_mark_call_log_accumulated(id).unwrap_or(false) {
-            let _ = self.accumulate_stats_from_log(
-                &log,
-                input.status_code,
-                duration_ms,
-                input.prompt_tokens,
-            );
-        }
-
-        Ok(log)
-    }
-
-    /// 根据完成的调用记录构造增量数据并累加写入两张聚合表
-    ///
-    /// 按 `requested_at` 计算所属小时桶与天桶，UPSERT 累加。
-    fn accumulate_stats_from_log(
-        &self,
-        log: &ModelCallLog,
-        status_code: Option<i64>,
-        duration_ms: i64,
-        prompt_tokens: Option<i64>,
-    ) -> IcodeResult<()> {
-        // 解析 requested_at 为 chrono DateTime 用于计算时间桶
-        let requested_at = chrono::DateTime::parse_from_rfc3339(&log.requested_at)
-            .map(|dt| dt.with_timezone(&chrono::Utc))
-            .ok();
-
-        // 计算时间桶
-        let (hour_bucket, day_bucket) = if let Some(dt) = requested_at {
-            let hour = dt.with_minute(0).unwrap_or(dt).with_second(0).unwrap_or(dt)
-                .with_nanosecond(0).unwrap_or(dt);
-            let day = dt.with_hour(0).unwrap_or(dt).with_minute(0).unwrap_or(dt)
-                .with_second(0).unwrap_or(dt).with_nanosecond(0).unwrap_or(dt);
-            (hour.to_rfc3339(), day.to_rfc3339())
-        } else {
-            // 解析失败时用当前时间
-            let now = chrono::Utc::now();
-            let hour = now.with_minute(0).unwrap_or(now).with_second(0).unwrap_or(now)
-                .with_nanosecond(0).unwrap_or(now);
-            let day = now.with_hour(0).unwrap_or(now).with_minute(0).unwrap_or(now)
-                .with_second(0).unwrap_or(now).with_nanosecond(0).unwrap_or(now);
-            (hour.to_rfc3339(), day.to_rfc3339())
-        };
-
-        // 构造增量数据
-        let sc = status_code.unwrap_or(0);
-        let is_success = sc >= 200 && sc <= 299;
-        let is_4xx = sc >= 400 && sc <= 499;
-        let is_5xx = sc >= 500;
-
-        // 使用日志记录中的实际 total_tokens（来自上游 usage 或 prompt+completion 估算）
-        let total_tokens = log.total_tokens.unwrap_or_else(|| {
-            // 回退：从 prompt_tokens + completion_tokens 估算
-            let pt = prompt_tokens.unwrap_or(log.prompt_tokens.unwrap_or(0));
-            let ct = log.completion_tokens.unwrap_or(0);
-            pt + ct
-        });
-
-        // 估算费用：total_tokens × price_per_1m_tokens / 1M
-        // model_configs.price_per_1m_tokens 单位为元 / 1M tokens，因此结果单位为 CNY。
-        let price = log.price_per_1m_tokens.unwrap_or(0.0);
-        let cost_cny = if total_tokens > 0 && price > 0.0 {
-            total_tokens as f64 * price / 1_000_000.0
-        } else {
-            0.0
-        };
-
-        // 输出速率估算
-        let output_tps = if let Some(ct) = log.completion_tokens {
-            if ct > 0 && duration_ms > 0 {
-                ct as f64 * 1000.0 / duration_ms as f64
-            } else {
-                0.0
-            }
-        } else {
-            0.0
-        };
-
-        let ttft_ms = log.time_to_first_token_ms.unwrap_or(0);
-
-        // 小时级累加
-        let acc_hourly = StatsAccumulate {
-            provider_id: log.provider_id.clone(),
-            model_id: log.model_id.clone(),
-            source: log.source.clone(),
-            route_mode: log.route_mode,
-            api_key_secret_id: log.api_key_secret_id.clone().unwrap_or_default(),
-            time_bucket: hour_bucket,
-            is_success,
-            is_4xx,
-            is_5xx,
-            total_tokens,
-            cached_tokens: log.cached_tokens.unwrap_or(0),
-            cache_hit: log.cache_hit,
-            cost_cny,
-            duration_ms,
-            ttft_ms,
-            output_tps,
-        };
-
-        // 天级累加（同维度，不同 time_bucket）
-        let acc_daily = StatsAccumulate {
-            time_bucket: day_bucket,
-            ..acc_hourly.clone()
-        };
-
-        // 写入两张聚合表（任一失败不影响另一张）
-        let _ = repository::accumulate_stats_hourly(&acc_hourly);
-        let _ = repository::accumulate_stats_daily(&acc_daily);
-
-        Ok(())
+        // duration_ms 已包含在 input 中；此处保持位置参数签名兼容历史调用方
+        let _ = duration_ms;
+        repository::update_call_log(id, input)
     }
 
     /// 列出调用记录

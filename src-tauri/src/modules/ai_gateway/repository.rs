@@ -186,6 +186,11 @@ pub fn update_provider(
         params.push(Box::new(v.clone()));
         idx += 1;
     }
+    if let Some(v) = &input.provider_type {
+        sets.push(format!("provider_type = ?{idx}"));
+        params.push(Box::new(v.clone()));
+        idx += 1;
+    }
     if let Some(v) = &input.base_url {
         sets.push(format!("base_url = ?{idx}"));
         params.push(Box::new(v.clone()));

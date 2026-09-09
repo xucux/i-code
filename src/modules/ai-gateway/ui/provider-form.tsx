@@ -700,6 +700,17 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, buil
   const existingApiKeyRef = useRef<string>('')
   const existingVertexApiKeyRef = useRef<string>('')
 
+  // 模型编辑弹窗状态守卫（供外层 Dialog 的 onInteractOutside 使用）
+  // Radix 已知问题：嵌套 Dialog（本组件的模型编辑弹窗渲染于 ProviderForm 的 Dialog 内部）
+  // 在指针交互中关闭时，剩余交互会被父 Dialog 判定为「外部点击」而误关父弹窗。
+  // 这里记录子弹窗的打开状态与最近关闭时间，父级在「打开期间 + 关闭后 250ms」内屏蔽外部交互。
+  const modelDialogGuardRef = useRef({ open: false, closedAt: 0 })
+  const handleModelDialogOpenChange = useCallback((open: boolean) => {
+    const s = modelDialogGuardRef.current
+    s.open = open
+    if (!open) s.closedAt = Date.now()
+  }, [])
+
   // 用于忽略超时前已发起但尚未返回的授权结果
   const oauthAttemptIdRef = useRef(0)
   const oauthAuthMethodRef = useRef<AuthMethod | null>(null)
@@ -1742,7 +1753,10 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, buil
 
           {/* 模型管理 */}
           <TabsContent value="models" className="min-h-[200px]">
-            <ModelManagementSection provider={provider} />
+            <ModelManagementSection
+              provider={provider}
+              onModelDialogOpenChange={handleModelDialogOpenChange}
+            />
           </TabsContent>
 
           <TabsContent value="advanced" className="space-y-3">
@@ -1984,6 +1998,8 @@ export function ProviderForm({ open, onOpenChange, provider, initialValues, buil
 
 interface ModelManagementSectionProps {
   provider?: Provider | null
+  /** 模型编辑弹窗打开/关闭状态上报（仅供外层的嵌套 Dialog 守卫使用） */
+  onModelDialogOpenChange?: (open: boolean) => void
 }
 
 /**
@@ -1998,7 +2014,7 @@ interface ModelManagementSectionProps {
  *
  * 仅编辑模式下可用（需要已保存的 provider ID）。
  */
-function ModelManagementSection({ provider }: ModelManagementSectionProps) {
+function ModelManagementSection({ provider, onModelDialogOpenChange }: ModelManagementSectionProps) {
   const [existingModels, setExistingModels] = useState<GatewayModel[]>([])
   const [modelsLoading, setModelsLoading] = useState(false)
   const [builtinModels, setBuiltinModels] = useState<BuiltinModel[]>([])
@@ -2086,6 +2102,29 @@ function ModelManagementSection({ provider }: ModelManagementSectionProps) {
     const q = officialSearch.toLowerCase()
     return officialModels.filter((id) => id.toLowerCase().includes(q))
   }, [officialModels, officialSearch])
+
+  /** 官方模型当前筛选结果中可添加（尚未加入供应商）的模型 */
+  const selectableOfficialIds = useMemo(
+    () => filteredOfficialModels.filter((id) => !existingModelIds.has(id)),
+    [filteredOfficialModels, existingModelIds],
+  )
+
+  /** 全选状态：可添加模型非空且全部已选中 */
+  const officialAllSelected =
+    selectableOfficialIds.length > 0 && selectableOfficialIds.every((id) => selectedOfficialIds.has(id))
+
+  /** 切换官方模型全选/取消全选（仅作用于当前筛选结果中可添加的模型） */
+  const handleToggleSelectAllOfficial = () => {
+    setSelectedOfficialIds((prev) => {
+      const next = new Set(prev)
+      if (officialAllSelected) {
+        selectableOfficialIds.forEach((id) => next.delete(id))
+      } else {
+        selectableOfficialIds.forEach((id) => next.add(id))
+      }
+      return next
+    })
+  }
 
   // 加载已添加模型
   const loadExistingModels = async () => {
@@ -2332,6 +2371,7 @@ function ModelManagementSection({ provider }: ModelManagementSectionProps) {
       setEditDialogOpen(false)
       setEditingGatewayModel(null)
       setEditingModelConfig(null)
+      onModelDialogOpenChange?.(false)
       toast.success(t('aiGateway.providerForm.modelEdit.saveSuccess', '模型已保存'))
     } catch (err) {
       toast.error(String(err))
@@ -2343,6 +2383,7 @@ function ModelManagementSection({ provider }: ModelManagementSectionProps) {
     setEditDialogOpen(false)
     setEditingGatewayModel(null)
     setEditingModelConfig(null)
+    onModelDialogOpenChange?.(false)
   }
 
   // 删除模型
@@ -2781,16 +2822,41 @@ function ModelManagementSection({ provider }: ModelManagementSectionProps) {
             </div>
           )}
 
-          {/* 官方模型超过6个时展示搜索框 */}
-          {officialModels.length > 6 && (
-            <div className="relative mb-2">
-              <i className="fa-solid fa-search text-muted-foreground absolute left-2 top-1/2 -translate-y-1/2 text-[10px]" />
-              <Input
-                placeholder={t('aiGateway.providerForm.modelManagement.searchOfficial')}
-                value={officialSearch}
-                onChange={(e) => setOfficialSearch(e.target.value)}
-                className="h-7 pl-6 text-xs"
-              />
+          {/* 官方模型超过6个时展示搜索框；存在可添加模型时展示全选切换 */}
+          {(officialModels.length > 6 || selectableOfficialIds.length > 0) && (
+            <div className="mb-2 flex items-center gap-2">
+              {officialModels.length > 6 && (
+                <div className="relative flex-1">
+                  <i className="fa-solid fa-search text-muted-foreground absolute left-2 top-1/2 -translate-y-1/2 text-[10px]" />
+                  <Input
+                    placeholder={t('aiGateway.providerForm.modelManagement.searchOfficial')}
+                    value={officialSearch}
+                    onChange={(e) => setOfficialSearch(e.target.value)}
+                    className="h-7 pl-6 text-xs"
+                  />
+                </div>
+              )}
+              {/* 全选 / 取消全选：仅针对当前筛选结果中可添加的模型 */}
+              {selectableOfficialIds.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleToggleSelectAllOfficial}
+                  className="ml-auto flex shrink-0 cursor-pointer items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  title={officialAllSelected
+                    ? t('aiGateway.providerForm.modelManagement.deselectAll')
+                    : t('aiGateway.providerForm.modelManagement.selectAll')}
+                >
+                  <input
+                    type="checkbox"
+                    className="size-3 accent-primary"
+                    checked={officialAllSelected}
+                    onChange={handleToggleSelectAllOfficial}
+                  />
+                  {officialAllSelected
+                    ? t('aiGateway.providerForm.modelManagement.deselectAll')
+                    : t('aiGateway.providerForm.modelManagement.selectAll')}
+                </button>
+              )}
             </div>
           )}
 

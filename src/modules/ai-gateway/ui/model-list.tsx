@@ -353,8 +353,12 @@ export function ModelList() {
     const routeText = routeMode !== 'all'
       ? ` · ${routeMode === '1' ? t('modelStatsTable.routeDirect') : t('modelStatsTable.routeFailover')}`
       : ''
-    return `${t('modelManagement.statsDescription', { time: timeText, totalTokens: totalTokensText })}${sourceText}${routeText}`
-  }, [expanded, customRange, timeRangeOption, source, routeMode, t, totalTokensText])
+    // 聚合模式数据由定时窗口重算维护，天然滞后一个重算周期，文案中注明
+    const aggHint = activeTab === 'aggregated'
+      ? ` · ${t('modelStats.aggDelayHint')}`
+      : ''
+    return `${t('modelManagement.statsDescription', { time: timeText, totalTokens: totalTokensText })}${sourceText}${routeText}${aggHint}`
+  }, [expanded, customRange, timeRangeOption, source, routeMode, t, totalTokensText, activeTab])
 
   // ===== 高度计算（§5.5） =====
   // 直接测量表格宿主区域，避免 header 估算与 magic number 偏差

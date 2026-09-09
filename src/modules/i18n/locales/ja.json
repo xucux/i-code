@@ -503,7 +503,9 @@
         "fetchHint": "上のボタンをクリックして公式モデルリストを取得します",
         "noOfficialMatches": "一致するモデルはありません",
         "loadBuiltinFailed": "組み込みモデルの読み込みに失敗しました：{{message}}",
-        "deleteSuccess": "モデルを削除しました"
+        "deleteSuccess": "モデルを削除しました",
+        "selectAll": "すべて選択",
+        "deselectAll": "選択を解除"
       },
       "modelAdd": {
         "addSuccess": "{{count}}個のモデルを追加しました"
@@ -622,7 +624,8 @@
       "expand": "全画面",
       "restore": "戻す",
       "export": "CSVをエクスポート",
-      "exportSaved": "CSVをエクスポートしました。開いたフォルダを確認してください"
+      "exportSaved": "CSVをエクスポートしました。開いたフォルダを確認してください",
+      "aggDelayHint": "集計データは約10分遅延します"
     },
     "timeRange": {
       "1hour": "1時間",

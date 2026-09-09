@@ -992,6 +992,9 @@ pub struct ProviderDefaultModelInput {
 pub struct UpdateProviderInput {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
+    /// 供应商协议类型（None 表示不修改）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provider_type: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub base_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

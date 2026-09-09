@@ -5,9 +5,12 @@
 //!
 //! ## 聚合表写入策略
 //!
-//! 采用 UPSERT ON CONFLICT 累加，每次请求完成时实时累加，无需定时批处理。
+//! 采用**定时窗口重算**：调度器（`modules/scheduler`）每 10 分钟调用
+//! [`rebuild_windowed_stats`]，从 `model_call_logs` 明细表重新计算
+//! 「当前时刻 − 10 分钟」所在小时桶与天桶，覆盖式写回聚合表
+//! （DELETE + INSERT SELECT，天然幂等，不存在累加重复计数问题）。
 
-use chrono::{Duration, Utc};
+use chrono::{Duration, Timelike, Utc};
 
 use crate::core::id::generate_id;
 use crate::db::{get_db_pool, DbConn};
@@ -15,9 +18,12 @@ use crate::error::{IcodeError, IcodeResult};
 
 use super::types::{
     AggregatedStatsInput, AggregatedStatsRow, CreateModelCallLogInput, ListModelCallLogsInput,
-    ModelCallLog, ModelCallStatsInput, ModelCallStatsRow, StatsAccumulate,
-    UpdateModelCallLogInput,
+    ModelCallLog, ModelCallStatsInput, ModelCallStatsRow, UpdateModelCallLogInput,
 };
+
+/// 聚合表窗口重算周期（秒）：每次重算「当前时刻 − 该周期」所在的小时/天桶。
+/// 留出该延迟窗口是为了让流式请求的真实 usage 全部落库后再纳入聚合，避免缺计。
+pub const AGG_STATS_REBUILD_INTERVAL_SECS: u64 = 600;
 
 fn get_conn() -> IcodeResult<DbConn> {
     Ok(get_db_pool()?.get()?)
@@ -158,24 +164,6 @@ pub fn update_call_log(id: &str, input: &UpdateModelCallLogInput) -> IcodeResult
     }
 
     find_call_log_by_id(id)
-}
-
-/// 将调用记录标记为已累加进预聚合表（幂等）
-///
-/// 通过条件 UPDATE（`stats_accumulated = 0`）原子抢占标记位：
-/// 仅有首次调用返回 `true`，同一记录后续重复调用返回 `false`。
-///
-/// 背景：流式请求会先以估算 token 完成一次 finish，SSE 流结束后再以
-/// 真实 usage 完成一次，若每次都累加聚合表会造成同一调用被重复计数。
-/// 所有 finish 路径在累加前都先经过本函数抢占，保证每条记录只累加一次。
-pub fn try_mark_call_log_accumulated(id: &str) -> IcodeResult<bool> {
-    let conn = get_conn()?;
-    let affected = conn.execute(
-        "UPDATE model_call_logs SET stats_accumulated = 1
-         WHERE id = ?1 AND stats_accumulated = 0",
-        rusqlite::params![id],
-    )?;
-    Ok(affected > 0)
 }
 
 /// 列出调用记录
@@ -404,80 +392,137 @@ fn call_log_row_mapper(row: &rusqlite::Row<'_>) -> rusqlite::Result<ModelCallLog
     })
 }
 
-// ===== 聚合表：累加写入 =====
+// ===== 聚合表：定时窗口重算 =====
 
-/// UPSERT 累加写入聚合表
+/// 小时级聚合表桶重算 SQL（覆盖式）
 ///
-/// 按时间粒度选择目标表（hourly / daily），使用
-/// `ON CONFLICT DO UPDATE SET ... = ... + excluded.*` 累加计数器。
-/// 首次插入时填充基础维度字段与初始值，冲突时累加增量。
-fn accumulate_stats_to_table(table: &str, acc: &StatsAccumulate) -> IcodeResult<()> {
-    let conn = get_conn()?;
-    let id = new_id();
-    let now = now();
-    let is_success_i: i64 = if acc.is_success { 1 } else { 0 };
-    let is_4xx_i: i64 = if acc.is_4xx { 1 } else { 0 };
-    let is_5xx_i: i64 = if acc.is_5xx { 1 } else { 0 };
-    let cache_hit_i: i64 = if acc.cache_hit { 1 } else { 0 };
+/// 事务内先删除目标小时的旧聚合行，再从明细表按同一小时桶重新聚合插入：
+/// - `?1`：小时桶（形如 `2026-09-05T03:00:00+00:00`）
+/// - 聚合口径与「明细」视图（`aggregate_call_stats`）完全一致，均以
+///   `COALESCE(total_tokens, 0)` 等口径从 `model_call_logs` 派生
+const DELETE_HOURLY_BUCKET_SQL: &str =
+    "DELETE FROM model_call_stats_hourly WHERE time_bucket = ?1";
+const INSERT_HOURLY_BUCKET_SQL: &str = "
+INSERT INTO model_call_stats_hourly (
+  id, provider_id, model_id, source, route_mode, api_key_secret_id, time_bucket,
+  request_count, success_count, error_count_4xx, error_count_5xx,
+  total_tokens, cached_tokens, cache_hit_count,
+  cost_usd, sum_duration_ms, sum_ttft_ms, sum_output_tps,
+  created_at, updated_at
+)
+SELECT
+  COALESCE(api_key_secret_id, '') || '|' || provider_id || '|' || model_id || '|' || source
+    || '|' || route_mode || '|' || strftime('%Y-%m-%dT%H:00:00', requested_at) AS id,
+  provider_id,
+  model_id,
+  source,
+  route_mode,
+  COALESCE(api_key_secret_id, ''),
+  strftime('%Y-%m-%dT%H:00:00', requested_at) || '+00:00' AS time_bucket,
+  COUNT(*) AS request_count,
+  SUM(CASE WHEN status_code BETWEEN 200 AND 299 THEN 1 ELSE 0 END) AS success_count,
+  SUM(CASE WHEN status_code BETWEEN 400 AND 499 THEN 1 ELSE 0 END) AS error_count_4xx,
+  SUM(CASE WHEN status_code >= 500 THEN 1 ELSE 0 END) AS error_count_5xx,
+  COALESCE(SUM(COALESCE(total_tokens, 0)), 0) AS total_tokens,
+  COALESCE(SUM(COALESCE(cached_tokens, 0)), 0) AS cached_tokens,
+  COALESCE(SUM(cache_hit), 0) AS cache_hit_count,
+  COALESCE(SUM(COALESCE(total_tokens, 0) * COALESCE(price_per_1m_tokens, 0.0) / 1000000.0), 0.0) AS cost_usd,
+  COALESCE(SUM(COALESCE(duration_ms, 0)), 0) AS sum_duration_ms,
+  COALESCE(SUM(COALESCE(time_to_first_token_ms, 0)), 0) AS sum_ttft_ms,
+  COALESCE(SUM(CASE
+    WHEN completion_tokens > 0 AND duration_ms > 0
+    THEN CAST(completion_tokens AS REAL) * 1000.0 / duration_ms
+    ELSE 0.0
+  END), 0.0) AS sum_output_tps,
+  strftime('%Y-%m-%dT%H:%M:%SZ', 'now'),
+  strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+FROM model_call_logs
+WHERE strftime('%Y-%m-%dT%H:00:00', requested_at) || '+00:00' = ?1
+GROUP BY provider_id, model_id, source, route_mode, COALESCE(api_key_secret_id, ''),
+  strftime('%Y-%m-%dT%H:00:00', requested_at);
+";
 
-    let sql = format!(
-        "INSERT INTO {table} (
-            id, provider_id, model_id, source, route_mode, api_key_secret_id, time_bucket,
-            request_count, success_count, error_count_4xx, error_count_5xx,
-            total_tokens, cached_tokens, cache_hit_count,
-            cost_usd, sum_duration_ms, sum_ttft_ms, sum_output_tps,
-            created_at, updated_at
-         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?18)
-         ON CONFLICT(provider_id, model_id, source, route_mode, api_key_secret_id, time_bucket) DO UPDATE SET
-            request_count = request_count + 1,
-            success_count = success_count + ?8,
-            error_count_4xx = error_count_4xx + ?9,
-            error_count_5xx = error_count_5xx + ?10,
-            total_tokens = total_tokens + ?11,
-            cached_tokens = cached_tokens + ?12,
-            cache_hit_count = cache_hit_count + ?13,
-            cost_usd = cost_usd + ?14,
-            sum_duration_ms = sum_duration_ms + ?15,
-            sum_ttft_ms = sum_ttft_ms + ?16,
-            sum_output_tps = sum_output_tps + ?17,
-            updated_at = ?18"
-    );
+/// 天级聚合表桶重算 SQL（覆盖式），见小时级说明
+const DELETE_DAILY_BUCKET_SQL: &str =
+    "DELETE FROM model_call_stats_daily WHERE time_bucket = ?1";
+const INSERT_DAILY_BUCKET_SQL: &str = "
+INSERT INTO model_call_stats_daily (
+  id, provider_id, model_id, source, route_mode, api_key_secret_id, time_bucket,
+  request_count, success_count, error_count_4xx, error_count_5xx,
+  total_tokens, cached_tokens, cache_hit_count,
+  cost_usd, sum_duration_ms, sum_ttft_ms, sum_output_tps,
+  created_at, updated_at
+)
+SELECT
+  COALESCE(api_key_secret_id, '') || '|' || provider_id || '|' || model_id || '|' || source
+    || '|' || route_mode || '|' || strftime('%Y-%m-%dT%H:%M:%S', requested_at, 'start of day') AS id,
+  provider_id,
+  model_id,
+  source,
+  route_mode,
+  COALESCE(api_key_secret_id, ''),
+  strftime('%Y-%m-%dT%H:%M:%S', requested_at, 'start of day') || '+00:00' AS time_bucket,
+  COUNT(*) AS request_count,
+  SUM(CASE WHEN status_code BETWEEN 200 AND 299 THEN 1 ELSE 0 END) AS success_count,
+  SUM(CASE WHEN status_code BETWEEN 400 AND 499 THEN 1 ELSE 0 END) AS error_count_4xx,
+  SUM(CASE WHEN status_code >= 500 THEN 1 ELSE 0 END) AS error_count_5xx,
+  COALESCE(SUM(COALESCE(total_tokens, 0)), 0) AS total_tokens,
+  COALESCE(SUM(COALESCE(cached_tokens, 0)), 0) AS cached_tokens,
+  COALESCE(SUM(cache_hit), 0) AS cache_hit_count,
+  COALESCE(SUM(COALESCE(total_tokens, 0) * COALESCE(price_per_1m_tokens, 0.0) / 1000000.0), 0.0) AS cost_usd,
+  COALESCE(SUM(COALESCE(duration_ms, 0)), 0) AS sum_duration_ms,
+  COALESCE(SUM(COALESCE(time_to_first_token_ms, 0)), 0) AS sum_ttft_ms,
+  COALESCE(SUM(CASE
+    WHEN completion_tokens > 0 AND duration_ms > 0
+    THEN CAST(completion_tokens AS REAL) * 1000.0 / duration_ms
+    ELSE 0.0
+  END), 0.0) AS sum_output_tps,
+  strftime('%Y-%m-%dT%H:%M:%SZ', 'now'),
+  strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+FROM model_call_logs
+WHERE strftime('%Y-%m-%dT%H:%M:%S', requested_at, 'start of day') || '+00:00' = ?1
+GROUP BY provider_id, model_id, source, route_mode, COALESCE(api_key_secret_id, ''),
+  strftime('%Y-%m-%dT%H:%M:%S', requested_at, 'start of day');
+";
 
-    conn.execute(
-        &sql,
-        rusqlite::params![
-            id,
-            acc.provider_id,
-            acc.model_id,
-            acc.source,
-            acc.route_mode,
-            acc.api_key_secret_id,
-            acc.time_bucket,
-            is_success_i,
-            is_4xx_i,
-            is_5xx_i,
-            acc.total_tokens,
-            acc.cached_tokens,
-            cache_hit_i,
-            acc.cost_cny,
-            acc.duration_ms,
-            acc.ttft_ms,
-            acc.output_tps,
-            now,
-        ],
-    )?;
+/// 定时窗口重算聚合表
+///
+/// 由调度器每 [`AGG_STATS_REBUILD_INTERVAL_SECS`] 秒调用一次：
+/// 取「当前时刻 − 重算周期」所在的小时桶与天桶（留出延迟窗口让流式请求的
+/// usage 全部落库），对两个桶各执行一次覆盖式重算（DELETE + INSERT SELECT）。
+/// 覆盖式写入天然幂等，聚合值 100% 由明细派生，不存在累加重复计数。
+/// 整个重算在单个事务中完成，查询侧始终看到完整数据。
+pub fn rebuild_windowed_stats() -> IcodeResult<()> {
+    let mut conn = get_conn()?;
+
+    // 目标时刻 = 当前时刻 − 重算周期，其所属时/天桶即本次重算对象
+    let target = Utc::now() - Duration::seconds(AGG_STATS_REBUILD_INTERVAL_SECS as i64);
+    let hour_bucket = target
+        .with_minute(0)
+        .and_then(|dt| dt.with_second(0))
+        .and_then(|dt| dt.with_nanosecond(0))
+        .unwrap_or(target)
+        .to_rfc3339();
+    let day_bucket = target
+        .with_hour(0)
+        .and_then(|dt| dt.with_minute(0))
+        .and_then(|dt| dt.with_second(0))
+        .and_then(|dt| dt.with_nanosecond(0))
+        .unwrap_or(target)
+        .to_rfc3339();
+
+    let tx = conn.transaction()?;
+    tx.execute(DELETE_HOURLY_BUCKET_SQL, rusqlite::params![&hour_bucket])
+        .map_err(|e| IcodeError::database(format!("删除小时聚合桶失败：{e}")))?;
+    tx.execute(INSERT_HOURLY_BUCKET_SQL, rusqlite::params![&hour_bucket])
+        .map_err(|e| IcodeError::database(format!("重算小时聚合桶失败：{e}")))?;
+    tx.execute(DELETE_DAILY_BUCKET_SQL, rusqlite::params![&day_bucket])
+        .map_err(|e| IcodeError::database(format!("删除天聚合桶失败：{e}")))?;
+    tx.execute(INSERT_DAILY_BUCKET_SQL, rusqlite::params![&day_bucket])
+        .map_err(|e| IcodeError::database(format!("重算天聚合桶失败：{e}")))?;
+    tx.commit()?;
 
     Ok(())
-}
-
-/// 累加写入小时级聚合表
-pub fn accumulate_stats_hourly(acc: &StatsAccumulate) -> IcodeResult<()> {
-    accumulate_stats_to_table("model_call_stats_hourly", acc)
-}
-
-/// 累加写入天级聚合表
-pub fn accumulate_stats_daily(acc: &StatsAccumulate) -> IcodeResult<()> {
-    accumulate_stats_to_table("model_call_stats_daily", acc)
 }
 
 // ===== 聚合表：查询 =====

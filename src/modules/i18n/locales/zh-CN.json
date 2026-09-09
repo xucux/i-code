@@ -505,7 +505,9 @@
         "fetchHint": "点击上方按钮拉取官方模型列表",
         "noOfficialMatches": "无匹配模型",
         "loadBuiltinFailed": "加载内置模型失败：{{message}}",
-        "deleteSuccess": "模型已删除"
+        "deleteSuccess": "模型已删除",
+        "selectAll": "全选",
+        "deselectAll": "取消全选"
       },
       "modelAdd": {
         "addSuccess": "成功添加 {{count}} 个模型"
@@ -628,7 +630,8 @@
       "expand": "全屏",
       "restore": "还原",
       "export": "导出 CSV",
-      "exportSaved": "已导出 CSV，请查看打开的文件目录"
+      "exportSaved": "已导出 CSV，请查看打开的文件目录",
+      "aggDelayHint": "聚合数据延迟约 10 分钟"
     },
     "timeRange": {
       "1hour": "1小时",

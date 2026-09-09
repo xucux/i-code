@@ -14,6 +14,9 @@
 //!   连续探活成功 N 次后置 is_healthy=1，连续失败 N 次后置 is_healthy=0。
 //! - **虚拟路由尝试历史清理**：每 24 小时清理 `virtual_route_attempts` 表中
 //!   超过 30 天的历史记录，避免表无限膨胀。
+//! - **模型调用聚合统计窗口重算**：每 10 分钟从 `model_call_logs` 明细表
+//!   重新计算「当前时刻 − 10 分钟」所在小时/天桶，覆盖式写回
+//!   `model_call_stats_hourly` / `model_call_stats_daily`（聚合与明细严格同源）。
 
 use std::time::{Duration, Instant};
 
@@ -49,6 +52,12 @@ const ATTEMPTS_CLEANUP_INTERVAL_SECS: u64 = 24 * 3600;
 /// 虚拟路由尝试历史保留天数：超过 30 天的记录自动清理
 const ATTEMPTS_CLEANUP_KEEP_DAYS: u32 = 30;
 
+/// 模型调用聚合统计窗口重算间隔（秒）
+///
+/// 与 `call_records::repository::AGG_STATS_REBUILD_INTERVAL_SECS` 保持一致：
+/// 每次任务重算「当前时刻 − 该间隔」所在的小时/天桶。
+const STATS_REBUILD_INTERVAL_SECS: u64 = 600;
+
 /// 调度器句柄，持有所有后台任务句柄
 ///
 /// 应用启动时由 `setup` 创建并 `app.manage`；Drop 时自动终止所有任务。
@@ -69,8 +78,9 @@ impl SchedulerHandle {
             virtual_provider,
         )));
         tasks.push(async_runtime::spawn(attempts_cleanup_loop()));
+        tasks.push(async_runtime::spawn(stats_rebuild_loop()));
         tracing::info!(
-            "Scheduler 模块初始化完成（OAuth 续期、虚拟路由健康检查、尝试历史清理任务已启动）"
+            "Scheduler 模块初始化完成（OAuth 续期、虚拟路由健康检查、尝试历史清理、聚合统计重算任务已启动）"
         );
         Self { tasks }
     }
@@ -443,6 +453,37 @@ async fn attempts_cleanup_loop() {
                 );
                 Log::warn(&format!(
                     "[Scheduler] 虚拟路由尝试历史清理失败：{}",
+                    e.message
+                ));
+            }
+        }
+    }
+}
+
+/// 模型调用聚合统计窗口重算循环
+///
+/// 每 [`STATS_REBUILD_INTERVAL_SECS`] 秒从 `model_call_logs` 明细表重新计算
+/// 「当前时刻 − 该间隔」所在的小时/天桶并覆盖写回聚合表，保证「聚合汇总」
+/// 与「明细汇总」严格同源一致（以明细为准，无增量累加导致的计数偏差）。
+/// 重算失败仅记录日志，不中断循环。
+async fn stats_rebuild_loop() {
+    let interval = Duration::from_secs(STATS_REBUILD_INTERVAL_SECS);
+    tracing::info!(
+        "模型调用聚合统计重算任务启动，扫描间隔 {}s",
+        STATS_REBUILD_INTERVAL_SECS
+    );
+    loop {
+        // 先等待一个周期（启动后延迟首次重算，配合「当前时刻 − 周期」窗口，
+        // 保证首个周期内完成的流式请求 usage 已全部落库）
+        tokio::time::sleep(interval).await;
+        match crate::modules::call_records::repository::rebuild_windowed_stats() {
+            Ok(()) => {
+                tracing::debug!("模型调用聚合统计窗口重算完成");
+            }
+            Err(e) => {
+                tracing::error!("模型调用聚合统计窗口重算失败: {}", e.message);
+                Log::error(&format!(
+                    "[Scheduler] 模型调用聚合统计窗口重算失败：{}",
                     e.message
                 ));
             }

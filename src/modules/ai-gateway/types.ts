@@ -821,6 +821,8 @@ export interface ProviderDefaultModelInput {
 export interface UpdateProviderInput {
   slug?: string
   displayName?: string
+  /** 协议类型（None 表示不修改） */
+  providerType?: string
   baseUrl?: string
   useRawBaseUrl?: boolean
   /** 供应商备注（选填；传空串表示清空） */

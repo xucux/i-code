@@ -10,8 +10,10 @@
 //!
 //! ## 聚合表策略
 //!
-//! 采用**累加计算（UPSERT ON CONFLICT 累加）**，每次请求完成时实时累加，
-//! 避免查询时 GROUP BY 全表扫描明细表。
+//! 聚合表由**定时窗口重算**维护：调度器每 10 分钟从 `model_call_logs` 明细表
+//! 重新计算「当前时刻 − 10 分钟」所在小时桶与天桶，覆盖式写回两张聚合表
+//! （DELETE + INSERT SELECT，天然幂等、无累加重复）。
+//! 「聚合汇总」与「明细汇总」严格同源一致（见 `repository::rebuild_windowed_stats`）。
 
 #![allow(dead_code)]
 
@@ -334,40 +336,6 @@ pub struct AggregatedStatsRow {
     pub avg_duration_ms: f64,
     pub avg_time_to_first_token_ms: f64,
     pub avg_tokens_per_second: f64,
-}
-
-/// 累加写入聚合表的增量数据
-///
-/// 每次请求完成时构造此结构，UPSERT 到小时/天聚合表。
-#[derive(Debug, Clone)]
-pub struct StatsAccumulate {
-    pub provider_id: String,
-    pub model_id: String,
-    pub source: String,
-    pub route_mode: i64,
-    /// 请求使用的 Gateway API Key 明文，空字符串表示无/未识别，V013 新增
-    pub api_key_secret_id: String,
-    pub time_bucket: String,
-    /// 是否成功（status_code 2xx）
-    pub is_success: bool,
-    /// 是否 4xx 错误
-    pub is_4xx: bool,
-    /// 是否 5xx 错误
-    pub is_5xx: bool,
-    /// total_tokens 增量
-    pub total_tokens: i64,
-    /// cached_tokens 增量
-    pub cached_tokens: i64,
-    /// 是否缓存命中
-    pub cache_hit: bool,
-    /// 费用增量（CNY，元）
-    pub cost_cny: f64,
-    /// duration_ms 增量
-    pub duration_ms: i64,
-    /// time_to_first_token_ms 增量
-    pub ttft_ms: i64,
-    /// output tokens_per_second 增量
-    pub output_tps: f64,
 }
 
 #[cfg(test)]

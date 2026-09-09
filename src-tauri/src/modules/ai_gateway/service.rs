@@ -345,6 +345,16 @@ impl AiGatewayService {
         // 校验供应商存在
         let _existing = repository::find_provider_by_id(id)?;
 
+        // provider_type 合法性校验（可选更新；与创建时同一套白名单）
+        if let Some(ref pt) = input.provider_type {
+            if super::types::ProviderType::from_str(pt).is_none() {
+                return Err(IcodeError::validation(format!(
+                    "未知的 provider_type: {}",
+                    pt
+                )));
+            }
+        }
+
         // 处理 auth_json：Some(Some(auth)) → 更新；Some(None) → 置空；None → 不动
         // 同时派生 auth_method / auth_expires_at 顶层冗余字段
         let auth_json: Option<Option<String>> = match input.auth.clone() {
