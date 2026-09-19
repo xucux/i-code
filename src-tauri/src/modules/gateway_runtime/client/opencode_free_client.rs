@@ -9,15 +9,17 @@
 //!    `x-opencode-session`（`ses_`）与 `x-opencode-request`（`msg_`）ID——
 //!    乱填或 UUID 形态会被服务端校验时间戳新鲜度后拒绝；
 //! 2. **请求体**：必须 `"stream": true`（服务端仅接受流式响应）；
-//! 3. **请求体**：`tools` 数组必须存在，数量 ≥ 2，且第一项 `name = "bash"`
-//!    （schema 内容不校验，最小化即可）。
+//! 3. **请求体**：`tools` 数组必须存在、数量 ≥ 2 且包含 `bash`；每个工具须为
+//!    OpenAI 标准嵌套结构（`tool.function` 必须为对象，schema 内容不校验）。
 //!
 //! ## 与 OpenAiChatClient 的关系
 //!
 //! 请求头构造、认证解析、URL 拼接完全复用 [`OpenAiChatClient`]，本 Client 只做：
-//! - 转发前对请求体执行 [`prepare_body`] 合规化；
-//! - 非流式入口（网关侧 `stream: false`）强制改为流式请求上游，并把 SSE 流
-//!   聚合还原为标准 chat.completions 非流式响应返回（否则客户端拿不到响应体）。
+//! - 校验请求体必须 `stream: true`——非流式入口（网关侧 `stream: false`）
+//!   **直接拦截**并返回 `StreamRequired` 错误，由网关转换为 OpenAI 标准错误体
+//!   （HTTP 400 `invalid_request_error / bad_request`）提醒客户端改用流式，
+//!   不再静默改写请求体或聚合 SSE 还原；
+//! - 转发前对请求体执行 [`prepare_body`] 工具合规化（注入 `bash`，数量 ≥ 2）。
 //!
 //! 历史版本把该通道伪装为 `openai-chat-completion` + 模板变量头，因上游升级
 //! 校验而失效，独立 `provider_type` 便于与普通 OpenAI 兼容供应商区分。
@@ -26,9 +28,8 @@ use serde_json::{json, Value};
 
 use super::openai_chat_client::OpenAiChatClient;
 use super::{
-    build_upstream_url, format_client_error, http_client_for, read_response_body,
-    ClientError, UpstreamClient, UpstreamContext, UpstreamProtocol, UpstreamRequest,
-    UpstreamResponse, MAX_RESPONSE_BODY_BYTES,
+    build_upstream_url, format_client_error, http_client_for, ClientError, UpstreamClient,
+    UpstreamContext, UpstreamProtocol, UpstreamRequest, UpstreamResponse,
 };
 
 /// OpenCode Zen 免费通道客户端
@@ -48,226 +49,108 @@ impl OpenCodeFreeClient {
 
     /// 请求体合规化
     ///
-    /// 满足 OpenCode 免费通道的三条请求体校验：
-    /// 1. 强制 `stream = true`；
-    /// 2. `tools` 缺失时注入包含 `bash` 的最小化工具数组；
-    /// 3. 已有 `tools` 但缺少 `bash` 时在头部插入最小化 `bash` 工具。
+    /// `opencode-free` 上游强制校验请求体两条规则，任一不满足直接 403：
+    /// 1. 必须 `"stream": true`（仅接受流式响应）——非流式入口**直接拦截**，
+    ///    返回 `StreamRequired` 错误，由网关转换为 OpenAI 标准错误体
+    ///    （HTTP 400 `invalid_request_error / bad_request`）提醒客户端改用流式；
+    /// 2. `tools` 必须存在且数量 ≥ 2、包含 `bash`——缺失时自动注入，已有则规范化
+    ///    补全（详见下方逻辑）。
     ///
-    /// 最小化工具定义与参考方案一致（schema 内容不校验）：
-    /// `{"type":"function","name":"bash","description":"x",
-    ///   "parameters":{"type":"object","properties":{},"required":[]},"strict":false}`
+    /// ## tools 处理规则（上游要求 OpenAI 标准嵌套结构）
+    ///
+    /// 上游对 `tools` 逐项校验 `tools[i].function` 必须为对象，故注入的最小化工具
+    /// 使用标准格式（schema 内容不校验）：
+    /// `{"type":"function","function":{"name":"bash","description":"x",
+    ///   "parameters":{"type":"object","properties":{},"required":[]},"strict":false}}`
+    ///
+    /// - tools 缺失或空数组：注入 `[bash, read]` 两个最小化工具；
+    /// - tools 已有：先把旧版扁平格式工具（顶层 `name` / `description` /
+    ///   `parameters` / `strict`，无 `function` 字段）规范化为上述嵌套结构，
+    ///   再检查是否含 `bash`（兼容扁平 `name` 与嵌套 `function.name`），
+    ///   缺失则在头部插入最小化 `bash`；数量不足 2 时追加最小化 `read`。
     ///
     /// # 返回
     ///
-    /// `(处理后的请求体, 是否为非流式入口聚合)`
-    pub(crate) fn prepare_body(mut body: Value) -> (Value, bool) {
+    /// * `Ok(body)` - 合规化后的请求体（`stream` 恒为 `true`）
+    /// * `Err(StreamRequired)` - 非流式入口被拦截（不发起上游请求）
+    pub(crate) fn prepare_body(mut body: Value) -> Result<Value, ClientError> {
         if !body.is_object() {
-            return (body, false);
+            return Err(ClientError::Other(
+                "opencode-free 请求体必须为 JSON 对象".to_string(),
+            ));
         }
 
-        // 非流式入口：强制改为流式请求上游，响应侧再聚合还原
-        let mut aggregate = false;
+        // 强制流式：非流式入口直接拦截提醒（不再静默改写为流式并聚合还原）
         if body.get("stream").and_then(Value::as_bool) != Some(true) {
-            aggregate = true;
-            body["stream"] = json!(true);
+            return Err(ClientError::StreamRequired(
+                "OpenCode Free 通道仅支持流式请求（stream 必须为 true），请携带 \"stream\": true 后重试。"
+                    .to_string(),
+            ));
         }
 
-        // 工具合规化：必须存在 bash，且数量 ≥ 2
+        // 工具合规化：缺失注入、扁平格式规范化、补 bash、数量 ≥ 2
         let tools_empty_or_missing = body
             .get("tools")
             .and_then(Value::as_array)
             .map(|arr| arr.is_empty())
             .unwrap_or(true);
         if tools_empty_or_missing {
-            body["tools"] = json!([minimal_tool("bash"), minimal_tool("read")]);
+            body["tools"] = json!([Self::minimal_tool("bash"), Self::minimal_tool("read")]);
         } else if let Some(arr) = body.get_mut("tools").and_then(Value::as_array_mut) {
-            let has_bash = arr
-                .iter()
-                .any(|t| t.get("name").and_then(Value::as_str) == Some("bash"));
+            // 1. 扁平格式工具（旧版 `{"type":"function","name":...}`）规范化
+            for tool in arr.iter_mut() {
+                if tool.get("function").is_some() {
+                    continue;
+                }
+                let Some(flat_name) = tool.get("name").and_then(Value::as_str) else {
+                    continue;
+                };
+                let mut func = json!({ "name": flat_name });
+                if let Some(d) = tool.get("description") {
+                    func["description"] = d.clone();
+                }
+                if let Some(p) = tool.get("parameters") {
+                    func["parameters"] = p.clone();
+                }
+                if let Some(s) = tool.get("strict") {
+                    func["strict"] = s.clone();
+                }
+                *tool = json!({ "type": "function", "function": func });
+            }
+            // 2. 检查是否已含 bash（兼容扁平 name 与嵌套 function.name）
+            let has_bash = arr.iter().any(|t| {
+                t.get("name").and_then(Value::as_str) == Some("bash")
+                    || t.pointer("/function/name").and_then(Value::as_str) == Some("bash")
+            });
             if !has_bash {
-                arr.insert(0, minimal_tool("bash"));
+                arr.insert(0, Self::minimal_tool("bash"));
+            }
+            // 3. 数量 ≥ 2（第二个可为任意工具名）
+            if arr.len() < 2 {
+                arr.push(Self::minimal_tool("read"));
             }
         }
 
-        (body, aggregate)
+        Ok(body)
     }
 
-    /// 把上游 SSE 流聚合为标准 chat.completions 非流式响应体
-    ///
-    /// 遍历 `data: {json}` 事件，优先取最后带 `choices` 的增量（拼接 content /
-    /// reasoning_content），`usage` 与 `finish_reason` 取任意一次出现的最后值。
-    async fn aggregate_sse_to_complete(
-        response: reqwest::Response,
-    ) -> Result<UpstreamResponse, ClientError> {
-        use futures::StreamExt;
-
-        let status = response.status();
-        let headers = response.headers().clone();
-
-        // 上游报错（4xx/5xx）：直接按完整响应透传，由上层展示错误体
-        if !status.is_success() {
-            let (status, headers, body, _) =
-                read_response_body(response, MAX_RESPONSE_BODY_BYTES).await?;
-            return Ok(UpstreamResponse::Complete { status, headers, body });
-        }
-
-        let mut stream = response.bytes_stream();
-        let mut buffer = String::new();
-        let mut content = String::new();
-        let mut reasoning = String::new();
-        let mut usage: Option<Value> = None;
-        let mut finish_reason: Option<Value> = None;
-        let mut model: Option<String> = None;
-        let mut id: Option<String> = None;
-        let mut created: Option<i64> = None;
-        let mut tool_calls: Option<Vec<Value>> = None;
-
-        while let Some(chunk) = stream.next().await {
-            let bytes =
-                chunk.map_err(|e| ClientError::ReadBodyError(format_client_error(&e)))?;
-            buffer.push_str(&String::from_utf8_lossy(&bytes));
-            // 逐行提取 SSE data 事件
-            while let Some(pos) = buffer.find('\n') {
-                let line: String = buffer.drain(..=pos).collect();
-                let line = line.trim_end_matches(['\n', '\r']);
-                let Some(data) = line.strip_prefix("data:") else {
-                    continue;
-                };
-                let data = data.trim();
-                if data.is_empty() || data == "[DONE]" {
-                    continue;
-                }
-                let Ok(event) = serde_json::from_str::<Value>(data) else {
-                    continue;
-                };
-                if event.get("usage").is_some() {
-                    usage = Some(event["usage"].clone());
-                }
-                if event.get("model").and_then(Value::as_str).is_some() {
-                    model = Some(event["model"].as_str().unwrap_or_default().to_string());
-                }
-                if event.get("id").and_then(Value::as_str).is_some() {
-                    id = Some(event["id"].as_str().unwrap_or_default().to_string());
-                }
-                if let Some(ts) = event.get("created").and_then(Value::as_i64) {
-                    created = Some(ts);
-                }
-                let Some(choices) = event.get("choices").and_then(Value::as_array) else {
-                    continue;
-                };
-                for choice in choices {
-                    if let Some(fr) = choice.get("finish_reason").filter(|v| !v.is_null()) {
-                        finish_reason = Some(fr.clone());
-                    }
-                    let Some(delta) = choice.get("delta") else {
-                        continue;
-                    };
-                    if let Some(c) = delta.get("content").and_then(Value::as_str) {
-                        content.push_str(c);
-                    }
-                    if let Some(r) = delta.get("reasoning_content").and_then(Value::as_str) {
-                        reasoning.push_str(r);
-                    }
-                    if let Some(tcs) = delta.get("tool_calls").and_then(Value::as_array) {
-                        let tc = tool_calls.get_or_insert_with(Vec::new);
-                        for item in tcs {
-                            // 增量片段：按 index 简单顺序拼接 arguments / id / name
-                            let index = item
-                                .get("index")
-                                .and_then(Value::as_i64)
-                                .unwrap_or(tc.len() as i64) as usize;
-                            if index >= tc.len() {
-                                tc.push(json!({
-                                    "id": item.get("id").cloned().unwrap_or(Value::Null),
-                                    "type": "function",
-                                    "function": {
-                                        "name": item.pointer("/function/name").cloned().unwrap_or(json!("")),
-                                        "arguments": item.pointer("/function/arguments").and_then(Value::as_str).unwrap_or("").to_string(),
-                                    }
-                                }));
-                            } else if let Some(args) =
-                                item.pointer("/function/arguments").and_then(Value::as_str)
-                            {
-                                let slot = &mut tc[index];
-                                // pointer_mut 返回 &mut Value，需先取字符串克隆再拼接（借用规则）
-                                let existing = slot
-                                    .pointer("/function/arguments")
-                                    .and_then(Value::as_str)
-                                    .unwrap_or("")
-                                    .to_string();
-                                let merged = format!("{}{}", existing, args);
-                                slot["function"]["arguments"] = json!(merged);
-                                if let Some(name) =
-                                    item.pointer("/function/name").and_then(Value::as_str)
-                                {
-                                    if !name.is_empty() {
-                                        slot["function"]["name"] = json!(name);
-                                    }
-                                }
-                                if let Some(tid) = item.get("id").and_then(Value::as_str) {
-                                    if !tid.is_empty() {
-                                        slot["id"] = json!(tid);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+    /// 构造最小化工具定义（OpenAI 标准嵌套结构，满足上游 `tools[i].function`
+    /// 必须为对象的校验；schema 内容不校验）
+    fn minimal_tool(name: &str) -> Value {
+        json!({
+            "type": "function",
+            "function": {
+                "name": name,
+                "description": "x",
+                "parameters": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                },
+                "strict": false
             }
-        }
-
-        let mut message = json!({ "role": "assistant", "content": content });
-        if !reasoning.is_empty() {
-            message["reasoning_content"] = json!(reasoning);
-        }
-        if let Some(tcs) = tool_calls {
-            if !tcs.is_empty() {
-                message["tool_calls"] = Value::Array(tcs);
-            }
-        }
-
-        let mut choice = json!({
-            "index": 0,
-            "message": message,
-            "finish_reason": finish_reason.clone().unwrap_or(json!("stop")),
-        });
-        if let Some(fr) = finish_reason {
-            choice["finish_reason"] = fr;
-        }
-
-        let mut completion = json!({
-            "id": id.unwrap_or_else(|| format!("chatcmpl-aggregated")),
-            "object": "chat.completion",
-            "created": created.unwrap_or_else(|| chrono::Utc::now().timestamp()),
-            "model": model.unwrap_or_default(),
-            "choices": [choice],
-        });
-        if let Some(u) = usage {
-            completion["usage"] = u;
-        }
-
-        let body = completion.to_string().into_bytes();
-        Ok(UpstreamResponse::Complete {
-            status,
-            headers,
-            body,
         })
     }
-}
-
-/// 构造最小化工具定义（满足上游 `bash` + 数量 ≥ 2 校验，schema 不校验）
-fn minimal_tool(name: &str) -> Value {
-    json!({
-        "type": "function",
-        "name": name,
-        "description": "x",
-        "parameters": {
-            "type": "object",
-            "properties": {},
-            "required": []
-        },
-        "strict": false
-    })
 }
 
 #[async_trait::async_trait]
@@ -299,12 +182,14 @@ impl UpstreamClient for OpenCodeFreeClient {
         ctx.request_headers_json =
             crate::modules::gateway_runtime::logging::headers::request_headers_to_json(&headers);
 
-        // 请求体合规化：强制流式 + tools 校验
-        let (body, aggregate) = Self::prepare_body(request.body);
-        let is_stream = body.get("stream").and_then(Value::as_bool) == Some(true);
-        ctx.is_stream = is_stream;
+        // 请求体合规化：校验强制流式（非流式入口直接拦截提醒）+ tools 校验
+        let body = Self::prepare_body(request.body)?;
+        // 已通过流式校验，此处恒为 true
+        ctx.is_stream = true;
+        // 记录最终发给上游的请求体（已注入/规范化 tools），供转发日志展示真实请求体
+        ctx.request_body_json = Some(body.to_string());
 
-        let client = http_client_for(&ctx.provider, is_stream)?;
+        let client = http_client_for(&ctx.provider, true)?;
         let upstream_resp = client
             .post(&upstream_url)
             .headers(headers)
@@ -313,17 +198,11 @@ impl UpstreamClient for OpenCodeFreeClient {
             .await
             .map_err(|e| ClientError::RequestFailed(format_client_error(&e)))?;
 
-        if is_stream && !aggregate {
-            // 客户端本来就要求流式：直接透传 SSE
-            Ok(UpstreamResponse::Streaming {
-                response: upstream_resp,
-                protocol: UpstreamProtocol::ChatCompletions,
-            })
-        } else {
-            // 非流式入口（已强制改为流式请求上游）：聚合 SSE 还原为完整响应；
-            // 上游仍返回非流式 JSON 时（未来放宽校验），read_response_body 原样透传
-            Self::aggregate_sse_to_complete(upstream_resp).await
-        }
+        // 已强制流式：直接透传 SSE（上游 4xx/5xx 由 response_handler 原样透传错误体）
+        Ok(UpstreamResponse::Streaming {
+            response: upstream_resp,
+            protocol: UpstreamProtocol::ChatCompletions,
+        })
     }
 
     fn provider_type(&self) -> &'static str {

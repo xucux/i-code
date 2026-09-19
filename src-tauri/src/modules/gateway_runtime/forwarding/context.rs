@@ -122,6 +122,7 @@ impl ForwardContext {
             auth_config,
             extra_headers,
             request_headers_json: None,
+            request_body_json: None,
         };
         Self {
             upstream,
@@ -157,6 +158,7 @@ impl ForwardContext {
             auth_config,
             extra_headers,
             request_headers_json: None,
+            request_body_json: None,
         };
         Self {
             upstream,

@@ -1334,6 +1334,35 @@
       "thinking": null
     },
     {
+      "id": "deepseek-v4.1-flash",
+      "displayName": "DeepSeek V4.1 Flash",
+      "background": "DeepSeek V4.1 Flash（2026-09-10，MIT 开源），多模态 MoE 旗舰，552B 主干（含 Engram 条件记忆共约 763B），CED 架构 + CSA2 KV 压缩（每 token 890 字节，约为 V4 Flash 的 1/4），1M 上下文 + 原生图像输入，每 token 仅激活 8B（prefill）/ 16B（decode），推理力度 1-100 连续可调，官方推荐输出 max_tokens ≥ 256K。",
+      "family": "deepseek",
+      "providerTypes": [
+        "anthropic",
+        "openai-chat-completion",
+        "opencode-free"
+      ],
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 384000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": "deepseek",
+      "thinkingEffortOptions": [
+        "high",
+        "xhigh"
+      ],
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "max"
+      }
+    },
+    {
       "id": "deepseek-v4-flash",
       "displayName": "DeepSeek V4 Flash",
       "background": "DeepSeek V4 Flash（2026），1M 上下文 + 384K 输出，思考力度拉满，速度与成本优化，参数量未公开。",

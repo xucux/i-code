@@ -16,11 +16,26 @@ editRules:
 
 ## [0.3.8] - 2026-09-19
 
+> [!WARNING]
+> OpenCode Zen 免费通道依赖上游 OpenCode 服务端的 CLI 校验规则，上游变更后需随版本更新适配，免费模型也可能不定时上下架。
+
 ### 🚀新增
+
+- **OpenCode Zen 免费通道独立协议**：新增 `opencode-free` 供应商协议类型（底层仍为 OpenAI Chat Completions），网关新增 `OpenCodeFreeClient` 专用客户端，转发前自动完成请求头与请求体合规化，规避上游 `FreeTierError: OpenCode's free tier can only be used from within OpenCode`（HTTP 403）校验
+
+- **OpenCode CLI 专有请求头内置方法**：新增 `${opencode_session()}` / `${opencode_request()}` 模板变量，生成算法与 opencode CLI 源码对齐（毫秒时间戳编码 + base62 随机段）——会话 ID（`ses_`）当天固定、请求 ID（`msg_`）每次请求刷新，服务端校验时间戳新鲜度，原 UUID 方案已失效
+
+- **强制流式 + 非流式拦截**：`opencode-free` 协议仅接受流式请求——转发前校验 `stream` 必须为 `true`，客户端未携带流式标志的请求由网关**直接拦截**并以 OpenAI 标准错误体（HTTP 400 `invalid_request_error / bad_request`）提醒改用流式，不再静默改写请求体或聚合 SSE；`tools` 按 OpenAI 标准嵌套结构自动补全——缺失/为空时注入最小化 `bash` + `read`，已有工具做扁平格式规范化、缺少 `bash` 时头部插入、数量不足 2 时补齐
 
 ### 🐞修复
 
+- **OpenCode Zen Free 免费通道失效**：修复上游升级校验后免费通道请求返回「OpenCode free tier 仅在 OpenCode 内可用（HTTP 403）」的问题——默认请求头改用 CLI 真实生成算法的内置方法，并在网关转发时自动对请求体做合规化改造
+
 ### 🔄变更
+
+- **内置供应商 OpenCode Zen Free 更新**：协议类型改为独立的 `opencode-free`，User-Agent 对齐 opencode/1.18.31，`x-opencode-session` / `x-opencode-request` 改用新内置模板方法；对应内置免费模型的 `providerTypes` 同步补充 `opencode-free`
+
+- **网关桥接**：`opencode-free` 纳入 OpenAI Chat Completions 协议族，复用其请求头构造与认证解析，支持与 Anthropic Messages 等协议的桥接转换
 
 ## [0.3.7] - 2026-09-09
 

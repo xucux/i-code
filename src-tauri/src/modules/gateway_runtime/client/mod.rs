@@ -102,6 +102,12 @@ pub struct UpstreamContext {
     /// 本次上游请求实际发出的请求头（已去敏 JSON），
     /// 由各 Client 在 `execute` 构造请求头后写入，供转发（provider-api）日志展示
     pub request_headers_json: Option<String>,
+    /// 本次上游请求实际发出的请求体（JSON 字符串）
+    ///
+    /// Client 在 `execute` 内部可能改写请求体（如 `opencode-free` 注入 tools，
+    /// `anthropic` 客户端改写协议字段），前置快照无法反映，故由 Client 在发送前
+    /// 写回，供转发（provider-api）日志展示真实请求体；缺省时日志回退到前置快照。
+    pub request_body_json: Option<String>,
 }
 
 /// 上游请求封装
@@ -168,6 +174,8 @@ pub enum ClientError {
     RequestFailed(String),
     /// 读取响应体失败
     ReadBodyError(String),
+    /// OpenCode Free 通道仅接受流式请求（非流式入口被网关拦截提醒）
+    StreamRequired(String),
     /// 其他错误
     Other(String),
 }
@@ -183,6 +191,7 @@ impl fmt::Display for ClientError {
             Self::BuildRequestError(msg) => write!(f, "构造请求失败: {}", msg),
             Self::RequestFailed(msg) => write!(f, "上游请求失败: {}", msg),
             Self::ReadBodyError(msg) => write!(f, "读取响应体失败: {}", msg),
+            Self::StreamRequired(msg) => write!(f, "{}", msg),
             Self::Other(msg) => write!(f, "{}", msg),
         }
     }
@@ -211,7 +220,9 @@ impl From<ClientError> for IcodeError {
             ClientError::UnsupportedProvider(_) | ClientError::UnsupportedProtocol { .. } => {
                 IcodeError::validation(err.to_string())
             }
-            ClientError::AuthError(_) => IcodeError::validation(err.to_string()),
+            ClientError::AuthError(_) | ClientError::StreamRequired(_) => {
+                IcodeError::validation(err.to_string())
+            }
             ClientError::RequestFailed(msg) => IcodeError::internal(msg),
             ClientError::ReadBodyError(msg) => IcodeError::internal(msg),
             _ => IcodeError::internal(err.to_string()),

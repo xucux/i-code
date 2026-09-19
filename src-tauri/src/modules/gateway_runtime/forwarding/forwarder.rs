@@ -480,6 +480,13 @@ impl ForwardPipeline {
                 // 写入转发日志
                 let (resp_body_for_log, usage_for_log) =
                     extract_response_for_log(&snapshot, &usage_accumulator).await;
+                // 请求体展示：Client 实际发出的请求体优先（如 opencode-free 内部注入
+                // tools 等在 execute 内改写的场景），缺失时回退到前置处理后的请求体快照
+                let request_body_for_log = ctx
+                    .upstream
+                    .request_body_json
+                    .clone()
+                    .or(request_body_full.clone());
                 let mut builder = LogRecord::builder()
                     .kind(LogKind::Forward)
                     .method("POST")
@@ -487,7 +494,7 @@ impl ForwardPipeline {
                     .duration_ms(duration_ms as u64)
                     .request_id(&request_id)
                     .model_id(&gateway_model_id)
-                    .request_body(request_body_full.as_deref().unwrap_or(""))
+                    .request_body(request_body_for_log.as_deref().unwrap_or(""))
                     .tags(tags.clone());
                 // 上游请求头优先（真实发给供应商的头，已去敏），无则兜底用网关入口头
                 let upstream_headers = ctx.upstream.request_headers_json.clone();
@@ -533,6 +540,12 @@ impl ForwardPipeline {
                 );
 
                 let error_tags = build_error_tags(&tags, is_network);
+                // 请求体展示：Client 实际发出的请求体优先（同 Ok 分支语义）
+                let request_body_for_log = ctx
+                    .upstream
+                    .request_body_json
+                    .clone()
+                    .or(request_body_full.clone());
                 let mut builder_err = LogRecord::builder()
                     .kind(LogKind::Forward)
                     .method("POST")
@@ -540,7 +553,7 @@ impl ForwardPipeline {
                     .duration_ms(duration_ms)
                     .request_id(&request_id)
                     .model_id(&gateway_model_id)
-                    .request_body(request_body_full.as_deref().unwrap_or(""))
+                    .request_body(request_body_for_log.as_deref().unwrap_or(""))
                     .error_message(&icode_err.message)
                     .tags(error_tags.clone())
                     .status(LogStatus::Failed);
