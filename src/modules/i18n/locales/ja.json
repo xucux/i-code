@@ -462,7 +462,7 @@
       "retryInterval": "リトライ間隔（ミリ秒）",
       "extraHeaders": {
         "title": "追加リクエストヘッダー",
-        "hint": "上流に転送する際に追加されるリクエストヘッダーです。デフォルトのヘッダーを上書きできます。値はテンプレート変数をサポートします：${uuid()}（リクエストごとにランダム）、${uuid_by_day()}（当日固定）、${variables[\"key\"]}（テンプレート変数）。",
+        "hint": "上流に転送する際に追加されるリクエストヘッダーです。デフォルトのヘッダーを上書きできます。値はテンプレート変数をサポートします：${uuid()}（リクエストごとにランダム）、${uuid_by_day()}（当日固定）、${opencode_session()}（OpenCode セッション ID、当日固定）、${opencode_request()}（OpenCode リクエスト ID、リクエストごとに更新）、${variables[\"key\"]}（テンプレート変数）。",
         "keyPlaceholder": "リクエストヘッダー名、例：x-opencode-client",
         "valuePlaceholder": "リクエストヘッダーの値",
         "add": "ヘッダーを追加",

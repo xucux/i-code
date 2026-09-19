@@ -56,6 +56,8 @@ const OPENAI_CHAT_FAMILY: &[&str] = &[
     "openai",
     "openai-compatible",
     "openai-chat-completion",
+    // OpenCode Zen 免费通道：底层 Chat 兼容协议，桥接行为与 OpenAI Chat 族一致
+    "opencode-free",
     "deepseek",
     "moonshot-ai",
     "kimi-code",

@@ -28,6 +28,14 @@ pub enum ProviderType {
     GithubCopilot,
     #[serde(rename = "openai-chat-completion")]
     OpenaiChatCompletion,
+    /// OpenCode Zen 免费通道（`opencode-free`）
+    ///
+    /// 底层为 OpenAI Chat Completions 兼容协议，但上游强制校验 OpenCode CLI 专有
+    /// 请求头（`x-opencode-session` / `x-opencode-request`）与请求体形状
+    /// （`stream: true` + 至少 2 个 tools 且必须包含 `bash`），由独立 Client
+    /// 在转发前完成合规化改造。
+    #[serde(rename = "opencode-free")]
+    OpencodeFree,
     #[serde(rename = "openai-codex")]
     OpenaiCodex,
     #[serde(rename = "openai-responses")]
@@ -73,6 +81,7 @@ impl ProviderType {
             "google-gemini-cli" => Some(Self::GoogleGeminiCli),
             "github-copilot" => Some(Self::GithubCopilot),
             "openai-chat-completion" => Some(Self::OpenaiChatCompletion),
+            "opencode-free" => Some(Self::OpencodeFree),
             "openai-codex" => Some(Self::OpenaiCodex),
             "openai-responses" => Some(Self::OpenaiResponses),
             "xai-grok-build" => Some(Self::XaiGrokBuild),
@@ -93,6 +102,7 @@ impl ProviderType {
             Self::GoogleGeminiCli => "google-gemini-cli",
             Self::GithubCopilot => "github-copilot",
             Self::OpenaiChatCompletion => "openai-chat-completion",
+            Self::OpencodeFree => "opencode-free",
             Self::OpenaiCodex => "openai-codex",
             Self::OpenaiResponses => "openai-responses",
             Self::XaiGrokBuild => "xai-grok-build",

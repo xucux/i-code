@@ -2276,7 +2276,7 @@ impl AiGatewayService {
         let client = build_provider_http_client(&provider)?;
 
         match provider.provider_type.as_str() {
-            "openai-chat-completion" | "openai-responses" | "openai-codex" => {
+            "openai-chat-completion" | "openai-responses" | "openai-codex" | "opencode-free" => {
                 let api_key = extract_api_key(&auth);
                 // 默认拉取：优先 OpenAI 兼容协议，失败时自动回退 Anthropic 原生协议
                 self.fetch_openai_compatible_with_anthropic_fallback(&client, &provider, api_key)

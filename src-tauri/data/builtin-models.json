@@ -1340,7 +1340,8 @@
       "family": "deepseek",
       "providerTypes": [
         "anthropic",
-        "openai-chat-completion"
+        "openai-chat-completion",
+        "opencode-free"
       ],
       "maxInputTokens": 1000000,
       "maxOutputTokens": 384000,
@@ -2015,7 +2016,8 @@
       "providerTypes": [
         "openai-chat-completion",
         "openai-responses",
-        "anthropic"
+        "anthropic",
+        "opencode-free"
       ],
       "maxInputTokens": 1048576,
       "maxOutputTokens": 131072,
@@ -2040,7 +2042,8 @@
       "providerTypes": [
         "openai-chat-completion",
         "openai-responses",
-        "anthropic"
+        "anthropic",
+        "opencode-free"
       ],
       "maxInputTokens": 1048576,
       "maxOutputTokens": 131072,
@@ -2167,7 +2170,8 @@
       "background": "小米 MiMo v2.5（2026），1M 上下文 + 多模态，通用型，参数量未公开。",
       "family": "xiaomi",
       "providerTypes": [
-        "openai-chat-completion"
+        "openai-chat-completion",
+        "opencode-free"
       ],
       "maxInputTokens": 1000000,
       "maxOutputTokens": 128000,
@@ -3086,7 +3090,8 @@
       "background": "腾讯混元第三代（2026），256K 上下文，高强度思考，中文知识与代码增强，参数量未公开。",
       "family": "tencent",
       "providerTypes": [
-        "openai-chat-completion"
+        "openai-chat-completion",
+        "opencode-free"
       ],
       "maxInputTokens": 256000,
       "maxOutputTokens": 128000,
@@ -3325,7 +3330,8 @@
       "background": "NVIDIA Nemotron 3 Ultra（2026），1M 上下文，高强度思考，企业级推理，参数量未公开。",
       "family": "nvidia",
       "providerTypes": [
-        "openai-chat-completion"
+        "openai-chat-completion",
+        "opencode-free"
       ],
       "maxInputTokens": 1000000,
       "maxOutputTokens": 65536,

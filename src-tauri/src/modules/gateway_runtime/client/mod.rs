@@ -14,6 +14,8 @@
 //!
 //! - `OpenAiChatClient`：OpenAI Chat Completions 兼容协议（REST + SSE）。
 //! - `AnthropicClient`：Anthropic Messages API（REST + SSE）。
+//! - `OpenAiResponsesClient`：OpenAI Responses API（HTTP/SSE + WebSocket 双传输）。
+//! - `OpenCodeFreeClient`：OpenCode Zen 免费通道（Chat 兼容 + 请求体/请求头合规化）。
 //! - `WebSocketClient`：WebSocket 协议预留抽象（OpenAI Responses / Codex 待实现）。
 //!
 //! ## 扩展方式
@@ -40,11 +42,13 @@ use crate::modules::shared::TimeoutConfig;
 pub mod anthropic_client;
 pub mod openai_chat_client;
 pub mod openai_responses_client;
+pub mod opencode_free_client;
 pub mod websocket_client;
 
 use anthropic_client::AnthropicClient;
 use openai_chat_client::OpenAiChatClient;
 use openai_responses_client::OpenAiResponsesClient;
+use opencode_free_client::OpenCodeFreeClient;
 use websocket_client::WebSocketClient;
 
 /// 上游请求协议类型
@@ -247,8 +251,7 @@ impl ClientFactory {
         match provider_type {
             // OpenAI Chat Completions 兼容协议
             "openai" | "openai-compatible" | "openai-chat-completion"
-            | "deepseek" | "moonshot-ai" | "kimi-code" | "newapi" | "siliconflow"
-            | "aihubmix" | "openrouter" | "minimax" | "xai-grok-build" | "ollama"
+            | "deepseek" | "moonshot-ai" | "kimi-code" | "newapi" | "siliconflow"            | "aihubmix" | "openrouter" | "minimax" | "xai-grok-build" | "ollama"
             | "custom" | "codex" | "gemini-cli" | "antigravity" => {
                 Ok(Box::new(OpenAiChatClient::new()))
             }
@@ -259,6 +262,10 @@ impl ClientFactory {
             // OpenAI Responses API（HTTP/SSE + WebSocket 双传输）
             "openai-responses" => {
                 Ok(Box::new(OpenAiResponsesClient::new()))
+            }
+            // OpenCode Zen 免费通道（底层 OpenAI Chat，转发前注入 CLI 专有头并合规化请求体）
+            "opencode-free" => {
+                Ok(Box::new(OpenCodeFreeClient::new()))
             }
             // WebSocket 协议（OpenAI Codex 等，当前为未实现占位，调用即失败）
             "websocket" | "openai-codex" => {

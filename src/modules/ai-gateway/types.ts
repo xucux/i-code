@@ -21,6 +21,8 @@ export type ProviderType =
   | 'google-gemini-cli'
   | 'github-copilot'
   | 'openai-chat-completion'
+  /** OpenCode Zen 免费通道（底层 OpenAI Chat 兼容，转发前注入 CLI 专有请求头并合规化请求体） */
+  | 'opencode-free'
   | 'openai-codex'
   | 'openai-responses'
   | 'xai-grok-build'

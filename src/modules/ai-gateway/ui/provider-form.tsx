@@ -52,6 +52,7 @@ import { formatDateTime } from '@/core/utils'
 const providerTypes: ProviderType[] = [
   'anthropic',
   'openai-chat-completion',
+  'opencode-free',
   'openai-codex',
   'openai-responses',
   'google-ai-studio',

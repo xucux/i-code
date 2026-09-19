@@ -462,7 +462,7 @@
       "retryInterval": "重試間隔（毫秒）",
       "extraHeaders": {
         "title": "附加請求頭",
-        "hint": "轉發到上游時注入的額外請求頭，可覆蓋預設頭。值支援模板變數：${uuid()}（每次請求隨機）、${uuid_by_day()}（當天固定）、${variables[\"key\"]}（模板變數）。",
+        "hint": "轉發到上游時注入的額外請求頭，可覆蓋預設頭。值支援模板變數：${uuid()}（每次請求隨機）、${uuid_by_day()}（當天固定）、${opencode_session()}（OpenCode 會話 ID，當天固定）、${opencode_request()}（OpenCode 請求 ID，每次請求刷新）、${variables[\"key\"]}（模板變數）。",
         "keyPlaceholder": "請求頭名，如 x-opencode-client",
         "valuePlaceholder": "請求頭值",
         "add": "新增請求頭",
