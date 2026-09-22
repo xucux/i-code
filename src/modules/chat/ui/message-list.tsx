@@ -19,9 +19,16 @@
  * - Token 仅在助手消息完成（`!streaming`）且有 `usage` 时展示。
  * - 气泡正文为空且仍在流式时：有思考显示「生成中」，否则「思考中」。
  * - 错误优先读 `errorCode` / `errorBody`；缺省时回退 `error` 或 content。
+ * - **Markdown 渲染**：仅助手气泡生效，且受聊天偏好 `markdownEnabled` 开关控制
+ *   （默认开启，见 `modules/chat/prefs.ts`）；正文不含 Markdown 语法时走纯文本
+ *   快路径（由气泡的 `whitespace-pre-wrap` 负责换行），此时不叠加 `prose` 样式。
+ * - **流式节流**：流式期间正文每 `STREAM_THROTTLE_MS` 重解析一次；流式结束后
+ *   直接使用原始正文，保证终态不丢字。详见 `ui/message-markdown.tsx`。
+ * - `MessageBubble` 已做 `memo`：流式更新只改动目标消息的对象引用
+ *   （见 `hooks/use-chat.ts` 的 `setMessages`），其余气泡跳过重渲染与重解析。
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -38,6 +45,12 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useTranslation } from '@/modules/i18n/use-translation'
 import type { ChatMessage, ChatTokenUsage } from '@/modules/chat/types'
+import { useChatPrefsStore } from '@/modules/chat/prefs'
+import {
+  ChatMarkdownBody,
+  hasMarkdownSyntax,
+  useThrottledStreamContent,
+} from './message-markdown'
 
 export interface MessageListProps {
   messages: ChatMessage[]
@@ -52,6 +65,16 @@ export interface MessageListProps {
 export function MessageList({ messages, emptyHint, style, onDeleteMessage }: MessageListProps) {
   const { t } = useTranslation('chat')
   const bottomRef = useRef<HTMLDivElement>(null)
+
+  // 回调转 ref + 稳定包装：父级传入的多为内联箭头函数，
+  // 若直接透传给 memo 化的 MessageBubble 会让 memo 失效（每个 chunk 全量重渲染）
+  const deleteRef = useRef(onDeleteMessage)
+  useEffect(() => {
+    deleteRef.current = onDeleteMessage
+  }, [onDeleteMessage])
+  const handleDeleteMessage = useCallback((messageId: string) => {
+    deleteRef.current?.(messageId)
+  }, [])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
@@ -70,7 +93,7 @@ export function MessageList({ messages, emptyHint, style, onDeleteMessage }: Mes
             <MessageBubble
               key={msg.id}
               message={msg}
-              onDeleteMessage={onDeleteMessage}
+              onDeleteMessage={handleDeleteMessage}
             />
           ))}
           <div ref={bottomRef} />
@@ -85,8 +108,12 @@ export function MessageList({ messages, emptyHint, style, onDeleteMessage }: Mes
  *
  * 结构（助手）：思考块 → 正文/错误气泡 → token 小字 → 三点菜单
  * 结构（用户）：正文气泡 → 附件预览
+ *
+ * `memo` 依赖 `message` 与 `onDeleteMessage` 的引用稳定：流式更新时后端只替换
+ * 目标消息对象（`hooks/use-chat.ts`），`onDeleteMessage` 由 `MessageList` 用 ref
+ * 包装（`handleDeleteMessage`），因此历史气泡在整轮流式中不会重渲染。
  */
-function MessageBubble({
+const MessageBubble = memo(function MessageBubble({
   message,
   onDeleteMessage,
 }: {
@@ -98,6 +125,17 @@ function MessageBubble({
   const isAssistant = message.role === 'assistant'
   const thinkingText = message.thinking?.trim() ?? ''
   const hasThinking = thinkingText.length > 0
+
+  // 流式期间节流重解析；非流式直接用原文，避免终态落后一拍
+  const streaming = !!message.streaming
+  const content = message.content ?? ''
+  const throttledContent = useThrottledStreamContent(content, streaming)
+  const renderedContent = streaming ? throttledContent : content
+
+  // 仅助手气泡启用 Markdown，且正文确实含语法（否则走纯文本快路径）
+  const markdownEnabled = useChatPrefsStore((s) => s.markdownEnabled)
+  const useMarkdown = isAssistant && markdownEnabled && hasMarkdownSyntax(renderedContent)
+
   const hasError =
     !!message.error ||
     !!message.errorCode ||
@@ -146,21 +184,33 @@ function MessageBubble({
           /* 正文：主题色气泡；流式时空正文用占位文案 + 光标 */
           <div
             className={cn(
-              'relative rounded-lg px-3 py-2 text-xs leading-relaxed whitespace-pre-wrap break-words',
+              'relative rounded-lg px-3 py-2 text-xs leading-relaxed break-words',
+              // Markdown 分支由 prose 负责块级排版，不能再叠加 pre-wrap
+              // （否则 HTML 源码里的换行会被当作真实换行，块间距翻倍）
+              !useMarkdown && 'whitespace-pre-wrap',
               isUser && 'bg-primary text-primary-foreground',
               isAssistant && 'bg-muted text-foreground',
               message.role === 'system' && 'bg-accent text-accent-foreground',
               showActions && 'pr-7'
             )}
           >
-            {message.content ||
-              (message.streaming
-                ? hasThinking
-                  ? t('messages.generating')
-                  : t('messages.thinking')
-                : '')}
-            {message.streaming && (
-              <span className="ml-1 inline-block animate-pulse text-muted-foreground">▍</span>
+            {useMarkdown ? (
+              <ChatMarkdownBody
+                content={renderedContent}
+                streaming={message.streaming}
+              />
+            ) : (
+              <>
+                {content ||
+                  (message.streaming
+                    ? hasThinking
+                      ? t('messages.generating')
+                      : t('messages.thinking')
+                    : '')}
+                {message.streaming && (
+                  <span className="ml-1 inline-block animate-pulse text-muted-foreground">▍</span>
+                )}
+              </>
             )}
             {/* 助手气泡三点菜单：定位气泡内右下角 */}
             {showActions && (
@@ -201,7 +251,7 @@ function MessageBubble({
       </div>
     </div>
   )
-}
+})
 
 /**
  * 助手调用失败气泡

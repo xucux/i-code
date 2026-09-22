@@ -1,8 +1,9 @@
 /**
- * Markdown 渲染通用组件（GFM + GitHub Alert）
+ * Markdown 渲染通用组件（GFM + GitHub Alert + KaTeX 公式）
  *
  * - 基于 marked 同步解析，样式统一走 Tailwind Typography（prose）
  * - 支持 GitHub 风格 Alert 引用块（> [!NOTE] 等）
+ * - 支持行内/块级数学公式（`$...$`、`\(...\)`、`$$...$$`、`\[...\]`）
  * - 无业务模块依赖，可跨模块复用（更新日志、社区帖子正文等）
  */
 
@@ -11,9 +12,11 @@ import { createPortal } from 'react-dom'
 import { marked } from 'marked'
 import { useTranslation } from '@/modules/i18n/use-translation'
 import { cn } from '@/lib/utils'
+import { MATH_EXTENSIONS } from '@/components/ui/markdown-math'
 
-// 配置 marked：同步渲染 + GFM（任务列表、表格、删除线等）
-marked.use({ async: false, gfm: true })
+// 配置 marked：同步渲染 + GFM（任务列表、表格、删除线等）+ 公式扩展
+// 此处为 marked 单例的全局配置，聊天气泡（ChatMarkdownBody）复用同一实例
+marked.use({ async: false, gfm: true, extensions: MATH_EXTENSIONS })
 
 type AlertType = 'note' | 'tip' | 'important' | 'warning' | 'caution'
 
@@ -158,7 +161,10 @@ export function MarkdownContent({ content, compactImages = false }: { content: s
           // GitHub 风格 Alert 提示块：布局统一，颜色按类型注入（见 ALERT_STYLE 注释）
           '[&_.markdown-alert]:my-3 [&_.markdown-alert]:rounded-md [&_.markdown-alert]:border [&_.markdown-alert]:border-l-4 [&_.markdown-alert]:p-3',
           '[&_.markdown-alert-title]:mb-1.5 [&_.markdown-alert-title]:flex [&_.markdown-alert-title]:items-center [&_.markdown-alert-title]:gap-1.5 [&_.markdown-alert-title]:text-xs [&_.markdown-alert-title]:font-semibold',
-          '[&_.markdown-alert_p]:my-1 [&_.markdown-alert_p]:text-foreground'
+          '[&_.markdown-alert_p]:my-1 [&_.markdown-alert_p]:text-foreground',
+          // KaTeX 块级公式：长公式在窄容器内横向滚动，避免撑破布局
+          '[&_.katex-display]:my-2 [&_.katex-display]:py-0.5',
+          '[&_.katex-display]:overflow-x-auto [&_.katex-display]:overflow-y-hidden'
         )}
         dangerouslySetInnerHTML={{ __html: html }}
       />

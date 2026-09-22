@@ -54,6 +54,8 @@
 | 页面编排 | `ui/chat-page.tsx` | `activeId`、草稿会话、发送/中断、Token 汇总、删除确认 |
 | 左侧列表 | `ui/session-list.tsx` | 展示会话；回调新建/选中/删除（无业务副作用） |
 | 消息区 | `ui/message-list.tsx` | 气泡、`ThinkingBlock`、`ErrorBubble`、单条 usage |
+| Markdown 正文 | `ui/message-markdown.tsx` | 快路径判定、流式节流、GFM 渲染（仅助手气泡） |
+| 渲染偏好 | `prefs.ts` | `markdownEnabled` 开关，localStorage 持久化 |
 | 输入区 | `ui/chat-input.tsx` | 文本、附件预览、模型、传输模式、发送/中断按钮 |
 | 路由 | `routes/chat/index.tsx` | 挂载 `ChatPage`；会话状态不经 URL |
 | Hook | `hooks/use-chat.ts` | Command 封装、列表/会话状态、流式事件合并 |
@@ -76,6 +78,41 @@
 | 流式中 | — | 正文末尾脉冲 `▍` | 思考块默认展开 |
 
 错误判定（`hasError`）：存在 `error` / `errorCode` / `errorBody`，或 content 已含「错误码:」/「响应 Body:」结构化文本，且非 streaming。
+
+### 2.5 Markdown 渲染（`ui/message-markdown.tsx`）
+
+仅**助手气泡**启用，用户/系统气泡与 `ErrorBubble` 一律纯文本。
+
+| 能力 | 说明 |
+|------|------|
+| 语法 | GFM（标题/列表/任务列表/表格/引用/代码块/行内代码/链接/图片/删除线）+ GitHub Alert（`> [!NOTE]`） |
+| 解析 | 复用 `components/ui/markdown-content` 的 `preprocessMarkdownAlerts` 与全局 `marked` 单例（GFM 同步解析由该模块初始化，导入即生效） |
+| 开关 | `modules/chat/prefs.ts` 的 `markdownEnabled`，**默认开启**，设置页「聊天」卡片可关；持久化到 localStorage（纯前端渲染偏好，不进 `app_settings`、不参与备份恢复） |
+
+**纯文本快路径**：`hasMarkdownSyntax(content)` 为 false 时不走 `prose`，由气泡自身的
+`whitespace-pre-wrap` 负责换行。判定保守——只认明确的 Markdown 标记，宁可漏判也不误判
+（误判会让「3 * 4 = 12」这类短句多出块级间距）。
+
+**流式节流**：`useThrottledStreamContent` 在 streaming 期间最多每 `STREAM_THROTTLE_MS`（120ms）
+提交一次渲染内容，不足间隔的更新合并为一次尾触发；流式结束后调用方直接取原始正文
+（`streaming ? throttled : content`），保证终态不丢字。
+
+**流式光标**：正常情况把光标 `<span>` 拼进 Markdown 源码，随最后一个块排版；
+`isInsideOpenFence` 判定正文停在未闭合围栏内时改为挂在代码块外部——否则光标会被
+marked 当作代码内容转义成字面量显示给用户。
+
+**渲染开销**：`MessageBubble` 已 `memo`。流式更新只替换目标消息对象引用
+（`hooks/use-chat.ts` 的 `setMessages` 用 `map` 保留其余对象），`onDeleteMessage` 由
+`MessageList` 用 ref 包装成稳定引用（父级传入的通常是内联箭头函数），因此长会话在
+流式中不会重渲染并重解析全部历史气泡。
+
+**原始 HTML 与安全边界**：`marked` 默认放行原始 HTML，本组件与 `MarkdownContent`
+行为一致，**未做净化**。而 `tauri.conf.json` 当前 `"csp": null` 且 `withGlobalTauri: true`，
+模型/远端内容里的 `<img onerror=...>` 这类载荷在 WebView 中可执行并触达 Tauri IPC。
+渲染模型输出的场景（本模块）与渲染远端社区正文的场景（`community`）同属该风险面，
+建议后续统一处理：接入 DOMPurify 或补齐 CSP，改在 `MarkdownContent` 一处落地，让四个
+使用方同时受益。注意**不能**用「预转义 `<` 」的土办法：会把代码块里的 `<b>` 变成
+`&amp;lt;b&amp;gt;`（已实测），代码块是聊天最高频的 Markdown 内容。
 
 ---
 

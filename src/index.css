@@ -10,6 +10,9 @@
 /* 引入 Font Awesome Free 图标字体 */
 @import '@fortawesome/fontawesome-free/css/all.min.css';
 
+/* 引入 KaTeX 公式排版样式（字体随构建产物一起打包） */
+@import 'katex/dist/katex.min.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

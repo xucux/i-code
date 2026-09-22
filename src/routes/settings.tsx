@@ -45,6 +45,7 @@ import type { DateRange } from 'react-day-picker'
 import { UpdateCheck } from '@/modules/settings/ui/update-check'
 import { ChangelogButton } from '@/modules/settings/ui/changelog-dialog'
 import { usePreviewStore } from '@/components/preview/preview-store'
+import { useChatPrefsStore } from '@/modules/chat/prefs'
 
 /**
  * 设置页面
@@ -94,6 +95,10 @@ function SettingsPage() {
   // 虚拟供应商一键生成数据源配置
   const [slotsConfig, setSlotsConfigState] = useState<VirtualSlotsConfigDto | null>(null)
   const [slotsUrl, setSlotsUrl] = useState('')
+
+  // 聊天渲染偏好（localStorage 持久化，纯前端，不走后端设置）
+  const chatMarkdownEnabled = useChatPrefsStore((s) => s.markdownEnabled)
+  const setChatMarkdownEnabled = useChatPrefsStore((s) => s.setMarkdownEnabled)
 
   // 测量页面可用高度
   const [pageHeight, pageRef] = useAvailableHeight()
@@ -354,6 +359,30 @@ function SettingsPage() {
                   </button>
                 ))}
               </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 聊天 */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">
+              <i className={cn('fa-solid fa-comment-dots mr-2 text-muted-foreground')} />
+              {t('settings.chat.title')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-0.5">
+                <Label className="text-sm">{t('settings.chat.markdown')}</Label>
+                <p className="text-muted-foreground text-xs">
+                  {t('settings.chat.markdownDescription')}
+                </p>
+              </div>
+              <Switch
+                checked={chatMarkdownEnabled}
+                onCheckedChange={setChatMarkdownEnabled}
+              />
             </div>
           </CardContent>
         </Card>
@@ -722,7 +751,7 @@ function SettingsPage() {
                 <ChangelogButton />
               </div>
               <div className="flex items-center gap-1">
-                <span className="text-xs text-muted-foreground tabular-nums">0.3.8</span>
+                <span className="text-xs text-muted-foreground tabular-nums">0.3.9</span>
                 <UpdateCheck />
               </div>
             </div>

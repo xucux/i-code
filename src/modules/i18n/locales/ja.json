@@ -77,6 +77,11 @@
       "length": "現在の長さ：{{length}}",
       "scope": "適用範囲：ローカルに保存された API Key、Token などの Secret、および WebDAV のリモートバックアップファイルを暗号化します"
     },
+    "chat": {
+      "title": "チャット",
+      "markdown": "Markdown レンダリング",
+      "markdownDescription": "アシスタントの返信を Markdown でレンダリングします（見出し、リスト、コードブロック、表など）。オフにするとプレーンテキストで表示します。"
+    },
     "titlebarInfo": {
       "title": "タイトルバー情報",
       "description": "上部タイトルバー中央に表示する情報項目を選択します。最大3項目まで同時に表示できます。",

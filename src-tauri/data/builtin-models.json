@@ -2172,6 +2172,62 @@
       "thinking": null
     },
     {
+      "id": "mimo-v2.6-pro",
+      "displayName": "MiMo V2.6 Pro",
+      "background": "小米 MiMo V2.6 Pro（2026-09-21），1.02T 总参 / 42B 激活的稀疏 MoE 旗舰，原生全模态（文本/图像/视频/音频），1M 上下文，MIT 开源；Artificial Analysis 智能指数 46.32，为当前最强开源模型。",
+      "family": "xiaomi",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 131072,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "thinkingEffortOptions": [
+        "none",
+        "low",
+        "medium",
+        "high"
+      ],
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled"
+      }
+    },
+    {
+      "id": "mimo-v2.6-flash",
+      "displayName": "MiMo V2.6 Flash",
+      "background": "小米 MiMo V2.6 Flash（2026-09-21），309B 总参 / 15B 激活的稀疏 MoE 高效型号，与 Pro 共享全模态能力与 1M 上下文，MIT 开源；综合能力全面超越上一代 MiMo-V2.5-Pro。",
+      "family": "xiaomi",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 131072,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "thinkingEffortOptions": [
+        "none",
+        "low",
+        "medium",
+        "high"
+      ],
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled"
+      }
+    },
+    {
       "id": "mimo-v2.5-pro",
       "displayName": "MiMo V2.5 Pro",
       "background": "小米 MiMo v2.5 Pro（2026），1M 上下文，旗舰推理型号，参数量未公开。",

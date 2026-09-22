@@ -77,6 +77,11 @@
       "length": "當前長度：{{length}}",
       "scope": "作用範圍：加密本地儲存的 API Key、Token 等 Secret，以及 WebDAV 遠端備份檔案"
     },
+    "chat": {
+      "title": "聊天",
+      "markdown": "Markdown 渲染",
+      "markdownDescription": "助手回覆以 Markdown 渲染（標題、清單、程式碼區塊、表格等）；關閉後以純文字原樣顯示。"
+    },
     "titlebarInfo": {
       "title": "標題欄資訊",
       "description": "選擇要在頂部標題欄中間展示的資訊項，最多同時展示 3 項。",

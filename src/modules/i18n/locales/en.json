@@ -78,6 +78,11 @@
       "length": "Current length: {{length}}",
       "scope": "Scope: encrypts locally stored API Keys, Tokens and other Secrets, as well as remote WebDAV backup files"
     },
+    "chat": {
+      "title": "Chat",
+      "markdown": "Markdown rendering",
+      "markdownDescription": "Render assistant replies as Markdown (headings, lists, code blocks, tables, etc.). When off, replies are shown as plain text."
+    },
     "titlebarInfo": {
       "title": "Title Bar Info",
       "description": "Choose up to 3 info items to display in the center of the title bar.",
