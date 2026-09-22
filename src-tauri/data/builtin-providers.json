@@ -653,9 +653,9 @@
       "remark": "免费模型存在次数和Token限制。",
       "defaultModels": [
         {
-          "modelId": "cline-free/glm-5.2",
-          "displayName": "GLM-5.2（下架）",
-          "matchModelId": "glm-5.2"
+          "modelId": "cline-free/kimi-k3",
+          "displayName": "Kimi K3",
+          "matchModelId": "kimi-k3"
         },
         {
           "modelId": "z-ai/glm-5.3-flash",
