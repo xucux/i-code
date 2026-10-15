@@ -506,6 +506,8 @@
         "fetchByProtocol": "按协议拉取",
         "fetchProtocolOpenai": "OpenAI 兼容协议 (/models)",
         "fetchProtocolAnthropic": "Anthropic 原生协议 (/v1/models)",
+        "fetchProtocolCline": "Cline 推荐模型（免费优先）",
+        "officialFree": "官方免费",
         "fetchFailedHint": "拉取失败，请检查供应商配置",
         "fetchHint": "点击上方按钮拉取官方模型列表",
         "noOfficialMatches": "无匹配模型",

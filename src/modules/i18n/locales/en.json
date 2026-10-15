@@ -506,6 +506,8 @@
         "fetchByProtocol": "Fetch by protocol",
         "fetchProtocolOpenai": "OpenAI-compatible protocol (/models)",
         "fetchProtocolAnthropic": "Anthropic native protocol (/v1/models)",
+        "fetchProtocolCline": "Cline recommended models (free first)",
+        "officialFree": "Official free",
         "fetchFailedHint": "Fetch failed, please check provider configuration",
         "fetchHint": "Click the button above to fetch official model list",
         "noOfficialMatches": "No matching models",

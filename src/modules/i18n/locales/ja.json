@@ -504,6 +504,8 @@
         "fetchByProtocol": "プロトコル指定で取得",
         "fetchProtocolOpenai": "OpenAI 互換プロトコル (/models)",
         "fetchProtocolAnthropic": "Anthropic ネイティブプロトコル (/v1/models)",
+        "fetchProtocolCline": "Cline おすすめモデル（無料優先）",
+        "officialFree": "公式無料",
         "fetchFailedHint": "取得に失敗しました。プロバイダー設定を確認してください",
         "fetchHint": "上のボタンをクリックして公式モデルリストを取得します",
         "noOfficialMatches": "一致するモデルはありません",

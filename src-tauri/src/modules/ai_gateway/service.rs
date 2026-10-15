@@ -41,7 +41,8 @@ use super::types::{
     AuthConfig, AuthMethod, CreateGatewayAuthKeyInput, CreateGatewayModelInput,
     CreateModelConfigInput, CreateProviderInput, DeviceCodePollResult, DeviceCodePollStatus,
     ExportedGatewayModel, ExportedModel, ExportedModelConfig, ExportedProvider, ExportProviderInput,
-    ExposedModel, GatewayAuthKey, GatewayListenAddress, GatewayModel, GatewaySettings,
+    ExposedModel, FetchedOfficialModel, GatewayAuthKey, GatewayListenAddress, GatewayModel,
+    GatewaySettings,
     ImportProviderInput, ModelConfig, OAuth2Config, OAuth2GrantType, Provider, ProviderExportData,
     ProviderType, UpdateGatewayAuthKeyInput, UpdateGatewayModelInput, UpdateGatewaySettingsInput,
     UpdateModelConfigInput, UpdateProviderInput,
@@ -2374,6 +2375,106 @@ impl AiGatewayService {
         }
     }
 
+    // ===== Cline 推荐模型拉取 =====
+
+    /// 拉取 Cline 官方推荐模型列表
+    ///
+    /// Cline 不提供标准 `/models` 端点，只有官方推荐清单接口
+    /// `GET https://api.cline.bot/api/v1/ai/cline/recommended-models`。
+    ///
+    /// 响应分四组：`free`（官方标注免费）、`recommended`、`clinePass`、`clineCloud`。
+    /// 输出顺序固定为**免费组优先**，其余组按「推荐 → Pass → Cloud」顺序追加，
+    /// 全表按 `id` 去重；免费组条目 `is_free = true`，前端据此展示「官方免费」标记。
+    pub async fn fetch_cline_models(
+        &self,
+        provider_id: &str,
+    ) -> IcodeResult<Vec<FetchedOfficialModel>> {
+        let provider = repository::find_provider_by_id(provider_id)?;
+        if !provider.is_enabled {
+            return Err(IcodeError::validation("供应商已禁用，无法拉取模型列表"));
+        }
+
+        let auth = self.resolve_auth_for_request(&provider)?;
+        let client = build_provider_http_client(&provider)?;
+        let api_key = extract_api_key(&auth);
+
+        self.fetch_cline_recommended_models(&client, &provider, api_key)
+            .await
+    }
+
+    /// 请求 Cline 推荐模型接口并解析为带免费标记的条目列表
+    ///
+    /// 认证头与 OpenAI 兼容拉取保持一致（`Authorization` + `x-api-key`），
+    /// 并附带 Cline CLI 身份头 `x-client-type`（与内置 Cline 供应商的默认附加头一致）。
+    async fn fetch_cline_recommended_models(
+        &self,
+        client: &reqwest::Client,
+        provider: &Provider,
+        api_key: Option<&str>,
+    ) -> IcodeResult<Vec<FetchedOfficialModel>> {
+        let url = CLINE_RECOMMENDED_MODELS_URL;
+
+        let start = std::time::Instant::now();
+        let mut req = client.get(url).header("x-client-type", "cline-cli");
+        if let Some(key) = api_key {
+            req = req
+                .header("Authorization", format!("Bearer {}", key))
+                .header("x-api-key", key);
+        }
+
+        let resp = req.send().await.map_err(|e| {
+            tracing::error!(
+                "Cline recommended models | GET {} | provider={} | send failed | err={:?}",
+                url,
+                provider.slug,
+                e
+            );
+            IcodeError::gateway(format!("请求 Cline 推荐模型列表失败: {}", e))
+        })?;
+        let status = resp.status().as_u16();
+        let duration_ms = start.elapsed().as_millis();
+
+        if !resp.status().is_success() {
+            let text = resp.text().await.unwrap_or_default();
+            tracing::warn!(
+                "Cline recommended models non-200 | GET {} | status={} | duration={}ms | response_body={}",
+                url,
+                status,
+                duration_ms,
+                text
+            );
+            return Err(IcodeError::gateway(format!(
+                "Cline 返回错误 {}: {}",
+                status, text
+            )));
+        }
+
+        let body: serde_json::Value = resp.json().await.map_err(|e| {
+            tracing::warn!(
+                "Cline recommended models | GET {} | status={} | duration={}ms | parse_error={}",
+                url,
+                status,
+                duration_ms,
+                e
+            );
+            IcodeError::gateway(format!("解析 Cline 推荐模型列表失败: {}", e))
+        })?;
+
+        tracing::info!(
+            "Cline recommended models | GET {} | status={} | duration={}ms",
+            url,
+            status,
+            duration_ms
+        );
+        tracing::debug!(
+            "Cline recommended models response body | GET {} | {}",
+            url,
+            body.to_string()
+        );
+
+        Ok(parse_cline_recommended_models(&body))
+    }
+
     /// 默认拉取：优先 OpenAI 兼容协议，失败时自动回退 Anthropic 原生协议
     ///
     /// 部分供应商（尤其是中转网关）的 `provider_type` 声明为 OpenAI 兼容，
@@ -3401,6 +3502,50 @@ fn redact_url_key_param(url: &str) -> String {
     result
 }
 
+/// Cline 官方推荐模型接口
+///
+/// Cline 没有标准 `/models` 端点，模型清单只由该接口提供（与 provider `base_url`
+/// 解耦，固定走官方地址，避免用户自定义 base_url 时拼出错误路径）。
+const CLINE_RECOMMENDED_MODELS_URL: &str =
+    "https://api.cline.bot/api/v1/ai/cline/recommended-models";
+
+/// 解析 Cline 推荐模型接口响应
+///
+/// 分组顺序即输出顺序：`free`（官方免费）优先，其后依次 `recommended` → `clinePass`
+/// → `clineCloud`；跨组按 `id` 去重（先出现者生效），空 `id` 或非数组分组直接跳过。
+fn parse_cline_recommended_models(body: &serde_json::Value) -> Vec<FetchedOfficialModel> {
+    /// 分组键与「是否免费组」
+    const GROUPS: [(&str, bool); 4] = [
+        ("free", true),
+        ("recommended", false),
+        ("clinePass", false),
+        ("clineCloud", false),
+    ];
+
+    let mut entries: Vec<FetchedOfficialModel> = Vec::new();
+    let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+    for (key, is_free) in GROUPS {
+        let Some(items) = body.get(key).and_then(|v| v.as_array()) else {
+            continue;
+        };
+        for item in items {
+            let Some(id) = item.get("id").and_then(|v| v.as_str()) else {
+                continue;
+            };
+            if id.is_empty() || !seen.insert(id.to_string()) {
+                continue;
+            }
+            entries.push(FetchedOfficialModel {
+                id: id.to_string(),
+                is_free,
+            });
+        }
+    }
+
+    entries
+}
+
 /// 为模型拉取请求构造 HTTP 客户端
 ///
 /// 应用供应商级 `proxy_json` / `timeout_json`，使「拉取模型」与「网关转发」
@@ -3458,6 +3603,45 @@ mod tests {
         assert!(!is_secret_ref("$SECRET:$"));
         assert!(is_secret_ref("$SECRET:abc-123$"));
         assert!(is_secret_ref("$SECRET:550e8400-e29b-41d4-a716-446655440000$"));
+    }
+
+    #[test]
+    fn test_parse_cline_recommended_models() {
+        // 免费组优先，其余组按 recommended → clinePass → clineCloud 顺序追加；
+        // 跨组同名 id 只保留首次出现（免费标记不被后续付费组覆盖）
+        let body = serde_json::json!({
+            "recommended": [
+                { "id": "google/gemini-4-argon" },
+                { "id": "shared/model" }
+            ],
+            "free": [
+                { "id": "cline-free/step-5-preview" },
+                { "id": "shared/model" }
+            ],
+            "clinePass": [{ "id": "cline-pass/glm-5.3" }],
+            "clineCloud": [{ "id": "cline-cloud/deepseek-v4.1-flash" }]
+        });
+
+        let parsed = parse_cline_recommended_models(&body);
+        let ids: Vec<&str> = parsed.iter().map(|m| m.id.as_str()).collect();
+        assert_eq!(
+            ids,
+            vec![
+                "cline-free/step-5-preview",
+                "shared/model",
+                "google/gemini-4-argon",
+                "cline-pass/glm-5.3",
+                "cline-cloud/deepseek-v4.1-flash",
+            ]
+        );
+        // 免费组标记为 true；被免费组抢先命中的同名条目保持免费标记
+        assert!(parsed[0].is_free);
+        assert!(parsed[1].is_free);
+        assert!(!parsed[2].is_free);
+
+        // 缺字段 / 非数组 / 空 id 时安全跳过
+        let sparse = serde_json::json!({ "free": [{ "name": "no-id" }], "clinePass": null });
+        assert!(parse_cline_recommended_models(&sparse).is_empty());
     }
 
     #[test]

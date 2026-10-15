@@ -120,6 +120,7 @@ types.rs     → DTO / 领域类型
 | `docs/fix-bug.md` | 已知问题与修复记录 |
 | `docs/mimo-free-reference.md` | 小米 MiMo 免费通道（`mimo-auto`）参考项目协议调研：bootstrap/JWT、特殊请求头、guard prompt、限流 |
 | `docs/kiro-reference.md` | Kiro IDE 通道参考项目协议调研：Google/GitHub 社交 OAuth2.0 授权（PKCE + `kiro://` deep link）与 token 刷新、`generateAssistantResponse` 模型调用与 EventStream、`ListAvailableModels` 模型列表、`getUsageLimits` 余额 |
+| `docs/opencode-cline-free-reference.md` | OpenCode Zen Free 与 Cline Free 反代细节：上游校验规则、OpenCode ID 生成算法、请求头/请求体合规化、Cloudflare Worker 反代实现指导 |
 | `参考项目/vscode-unify-chat-provider-7.12.3/` | 类型与 well-known 数据参考源 |
 
 ---

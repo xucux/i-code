@@ -38,8 +38,9 @@ use super::auth::DeviceCodeInfo;
 use super::auth::OAuthStartResult;
 use super::types::{
     AuthMethod, CreateGatewayAuthKeyInput, CreateGatewayModelInput, CreateModelConfigInput,
-    CreateProviderInput, DeviceCodePollResult, ExposedModel, ExportProviderInput, GatewayAuthKey,
-    GatewayModel, GatewaySettings, ImportProviderInput, ModelConfig, Provider,
+    CreateProviderInput, DeviceCodePollResult, ExposedModel, ExportProviderInput,
+    FetchedOfficialModel, GatewayAuthKey, GatewayModel, GatewaySettings, ImportProviderInput,
+    ModelConfig, Provider,
     UpdateGatewayAuthKeyInput, UpdateGatewayModelInput, UpdateGatewaySettingsInput,
     UpdateModelConfigInput, UpdateProviderInput,
 };
@@ -401,6 +402,18 @@ pub async fn gateway_fetch_models_by_protocol(
     protocol: String,
 ) -> IcodeResult<Vec<String>> {
     state.service().fetch_models_by_protocol(&provider_id, &protocol).await
+}
+
+/// 拉取 Cline 官方推荐模型列表（免费模型优先）
+///
+/// 请求 `https://api.cline.bot/api/v1/ai/cline/recommended-models`，
+/// 免费组条目 `isFree = true`，前端据此展示「官方免费」标记。不做缓存。
+#[tauri::command]
+pub async fn gateway_fetch_cline_models(
+    state: State<'_, AiGatewayServiceHandle>,
+    provider_id: String,
+) -> IcodeResult<Vec<FetchedOfficialModel>> {
+    state.service().fetch_cline_models(&provider_id).await
 }
 
 // ===== 网关设置命令 =====

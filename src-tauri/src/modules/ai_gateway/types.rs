@@ -1592,6 +1592,23 @@ pub struct UpdateGatewayAuthKeyInput {
     pub sort_order: Option<i64>,
 }
 
+// ===== 官方模型拉取 =====
+
+/// 官方模型拉取条目
+///
+/// 比纯字符串 ID 多一个来源标记，用于前端区分「官方」与「官方免费」：
+/// 目前仅 Cline 推荐模型接口会返回 `is_free = true` 的条目，
+/// 其余协议拉取到的模型一律 `is_free = false`。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FetchedOfficialModel {
+    /// 模型 ID（直接作为网关模型的 `model_id`）
+    pub id: String,
+    /// 是否被官方明确标注为免费模型
+    #[serde(default)]
+    pub is_free: bool,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

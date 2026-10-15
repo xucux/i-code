@@ -43,7 +43,7 @@ import { listen } from '@tauri-apps/api/event'
 import { BalanceConfigForm } from '@/modules/balance/ui/balance-config-form'
 import { ScriptVariablesEditor } from '@/modules/ai-gateway/ui/script-variables-editor'
 import { PortInUseDialog } from '@/modules/ai-gateway/ui/port-in-use-dialog'
-import type { Provider, ProviderType, AuthConfig, AuthMethod, BuiltinModel, GatewayModel, ModelConfig, ModelCapabilities, ModelThinkingConfig, ModelEditTool, DeviceCodeInfo, DeviceCodePollResult, OAuthStartResult, OAuthCallbackEvent, ProviderScriptVariable, ProviderExtraHeader } from '@/modules/ai-gateway/types'
+import type { Provider, ProviderType, AuthConfig, AuthMethod, BuiltinModel, GatewayModel, ModelConfig, ModelCapabilities, ModelThinkingConfig, ModelEditTool, DeviceCodeInfo, DeviceCodePollResult, OAuthStartResult, OAuthCallbackEvent, ProviderScriptVariable, ProviderExtraHeader, FetchedOfficialModel } from '@/modules/ai-gateway/types'
 import { parseAuthConfig } from '@/modules/ai-gateway/types'
 import { toast } from 'sonner'
 import { toIcodeError } from '@/core/errors'
@@ -2021,6 +2021,8 @@ function ModelManagementSection({ provider, onModelDialogOpenChange }: ModelMana
   const [builtinModels, setBuiltinModels] = useState<BuiltinModel[]>([])
   const [builtinLoading, setBuiltinLoading] = useState(false)
   const [officialModels, setOfficialModels] = useState<string[]>([])
+  // 官方标注为免费的模型 ID 集合（目前仅 Cline 推荐模型接口会返回），用于渲染「官方免费」标签
+  const [officialFreeIds, setOfficialFreeIds] = useState<Set<string>>(new Set())
   const [officialLoading, setOfficialLoading] = useState(false)
   const [officialError, setOfficialError] = useState<string | null>(null)
 
@@ -2201,42 +2203,59 @@ function ModelManagementSection({ provider, onModelDialogOpenChange }: ModelMana
     }
   }, [provider])
 
-  // 拉取官方模型（默认策略）
-  const handleFetchOfficialModels = async () => {
+  /**
+   * 统一的官方模型拉取流程：负责 loading / 错误态与结果落地
+   *
+   * `fetcher` 返回 `[模型 ID 列表, 官方免费模型 ID 集合]`；除 Cline 推荐模型外，
+   * 各协议均不返回免费标记，传空集合即可。
+   */
+  const runOfficialFetch = async (
+    fetcher: (providerId: string) => Promise<[string[], Set<string>]>
+  ) => {
     if (!provider) return
     setOfficialLoading(true)
     setOfficialError(null)
     try {
-      const models = await invokeCommand<string[]>('gateway_fetch_official_models', {
-        providerId: provider.id,
-      })
-      setOfficialModels(models)
+      const [ids, freeIds] = await fetcher(provider.id)
+      setOfficialModels(ids)
+      setOfficialFreeIds(freeIds)
     } catch (err) {
       setOfficialError(String(err))
       setOfficialModels([])
+      setOfficialFreeIds(new Set())
     } finally {
       setOfficialLoading(false)
     }
   }
 
+  // 拉取官方模型（默认策略）
+  const handleFetchOfficialModels = () =>
+    runOfficialFetch(async (providerId) => {
+      const models = await invokeCommand<string[]>('gateway_fetch_official_models', { providerId })
+      return [models, new Set<string>()]
+    })
+
   // 按指定协议拉取官方模型
-  const handleFetchOfficialModelsByProtocol = async (protocol: string) => {
-    if (!provider) return
-    setOfficialLoading(true)
-    setOfficialError(null)
-    try {
+  const handleFetchOfficialModelsByProtocol = (protocol: string) =>
+    runOfficialFetch(async (providerId) => {
       const models = await invokeCommand<string[]>('gateway_fetch_models_by_protocol', {
-        providerId: provider.id,
+        providerId,
         protocol,
       })
-      setOfficialModels(models)
-    } catch (err) {
-      setOfficialError(String(err))
-      setOfficialModels([])
-    } finally {
-      setOfficialLoading(false)
-    }
-  }
+      return [models, new Set<string>()]
+    })
+
+  // 拉取 Cline 官方推荐模型（后端已按「免费优先」排序，此处按 isFree 打免费标记）
+  const handleFetchClineModels = () =>
+    runOfficialFetch(async (providerId) => {
+      const models = await invokeCommand<FetchedOfficialModel[]>('gateway_fetch_cline_models', {
+        providerId,
+      })
+      return [
+        models.map((m) => m.id),
+        new Set(models.filter((m) => m.isFree).map((m) => m.id)),
+      ]
+    })
 
   /**
    * 复制模型路由 ID 到剪贴板
@@ -2811,6 +2830,9 @@ function ModelManagementSection({ provider, onModelDialogOpenChange }: ModelMana
                   <DropdownMenuItem className="text-xs" onClick={() => void handleFetchOfficialModelsByProtocol('anthropic-native')}>
                     {t('aiGateway.providerForm.modelManagement.fetchProtocolAnthropic')}
                   </DropdownMenuItem>
+                  <DropdownMenuItem className="text-xs" onClick={() => void handleFetchClineModels()}>
+                    {t('aiGateway.providerForm.modelManagement.fetchProtocolCline')}
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -2902,7 +2924,11 @@ function ModelManagementSection({ provider, onModelDialogOpenChange }: ModelMana
                           />
                         )}
                         <span className="font-mono">{modelId}</span>
-                        <Badge variant="secondary" className="text-[10px]">{t('aiGateway.providerForm.source.official')}</Badge>
+                        {officialFreeIds.has(modelId) ? (
+                          <Badge variant="default" className="text-[10px]">{t('aiGateway.providerForm.modelManagement.officialFree')}</Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-[10px]">{t('aiGateway.providerForm.source.official')}</Badge>
+                        )}
                       </div>
                       {alreadyAdded && <span className="text-[10px] text-muted-foreground">{t('aiGateway.providerForm.modelManagement.added')}</span>}
                     </div>

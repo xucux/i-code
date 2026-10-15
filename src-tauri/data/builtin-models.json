@@ -1132,6 +1132,37 @@
       }
     },
     {
+      "id": "space-bunny",
+      "displayName": "Space Bunny",
+      "background": "Space Bunny（「太空兔」，2026-09-23 匿名上线 OpenRouter / OpenCode，代号 Space Bunny Alpha）：开发者未公开身份的 stealth 预览模型，第三方分词器比对指向 MiniMax 系列（社区推测为 M3.1 Flash 预览版，未获官方确认，官方标注族别待定）；1M 上下文 + 524K 最大输出，原生文本/图像/视频输入，推理常开且力度 low/medium/high/xhigh/max 五档可调，支持工具调用与 JSON 输出；预览期免费（输入/输出 $0），未发布权重与模型卡。",
+      "family": "minimax",
+      "providerTypes": [
+        "openai-chat-completion",
+        "opencode-free"
+      ],
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 524288,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "thinkingEffortOptions": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "medium"
+      }
+    },
+    {
       "id": "ernie-5.0",
       "displayName": "ERNIE 5.0",
       "background": "文心大模型 5.0（2026），128K 上下文，原生多模态，知识增强，参数量未公开。",
@@ -3407,6 +3438,35 @@
       },
       "thinking": {
         "type": "enabled"
+      }
+    },
+    {
+      "id": "step-5-preview",
+      "displayName": "Step 5 Preview",
+      "background": "Step 5 Preview（StepFun，2026-09-20 发布，StepFun Community License）：跳过 Step 4.x 直接迭代的旗舰基座，600B 稀疏 MoE 仅激活 27B（约 4.5%），92 层「窄而深」Transformer + Sparse GQA（块级 token 合并），1M 上下文，原生文本/图像/视频输入，推理力度 low/medium/high/xhigh，并行工具调用与严格 JSON Schema，面向 agentic 编码、软件工程与专业知识工作。BF16 权重已开源于 HuggingFace（1.2TB 显存起，8×H100 80GB 张量并行）。",
+      "family": "stepfun",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 131072,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "thinkingEffortOptions": [
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ],
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "high"
       }
     },
     {

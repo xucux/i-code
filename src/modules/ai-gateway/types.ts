@@ -235,6 +235,19 @@ export interface OfficialModelCache {
   errorMessage?: string
 }
 
+/**
+ * 官方模型拉取条目
+ *
+ * 比纯字符串 ID 多一个来源标记，用于区分「官方」与「官方免费」。
+ * 目前仅 Cline 推荐模型接口（`gateway_fetch_cline_models`）会返回 `isFree = true` 的条目。
+ */
+export interface FetchedOfficialModel {
+  /** 模型 ID（直接作为网关模型的 `modelId`） */
+  id: string
+  /** 是否被官方明确标注为免费模型 */
+  isFree: boolean
+}
+
 // ===== 认证配置（多态联合类型）=====
 
 /**

@@ -854,6 +854,7 @@ fn main() {
             modules::media_generation::commands::media_asset_export,
             modules::ai_gateway::commands::gateway_fetch_official_models,
             modules::ai_gateway::commands::gateway_fetch_models_by_protocol,
+            modules::ai_gateway::commands::gateway_fetch_cline_models,
             modules::ai_gateway::commands::gateway_settings_get,
             modules::ai_gateway::commands::gateway_settings_update,
             modules::ai_gateway::commands::gateway_auth_key_create,

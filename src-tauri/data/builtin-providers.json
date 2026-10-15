@@ -652,21 +652,6 @@
       },
       "remark": "免费模型存在次数和Token限制。",
       "defaultModels": [
-        {
-          "modelId": "cline-free/kimi-k3",
-          "displayName": "Kimi K3",
-          "matchModelId": "kimi-k3"
-        },
-        {
-          "modelId": "z-ai/glm-5.3-flash",
-          "displayName": "GLM-5.3-Flash",
-          "matchModelId": "glm-5.3-flash"
-        },
-        {
-          "modelId": "deepseek/deepseek-v4-flash",
-          "displayName": "DeepSeek V4 Flash",
-          "matchModelId": "deepseek-v4-flash"
-        }
       ]
     },
     {
@@ -700,16 +685,6 @@
       },
       "remark": "免费模型存在次数和Token限制。",
       "defaultModels": [
-        {
-          "modelId": "z-ai/glm-5.3-flash",
-          "displayName": "GLM-5.3-Flash",
-          "matchModelId": "glm-5.3-flash"
-        },
-        {
-          "modelId": "deepseek/deepseek-v4-flash",
-          "displayName": "DeepSeek V4 Flash",
-          "matchModelId": "deepseek-v4-flash"
-        }
       ]
     },
     {
