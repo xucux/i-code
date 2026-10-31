@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { invokeCommand } from '@/hooks/use-command'
 import type { ExposedModel } from '@/modules/ai-gateway/types'
 import type {
+  RequestAttemptChain,
   RouteAttemptStats,
   VirtualProvider,
   VirtualModel,
@@ -304,6 +305,48 @@ export function useVirtualRouteAttempts(
   }, [load])
 
   return { attempts, loading, refetch: load }
+}
+
+/**
+ * 获取指定虚拟供应商最近的失败请求尝试链
+ *
+ * 调用后端 `virtual_provider_failed_chains` 命令（返回全量最近失败链），
+ * 前端按 `virtualProviderAlias` 过滤出当前供应商的数据。
+ *
+ * @param alias 虚拟供应商 alias，传 null 时不加载
+ */
+export function useFailedChains(alias: string | null): {
+  chains: RequestAttemptChain[]
+  loading: boolean
+  refetch: () => void
+} {
+  const [chains, setChains] = useState<RequestAttemptChain[]>([])
+  const [loading, setLoading] = useState(false)
+
+  const load = useCallback(async () => {
+    if (!alias) {
+      setChains([])
+      return
+    }
+    setLoading(true)
+    try {
+      const result = await invokeCommand<RequestAttemptChain[]>(
+        'virtual_provider_failed_chains',
+        { limit: 20 },
+      )
+      setChains(result.filter((chain) => chain.virtualProviderAlias === alias))
+    } catch {
+      setChains([])
+    } finally {
+      setLoading(false)
+    }
+  }, [alias])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  return { chains, loading, refetch: load }
 }
 
 /**

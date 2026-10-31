@@ -58,7 +58,7 @@ export interface VirtualModelTargetNode {
   lastErrorText?: string
   /** 上次探活耗时（毫秒） */
   lastCheckDurationMs?: number
-  /** 负载均衡权重（仅在 load_balance 策略下生效） */
+  /** 负载均衡权重（历史字段；load_balance 策略已移除，仅保留数据兼容） */
   weight?: number
 }
 

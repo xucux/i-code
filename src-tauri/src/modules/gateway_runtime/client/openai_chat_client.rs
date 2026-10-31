@@ -171,7 +171,9 @@ impl UpstreamClient for OpenAiChatClient {
             .await
             .map_err(|e| ClientError::RequestFailed(format_client_error(&e)))?;
 
-        if request.is_stream {
+        // 流式请求的 4xx/5xx 也必须读取完整错误体：上层要依据 code/message 判定是否切换
+        // 路由，且错误体是 JSON 而非 SSE，不能按流式透传。
+        if request.is_stream && upstream_resp.status().is_success() {
             // 流式响应：直接返回 reqwest Response，由上层透传 SSE
             Ok(UpstreamResponse::Streaming { response: upstream_resp, protocol: UpstreamProtocol::ChatCompletions })
         } else {

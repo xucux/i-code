@@ -5,39 +5,31 @@
 
 use serde::{Deserialize, Serialize};
 
-/// 虚拟供应策略
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// 虚拟供应商路由策略
+///
+/// 当前仅支持顺序回退（`fallback`）：按「冷却中最后 → 不健康最后 → priority 升序」
+/// 逐条尝试，失败即切换。历史上存在的 `on_all` / `load_balance` 已废弃，
+/// 由迁移 V013 归一为 `fallback`，新建 / 更新时拒绝写入其它值。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum VirtualProviderStrategy {
-    /// 同时请求所有可用路由（v0.1 未实现）
-    OnAll,
-    /// 按优先级顺序尝试，失败则切换下一条（默认）
+    /// 按优先级顺序尝试，失败则切换下一条（唯一支持的策略）
+    #[default]
     Fallback,
-    /// 按权重轮询（v0.1 未实现）
-    LoadBalance,
-}
-
-impl Default for VirtualProviderStrategy {
-    fn default() -> Self {
-        Self::Fallback
-    }
 }
 
 impl VirtualProviderStrategy {
+    /// 解析策略字符串；仅接受 `fallback`，其它值（含历史策略）返回 `None`
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
-            "on_all" => Some(Self::OnAll),
             "fallback" => Some(Self::Fallback),
-            "load_balance" => Some(Self::LoadBalance),
             _ => None,
         }
     }
 
     pub fn as_str(&self) -> &'static str {
         match self {
-            Self::OnAll => "on_all",
             Self::Fallback => "fallback",
-            Self::LoadBalance => "load_balance",
         }
     }
 }
@@ -86,6 +78,100 @@ pub struct ExposedVirtualModel {
     pub display_name: String,
 }
 
+/// 虚拟路由失败类型
+///
+/// 由网关错误判定器（`gateway_runtime::forwarding::error_classifier`）产出，
+/// 用于决定是否切换下一条路由，以及降级时的冷却时长。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RouteFailureKind {
+    /// 请求级错误（参数非法 / 上下文超限 / 内容安全拒绝）：透传，不切换、不降级
+    ClientRequest,
+    /// 额度耗尽：切换 + 长冷却
+    QuotaExhausted,
+    /// 凭证失效 / 无权限：切换 + 长冷却
+    AuthFailure,
+    /// 模型不可用（不存在 / 无权使用）：切换 + 长冷却
+    ModelUnavailable,
+    /// 供应商配置错误（协议 / 路径不兼容）：切换 + 长冷却
+    ProviderMisconfigured,
+    /// 限流：切换 + 短冷却
+    RateLimited,
+    /// 上游不可用（5xx）：切换 + 短冷却
+    UpstreamUnavailable,
+    /// 上游超时：切换 + 短冷却
+    Timeout,
+}
+
+impl RouteFailureKind {
+    /// 字符串标识（落库到 `virtual_model_routes.failure_kind`）
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::ClientRequest => "client_request",
+            Self::QuotaExhausted => "quota_exhausted",
+            Self::AuthFailure => "auth_failure",
+            Self::ModelUnavailable => "model_unavailable",
+            Self::ProviderMisconfigured => "provider_misconfigured",
+            Self::RateLimited => "rate_limited",
+            Self::UpstreamUnavailable => "upstream_unavailable",
+            Self::Timeout => "timeout",
+        }
+    }
+
+    /// 从字符串解析（无法识别时返回 None）
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "client_request" => Some(Self::ClientRequest),
+            "quota_exhausted" => Some(Self::QuotaExhausted),
+            "auth_failure" => Some(Self::AuthFailure),
+            "model_unavailable" => Some(Self::ModelUnavailable),
+            "provider_misconfigured" => Some(Self::ProviderMisconfigured),
+            "rate_limited" => Some(Self::RateLimited),
+            "upstream_unavailable" => Some(Self::UpstreamUnavailable),
+            "timeout" => Some(Self::Timeout),
+            _ => None,
+        }
+    }
+
+    /// 是否为永久性故障（长冷却期间该路由不参与选路，全部路由都永久故障时才作为兜底尝试）
+    pub fn is_permanent(&self) -> bool {
+        matches!(
+            self,
+            Self::QuotaExhausted
+                | Self::AuthFailure
+                | Self::ModelUnavailable
+                | Self::ProviderMisconfigured
+        )
+    }
+
+    /// 是否属于请求级错误（不触发故障转移）
+    pub fn is_client_request(&self) -> bool {
+        matches!(self, Self::ClientRequest)
+    }
+}
+
+/// 路由降级惩罚（与"是否切换路由"分离）
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RoutePenalty {
+    /// 不惩罚：该路由本身没有故障（如上下文超限、内容安全拒绝）
+    None,
+    /// 短冷却：限流 / 5xx / 超时，60 秒后自动恢复参与选路
+    Short,
+    /// 长冷却：额度 / 凭证 / 模型不可用 / 配置错误，30 分钟后才允许探活恢复
+    Long,
+}
+
+impl RoutePenalty {
+    /// 冷却秒数；`None` 表示不写入冷却时间
+    pub fn cooldown_secs(&self) -> Option<i64> {
+        match self {
+            Self::None => None,
+            Self::Short => Some(60),
+            Self::Long => Some(30 * 60),
+        }
+    }
+}
+
 /// 虚拟模型路由 DTO
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -120,6 +206,17 @@ pub struct VirtualModelRoute {
     pub last_check_at: Option<String>,
     /// 负载均衡权重（默认 1，0 表示不参与轮询）；仅在 load_balance 策略下生效
     pub weight: i64,
+    /// 冷却截止时间（RFC3339）；未到期前该路由不参与选路（永久故障仅作最后兜底）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cooldown_until: Option<String>,
+    /// 最近一次失败类型（对应 [`RouteFailureKind::as_str`]）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub failure_kind: Option<String>,
+    /// 最近一次真实路由尝试时间（RFC3339，请求侧转发；非探活）
+    ///
+    /// 用于「全部路由永久失活」时按兜底间隔判断是否允许再尝试一次。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_attempted_at: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -229,11 +326,6 @@ fn default_route_enabled() -> bool {
     true
 }
 
-/// 路由权重默认值（load_balance 策略下生效）
-fn default_route_weight() -> i64 {
-    1
-}
-
 fn default_route_retry_interval_ms() -> i64 {
     1000
 }
@@ -267,29 +359,23 @@ pub struct SaveVirtualModelInput {
 }
 
 /// 保存虚拟模型时携带的单条子级路由输入
+///
+/// 运行态字段（健康 / 冷却 / 重试 / 超时 / 权重）不在此输入中：保存时由
+/// repository 按 `(provider_id, model_id)` 从已有路由继承，避免编辑弹窗覆盖运行态。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SaveVirtualModelRouteInput {
     pub target_provider_id: String,
     pub target_model_id: String,
     pub priority: i64,
-    /// 是否启用该路由（原硬编码 true，改为前端传入以支持单独禁用）
+    /// 是否启用该路由（前端传入以支持单独禁用）
     pub enabled: bool,
-    pub is_healthy: bool,
-    pub max_retries: i64,
-    pub retry_interval_ms: i64,
-    /// 路由级超时（毫秒），覆盖供应商级配置；None 表示继承
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub timeout_ms: Option<i64>,
     /// 路由级附加请求头（JSON 对象），覆盖供应商级同名头
     #[serde(skip_serializing_if = "Option::is_none")]
     pub extra_headers: Option<serde_json::Value>,
     /// 路由级附加请求体参数（JSON 对象），浅合并到请求体
     #[serde(skip_serializing_if = "Option::is_none")]
     pub extra_body: Option<serde_json::Value>,
-    /// 负载均衡权重（默认 1，0 表示不参与轮询）；仅在 load_balance 策略下生效
-    #[serde(default = "default_route_weight")]
-    pub weight: i64,
 }
 
 /// 路由解析结果
@@ -352,6 +438,78 @@ pub struct RouteAttemptStats {
     pub last_attempted_at: Option<String>,
 }
 
+/// 失败请求尝试链中的单条路由尝试
+///
+/// 由 `virtual_route_attempts` 关联路由与供应商表得到，供 UI 展示“本次请求走了哪几条路由”。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RequestAttemptStep {
+    /// 尝试序号（0 起）
+    pub attempt_index: i64,
+    pub virtual_route_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_provider_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_model_id: Option<String>,
+    /// 目标供应商展示名（路由已被删除时为 None）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_provider_name: Option<String>,
+    pub success: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status_code: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_message: Option<String>,
+    pub duration_ms: i64,
+    pub attempted_at: String,
+}
+
+/// 按 request_id 聚合的失败请求尝试链
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RequestAttemptChain {
+    pub request_id: String,
+    /// 虚拟供应商 alias（attempts 表中的占位字段归一化后的展示值）
+    pub virtual_provider_alias: String,
+    /// 该请求首条尝试时间
+    pub started_at: String,
+    /// 尝试顺序（attempt_index 升序）
+    pub attempts: Vec<RequestAttemptStep>,
+}
+
+/// 虚拟路由探活 / 全部失活兜底间隔配置
+///
+/// 由 `virtual_health_check_config_get` 返回；间隔单位均为秒，
+/// `min/max` 为允许配置范围（30s ~ 24h）。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VirtualHealthCheckConfig {
+    /// 降级路由探活间隔（秒）
+    pub health_check_interval_secs: u64,
+    /// 全部路由永久失活时的兜底尝试间隔（秒）
+    pub all_failed_fallback_interval_secs: u64,
+    /// 路由尝试历史保留天数
+    pub attempts_keep_days: u32,
+    pub default_health_check_interval_secs: u64,
+    pub default_all_failed_fallback_interval_secs: u64,
+    pub default_attempts_keep_days: u32,
+    pub min_interval_secs: u64,
+    pub max_interval_secs: u64,
+    pub min_attempts_keep_days: u32,
+    pub max_attempts_keep_days: u32,
+}
+
+/// 更新探活 / 兜底间隔 / 历史保留天数输入（None 表示不修改）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VirtualHealthCheckConfigSetInput {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub health_check_interval_secs: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub all_failed_fallback_interval_secs: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub attempts_keep_days: Option<u32>,
+}
+
 /// 单条路由测试结果
 ///
 /// 由 `virtual_provider_route_test` 命令返回，供前端 toast 展示。
@@ -399,9 +557,6 @@ pub struct VirtualSlotsProvider {
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
-    /// 路由策略：fallback / on_all / load_balance
-    #[serde(default)]
-    pub strategy: String,
     #[serde(default)]
     pub max_retries: i64,
     #[serde(default)]
@@ -431,16 +586,6 @@ fn default_match_type() -> String {
     "exact".to_string()
 }
 
-/// 一键生成数据源 JSON 中单个槽位的路由默认值
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct VirtualSlotsRouteDefaults {
-    #[serde(default)]
-    pub max_retries: Option<i64>,
-    #[serde(default)]
-    pub retry_interval_ms: Option<i64>,
-}
-
 /// 一键生成数据源 JSON 中单个虚拟模型槽位
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -456,8 +601,6 @@ pub struct VirtualSlotsSlot {
     pub role: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub route_defaults: Option<VirtualSlotsRouteDefaults>,
     /// 实体模型匹配规则，按 priority 升序
     pub matches: Vec<VirtualSlotsMatchRule>,
 }
@@ -487,9 +630,6 @@ pub struct GenerateVirtualProviderInput {
     /// 可选，覆盖设置中的自定义数据源 URL；空/省略时读取已配置的 URL（为空则回退内置 JSON）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub data_source_url: Option<String>,
-    /// 可选，覆盖数据源 JSON 中的策略
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub strategy: Option<String>,
     /// 可选，覆盖数据源 JSON 中的重试次数
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_retries: Option<i64>,
@@ -554,10 +694,13 @@ mod tests {
 
     #[test]
     fn test_strategy_roundtrip() {
-        for s in [VirtualProviderStrategy::OnAll, VirtualProviderStrategy::Fallback, VirtualProviderStrategy::LoadBalance] {
-            let text = s.as_str();
-            assert_eq!(VirtualProviderStrategy::from_str(text), Some(s));
-        }
+        assert_eq!(
+            VirtualProviderStrategy::from_str("fallback"),
+            Some(VirtualProviderStrategy::Fallback)
+        );
+        // 历史策略已移除：不再允许解析 / 保存
+        assert_eq!(VirtualProviderStrategy::from_str("on_all"), None);
+        assert_eq!(VirtualProviderStrategy::from_str("load_balance"), None);
         assert_eq!(VirtualProviderStrategy::from_str("unknown"), None);
     }
 }

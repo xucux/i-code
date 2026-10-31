@@ -820,11 +820,8 @@ interface ProviderShareConfig {
   - `priority`：优先级，数值越小优先级越高。
   - `enabled`：是否启用该路由。
   - `extra_headers` / `extra_body`：该路由专属的额外请求头/体（可选，覆盖目标供应商级别配置）。
-- **故障转移策略（Failover Strategy）**：决定何时切换到下一个路由：
-  - `on_error`：仅当请求返回 HTTP 错误（5xx / 4xx）时切换。
-  - `on_quota_exceeded`：当上游返回额度不足、余额耗尽、限流配额用完时切换。
-  - `on_timeout`：当请求超时或网络不可达时切换。
-  - `on_all`：上述任意一种失败均触发切换。
+- **故障转移策略（Failover Strategy）**：当前仅支持顺序回退（`fallback`）——按路由优先级依次尝试，命中路由级故障（额度耗尽 / 鉴权失败 / 模型不可用 / 限流 / 5xx / 超时）即切换到下一条；请求级错误（参数非法 / 上下文超限 / 内容安全拒绝）直接透传。
+  > 历史策略 `on_all` / `load_balance` 已移除：旧数据由迁移 `V013` 归一为 `fallback`，新建 / 更新时拒绝写入其它值。
 - **健康检查（Health Check）**：可选的轻量级探测，定期调用目标模型的一个低成本接口（如 `/models` 或一次短 completion），标记路由是否健康。健康检查失败的路由会被临时跳过，直到恢复。
 
 #### 5.16.2 核心类型
@@ -832,7 +829,7 @@ interface ProviderShareConfig {
 - `VirtualProvider`：对应数据库表 `virtual_providers`，字段包括 `id`、`name`、`alias`、`is_enabled`、`strategy`。
 - `VirtualModel`：对应数据库表 `virtual_models`，字段包括 `id`、`virtual_provider_id`、`model_id`（即对外虚拟模型 ID）、`is_enabled`。
 - `VirtualModelRoute`：对应数据库表 `virtual_model_routes`，字段包括 `id`、`virtual_model_id`、`target_provider_id`、`target_model_id`、`priority`、`enabled`、`max_retries`、`timeout_ms`、`is_healthy`、`last_healthy_at`。
-- `FailoverStrategy`：枚举 `on_error | on_quota_exceeded | on_timeout | on_all`。
+- `FailoverStrategy`：枚举，当前仅 `fallback`。
 - `VirtualProviderResolveResult`：解析结果，包含最终选中的 `provider_id`、`model_id`、`actual_request_url`、`headers`、以及本次路由尝试历史 `attempts`。
 - `VirtualModelMappingGraph`：前端展示组件的数据结构，见 §5.16.6。
 
@@ -845,7 +842,7 @@ interface ProviderShareConfig {
                 ↓
         查询 virtual_models 找到虚拟模型 smart-failover-gpt
                 ↓
-        按 priority ASC 加载所有 enabled 且 healthy 的 ModelRoute
+        加载所有 enabled 路由（永久故障冷却中的排除，全部冷却时才作最后兜底），按优先级排序
                 ↓
         依次尝试转发到 target_provider_id / target_model_id
                 ↓
@@ -904,9 +901,10 @@ interface ProviderShareConfig {
 - `create_virtual_model(data: VirtualModelInput) -> VirtualModel`。
 - `update_virtual_model(id: string, data: VirtualModelInput) -> VirtualModel`。
 - `delete_virtual_model(id: string) -> Result<void, Error>`。
-- `list_virtual_model_routes(virtual_model_id: string) -> VirtualModelRoute[]`。
-- `save_virtual_model_routes(virtual_model_id: string, routes: VirtualModelRouteInput[]) -> VirtualModelRoute[]`。
-- `resolve_virtual_model(provider_id: string, model_id: string) -> VirtualProviderResolveResult`（调试用途）。
+- `virtual_provider_route_list`：列出虚拟模型下的全部路由（含禁用）。
+- `virtual_provider_failed_chains`：按 `request_id` 聚合最近失败请求的尝试链（路由页「失败请求」Tab 数据源）。
+- `virtual_health_check_config_get` / `virtual_health_check_config_set`：读取 / 更新探活与全部失活兜底间隔（秒）。
+- `resolve_virtual_model(provider_id, model_id) -> VirtualProviderResolveResult`（调试用途）。
 
 #### 5.16.8 与 gateway-runtime 集成
 
@@ -919,8 +917,9 @@ interface ProviderShareConfig {
 
 - 虚拟供应商的 API Key 可以是任意值（由客户端配置），网关内部会根据目标路由替换为对应真实供应商的 API Key。
 - 流式响应的故障转移较为复杂：若首个 chunk 已成功返回，则不再切换；若在首个 chunk 前失败，可安全切换。
-- 健康检查应避免对上游产生显著费用，建议使用 `/models` 列表接口或极短 temperature=0 的 completion。
-- 额度耗尽判定依赖上游错误码/消息，不同供应商实现可能不一致，需维护一个可扩展的「额度相关错误模式」列表。
+- 健康检查对目标模型发起**最小真实请求**（OpenAI 兼容 `chat/completions`、Anthropic `messages`，`max_tokens=1`），仅对已降级/冷却外的路由触发，冷却期内跳过；不支持该接口的协议退化为 `/models` 存在性校验。首次成功即恢复健康；探活间隔可在虚拟供应商页调整（默认 1 小时）。
+- **全部路由永久失活**时按「兜底间隔」（默认 30 分钟，可调整）只尝试最久未尝试的一条；间隔内不调用上游，直接返回 `all_routes_cooling`（含 `Retry-After`）。
+- 额度耗尽判定依赖上游错误码/消息，不同供应商实现可能不一致，网关内置可扩展的「路由级故障 vs 请求级错误」判定表（见 `error_classifier`）。
 
 ### 5.15 backup（备份与恢复）
 

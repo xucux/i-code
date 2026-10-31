@@ -46,8 +46,6 @@ interface VirtualModelDialogProps {
   onOpenChange: (open: boolean) => void
   /** 所属虚拟供应商 ID */
   virtualProviderId: string
-  /** 虚拟供应商策略；load_balance 时显示 weight 输入 */
-  strategy?: 'fallback' | 'on_all' | 'load_balance'
   /** 传入 model 表示编辑模式；不传表示新建模式 */
   model?: VirtualModel | null
   onSuccess?: () => void
@@ -63,7 +61,6 @@ export function VirtualModelDialog({
   open,
   onOpenChange,
   virtualProviderId,
-  strategy,
   model,
   onSuccess,
 }: VirtualModelDialogProps) {
@@ -133,12 +130,8 @@ export function VirtualModelDialog({
             priority: Number(route.priority),
             enabled: route.enabled,
             isHealthy: route.isHealthy,
-            maxRetries: Number(route.maxRetries),
-            retryIntervalMs: Number(route.retryIntervalMs),
-            timeoutMs: route.timeoutMs != null ? Number(route.timeoutMs) : undefined,
             extraHeadersJson: route.extraHeadersJson ?? '',
             extraBodyJson: route.extraBodyJson ?? '',
-            weight: Number(route.weight ?? 1),
           }))
         )
       })
@@ -159,7 +152,7 @@ export function VirtualModelDialog({
 
   /**
    * 穿梭框选择变化时同步 selectedKeys 与 routeDetails
-   * - 新增的 key：创建默认 detail（priority 按顺序、isHealthy=true、maxRetries=3、retryIntervalMs=1000）
+   * - 新增的 key：创建默认 detail（priority 按顺序、enabled=true、健康状态默认视为健康）
    * - 移除的 key：删除对应 detail
    * - 保留的 key：沿用已有 detail
    */
@@ -182,12 +175,8 @@ export function VirtualModelDialog({
           priority: route ? Number(route.priority) : index,
           enabled: route ? route.enabled : true,
           isHealthy: route ? route.isHealthy : true,
-          maxRetries: route ? Number(route.maxRetries) : 3,
-          retryIntervalMs: route ? Number(route.retryIntervalMs) : 1000,
-          timeoutMs: route?.timeoutMs != null ? Number(route.timeoutMs) : undefined,
           extraHeadersJson: route?.extraHeadersJson ?? '',
           extraBodyJson: route?.extraBodyJson ?? '',
-          weight: route ? Number(route.weight ?? 1) : 1,
         }
       })
     })
@@ -224,13 +213,8 @@ export function VirtualModelDialog({
           targetModelId,
           priority: detail?.priority ?? index,
           enabled: detail?.enabled ?? true,
-          isHealthy: detail?.isHealthy ?? true,
-          maxRetries: detail?.maxRetries ?? 3,
-          retryIntervalMs: detail?.retryIntervalMs ?? 1000,
-          timeoutMs: detail?.timeoutMs,
           extraHeaders: parseJsonObj(detail?.extraHeadersJson),
           extraBody: parseJsonObj(detail?.extraBodyJson),
-          weight: detail?.weight ?? 1,
         }
       })
 
@@ -353,7 +337,6 @@ export function VirtualModelDialog({
                     onDetailChange={setRouteDetails}
                     providerModels={allModels}
                     realProviders={realProviders}
-                    strategy={strategy}
                   />
                 )}
               </div>

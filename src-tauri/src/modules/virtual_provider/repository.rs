@@ -2,6 +2,8 @@
 //!
 //! 直接操作 `virtual_providers` / `virtual_models` / `virtual_model_routes` 三表。
 
+use std::collections::HashMap;
+
 use chrono::Utc;
 
 use crate::core::id::generate_id;
@@ -10,9 +12,10 @@ use crate::error::{IcodeError, IcodeResult};
 
 use super::types::{
     CreateVirtualModelInput, CreateVirtualModelRouteInput, CreateVirtualProviderInput,
-    ExposedVirtualModel, RouteAttemptStats, SaveVirtualModelInput, UpdateVirtualModelInput,
-    UpdateVirtualModelRouteInput, UpdateVirtualProviderInput, VirtualModel, VirtualModelRoute,
-    VirtualProvider, VirtualProviderStrategy, VirtualRouteAttempt,
+    ExposedVirtualModel, RequestAttemptChain, RequestAttemptStep, RouteAttemptStats,
+    SaveVirtualModelInput, UpdateVirtualModelInput, UpdateVirtualModelRouteInput,
+    UpdateVirtualProviderInput, VirtualModel, VirtualModelRoute, VirtualProvider,
+    VirtualProviderStrategy, VirtualRouteAttempt,
 };
 
 fn get_conn() -> IcodeResult<DbConn> {
@@ -174,6 +177,67 @@ pub fn delete_provider(id: &str) -> IcodeResult<()> {
     Ok(())
 }
 
+/// 保存路由时需要保留的运行态快照
+///
+/// `save_model` 是「删除全部 + 重新插入」，若直接用入参写库，会把路由的
+/// 健康状态 / 冷却窗口 / 历史配置覆盖掉（编辑弹窗保存一次就会复活已降级路由）。
+#[derive(Clone)]
+struct RoutePersistedState {
+    is_healthy: i64,
+    last_healthy_at: Option<String>,
+    consecutive_failures: i64,
+    last_error_text: Option<String>,
+    last_check_duration_ms: Option<i64>,
+    last_check_at: Option<String>,
+    cooldown_until: Option<String>,
+    failure_kind: Option<String>,
+    last_attempted_at: Option<String>,
+    max_retries: i64,
+    retry_interval_ms: i64,
+    timeout_ms: Option<i64>,
+    weight: i64,
+}
+
+/// 读取虚拟模型下已有路由的持久化状态（按 `(provider_id, model_id)` 索引）
+fn load_persisted_states(
+    conn: &rusqlite::Connection,
+    virtual_model_id: &str,
+) -> IcodeResult<HashMap<(String, String), RoutePersistedState>> {
+    let mut stmt = conn.prepare(
+        "SELECT target_provider_id, target_model_id, is_healthy, last_healthy_at,
+                consecutive_failures, last_error_text, last_check_duration_ms, last_check_at,
+                cooldown_until, failure_kind, last_attempted_at,
+                max_retries, retry_interval_ms, timeout_ms, weight
+         FROM virtual_model_routes WHERE virtual_model_id = ?1",
+    )?;
+    let rows = stmt.query_map([virtual_model_id], |row| {
+        Ok((
+            (row.get::<_, String>(0)?, row.get::<_, String>(1)?),
+            RoutePersistedState {
+                is_healthy: row.get(2)?,
+                last_healthy_at: row.get(3)?,
+                consecutive_failures: row.get(4)?,
+                last_error_text: row.get(5)?,
+                last_check_duration_ms: row.get(6)?,
+                last_check_at: row.get(7)?,
+                cooldown_until: row.get(8)?,
+                failure_kind: row.get(9)?,
+                last_attempted_at: row.get(10)?,
+                max_retries: row.get(11)?,
+                retry_interval_ms: row.get(12)?,
+                timeout_ms: row.get(13)?,
+                weight: row.get(14)?,
+            },
+        ))
+    })?;
+    let mut map = HashMap::new();
+    for row in rows {
+        let (key, state) = row?;
+        map.insert(key, state);
+    }
+    Ok(map)
+}
+
 /// 保存虚拟模型及其子级路由（事务）
 ///
 /// - `id` 存在时更新虚拟模型（并校验属于指定供应商），否则新建；
@@ -217,6 +281,9 @@ pub fn save_model(input: &SaveVirtualModelInput) -> IcodeResult<VirtualModel> {
         vm_id
     };
 
+    // 先快照已有路由的运行态（健康 / 冷却 / 历史配置），用于「删除 + 重插」时保留
+    let persisted = load_persisted_states(&tx, &virtual_model_id)?;
+
     // 删除该虚拟模型下的全部已有路由，随后重新写入
     tx.execute(
         "DELETE FROM virtual_model_routes WHERE virtual_model_id = ?1",
@@ -226,7 +293,6 @@ pub fn save_model(input: &SaveVirtualModelInput) -> IcodeResult<VirtualModel> {
     for route in &input.routes {
         let route_id = new_id();
         let enabled_i: i64 = if route.enabled { 1 } else { 0 };
-        let is_healthy_i: i64 = if route.is_healthy { 1 } else { 0 };
         // 路由级 extra_headers / extra_body 序列化为 JSON 字符串存储
         let extra_headers_json: Option<String> = route
             .extra_headers
@@ -236,14 +302,35 @@ pub fn save_model(input: &SaveVirtualModelInput) -> IcodeResult<VirtualModel> {
             .extra_body
             .as_ref()
             .map(|v| v.to_string());
-        // weight 默认 1，写入时取 max(0) 防止负值
-        let weight = route.weight.max(0);
+
+        // 命中已有路由：保留运行态与历史配置；新增路由默认健康
+        let state = persisted.get(&(
+            route.target_provider_id.clone(),
+            route.target_model_id.clone(),
+        ));
+        let is_healthy_i = state.map(|s| s.is_healthy).unwrap_or(1);
+        let last_healthy_at = state.and_then(|s| s.last_healthy_at.clone());
+        let consecutive_failures = state.map(|s| s.consecutive_failures).unwrap_or(0);
+        let last_error_text = state.and_then(|s| s.last_error_text.clone());
+        let last_check_duration_ms = state.and_then(|s| s.last_check_duration_ms);
+        let last_check_at = state.and_then(|s| s.last_check_at.clone());
+        let cooldown_until = state.and_then(|s| s.cooldown_until.clone());
+        let failure_kind = state.and_then(|s| s.failure_kind.clone());
+        let last_attempted_at = state.and_then(|s| s.last_attempted_at.clone());
+        let max_retries = state.map(|s| s.max_retries).unwrap_or(0).max(0);
+        let retry_interval_ms = state.map(|s| s.retry_interval_ms).unwrap_or(0).max(0);
+        let timeout_ms = state.and_then(|s| s.timeout_ms);
+        let weight = state.map(|s| s.weight).unwrap_or(1).max(0);
+
         tx.execute(
             "INSERT INTO virtual_model_routes
                 (id, virtual_model_id, target_provider_id, target_model_id, priority,
                  enabled, max_retries, retry_interval_ms, timeout_ms, is_healthy,
+                 last_healthy_at, consecutive_failures, last_error_text, last_check_duration_ms,
+                 last_check_at, cooldown_until, failure_kind, last_attempted_at,
                  extra_headers_json, extra_body_json, weight, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10,
+                     ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)",
             rusqlite::params![
                 route_id,
                 virtual_model_id,
@@ -251,10 +338,18 @@ pub fn save_model(input: &SaveVirtualModelInput) -> IcodeResult<VirtualModel> {
                 route.target_model_id,
                 route.priority,
                 enabled_i,
-                route.max_retries.max(0),
-                route.retry_interval_ms.max(0),
-                route.timeout_ms,
+                max_retries,
+                retry_interval_ms,
+                timeout_ms,
                 is_healthy_i,
+                last_healthy_at,
+                consecutive_failures,
+                last_error_text,
+                last_check_duration_ms,
+                last_check_at,
+                cooldown_until,
+                failure_kind,
+                last_attempted_at,
                 extra_headers_json,
                 extra_body_json,
                 weight,
@@ -535,6 +630,27 @@ pub fn list_routes_by_virtual_model(virtual_model_id: &str) -> IcodeResult<Vec<V
     Ok(result)
 }
 
+/// 列出指定虚拟模型下的全部路由（含已禁用）
+///
+/// 用于编辑弹窗：必须把禁用路由一并返回，否则保存时「全量重写」会把它们静默删除。
+/// 网关选路请使用 [`list_routes_by_virtual_model`]（仅启用路由）。
+pub fn list_all_routes_by_virtual_model(
+    virtual_model_id: &str,
+) -> IcodeResult<Vec<VirtualModelRoute>> {
+    let conn = get_conn()?;
+    let sql = format!(
+        "{ROUTE_SELECT_SQL} WHERE virtual_model_id = ?1
+         ORDER BY priority ASC, created_at ASC"
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map([virtual_model_id], route_row_mapper)?;
+    let mut result = Vec::new();
+    for row in rows {
+        result.push(row?);
+    }
+    Ok(result)
+}
+
 /// 列出指定虚拟供应商下所有已启用的路由
 /// 列出指定虚拟供应商下所有已启用路由
 ///
@@ -632,6 +748,23 @@ pub fn delete_route(id: &str) -> IcodeResult<()> {
     Ok(())
 }
 
+/// 删除所有指向指定真实供应商模型的虚拟路由
+///
+/// 由 `ai_gateway` 在「删除供应商模型 / 删除模型配置」时调用，避免留下
+/// 指向已不存在模型的失效路由（这类路由会持续被选中并向上游返回 400）。
+pub fn delete_routes_by_target(
+    target_provider_id: &str,
+    target_model_id: &str,
+) -> IcodeResult<u64> {
+    let conn = get_conn()?;
+    let affected = conn.execute(
+        "DELETE FROM virtual_model_routes
+         WHERE target_provider_id = ?1 AND target_model_id = ?2",
+        rusqlite::params![target_provider_id, target_model_id],
+    )?;
+    Ok(affected as u64)
+}
+
 const ROUTE_SELECT_SQL: &str = "SELECT
     virtual_model_routes.id, virtual_model_routes.virtual_model_id, virtual_model_routes.target_provider_id,
     virtual_model_routes.target_model_id, virtual_model_routes.priority, virtual_model_routes.enabled,
@@ -641,6 +774,8 @@ const ROUTE_SELECT_SQL: &str = "SELECT
     virtual_model_routes.consecutive_failures, virtual_model_routes.last_error_text,
     virtual_model_routes.last_check_duration_ms, virtual_model_routes.last_check_at,
     virtual_model_routes.weight,
+    virtual_model_routes.cooldown_until, virtual_model_routes.failure_kind,
+    virtual_model_routes.last_attempted_at,
     virtual_model_routes.created_at, virtual_model_routes.updated_at
 FROM virtual_model_routes";
 
@@ -666,19 +801,64 @@ fn route_row_mapper(row: &rusqlite::Row<'_>) -> rusqlite::Result<VirtualModelRou
         last_check_duration_ms: row.get(15)?,
         last_check_at: row.get(16)?,
         weight: row.get(17)?,
-        created_at: row.get(18)?,
-        updated_at: row.get(19)?,
+        cooldown_until: row.get(18)?,
+        failure_kind: row.get(19)?,
+        last_attempted_at: row.get(20)?,
+        created_at: row.get(21)?,
+        updated_at: row.get(22)?,
     })
 }
 
-/// 将指定路由标记为不健康（网关层重试耗尽后降级）
-pub fn mark_route_unhealthy(id: &str) -> IcodeResult<()> {
+/// 将指定路由标记为不健康并写入冷却窗口（网关层判定为路由级故障后调用）
+///
+/// - `failure_kind`：失败类型字符串（见 `RouteFailureKind::as_str`）
+/// - `error_text`：失败原因摘要（写入 `last_error_text`，供 UI / 排查）
+/// - `cooldown_until`：冷却截止时间；`None` 表示不写冷却（仅置不健康）
+pub fn mark_route_unhealthy(
+    id: &str,
+    failure_kind: &str,
+    error_text: &str,
+    cooldown_until: Option<&str>,
+) -> IcodeResult<()> {
     let conn = get_conn()?;
     let now = now();
     conn.execute(
-        "UPDATE virtual_model_routes SET is_healthy = 0, last_healthy_at = NULL, updated_at = ?1 WHERE id = ?2",
+        "UPDATE virtual_model_routes
+         SET is_healthy = 0,
+             last_healthy_at = NULL,
+             failure_kind = ?1,
+             last_error_text = ?2,
+             consecutive_failures = consecutive_failures + 1,
+             cooldown_until = ?3,
+             last_attempted_at = ?4,
+             updated_at = ?4
+         WHERE id = ?5",
+        rusqlite::params![failure_kind, error_text, cooldown_until, now, id],
+    )?;
+    Ok(())
+}
+
+/// 手动恢复路由健康：清除冷却 / 故障类型 / 连续失败计数
+///
+/// 仅由用户显式操作触发；恢复后立即参与选路，若上游仍故障会在下一次请求中重新降级。
+pub fn reset_route_health(id: &str) -> IcodeResult<()> {
+    let conn = get_conn()?;
+    let now = now();
+    let affected = conn.execute(
+        "UPDATE virtual_model_routes
+         SET is_healthy = 1,
+             last_healthy_at = ?1,
+             consecutive_failures = 0,
+             last_error_text = NULL,
+             cooldown_until = NULL,
+             failure_kind = NULL,
+             updated_at = ?1
+         WHERE id = ?2",
         rusqlite::params![now, id],
     )?;
+    if affected == 0 {
+        return Err(IcodeError::not_found("VirtualModelRoute", Some(id)));
+    }
     Ok(())
 }
 
@@ -695,6 +875,8 @@ pub fn mark_route_healthy(id: &str, check_duration_ms: u64) -> IcodeResult<()> {
              last_check_at = ?1,
              last_check_duration_ms = ?2,
              consecutive_failures = 0,
+             cooldown_until = NULL,
+             failure_kind = NULL,
              updated_at = ?1
          WHERE id = ?3",
         rusqlite::params![now, check_duration_ms as i64, id],
@@ -904,6 +1086,78 @@ pub fn list_route_attempt_stats_by_provider(
         result.push(row?);
     }
     Ok(result)
+}
+
+/// 查询最近的失败请求尝试链（按 request_id 聚合）
+///
+/// 取最近 `scan_limit` 条尝试（按时间倒序）后按 `request_id` 分组，仅返回包含失败尝试的组；
+/// 组内按 `attempt_index` 升序，组间按首条尝试时间倒序，最多返回 `limit` 组。
+pub fn list_recent_failed_chains(
+    limit: usize,
+    scan_limit: usize,
+) -> IcodeResult<Vec<RequestAttemptChain>> {
+    let conn = get_conn()?;
+    let mut stmt = conn.prepare(
+        "SELECT a.request_id, a.virtual_provider_id, a.attempt_index, a.virtual_route_id,
+                a.success, a.status_code, a.error_message, a.duration_ms, a.attempted_at,
+                r.target_provider_id, r.target_model_id, p.display_name
+         FROM virtual_route_attempts a
+         LEFT JOIN virtual_model_routes r ON r.id = a.virtual_route_id
+         LEFT JOIN providers p ON p.id = r.target_provider_id
+         ORDER BY a.attempted_at DESC
+         LIMIT ?1",
+    )?;
+
+    let rows = stmt.query_map([scan_limit as i64], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            RequestAttemptStep {
+                attempt_index: row.get(2)?,
+                virtual_route_id: row.get(3)?,
+                success: row.get::<_, i64>(4)? != 0,
+                status_code: row.get(5)?,
+                error_message: row.get(6)?,
+                duration_ms: row.get(7)?,
+                attempted_at: row.get(8)?,
+                target_provider_id: row.get(9)?,
+                target_model_id: row.get(10)?,
+                target_provider_name: row.get(11)?,
+            },
+        ))
+    })?;
+
+    let mut groups: HashMap<String, (String, Vec<RequestAttemptStep>)> = HashMap::new();
+    for row in rows {
+        let (request_id, provider_ref, step) = row?;
+        groups
+            .entry(request_id)
+            .or_insert_with(|| (provider_ref, Vec::new()))
+            .1
+            .push(step);
+    }
+
+    let mut chains: Vec<RequestAttemptChain> = groups
+        .into_iter()
+        .filter(|(_, (_, steps))| steps.iter().any(|s| !s.success))
+        .map(|(request_id, (provider_ref, mut steps))| {
+            steps.sort_by_key(|s| s.attempt_index);
+            let started_at = steps
+                .first()
+                .map(|s| s.attempted_at.clone())
+                .unwrap_or_default();
+            RequestAttemptChain {
+                request_id,
+                virtual_provider_alias: provider_ref,
+                started_at,
+                attempts: steps,
+            }
+        })
+        .collect();
+
+    chains.sort_by(|a, b| b.started_at.cmp(&a.started_at));
+    chains.truncate(limit);
+    Ok(chains)
 }
 
 /// 清理 N 天前的路由尝试历史

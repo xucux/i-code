@@ -82,7 +82,8 @@ impl OpenAiResponsesClient {
             .await
             .map_err(|e| ClientError::RequestFailed(format_client_error(&e)))?;
 
-        if request.is_stream {
+        // 流式请求的 4xx/5xx 也必须读取完整错误体（供上层判定是否切换虚拟路由）
+        if request.is_stream && upstream_resp.status().is_success() {
             // 流式响应：直接返回 reqwest Response，由上层透传 SSE
             Ok(UpstreamResponse::Streaming {
                 response: upstream_resp,

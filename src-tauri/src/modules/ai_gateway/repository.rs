@@ -749,6 +749,26 @@ pub fn list_all_gateway_models() -> IcodeResult<Vec<ExposedGatewayModelRow>> {
     Ok(result)
 }
 
+/// 列出指定模型配置下关联的网关模型 (provider_id, model_id)
+///
+/// 用于删除模型配置前收集受影响的 (供应商, 模型) 组合，联动清理虚拟路由。
+pub fn list_gateway_models_by_model_config(
+    model_config_id: &str,
+) -> IcodeResult<Vec<(String, String)>> {
+    let conn = get_conn()?;
+    let mut stmt = conn.prepare(
+        "SELECT provider_id, model_id FROM gateway_models WHERE model_config_id = ?1",
+    )?;
+    let rows = stmt.query_map([model_config_id], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+    })?;
+    let mut result = Vec::new();
+    for row in rows {
+        result.push(row?);
+    }
+    Ok(result)
+}
+
 /// 删除网关模型
 pub fn delete_gateway_model(id: &str) -> IcodeResult<()> {
     let conn = get_conn()?;

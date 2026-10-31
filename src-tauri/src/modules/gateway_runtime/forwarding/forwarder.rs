@@ -24,16 +24,20 @@ use crate::modules::gateway_runtime::logging::{
 use crate::modules::gateway_runtime::service::GatewaySharedState;
 use crate::modules::logger::types::LogLevel;
 use crate::modules::logger::Log;
-use crate::modules::shared::RetryConfig;
+use crate::modules::shared::{RetryConfig, TimeoutConfig};
 
 use super::call_log::{
     finish_call_log, finish_call_log_full, lookup_model_price, start_call_log,
 };
 use super::context::{ForwardContext, ForwardRequest, GatewayProtocol};
+use super::error_classifier::{
+    classify, classify_transport_error, AttemptFailure, AttemptOutcome, RouteVerdict,
+};
 use super::response_handler::build_response;
 use super::route_resolver::{resolve_route, ResolvedRoute};
-use super::util::{build_error_tags, is_network_error, protocol_tags};
+use super::util::{build_error_tags, is_network_error, protocol_tags, upstream_error_response};
 use super::virtual_forwarder::VirtualForwarder;
+use crate::modules::virtual_provider::types::{RouteFailureKind, RoutePenalty};
 
 /// Forwarder trait：执行一次上游请求
 #[async_trait]
@@ -49,6 +53,12 @@ pub trait Forwarder: Send + Sync {
         body: Value,
     ) -> Result<UpstreamResponse, ClientError>;
 }
+
+/// 虚拟路由单次重试的最大退避（毫秒）
+///
+/// 虚拟供应商场景下故障转移优先：单条路由最多重试 1 次、退避不超过 500ms，
+/// 避免默认的 2s/4s/8s… 退避把一次请求拖到数十秒。
+const VIRTUAL_RETRY_MAX_DELAY_MS: u64 = 500;
 
 /// 真实供应商转发器
 ///
@@ -85,8 +95,13 @@ impl Forwarder for DirectForwarder {
     ) -> Result<UpstreamResponse, ClientError> {
         let client = ClientFactory::create(&ctx.upstream.provider.provider_type)?;
 
-        // 解析供应商级重试配置；retry_json 为空时使用默认值（3 次，2s 间隔）
-        let retry_cfg = RetryConfig::from_json(ctx.upstream.provider.retry_json.as_deref());
+        // 解析供应商级重试配置；retry_json 为空时使用默认值（8 次，2s 间隔）
+        let mut retry_cfg = RetryConfig::from_json(ctx.upstream.provider.retry_json.as_deref());
+        // 虚拟路由：故障转移优先，禁止长重试与长退避（否则单条路由可耗时数十秒）
+        let is_virtual = ctx.upstream.is_virtual;
+        if is_virtual {
+            retry_cfg.max_retries = retry_cfg.max_retries.min(1);
+        }
         // 转 owned 避免与重试循环内 `&mut ctx.upstream` 的借用冲突
         let provider_slug = ctx.upstream.provider.slug.clone();
         let model_id = ctx.upstream.upstream_model_id.clone();
@@ -120,7 +135,12 @@ impl Forwarder for DirectForwarder {
         for attempt in 0..=retry_cfg.max_retries {
             // 非首次尝试时等待退避延迟
             if attempt > 0 {
-                let delay = retry_cfg.retry_delay_ms(attempt);
+                // 虚拟路由的退避上限收紧到 500ms：避免单条故障路由占用数十秒
+                let delay = if is_virtual {
+                    retry_cfg.retry_delay_ms(attempt).min(VIRTUAL_RETRY_MAX_DELAY_MS)
+                } else {
+                    retry_cfg.retry_delay_ms(attempt)
+                };
                 let reason = last_retryable_response.as_ref().map(|_| "可重试状态码").or(last_err.as_ref().map(|_| "网络错误")).unwrap_or("未知");
                 let msg = format!(
                     "转发重试开始 | provider={} | model={} | attempt={}/{} | backoff_delay={}ms | reason={}",
@@ -150,8 +170,11 @@ impl Forwarder for DirectForwarder {
                     let is_retryable = status_code
                         .map(|code| retry_cfg.status_codes.contains(&code))
                         .unwrap_or(false);
+                    // 虚拟路由的 429 不重试：立即切换下一条路由，避免同一额度耗尽的 Key 反复消耗
+                    let allow_retry =
+                        is_retryable && !(is_virtual && status_code == Some(429));
 
-                    if is_retryable && attempt < retry_cfg.max_retries {
+                    if allow_retry && attempt < retry_cfg.max_retries {
                         let msg = format!(
                             "上游返回可重试状态码，准备退避重试 | provider={} | model={} | status={} | attempt={}/{} | remaining={}",
                             provider_slug, model_id,
@@ -166,7 +189,7 @@ impl Forwarder for DirectForwarder {
                         continue;
                     }
 
-                    if is_retryable && attempt == retry_cfg.max_retries {
+                    if allow_retry && attempt == retry_cfg.max_retries {
                         let msg = format!(
                             "上游返回可重试状态码，重试已耗尽 | provider={} | model={} | status={} | total_attempts={}",
                             provider_slug, model_id,
@@ -258,6 +281,55 @@ impl Forwarder for DirectForwarder {
     }
 }
 
+/// 单次尝试「等待上游响应头」的默认超时（毫秒）
+///
+/// - 虚拟路由：`route.timeout_ms` 未配置时使用；
+/// - 直连流式请求：供应商未配置 `timeout_json` 时使用。
+///
+/// 仅约束「发出请求 → 收到响应头」阶段，流式响应正文不受影响；
+/// 直连非流式请求不套用默认值（响应头即完整响应，避免截断长时间生成，
+/// 需要限制时请配置供应商 `timeout_json.response`）。
+const DEFAULT_ATTEMPT_TIMEOUT_MS: u64 = 60_000;
+
+/// 解析单次尝试等待上游响应头的超时
+///
+/// 优先级：
+/// 1. 虚拟路由级 `route.timeout_ms`（`<= 0` 表示显式关闭超时）；
+/// 2. 虚拟路由未配置 → 默认 60s，保证卡死路由能快速失败并切换；
+/// 3. 直连：供应商 `timeout_json.response`；
+/// 4. 直连流式仍未配置 → 默认 60s（响应头理应很快返回）；
+/// 5. 直连非流式且未配置 → 不额外限制。
+fn attempt_header_timeout(ctx: &ForwardContext) -> Option<Duration> {
+    match ctx.route_timeout_ms {
+        Some(ms) if ms > 0 => return Some(Duration::from_millis(ms as u64)),
+        Some(_) => return None,
+        None => {}
+    }
+
+    if ctx.kind.is_virtual() {
+        return Some(Duration::from_millis(DEFAULT_ATTEMPT_TIMEOUT_MS));
+    }
+
+    if let Some(ms) = provider_response_timeout_ms(&ctx.upstream.provider) {
+        return Some(Duration::from_millis(ms));
+    }
+
+    if ctx.upstream.is_stream {
+        return Some(Duration::from_millis(DEFAULT_ATTEMPT_TIMEOUT_MS));
+    }
+
+    None
+}
+
+/// 读取供应商 `timeout_json.response`（毫秒）；非法或未配置返回 `None`
+fn provider_response_timeout_ms(
+    provider: &crate::modules::ai_gateway::types::Provider,
+) -> Option<u64> {
+    let raw = provider.timeout_json.as_deref()?;
+    let cfg: TimeoutConfig = serde_json::from_str(raw).ok()?;
+    (cfg.response > 0).then_some(cfg.response)
+}
+
 /// 统一管道入口
 ///
 /// 编排：
@@ -336,7 +408,8 @@ impl ForwardPipeline {
         request_headers_json: Option<String>,
     ) -> IcodeResult<Response> {
         let forwarder = DirectForwarder::new();
-        Self::execute_and_finalize(
+        // 真实供应商直连：错误响应原样返回（不做故障转移）
+        match Self::execute_and_finalize(
             shared,
             &forwarder,
             &mut ctx,
@@ -345,6 +418,10 @@ impl ForwardPipeline {
             request_headers_json,
         )
         .await
+        {
+            AttemptOutcome::Success(resp) => Ok(resp),
+            AttemptOutcome::Failure(failure) => Ok(failure.response),
+        }
     }
 
     /// 公共：执行单次 Forwarder 并完成响应/日志/调用记录收尾
@@ -357,7 +434,7 @@ impl ForwardPipeline {
         body: &mut Value,
         api_key_secret_id: Option<String>,
         request_headers_json: Option<String>,
-    ) -> IcodeResult<Response> {
+    ) -> AttemptOutcome {
         let request_id = ctx.upstream.request_id.clone();
         let gateway_model_id = ctx.gateway_model_id.clone();
 
@@ -384,8 +461,19 @@ impl ForwardPipeline {
             bridge_kind,
         );
 
-        // 调用记录起始
-        let log_id = start_call_log(shared, ctx, api_key_secret_id)?;
+        // 调用记录起始：本地 DB 失败属于请求级错误，不触发虚拟路由故障转移
+        let log_id = match start_call_log(shared, ctx, api_key_secret_id) {
+            Ok(id) => id,
+            Err(err) => {
+                let response = upstream_error_response(err.clone());
+                return AttemptOutcome::Failure(AttemptFailure {
+                    verdict: RouteVerdict::client_request(),
+                    status: 500,
+                    message: err.message.clone(),
+                    response,
+                });
+            }
+        };
         let start_time = Instant::now();
 
         // 估算 prompt token
@@ -395,13 +483,45 @@ impl ForwardPipeline {
         // 请求体快照（未截断）
         let request_body_full = Some(body.to_string());
 
-        // 执行上游请求
+        // 执行上游请求：仅约束「等待响应头」阶段，超时后中断请求并走统一失败路径
         let upstream_url = super::util::build_log_url(ctx);
-        let result = forwarder.execute(shared, ctx, body.clone()).await;
+        let attempt_timeout = attempt_header_timeout(ctx);
+        let exec_future = forwarder.execute(shared, ctx, body.clone());
+        let result = match attempt_timeout {
+            Some(limit) => match tokio::time::timeout(limit, exec_future).await {
+                Ok(result) => result,
+                Err(_) => {
+                    let limit_ms = limit.as_millis() as u64;
+                    tracing::warn!(
+                        "上游响应超时（{}ms 内未返回响应头）| request_id={} | model={} | url={}",
+                        limit_ms,
+                        request_id,
+                        gateway_model_id,
+                        upstream_url
+                    );
+                    Err(ClientError::RequestFailed(format!(
+                        "等待上游响应超时：{}ms 内未返回响应头，请求已中断",
+                        limit_ms
+                    )))
+                }
+            },
+            None => exec_future.await,
+        };
 
         match result {
             Ok(mut response) => {
                 let status = extract_status(&response);
+                // 错误判定必须在响应桥接之前完成：桥接会把 5xx 错误体改写为统一的 502
+                // 标准错误体，原始 code/message 会丢失，无法区分额度耗尽 / 模型不存在。
+                let classified = if status.unwrap_or(200) >= 400 {
+                    let body_bytes = match &response {
+                        UpstreamResponse::Complete { body, .. } => Some(body.clone()),
+                        _ => None,
+                    };
+                    classify(status.unwrap_or(400), body_bytes.as_deref())
+                } else {
+                    None
+                };
                 // WebSocketStream 与 Streaming 同样按流式处理（SSE 字节流透传 + usage 拦截）
                 let is_streaming = matches!(
                     response,
@@ -524,7 +644,26 @@ impl ForwardPipeline {
                 let log_record = builder.build();
                 LogPipeline::default_forward().record(shared, &log_record);
 
-                Ok(axum_resp)
+                match classified {
+                    None => AttemptOutcome::Success(axum_resp),
+                    Some(c) => {
+                        let status_code = status.unwrap_or(0);
+                        let mut message = if c.message.is_empty() {
+                            format!("上游返回 HTTP {status_code}")
+                        } else {
+                            c.message
+                        };
+                        if let Some(code) = c.code.as_deref() {
+                            message = format!("{message}（code={code}）");
+                        }
+                        AttemptOutcome::Failure(AttemptFailure {
+                            verdict: c.verdict,
+                            status: status_code,
+                            message,
+                            response: axum_resp,
+                        })
+                    }
+                }
             }
             Err(err) => {
                 let is_network = is_network_error(&err);
@@ -578,13 +717,26 @@ impl ForwardPipeline {
                     Some(file!()),
                 );
 
-                // 虚拟路由失败降级
-                if let Some(route_id) = &ctx.virtual_route_id {
-                    super::virtual_forwarder::degrade_route(shared, route_id);
+                if let Some(app) = &shared.app_handle {
+                    let _ = app.emit("forward:failed", &icode_err);
                 }
 
-                let _ = shared.app_handle.emit("forward:failed", &icode_err);
-                Err(icode_err)
+                // 传输层失败统一按路由级故障处理：网络/超时用短冷却，配置类用长冷却。
+                // 具体降级由 VirtualForwarder 统一执行，避免重复降级。
+                let verdict = if is_network {
+                    classify_transport_error(&icode_err.message)
+                } else {
+                    RouteVerdict::new(
+                        RouteFailureKind::ProviderMisconfigured,
+                        RoutePenalty::Long,
+                    )
+                };
+                AttemptOutcome::Failure(AttemptFailure {
+                    verdict,
+                    status: 0,
+                    message: icode_err.message.clone(),
+                    response: upstream_error_response(icode_err),
+                })
             }
         }
     }

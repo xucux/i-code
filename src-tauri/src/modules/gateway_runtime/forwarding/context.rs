@@ -80,8 +80,6 @@ pub struct ForwardContext {
     pub upstream: UpstreamContext,
     /// 路由类型：真实直连 or 虚拟路由
     pub kind: ResolvedRouteKind,
-    /// 虚拟路由 ID（仅虚拟路由有值，用于失败时降级健康度）
-    pub virtual_route_id: Option<String>,
     /// 网关对外协议
     pub gateway_protocol: GatewayProtocol,
     /// 客户端原始 model 字段（`{prefix}/{model_id}`）
@@ -93,9 +91,8 @@ pub struct ForwardContext {
     pub route_extra_body: Option<Value>,
     /// 虚拟路由级超时（毫秒），覆盖供应商级配置
     ///
-    /// 当前仅做字段连通，实际应用需要改造 `http_client_for` 接收路由级 timeout，
-    /// 留待后续阶段（与主动健康检查调度器一起做）。
-    #[allow(dead_code)]
+    /// 由 `ForwardPipeline` 用于约束「等待上游响应头」阶段：
+    /// 仅虚拟路由生效，未配置时回退默认 60s。
     pub route_timeout_ms: Option<i64>,
 }
 
@@ -127,7 +124,6 @@ impl ForwardContext {
         Self {
             upstream,
             kind: ResolvedRouteKind::Direct,
-            virtual_route_id: None,
             gateway_protocol,
             gateway_model_id: gateway_model_id_str,
             route_extra_body: None,
@@ -143,7 +139,6 @@ impl ForwardContext {
         auth_config: Option<AuthConfig>,
         extra_headers: Vec<(String, String)>,
         route_index: usize,
-        virtual_route_id: String,
         gateway_protocol: GatewayProtocol,
         gateway_model_id_str: String,
     ) -> Self {
@@ -163,7 +158,6 @@ impl ForwardContext {
         Self {
             upstream,
             kind: ResolvedRouteKind::Virtual,
-            virtual_route_id: Some(virtual_route_id),
             gateway_protocol,
             gateway_model_id: gateway_model_id_str,
             route_extra_body: None,

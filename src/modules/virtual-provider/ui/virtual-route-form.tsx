@@ -160,8 +160,8 @@ export function VirtualRouteForm({ open, onOpenChange, route, providers, onSubmi
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs">超时（毫秒，留空表示不限制）</Label>
-            <Input type="number" {...form.register('timeoutMs')} className="h-8 text-xs" placeholder="30000" />
+            <Label className="text-xs">超时（毫秒，留空默认 60 秒）</Label>
+            <Input type="number" {...form.register('timeoutMs')} className="h-8 text-xs" placeholder="60000" />
           </div>
 
           <div className="flex items-center gap-2">

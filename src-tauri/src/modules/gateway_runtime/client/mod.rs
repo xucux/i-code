@@ -86,7 +86,6 @@ pub struct UpstreamContext {
     /// 真实模型 ID（已去除 provider_slug / virtual_alias 前缀）
     pub upstream_model_id: String,
     /// 是否通过虚拟供应商路由
-    #[expect(dead_code)]
     pub is_virtual: bool,
     /// 当前使用的路由索引（仅虚拟供应商有意义，保留用于后续日志扩展）
     #[allow(dead_code)]

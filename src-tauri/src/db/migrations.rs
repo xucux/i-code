@@ -84,6 +84,19 @@ const V010__MEDIA_GENERATION: &str = include_str!("./migrations/V010__media_gene
 const V011__CALL_STATS_IDEMPOTENT_ACCUMULATE: &str =
     include_str!("./migrations/V011__call_stats_idempotent_accumulate.sql");
 
+/// 虚拟路由冷却窗口：virtual_model_routes 新增 cooldown_until / failure_kind 列，
+/// 用于把「布尔健康位」升级为带惩罚时长的冷却窗口（永久性故障冷却期内不参与选路）
+const V012__VIRTUAL_ROUTE_COOLDOWN: &str =
+    include_str!("./migrations/V012__virtual_route_cooldown.sql");
+
+/// 移除废弃的故障转移策略：历史 `load_balance` / `on_all` 统一归一为 `fallback`
+const V013__NORMALIZE_VIRTUAL_PROVIDER_STRATEGY: &str =
+    include_str!("./migrations/V013__normalize_virtual_provider_strategy.sql");
+
+/// 虚拟路由新增最近一次真实尝试时间（全部失活兜底间隔判定）
+const V014__VIRTUAL_ROUTE_LAST_ATTEMPTED: &str =
+    include_str!("./migrations/V014__virtual_route_last_attempted.sql");
+
 /// 内置迁移列表：(版本号, 描述, SQL 内容)
 ///
 /// 增量迁移模式：V001 为基线，V002+ 为增量变更。
@@ -100,6 +113,9 @@ const BUILTIN_MIGRATIONS: &[(u32, &str, &str)] = &[
     (9, "model_config_request_params", V009__MODEL_CONFIG_REQUEST_PARAMS),
     (10, "media_generation", V010__MEDIA_GENERATION),
     (11, "call_stats_idempotent_accumulate", V011__CALL_STATS_IDEMPOTENT_ACCUMULATE),
+    (12, "virtual_route_cooldown", V012__VIRTUAL_ROUTE_COOLDOWN),
+    (13, "normalize_virtual_provider_strategy", V013__NORMALIZE_VIRTUAL_PROVIDER_STRATEGY),
+    (14, "virtual_route_last_attempted", V014__VIRTUAL_ROUTE_LAST_ATTEMPTED),
 ];
 
 /// 执行所有未应用的迁移

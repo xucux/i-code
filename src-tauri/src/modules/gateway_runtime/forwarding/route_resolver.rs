@@ -124,13 +124,10 @@ pub fn resolve_route(
             )));
         }
 
-        let strategy = crate::modules::virtual_provider::types::VirtualProviderStrategy::from_str(&vp.strategy)
-            .unwrap_or(crate::modules::virtual_provider::types::VirtualProviderStrategy::Fallback);
-
         let routes = shared
             .virtual_provider_handle
             .service()
-            .resolve_routes_by_strategy(&vp.id, &upstream_model_id, &strategy)?;
+            .resolve_routes(&vp.id, &upstream_model_id)?;
 
         // 隔离约束：过滤掉目标供应商属于媒体生成协议族的路由
         // （虚拟模型不允许挂载视觉生成供应商，此处为运行时兜底过滤）
@@ -175,7 +172,8 @@ pub fn resolve_route(
 /// - `extra_headers_json`：反序列化后追加到 `ctx.upstream.extra_headers`，
 ///   追加在供应商级头之后，由 client 层 `build_headers` 以"后写覆盖先写"语义应用。
 /// - `extra_body_json`：解析后存入 `ctx.route_extra_body`，由 `prepare_body` 浅合并到请求体。
-/// - `timeout_ms`：存入 `ctx.route_timeout_ms`，实际应用待后续阶段。
+/// - `timeout_ms`：存入 `ctx.route_timeout_ms`，由 `ForwardPipeline` 应用为
+///   「等待上游响应头」的超时（未配置时回退默认 60s）。
 pub fn build_virtual_context(
     shared: &GatewaySharedState,
     route: &VirtualModelRoute,
@@ -239,7 +237,6 @@ pub fn build_virtual_context(
         auth_config,
         extra_headers,
         route_index,
-        route.id.clone(),
         gateway_protocol,
         gateway_model_id,
     );

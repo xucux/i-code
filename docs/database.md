@@ -945,13 +945,14 @@ CREATE TABLE gateway_auth_keys (
 | `alias` | TEXT | NOT NULL UNIQUE | | 对外路由别名，用于 model_id 前缀 |
 | `display_name` | TEXT | | | 展示名称 |
 | `is_enabled` | INTEGER | NOT NULL | 1 | 是否启用 |
-| `strategy` | TEXT | NOT NULL | `'on_all'` | 路由策略：`fallback` / `on_all` / `load_balance` |
-| `max_retries` | INTEGER | NOT NULL | 3 | 单条路由最大重试次数 |
-| `retry_interval_ms` | INTEGER | NOT NULL | 1000 | 两次重试之间的间隔（毫秒） |
+| `strategy` | TEXT | NOT NULL | `'fallback'` | 路由策略：当前仅 `fallback`（历史 `on_all` / `load_balance` 由 V013 归一） |
+| `max_retries` | INTEGER | NOT NULL | 3 | 虚拟供应商级重试次数（历史字段：当前未参与运行时决策） |
+| `retry_interval_ms` | INTEGER | NOT NULL | 1000 | 虚拟供应商级重试间隔（历史字段：当前未参与运行时决策） |
 | `created_at` | TEXT | NOT NULL | | 创建时间 |
 | `updated_at` | TEXT | NOT NULL | | 更新时间 |
 
 ```sql
+-- V001 基线（历史默认值 'on_all'；V013 已把存量数据归一为 'fallback'，新建由 Service 校验写入）
 CREATE TABLE virtual_providers (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL UNIQUE,
@@ -965,6 +966,8 @@ CREATE TABLE virtual_providers (
   updated_at TEXT NOT NULL
 );
 ```
+
+> `max_retries` / `retry_interval_ms` 为历史字段：当前虚拟供应商级重试未参与运行时决策（网关按错误判定与冷却切换）。
 
 ### 4.26 `virtual_models` — 虚拟供应商模型
 
@@ -995,7 +998,7 @@ CREATE TABLE virtual_models (
 
 ### 4.27 `virtual_model_routes` — 虚拟模型路由（故障转移目标）
 
-一条从虚拟模型到真实供应商模型的映射。`fallback` 策略下按 `priority` 升序尝试；失败超过虚拟供应商级 `max_retries` 后该路由健康度降级。
+一条从虚拟模型到真实供应商模型的映射。运行时按「冷却中最后 → 不健康最后 → priority 升序」逐条尝试；路由级故障按判定写入冷却窗口（见 `cooldown_until` / `failure_kind`）。
 
 | 列名 | 类型 | 约束 | 默认值 | 说明 |
 |------|------|------|--------|------|
@@ -1005,13 +1008,16 @@ CREATE TABLE virtual_models (
 | `target_model_id` | TEXT | NOT NULL | | 目标真实模型 ID |
 | `priority` | INTEGER | NOT NULL | 0 | 优先级，数值越小越优先 |
 | `enabled` | INTEGER | NOT NULL | 1 | 是否启用 |
-| `max_retries` | INTEGER | NOT NULL | 0 | 路由级最大重试次数（保留字段，网关优先使用虚拟供应商级配置） |
-| `retry_interval_ms` | INTEGER | NOT NULL | 1000 | 路由级重试间隔（毫秒） |
-| `timeout_ms` | INTEGER | | | 路由级超时（毫秒），为空表示不限制 |
+| `max_retries` | INTEGER | NOT NULL | 0 | 路由级最大重试次数（历史字段：当前未参与运行时重试） |
+| `retry_interval_ms` | INTEGER | NOT NULL | 1000 | 路由级重试间隔（历史字段：当前未参与运行时重试） |
+| `timeout_ms` | INTEGER | | | 路由级超时（毫秒）：约束「等待上游响应头」阶段，留空回退默认 60s，`<= 0` 表示不限制 |
 | `is_healthy` | INTEGER | NOT NULL | 1 | 健康状态 |
 | `last_healthy_at` | TEXT | | | 上次健康时间 |
 | `extra_headers_json` | TEXT | | | 额外请求头 JSON |
 | `extra_body_json` | TEXT | | | 额外请求体 JSON |
+| `cooldown_until` | TEXT | | | 冷却截止时间（RFC3339），由 V012 新增；冷却期内不参与选路 |
+| `failure_kind` | TEXT | | | 最近一次失败类型（quota_exhausted / auth_failure / model_unavailable 等），由 V012 新增 |
+| `last_attempted_at` | TEXT | | | 最近一次真实路由尝试时间（请求转发，非探活），由 V014 新增；用于全部失活时的兜底间隔判定 |
 | `created_at` | TEXT | NOT NULL | | 创建时间 |
 | `updated_at` | TEXT | NOT NULL | | 更新时间 |
 

@@ -98,7 +98,9 @@ pub fn finish_call_log_full(
         log_id, duration_ms, &update,
     )?;
 
-    let _ = shared.app_handle.emit(EVENT_CALL_RECORD_UPDATED, &log);
+    if let Some(app) = &shared.app_handle {
+        let _ = app.emit(EVENT_CALL_RECORD_UPDATED, &log);
+    }
     Ok(())
 }
 

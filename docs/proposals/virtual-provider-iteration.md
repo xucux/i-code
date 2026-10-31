@@ -2,6 +2,9 @@
 
 > 状态：**已确认**（分 6 阶段实施）  
 > 关联：`docs/development.md` §5.16、`docs/gateway-runtime.md`、`src-tauri/src/modules/virtual_provider/`、`src-tauri/src/modules/gateway_runtime/forwarding/virtual_forwarder.rs`、`src-tauri/src/modules/scheduler/mod.rs`
+>
+> **后续变更（已落地）**：`load_balance` / `on_all` 策略已移除，仅保留 `fallback`；
+> 旧数据由迁移 `V013` 归一。本文 Phase 3 中涉及这两种策略的设计已作废，仅作历史参考。
 
 ---
 
@@ -306,7 +309,7 @@ CREATE INDEX IF NOT EXISTS idx_attempts_provider_time
 
 ### 5.5 数据治理
 
-- `virtual_route_attempts` 表按 30 天自动清理（调度器每天清理一次）
+- `virtual_route_attempts` 表按保留天数自动清理（默认 3 天，可在虚拟供应商「配置」中调整；调度器每天清理一次）
 - 备份模块（`backup`）需要把该表加入备份列表
 
 ---
@@ -418,7 +421,7 @@ Phase 6 ─┘（可与 1-4 并行）
 |------|------|
 | 探活请求对上游产生负担 | 间隔 60s 起步；指数退避；401/403 跳过；可在 `global_configs` 关闭 |
 | on_all 并发请求成本翻倍 | 默认禁用，需用户主动选择；UI 显式提示 |
-| `virtual_route_attempts` 表膨胀 | 30 天自动清理；可关闭记录 |
+| `virtual_route_attempts` 表膨胀 | 按保留天数自动清理（默认 3 天，可配置）；可关闭记录 |
 | alias 变更仍可能被用户忽略提示 | Phase 6 完成后，考虑在后续版本强制锁 alias |
 
 回滚：每个 Phase 独立迁移，删除对应迁移文件并回退 `SCHEMA_VERSION` 即可回滚数据库；代码层通过 git revert。

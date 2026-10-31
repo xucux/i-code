@@ -151,6 +151,19 @@ export async function testRoute(routeId: string): Promise<RouteTestResult> {
 }
 
 /**
+ * 立即恢复单条路由的健康状态
+ *
+ * 清空该路由的失败计数、冷却窗口与失败类型，并标记为健康，使其立刻重新参与选路。
+ * 仅覆盖运行态字段，不改变路由本身的启用开关；若上游仍然故障，
+ * 下一次请求失败会按判定结果重新降级。
+ */
+export async function restoreRouteHealth(
+  routeId: string,
+): Promise<VirtualModelRoute> {
+  return invokeCommand<VirtualModelRoute>('virtual_provider_route_restore_health', { routeId })
+}
+
+/**
  * 检查修改虚拟供应商 alias 的影响范围
  *
  * 返回受影响的 CLI 模型映射数量（gateway_model_id 以旧 alias 为前缀）。

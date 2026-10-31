@@ -7,10 +7,8 @@
 //! - **VirtualProvider**：一个逻辑供应商标识，对外暴露为 `{virtual_alias}/{model_id}`。
 //! - **VirtualModel**：虚拟供应商下的模型 ID。
 //! - **VirtualModelRoute**：将虚拟模型映射到真实供应商的某条路由，含优先级、重试、超时等配置。
-//! - **Strategy**：路由策略
-//!   - `on_all`：同时请求所有可用路由（v0.1 未实现）
-//!   - `fallback`：按优先级顺序尝试，失败则切换下一条（默认）
-//!   - `load_balance`：按权重轮询（v0.1 未实现）
+//! - **Strategy**：路由策略，当前仅支持 `fallback`（按 priority 顺序尝试，失败即切换）。
+//!   历史策略 `on_all` / `load_balance` 已移除，旧数据由迁移 V013 归一为 `fallback`。
 //!
 //! ## 与 gateway_runtime 的集成
 //!
@@ -20,12 +18,14 @@
 //! ## v0.1 实现范围
 //!
 //! - VirtualProvider / VirtualModel / VirtualModelRoute 的 CRUD
-//! - `fallback` 策略：按 `priority` 升序尝试，第一条成功的路由被使用
-//! - `on_all` 与 `load_balance` 标记为未实现，直接报错
+//! - `fallback` 策略：按 `priority` 升序尝试，失败即切换下一条
+//! - `on_all` / `load_balance` 已移除，保存时拒绝写入
 
 pub mod commands;
+pub mod probe;
 pub mod repository;
 pub mod service;
+pub mod settings;
 pub mod types;
 
 pub use service::VirtualProviderHandle;

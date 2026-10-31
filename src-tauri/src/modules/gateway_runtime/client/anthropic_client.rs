@@ -166,7 +166,8 @@ impl UpstreamClient for AnthropicClient {
             .await
             .map_err(|e| ClientError::RequestFailed(format_client_error(&e)))?;
 
-        if request.is_stream {
+        // 流式请求的 4xx/5xx 也必须读取完整错误体（供上层判定是否切换虚拟路由）
+        if request.is_stream && upstream_resp.status().is_success() {
             Ok(UpstreamResponse::Streaming { response: upstream_resp, protocol: UpstreamProtocol::AnthropicMessages })
         } else {
             let (status, headers, body, _) =

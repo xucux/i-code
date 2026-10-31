@@ -93,7 +93,6 @@
     "alias": "assistant",       // 对外路由前缀 {alias}/{modelId}，须唯一
     "name": "智能助手",
     "displayName": "智能助手",
-    "strategy": "fallback",     // fallback | on_all | load_balance
     "maxRetries": 3,
     "retryIntervalMs": 1000,
     "isEnabled": true

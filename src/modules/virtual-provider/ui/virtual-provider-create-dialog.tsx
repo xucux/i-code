@@ -18,29 +18,19 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
   createVirtualProvider,
   updateVirtualProvider,
   checkAliasImpact,
 } from '@/hooks/use-virtual-provider-mutation'
 import { toast } from 'sonner'
 import { toIcodeError } from '@/core/errors'
-import type { FailoverStrategy, VirtualProvider, AliasImpactResult } from '@/modules/virtual-provider/types'
+import type { VirtualProvider, AliasImpactResult } from '@/modules/virtual-provider/types'
 
 const schema = z.object({
   name: z.string().min(1, '名称不能为空'),
   alias: z.string().min(1, '别名不能为空').regex(/^[a-z0-9-]+$/, '别名只能包含小写字母、数字和横线'),
   displayName: z.string().optional(),
-  strategy: z.enum(['fallback', 'on_all', 'load_balance']),
   isEnabled: z.boolean(),
-  maxRetries: z.coerce.number().int().min(0).default(3),
-  retryIntervalMs: z.coerce.number().int().min(0).default(1000),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -79,10 +69,7 @@ export function VirtualProviderDialog({
       name: '',
       alias: '',
       displayName: '',
-      strategy: 'fallback',
       isEnabled: true,
-      maxRetries: 3,
-      retryIntervalMs: 1000,
     },
   })
 
@@ -95,20 +82,14 @@ export function VirtualProviderDialog({
         name: provider.name,
         alias: provider.alias,
         displayName: provider.displayName ?? '',
-        strategy: provider.strategy,
         isEnabled: provider.isEnabled,
-        maxRetries: provider.maxRetries ?? 3,
-        retryIntervalMs: provider.retryIntervalMs ?? 1000,
       })
     } else {
       form.reset({
         name: '',
         alias: '',
         displayName: '',
-        strategy: 'fallback',
         isEnabled: true,
-        maxRetries: 3,
-        retryIntervalMs: 1000,
       })
     }
   }, [open, provider, form])
@@ -155,10 +136,8 @@ export function VirtualProviderDialog({
           name: values.name,
           alias: values.alias,
           displayName: values.displayName,
-          strategy: values.strategy,
+          strategy: 'fallback',
           isEnabled: values.isEnabled,
-          maxRetries: values.maxRetries,
-          retryIntervalMs: values.retryIntervalMs,
         })
         toast.success(t('editProvider'))
       } else {
@@ -166,10 +145,8 @@ export function VirtualProviderDialog({
           name: values.name,
           alias: values.alias,
           displayName: values.displayName,
-          strategy: values.strategy,
+          strategy: 'fallback',
           isEnabled: values.isEnabled,
-          maxRetries: values.maxRetries,
-          retryIntervalMs: values.retryIntervalMs,
         })
         toast.success(t('newProvider'))
       }
@@ -250,23 +227,6 @@ export function VirtualProviderDialog({
             />
           </div>
 
-          <div className="space-y-1.5">
-            <Label className="text-xs">{t('strategy')}</Label>
-            <Select
-              value={form.watch('strategy')}
-              onValueChange={(v) => form.setValue('strategy', v as FailoverStrategy)}
-            >
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="fallback" className="text-xs">{t('strategyFallback')}</SelectItem>
-                <SelectItem value="on_all" className="text-xs">{t('strategyOnAll')}</SelectItem>
-                <SelectItem value="load_balance" className="text-xs">{t('strategyLoadBalance')}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
           <div className="flex items-center gap-2">
             <Switch
               id="vp-isEnabled"
@@ -274,37 +234,6 @@ export function VirtualProviderDialog({
               onCheckedChange={(v) => form.setValue('isEnabled', v)}
             />
             <Label className="text-xs" htmlFor="vp-isEnabled">{t('enabledVirtualProvider')}</Label>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5" data-invalid={errors.maxRetries ? '' : undefined}>
-              <Label className="text-xs" htmlFor="vp-maxRetries">{t('maxRetries')}</Label>
-              <Input
-                id="vp-maxRetries"
-                type="number"
-                {...form.register('maxRetries', { valueAsNumber: true })}
-                className="h-8 text-xs"
-                min={0}
-              />
-              {errors.maxRetries && (
-                <p className="text-destructive text-[10px]">{errors.maxRetries.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-1.5" data-invalid={errors.retryIntervalMs ? '' : undefined}>
-              <Label className="text-xs" htmlFor="vp-retryIntervalMs">{t('retryInterval')}</Label>
-              <Input
-                id="vp-retryIntervalMs"
-                type="number"
-                {...form.register('retryIntervalMs', { valueAsNumber: true })}
-                className="h-8 text-xs"
-                min={0}
-              />
-              <span className="text-muted-foreground text-[10px]">ms</span>
-              {errors.retryIntervalMs && (
-                <p className="text-destructive text-[10px]">{errors.retryIntervalMs.message}</p>
-              )}
-            </div>
           </div>
 
           <DialogFooter>

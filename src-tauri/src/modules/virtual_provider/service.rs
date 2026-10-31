@@ -7,16 +7,13 @@
 //! 1. 用户通过 `POST /v1/chat/completions` 请求模型 ID 形如 `{virtual_alias}/{model_id}`。
 //! 2. `gateway_runtime/upstream.rs` 先在真实供应商中查找；未找到时调用
 //!    [`VirtualProviderService::resolve_virtual_route`]。
-//! 3. Service 根据 `virtual_providers.strategy` 选择路由：
-//!    - `fallback`：按 `priority` 升序返回健康优先的候选路由列表。
-//!    - `load_balance`：加权随机选择 1 条健康路由（weight=0 不参与轮询）。
-//!    - `on_all`：当前降级为 fallback 顺序尝试（并发实现留待后续迭代）。
+//! 3. Service 解析候选路由（当前仅支持 `fallback`）：
+//!    按「冷却中最后 → 不健康最后 → priority 升序」返回全部候选路由，
+//!    由网关逐条尝试，失败即切换。
 //! 4. upstream.rs 拿到 `ResolvedVirtualRoute` 后，通过 `ai_gateway` 加载目标真实供应商，
 //!    并将请求体中的 `model` 替换为 `target_model_id` 进行转发。
 
 use std::sync::Arc;
-
-use rand::Rng;
 
 use crate::error::{IcodeError, IcodeResult};
 use crate::modules::ai_gateway::{types::ExposedModel, AiGatewayService};
@@ -25,7 +22,8 @@ use super::repository;
 use super::types::{
     CreateVirtualModelInput, CreateVirtualModelRouteInput, CreateVirtualProviderInput,
     ExposedVirtualModel, GenerateVirtualProviderInput, GenerateVirtualProviderResult,
-    ResolvedVirtualRoute, SaveVirtualModelInput, SaveVirtualModelRouteInput, SlotGenerationResult,
+    RequestAttemptChain, ResolvedVirtualRoute, RouteFailureKind, RoutePenalty,
+    SaveVirtualModelInput, SaveVirtualModelRouteInput, SlotGenerationResult,
     UpdateVirtualModelInput, UpdateVirtualModelRouteInput, UpdateVirtualProviderInput,
     VirtualModel, VirtualModelRoute, VirtualProvider, VirtualProviderStrategy, VirtualSlotsConfig,
     VirtualSlotsConfigDto, VirtualSlotsConfigSetInput, VirtualSlotsSlot,
@@ -52,103 +50,64 @@ const SLOTS_CONFIG_KEY: &str = "preset_data_source_url";
 /// 当前支持的数据源 schema 版本
 const SLOTS_SCHEMA_VERSION: i64 = 1;
 
-/// 路由选择器 trait
-///
-/// 按虚拟供应商的策略从候选路由中选择尝试顺序。
-/// `select` 返回的 Vec 长度决定 VirtualForwarder 尝试多少次：
-/// - Fallback：返回全部候选路由（健康在前，priority 升序）
-/// - LoadBalance：返回 1 条加权随机选择的路由
-/// - OnAll：当前降级为 fallback 顺序，未来可扩展为返回全部交由 forwarder 并发执行
-pub trait RouteSelector: Send + Sync {
-    /// 选择路由尝试顺序
-    fn select<'a>(&self, routes: &'a [VirtualModelRoute]) -> Vec<&'a VirtualModelRoute>;
+/// 路由是否处于冷却期（`cooldown_until` 尚未到期）
+fn is_cooling(route: &VirtualModelRoute, now: &str) -> bool {
+    route
+        .cooldown_until
+        .as_deref()
+        .map_or(false, |until| until > now)
 }
 
-/// Fallback 选择器
+/// 路由是否处于"永久故障"冷却期（额度/凭证/模型/配置）
 ///
-/// 返回按健康度（健康在前）+ priority 升序排列的候选路由列表。
-/// VirtualForwarder 按顺序逐条尝试，失败降级后继续下一条。
-pub struct FallbackSelector;
-
-impl RouteSelector for FallbackSelector {
-    fn select<'a>(&self, routes: &'a [VirtualModelRoute]) -> Vec<&'a VirtualModelRoute> {
-        let mut sorted: Vec<&VirtualModelRoute> = routes.iter().collect();
-        sorted.sort_by(|a, b| {
-            // 健康路由在前
-            let health_cmp = b.is_healthy.cmp(&a.is_healthy);
-            if health_cmp != std::cmp::Ordering::Equal {
-                return health_cmp;
-            }
-            // 同健康组内按 priority 升序，再按创建时间升序
-            a.priority.cmp(&b.priority).then_with(|| a.created_at.cmp(&b.created_at))
-        });
-        sorted
+/// 此类故障在冷却期间不参与选路，只在全部路由都处于永久故障时才作为最后兜底尝试。
+fn is_hard_cooling(route: &VirtualModelRoute, now: &str) -> bool {
+    if !is_cooling(route, now) {
+        return false;
     }
+    route
+        .failure_kind
+        .as_deref()
+        .and_then(RouteFailureKind::from_str)
+        .map(|k| k.is_permanent())
+        .unwrap_or(false)
 }
 
-/// LoadBalance 选择器
+/// 候选路由排序：冷却中排最后 → 不健康排后 → priority 升序 → 创建时间升序
 ///
-/// 加权随机选择 1 条启用且健康的路由；weight=0 不参与轮询。
-/// 若所有路由 weight=0 或全部不健康，回退为 fallback 选择第一条。
-pub struct LoadBalanceSelector;
-
-impl RouteSelector for LoadBalanceSelector {
-    fn select<'a>(&self, routes: &'a [VirtualModelRoute]) -> Vec<&'a VirtualModelRoute> {
-        // 仅参与启用且健康、weight>0 的路由
-        let candidates: Vec<&VirtualModelRoute> = routes
-            .iter()
-            .filter(|r| r.enabled && r.is_healthy && r.weight > 0)
-            .collect();
-
-        if candidates.is_empty() {
-            // 全部候选路由不可用，回退到 fallback 顺序（让 forwarder 尝试 + 失败降级更新健康度）
-            return FallbackSelector.select(routes);
+/// 特殊分支：当全部候选都处于永久故障长冷却（只能作为最后兜底）时，改为
+/// 「最久未尝试（`last_check_at` 为空视为最久）优先」，避免反复只打同一条。
+fn sort_route_candidates<'a>(routes: &mut [&'a VirtualModelRoute], now: &str) {
+    routes.sort_by(|a, b| {
+        let a_hard = is_hard_cooling(a, now);
+        let b_hard = is_hard_cooling(b, now);
+        if a_hard != b_hard {
+            return a_hard.cmp(&b_hard);
         }
-
-        // 加权随机
-        let weights: Vec<u32> = candidates.iter().map(|r| r.weight as u32).collect();
-        let total: u32 = weights.iter().sum();
-        if total == 0 {
-            return FallbackSelector.select(routes);
+        // 全部处于永久故障冷却：按最近探活时间升序（None 最先），其次 priority
+        if a_hard && b_hard {
+            return match (a.last_check_at.as_deref(), b.last_check_at.as_deref()) {
+                (None, None) => a.priority.cmp(&b.priority),
+                (None, Some(_)) => std::cmp::Ordering::Less,
+                (Some(_), None) => std::cmp::Ordering::Greater,
+                (Some(x), Some(y)) => x
+                    .cmp(y)
+                    .then_with(|| a.priority.cmp(&b.priority)),
+            };
         }
-
-        let mut rng = rand::thread_rng();
-        let mut picked: Option<usize> = None;
-        let mut remaining = rng.gen_range(0..total);
-        for (i, w) in weights.iter().enumerate() {
-            if remaining < *w {
-                picked = Some(i);
-                break;
-            }
-            remaining -= *w;
+        let a_cool = is_cooling(a, now);
+        let b_cool = is_cooling(b, now);
+        if a_cool != b_cool {
+            return a_cool.cmp(&b_cool);
         }
-        // 安全兜底：理论上不会触发
-        let idx = picked.unwrap_or(0);
-        vec![candidates[idx]]
-    }
-}
-
-/// OnAll 选择器
-///
-/// 当前降级为 fallback 顺序尝试（与 Fallback 一致）。
-/// 真正的并发实现需要 VirtualForwarder 改造为并发路径，留待后续迭代。
-pub struct OnAllSelector;
-
-impl RouteSelector for OnAllSelector {
-    fn select<'a>(&self, routes: &'a [VirtualModelRoute]) -> Vec<&'a VirtualModelRoute> {
-        FallbackSelector.select(routes)
-    }
-}
-
-impl VirtualProviderService {
-    /// 根据策略返回对应的选择器
-    pub fn selector_for(strategy: &VirtualProviderStrategy) -> Box<dyn RouteSelector> {
-        match strategy {
-            VirtualProviderStrategy::Fallback => Box::new(FallbackSelector),
-            VirtualProviderStrategy::LoadBalance => Box::new(LoadBalanceSelector),
-            VirtualProviderStrategy::OnAll => Box::new(OnAllSelector),
+        let health = b.is_healthy.cmp(&a.is_healthy);
+        if health != std::cmp::Ordering::Equal {
+            return health;
         }
-    }
+        a.priority
+            .cmp(&b.priority)
+            .then_with(|| a.created_at.cmp(&b.created_at))
+    });
 }
 
 /// 虚拟供应商 Service 在 Tauri State 中的句柄
@@ -304,6 +263,9 @@ impl VirtualProviderService {
         let provider = repository::find_provider_by_id(&input.virtual_provider_id)?;
 
         // 子级路由基础校验
+        // 目标供应商模型列表缓存：同一供应商只查一次，用于校验路由目标模型是否存在
+        let mut provider_models: std::collections::HashMap<String, Vec<String>> =
+            std::collections::HashMap::new();
         for route in &input.routes {
             if route.target_provider_id.trim().is_empty() {
                 return Err(IcodeError::validation("路由目标供应商 ID 不能为空"));
@@ -322,14 +284,24 @@ impl VirtualProviderService {
                     target_provider.slug
                 )));
             }
-            // timeout_ms 不允许负值；None 表示继承
-            if let Some(t) = route.timeout_ms {
-                if t < 0 {
-                    return Err(IcodeError::validation(format!(
-                        "路由 timeout_ms 不能为负值：{}",
-                        t
-                    )));
-                }
+            // 目标模型必须存在于该供应商的网关模型列表中，避免保存指向已删除模型的失效路由
+            if !provider_models.contains_key(&route.target_provider_id) {
+                let models = ai_gateway
+                    .list_gateway_models_by_provider(&route.target_provider_id)?
+                    .into_iter()
+                    .map(|m| m.model_id)
+                    .collect::<Vec<_>>();
+                provider_models.insert(route.target_provider_id.clone(), models);
+            }
+            let model_exists = provider_models
+                .get(&route.target_provider_id)
+                .map(|models| models.iter().any(|m| m == &route.target_model_id))
+                .unwrap_or(false);
+            if !model_exists {
+                return Err(IcodeError::validation(format!(
+                    "路由目标模型 '{}' 在供应商 '{}' 下不存在，请先在供应商中添加该模型后再保存",
+                    route.target_model_id, target_provider.slug
+                )));
             }
             // extra_headers / extra_body 必须是 JSON 对象（非数组、非原始值）
             if let Some(v) = &route.extra_headers {
@@ -510,12 +482,15 @@ impl VirtualProviderService {
         repository::find_route_by_id(id)
     }
 
-    /// 列出指定虚拟模型下的所有启用路由
+    /// 列出指定虚拟模型下的全部路由（含已禁用）
+    ///
+    /// 编辑弹窗需要看到禁用路由，否则保存时全量重写会静默删除它们；
+    /// 网关选路使用 `resolve_routes`（仅启用路由）。
     pub fn list_routes_by_virtual_model(
         &self,
         virtual_model_id: &str,
     ) -> IcodeResult<Vec<VirtualModelRoute>> {
-        repository::list_routes_by_virtual_model(virtual_model_id)
+        repository::list_all_routes_by_virtual_model(virtual_model_id)
     }
 
     /// 列出指定虚拟供应商下所有启用路由
@@ -549,6 +524,17 @@ impl VirtualProviderService {
     /// 删除路由
     pub fn delete_route(&self, id: &str) -> IcodeResult<()> {
         repository::delete_route(id)
+    }
+
+    /// 删除指向指定真实供应商模型的虚拟路由（供应商模型被移除时联动清理）
+    ///
+    /// 由 `ai_gateway` 删除网关模型 / 模型配置时调用，返回被清理的路由条数。
+    pub fn prune_routes_for_target(
+        &self,
+        target_provider_id: &str,
+        target_model_id: &str,
+    ) -> IcodeResult<u64> {
+        repository::delete_routes_by_target(target_provider_id, target_model_id)
     }
 
     // ===== 路由解析（故障转移） =====
@@ -587,18 +573,9 @@ impl VirtualProviderService {
             )));
         }
 
-        let strategy = VirtualProviderStrategy::from_str(&provider.strategy)
-            .unwrap_or(VirtualProviderStrategy::Fallback);
-
-        match strategy {
-            VirtualProviderStrategy::Fallback => {
-                self.resolve_fallback_route(&provider.id, model_id)
-            }
-            other => Err(IcodeError::not_implemented(format!(
-                "虚拟供应商策略 '{}' 尚未实现",
-                other.as_str()
-            ))),
-        }
+        // 仅支持顺序回退：历史策略值（on_all / load_balance）已在迁移中归一为 fallback，
+        // 运行时若读到历史值也一律按 fallback 处理。
+        self.resolve_fallback_route(&provider.id, model_id)
     }
 
     /// 按 fallback 策略解析路由
@@ -652,40 +629,59 @@ impl VirtualProviderService {
             ));
         }
 
-        // 健康路由在前， unhealthy 在后；同一组内按 priority 升序、创建时间升序
-        routes.sort_by(|a, b| {
-            let health_cmp = b.is_healthy.cmp(&a.is_healthy);
-            if health_cmp != std::cmp::Ordering::Equal {
-                return health_cmp;
-            }
-            a.priority.cmp(&b.priority).then_with(|| a.created_at.cmp(&b.created_at))
-        });
+        // 健康路由在前， unhealthy 在后；同一组内按 priority 升序、创建时间升序。
+        // 永久故障冷却中的路由不参与选路；仅当全部路由都处于永久故障冷却时保留它们作为最后兜底。
+        let now = chrono::Utc::now().to_rfc3339();
+        if routes.iter().any(|r| !is_hard_cooling(r, &now)) {
+            routes.retain(|r| !is_hard_cooling(r, &now));
+        }
+        let mut refs: Vec<&VirtualModelRoute> = routes.iter().collect();
+        sort_route_candidates(&mut refs, &now);
 
-        Ok(routes)
+        Ok(refs.into_iter().cloned().collect())
     }
 
-    /// 按指定策略解析候选路由
+    /// 解析虚拟模型的候选路由（仅顺序回退）
     ///
-    /// 在 `resolve_fallback_routes` 取得全部启用路由后，调用 `RouteSelector` 进行策略选择：
-    /// - `fallback`：返回全部，按健康优先 + priority 升序
-    /// - `load_balance`：返回 1 条加权随机选择的路由
-    /// - `on_all`：当前降级为 fallback 顺序（并发实现留待后续迭代）
-    pub fn resolve_routes_by_strategy(
+    /// 返回全部启用路由，按「冷却中最后 → 不健康最后 → priority 升序」排序，
+    /// 由 `VirtualForwarder` 逐条尝试、失败即切换。
+    pub fn resolve_routes(
         &self,
         virtual_provider_id: &str,
         model_id: &str,
-        strategy: &VirtualProviderStrategy,
     ) -> IcodeResult<Vec<VirtualModelRoute>> {
-        let routes = self.resolve_fallback_routes(virtual_provider_id, model_id)?;
-        let selector = Self::selector_for(strategy);
-        let selected = selector.select(&routes);
-        // 把 &VirtualModelRoute 转换为 owned，保留 selector 选择顺序
-        Ok(selected.into_iter().cloned().collect())
+        self.resolve_fallback_routes(virtual_provider_id, model_id)
     }
 
-    /// 将指定路由标记为不健康（网关层重试耗尽后降级）
-    pub fn degrade_route_health(&self, route_id: &str) -> IcodeResult<()> {
-        repository::mark_route_unhealthy(route_id)
+    /// 将指定路由标记为不健康并写入冷却窗口（网关层判定为路由级故障后调用）
+    ///
+    /// - `kind`：失败类型（落库供探活与 UI 判定是否为永久性故障）
+    /// - `penalty`：冷却时长（短冷却 60s / 长冷却 30min / 无惩罚不写冷却）
+    /// - `error_text`：失败原因摘要
+    pub fn degrade_route_health(
+        &self,
+        route_id: &str,
+        kind: RouteFailureKind,
+        penalty: RoutePenalty,
+        error_text: &str,
+    ) -> IcodeResult<()> {
+        let cooldown_until = penalty.cooldown_secs().map(|secs| {
+            (chrono::Utc::now() + chrono::Duration::seconds(secs)).to_rfc3339()
+        });
+        repository::mark_route_unhealthy(
+            route_id,
+            kind.as_str(),
+            error_text,
+            cooldown_until.as_deref(),
+        )
+    }
+
+    /// 手动恢复路由健康：清除冷却 / 故障类型 / 连续失败计数，并返回最新路由
+    ///
+    /// 恢复后立即参与选路；若上游仍故障，下一次请求会重新判定并降级。
+    pub fn restore_route_health(&self, route_id: &str) -> IcodeResult<VirtualModelRoute> {
+        repository::reset_route_health(route_id)?;
+        repository::find_route_by_id(route_id)
     }
 
     /// 探活成功：置健康，重置连续失败计数，更新 last_healthy_at / last_check_at / last_check_duration_ms
@@ -768,9 +764,31 @@ impl VirtualProviderService {
         repository::list_route_attempt_stats_by_provider(virtual_provider_id)
     }
 
-    /// 测试单条路由：对目标供应商发起轻量探活请求（GET /v1/models，5s 超时）
+    /// 查询最近的失败请求尝试链（按 request_id 聚合）
     ///
-    /// 与调度器的健康检查逻辑一致，但不写入 `virtual_route_attempts`（避免污染统计）。
+    /// attempts 表中的 `virtual_provider_id` 可能存的是供应商 ID 或 alias，
+    /// 这里统一归一为 alias，供 UI 按供应商筛选展示。
+    pub fn list_recent_failed_chains(&self, limit: u32) -> IcodeResult<Vec<RequestAttemptChain>> {
+        let limit = limit.clamp(1, 100) as usize;
+        let scan_limit = (limit * 10).clamp(50, 2000);
+        let mut chains = repository::list_recent_failed_chains(limit, scan_limit)?;
+
+        if let Ok(providers) = repository::list_providers() {
+            for chain in &mut chains {
+                if let Some(p) = providers
+                    .iter()
+                    .find(|p| p.id == chain.virtual_provider_alias)
+                {
+                    chain.virtual_provider_alias = p.alias.clone();
+                }
+            }
+        }
+        Ok(chains)
+    }
+
+    /// 测试单条路由：对目标模型发起模型级最小探活（与调度器一致的判定逻辑，5s 超时）
+    ///
+    /// 不写入 `virtual_route_attempts`（避免污染统计）。
     /// 由前端「测试」按钮调用，结果用 toast 展示。
     ///
     /// 需要 `AiGatewayService` 来解析目标供应商的认证配置与附加请求头。
@@ -795,7 +813,7 @@ impl VirtualProviderService {
             });
         }
 
-        // 解析认证配置
+        // 解析认证配置与供应商级附加请求头
         let auth_config = ai_gateway
             .resolve_auth_for_request(&provider)
             .ok()
@@ -812,77 +830,34 @@ impl VirtualProviderService {
                 crate::error::IcodeError::internal(format!("构造探活 HTTP 客户端失败: {e}"))
             })?;
 
-        let url = format!("{}/v1/models", provider.base_url.trim_end_matches('/'));
-        let mut req = client.get(&url);
-
-        // 注入认证头
-        if let Some(auth) = &auth_config {
-            match crate::modules::gateway_runtime::auth_resolver::resolve_auth(auth) {
-                Ok(resolution) => {
-                    if let Some(cred) = &resolution.credential {
-                        match cred {
-                            crate::modules::gateway_runtime::auth_resolver::AuthCredential::Bearer(t) => {
-                                req = req.header("Authorization", format!("Bearer {t}"));
-                            }
-                            crate::modules::gateway_runtime::auth_resolver::AuthCredential::ApiKey(k) => {
-                                req = req.header("Authorization", format!("Bearer {k}"));
-                            }
-                        }
-                    }
-                    for (k, v) in &resolution.extra_headers {
-                        req = req.header(k, v);
-                    }
-                }
-                Err(e) => {
-                    return Ok(super::types::RouteTestResult {
-                        success: false,
-                        status_code: None,
-                        duration_ms: 0,
-                        error_message: Some(format!("认证解析失败: {}", e.message)),
-                    });
-                }
-            }
-        }
-        // 注入供应商级 extra_headers（覆盖同名 auth 头）
-        for (k, v) in &extra_headers {
-            req = req.header(k, v);
-        }
-
         let start = Instant::now();
-        match req.send().await {
-            Ok(resp) => {
-                let duration_ms = start.elapsed().as_millis() as u64;
-                let status = resp.status().as_u16();
-                let success = resp.status().is_success();
-                let error_message = if success {
-                    None
-                } else {
-                    Some(format!("HTTP {}", status))
-                };
-                Ok(super::types::RouteTestResult {
-                    success,
-                    status_code: Some(status),
-                    duration_ms,
-                    error_message,
-                })
-            }
-            Err(e) => {
-                let duration_ms = start.elapsed().as_millis() as u64;
-                let msg = if e.is_timeout() {
-                    format!("请求超时（5s）")
-                } else if e.is_connect() {
-                    format!("连接失败: {}", provider.slug)
-                } else {
-                    format!("网络错误: {e}")
-                };
-                Ok(super::types::RouteTestResult {
-                    success: false,
-                    status_code: None,
-                    duration_ms,
-                    error_message: Some(msg),
-                })
-            }
-        }
+        let outcome = super::probe::probe_route(
+            &client,
+            &provider,
+            &route.target_model_id,
+            &auth_config,
+            &extra_headers,
+        )
+        .await;
+        let duration_ms = start.elapsed().as_millis() as u64;
+
+        let (success, status_code, error_message) = match outcome {
+            super::probe::ProbeOutcome::Success => (true, Some(200), None),
+            super::probe::ProbeOutcome::Failure(f) => (false, f.status, Some(f.message)),
+            super::probe::ProbeOutcome::Inconclusive(msg) => (false, None, Some(msg)),
+            super::probe::ProbeOutcome::Unsupported => (
+                false,
+                None,
+                Some("上游不支持可用的探活端点".to_string()),
+            ),
+        };
+
+        Ok(super::types::RouteTestResult {
+            success,
+            status_code,
+            duration_ms,
+            error_message,
+        })
     }
 
     /// 获取虚拟供应商级重试配置
@@ -1004,12 +979,8 @@ impl VirtualProviderService {
             alias: config.provider.alias.clone(),
             display_name: config.provider.display_name.clone(),
             is_enabled: config.provider.is_enabled,
-            strategy: Some(
-                input
-                    .strategy
-                    .clone()
-                    .unwrap_or(config.provider.strategy.clone()),
-            ),
+            // 仅支持顺序回退：一键生成同样固定为 fallback（忽略数据源中的历史策略）
+            strategy: Some(VirtualProviderStrategy::Fallback.as_str().to_string()),
             max_retries: input.max_retries.unwrap_or(config.provider.max_retries),
             retry_interval_ms: input
                 .retry_interval_ms
@@ -1023,7 +994,7 @@ impl VirtualProviderService {
             let empty = matched.is_empty();
             let route_count = matched.len() as i64;
 
-            // 构造子级路由输入（priority 取自匹配规则；重试参数槽位级覆盖供应商级）
+            // 构造子级路由输入（仅保留生效字段：目标、优先级、启用、附加头/体）
             let route_inputs: Vec<SaveVirtualModelRouteInput> = matched
                 .into_iter()
                 .map(|(priority, model)| SaveVirtualModelRouteInput {
@@ -1031,21 +1002,8 @@ impl VirtualProviderService {
                     target_model_id: model.model_id.clone(),
                     priority,
                     enabled: true,
-                    is_healthy: true,
-                    max_retries: slot
-                        .route_defaults
-                        .as_ref()
-                        .and_then(|d| d.max_retries)
-                        .unwrap_or(provider.max_retries),
-                    retry_interval_ms: slot
-                        .route_defaults
-                        .as_ref()
-                        .and_then(|d| d.retry_interval_ms)
-                        .unwrap_or(provider.retry_interval_ms),
-                    timeout_ms: None,
                     extra_headers: None,
                     extra_body: None,
-                    weight: 1,
                 })
                 .collect();
 

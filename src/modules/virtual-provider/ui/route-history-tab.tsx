@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from '@/modules/i18n/use-translation'
 import { useVirtualRouteAttemptStats, useVirtualRouteAttempts } from '@/hooks/use-virtual-provider'
 import { useVirtualRoutesByProvider } from '@/hooks/use-virtual-provider'
@@ -11,7 +11,6 @@ import {
 } from '@/components/ui/table'
 import { ScrollableTable } from '@/components/ui/scrollable-table'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { formatDateTime } from '@/core/utils'
 import type {
@@ -27,6 +26,11 @@ interface RouteHistoryTabProps {
   providerMap: Map<string, Provider>
   /** 容器高度，由 useAvailableHeight 计算后传入 */
   style?: React.CSSProperties
+  /**
+   * 刷新信号：由父级 Tab 栏的刷新按钮自增，
+   * 变化时重新拉取路由统计（父级无法直接调用本组件内部的 refetch）
+   */
+  refreshKey?: number
 }
 
 /**
@@ -41,6 +45,7 @@ export function RouteHistoryTab({
   virtualProviderId,
   providerMap,
   style,
+  refreshKey = 0,
 }: RouteHistoryTabProps) {
   const { t } = useTranslation('virtualProvider')
   const { stats, loading: statsLoading, refetch: refetchStats } =
@@ -49,10 +54,21 @@ export function RouteHistoryTab({
   const { routes } = useVirtualRoutesByProvider(virtualProviderId)
 
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null)
-  const { attempts, loading: attemptsLoading } = useVirtualRouteAttempts(
-    selectedRouteId,
-    50,
-  )
+  const {
+    attempts,
+    loading: attemptsLoading,
+    refetch: refetchAttempts,
+  } = useVirtualRouteAttempts(selectedRouteId, 50)
+
+  // 父级 Tab 栏的刷新按钮 / 自动刷新通过自增 refreshKey 触发重新拉取
+  const lastRefreshKey = useRef(refreshKey)
+  useEffect(() => {
+    if (lastRefreshKey.current === refreshKey) return
+    lastRefreshKey.current = refreshKey
+    void refetchStats()
+    // 已选中路由时同步刷新其最近尝试明细
+    if (selectedRouteId) void refetchAttempts()
+  }, [refreshKey, refetchStats, refetchAttempts, selectedRouteId])
 
   // routeId -> 路由信息映射，用于展示路由对应的目标供应商/模型
   const routeMap = useMemo(() => {
@@ -79,19 +95,6 @@ export function RouteHistoryTab({
     <div className="flex h-full flex-col gap-3" style={style}>
       {/* 路由维度统计表 */}
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className="mb-1.5 flex items-center justify-between">
-          <span className="text-xs text-muted-foreground">{t('routeHistoryHint')}</span>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 px-2 text-xs"
-            onClick={() => refetchStats()}
-          >
-            <i className="fa-solid fa-rotate-right mr-1" />
-            {/* 刷新 */}
-          </Button>
-        </div>
-
         <ScrollableTable
           viewMode="compact"
           density="compact"
@@ -135,6 +138,11 @@ export function RouteHistoryTab({
             ))}
           </TableBody>
         </ScrollableTable>
+        {!selectedRouteId && hasStats && (
+          <div className="pt-1 text-center text-xs text-muted-foreground">
+            {t('recentAttemptsSelectRoute')}
+          </div>
+        )}
       </div>
 
       {/* 选中路由的最近尝试明细 */}
@@ -206,12 +214,6 @@ export function RouteHistoryTab({
               ))}
             </TableBody>
           </ScrollableTable>
-        </div>
-      )}
-
-      {!selectedRouteId && hasStats && (
-        <div className="flex flex-1 items-center justify-center text-xs text-muted-foreground">
-          {t('recentAttemptsSelectRoute')}
         </div>
       )}
     </div>

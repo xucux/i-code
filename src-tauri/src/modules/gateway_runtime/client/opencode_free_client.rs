@@ -28,8 +28,9 @@ use serde_json::{json, Value};
 
 use super::openai_chat_client::OpenAiChatClient;
 use super::{
-    build_upstream_url, format_client_error, http_client_for, ClientError, UpstreamClient,
-    UpstreamContext, UpstreamProtocol, UpstreamRequest, UpstreamResponse,
+    build_upstream_url, format_client_error, http_client_for, read_response_body, ClientError,
+    UpstreamClient, UpstreamContext, UpstreamProtocol, UpstreamRequest, UpstreamResponse,
+    MAX_RESPONSE_BODY_BYTES,
 };
 
 /// OpenCode Zen 免费通道客户端
@@ -198,11 +199,22 @@ impl UpstreamClient for OpenCodeFreeClient {
             .await
             .map_err(|e| ClientError::RequestFailed(format_client_error(&e)))?;
 
-        // 已强制流式：直接透传 SSE（上游 4xx/5xx 由 response_handler 原样透传错误体）
-        Ok(UpstreamResponse::Streaming {
-            response: upstream_resp,
-            protocol: UpstreamProtocol::ChatCompletions,
-        })
+        // 上游 4xx/5xx 必须读取完整错误体（供上层判定是否切换虚拟路由）；
+        // 2xx 才按 SSE 透传。
+        if upstream_resp.status().is_success() {
+            Ok(UpstreamResponse::Streaming {
+                response: upstream_resp,
+                protocol: UpstreamProtocol::ChatCompletions,
+            })
+        } else {
+            let (status, headers, body, _) =
+                read_response_body(upstream_resp, MAX_RESPONSE_BODY_BYTES).await?;
+            Ok(UpstreamResponse::Complete {
+                status,
+                headers,
+                body,
+            })
+        }
     }
 
     fn provider_type(&self) -> &'static str {

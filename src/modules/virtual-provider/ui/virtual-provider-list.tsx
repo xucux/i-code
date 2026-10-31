@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from '@/modules/i18n/use-translation'
 import { useProviderList } from '@/hooks/use-provider-list'
 import {
@@ -18,6 +18,8 @@ import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { ScrollPage } from '@/components/ui/scroll-page'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { AutoRefreshSelect, useAutoRefresh } from '@/components/ui/auto-refresh'
+import type { RefreshInterval } from '@/components/ui/auto-refresh'
 import { DeleteConfirmDialog } from '@/components/ui/delete-confirm-dialog'
 import {
   Dialog,
@@ -34,9 +36,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { HelpIcon } from '@/components/ui/help-icon'
 import { VirtualProviderDialog } from './virtual-provider-create-dialog'
 import { VirtualModelDialog } from './virtual-model-form'
 import { RouteHistoryTab } from './route-history-tab'
+import { FailedChainsTab } from './failed-chains-tab'
+import { HealthCheckSettingsButton } from './health-check-settings-dialog'
+import { FailoverStrategyHelp } from './failover-strategy-dialog'
 import {
   VirtualModelGraph,
   type VirtualModelTargetNode,
@@ -69,11 +75,38 @@ export function VirtualProviderList() {
 
   const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null)
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null)
+  /** 当前激活的 Tab，用于在 Tab 栏右侧按需展示路由历史提示与刷新按钮 */
+  const [activeTab, setActiveTab] = useState('models')
+  /** 路由历史刷新信号，自增后触发 RouteHistoryTab 重新拉取统计 */
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0)
+  /** 失败请求刷新信号，自增后触发 FailedChainsTab 重新拉取 */
+  const [failuresRefreshKey, setFailuresRefreshKey] = useState(0)
+  /** 路由历史自动刷新间隔（毫秒，null 表示关闭） */
+  const [historyAutoRefreshMs, setHistoryAutoRefreshMs] = useState<RefreshInterval>(null)
+
+  const bumpHistoryRefresh = useCallback(() => {
+    setHistoryRefreshKey((key) => key + 1)
+  }, [])
+
+  // 仅「路由历史」页签激活时运行自动刷新
+  useAutoRefresh({
+    onRefresh: bumpHistoryRefresh,
+    intervalMs: activeTab === 'history' ? historyAutoRefreshMs : null,
+  })
 
   const { models, loading: modelsLoading, refetch: refetchModels } =
     useVirtualModels(selectedProviderId)
   const { routes, loading: routesLoading, refetch: refetchRoutes } =
     useVirtualRoutesByProvider(selectedProviderId)
+
+  /** 切换 Tab：回到模型列表时重新拉取，同步网关侧刚产生的降级/健康状态 */
+  const handleTabChange = (value: string) => {
+    setActiveTab(value)
+    if (value === 'models') {
+      void refetchModels()
+      void refetchRoutes()
+    }
+  }
 
   // ===== 供应商弹窗状态 =====
   const [providerDialogOpen, setProviderDialogOpen] = useState(false)
@@ -317,6 +350,8 @@ export function VirtualProviderList() {
         </div>
 
         <div className="flex items-center gap-2">
+          <HealthCheckSettingsButton />
+
           <Button
             size="sm"
             variant="outline"
@@ -377,11 +412,39 @@ export function VirtualProviderList() {
         )}
 
         {selectedProvider && (
-          <Tabs defaultValue="models" className="flex h-full flex-col gap-2">
-            <TabsList className="h-8 w-fit">
-              <TabsTrigger value="models" className="text-xs">{t('tabModelList')}</TabsTrigger>
-              <TabsTrigger value="history" className="text-xs">{t('tabRouteHistory')}</TabsTrigger>
-            </TabsList>
+          <Tabs
+            value={activeTab}
+            onValueChange={handleTabChange}
+            className="flex h-full flex-col gap-2"
+          >
+            {/* Tab 栏：左侧页签，右侧为当前页签对应的辅助操作 */}
+            <div className="flex items-center justify-between gap-2">
+              <TabsList className="h-8 w-fit">
+                <TabsTrigger value="models" className="text-xs">{t('tabModelList')}</TabsTrigger>
+                <TabsTrigger value="history" className="text-xs">{t('tabRouteHistory')}</TabsTrigger>
+                <TabsTrigger value="failures" className="text-xs">{t('tabFailedRequests')}</TabsTrigger>
+              </TabsList>
+
+              {activeTab === 'history' && (
+                <div className="flex items-center gap-1">
+                  <HelpIcon size="sm" side="bottom" align="end" contentClassName="max-w-[260px] text-xs">
+                    {t('routeHistoryHint')}
+                  </HelpIcon>
+                  <AutoRefreshSelect
+                    value={historyAutoRefreshMs}
+                    onValueChange={setHistoryAutoRefreshMs}
+                  />
+                  <TabRefreshButton label={t('failedRequestsRefresh')} onClick={bumpHistoryRefresh} />
+                </div>
+              )}
+
+              {activeTab === 'failures' && (
+                <TabRefreshButton
+                  label={t('failedRequestsRefresh')}
+                  onClick={() => setFailuresRefreshKey((key) => key + 1)}
+                />
+              )}
+            </div>
 
             {/* 模型列表 Tab */}
             <TabsContent value="models" className="min-h-0 flex-1">
@@ -389,7 +452,10 @@ export function VirtualProviderList() {
                 <div className="space-y-4 p-4">
                   <Card>
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-xs font-medium">{t('modelList')}</CardTitle>
+                      <CardTitle className="flex items-center gap-1.5 text-xs font-medium">
+                        {t('modelList')}
+                        <FailoverStrategyHelp />
+                      </CardTitle>
                     </CardHeader>
                     <CardContent>
                       <VirtualModelGraph
@@ -446,6 +512,15 @@ export function VirtualProviderList() {
               <RouteHistoryTab
                 virtualProviderId={selectedProviderId}
                 providerMap={providerById}
+                refreshKey={historyRefreshKey}
+              />
+            </TabsContent>
+
+            {/* 失败请求 Tab */}
+            <TabsContent value="failures" className="min-h-0 flex-1">
+              <FailedChainsTab
+                alias={selectedProvider?.alias ?? null}
+                refreshKey={failuresRefreshKey}
               />
             </TabsContent>
           </Tabs>
@@ -474,7 +549,6 @@ export function VirtualProviderList() {
         open={modelDialogOpen}
         onOpenChange={setModelDialogOpen}
         virtualProviderId={selectedProviderId ?? ''}
-        strategy={selectedProvider?.strategy as ('fallback' | 'on_all' | 'load_balance') | undefined}
         model={editingModel}
         onSuccess={() => {
           void refetchModels()
@@ -528,5 +602,34 @@ export function VirtualProviderList() {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+interface TabRefreshButtonProps {
+  label: string
+  onClick: () => void
+}
+
+/** Tab 栏右侧的刷新按钮（图标 + tooltip + aria-label） */
+function TabRefreshButton({ label, onClick }: TabRefreshButtonProps) {
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-7"
+            aria-label={label}
+            onClick={onClick}
+          >
+            <i className="fa-solid fa-rotate-right text-xs" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" align="end" className="text-xs">
+          {label}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   )
 }

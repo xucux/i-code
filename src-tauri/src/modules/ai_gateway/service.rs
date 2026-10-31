@@ -780,8 +780,26 @@ impl AiGatewayService {
     }
 
     /// 删除模型配置
+    ///
+    /// `gateway_models` 由外键级联删除，因此在删除前先收集受影响的 (供应商, 模型)，
+    /// 删除后联动清理引用它们的虚拟路由，避免留下指向已不存在模型的失效路由。
     pub fn delete_model_config(&self, id: &str) -> IcodeResult<()> {
-        repository::delete_model_config(id)
+        let affected_models = repository::list_gateway_models_by_model_config(id)?;
+        repository::delete_model_config(id)?;
+
+        let virtual_provider = crate::modules::virtual_provider::service::VirtualProviderService::new();
+        for (provider_id, model_id) in affected_models {
+            let pruned = virtual_provider.prune_routes_for_target(&provider_id, &model_id)?;
+            if pruned > 0 {
+                tracing::info!(
+                    "删除模型配置时清理虚拟路由 {} 条 | provider={} | model={}",
+                    pruned,
+                    provider_id,
+                    model_id
+                );
+            }
+        }
+        Ok(())
     }
 
     // ===== 网关模型 =====
@@ -865,8 +883,24 @@ impl AiGatewayService {
     }
 
     /// 删除网关模型
+    ///
+    /// 删除后联动清理引用该 (供应商, 模型) 的虚拟路由，避免留下失效路由
+    /// （失效路由会被故障转移逻辑持续选中，并向上游返回 400）。
     pub fn delete_gateway_model(&self, id: &str) -> IcodeResult<()> {
-        repository::delete_gateway_model(id)
+        let model = repository::find_gateway_model_by_id(id)?;
+        repository::delete_gateway_model(id)?;
+
+        let pruned = crate::modules::virtual_provider::service::VirtualProviderService::new()
+            .prune_routes_for_target(&model.provider_id, &model.model_id)?;
+        if pruned > 0 {
+            tracing::info!(
+                "删除供应商模型时清理虚拟路由 {} 条 | provider={} | model={}",
+                pruned,
+                model.provider_id,
+                model.model_id
+            );
+        }
+        Ok(())
     }
 
     // ===== 暴露模型列表 =====

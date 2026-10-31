@@ -11,6 +11,7 @@
 //! ## 模块组成
 //!
 //! - [`context`]：`ForwardContext` / `ResolvedRoute` / `ForwardRequest`
+//! - [`error_classifier`]：上游错误判定（路由级故障 vs 请求级错误）
 //! - [`route_resolver`]：解析 `model_id`，返回真实或虚拟路由
 //! - [`forwarder`]：`Forwarder` trait + `ForwardPipeline` 统一入口
 //! - [`direct_forwarder`]：真实供应商转发器
@@ -22,12 +23,16 @@
 
 pub mod call_log;
 pub mod context;
+pub mod error_classifier;
 pub mod forwarder;
 pub mod response_handler;
 pub mod route_resolver;
 pub mod usage_extractor;
 pub mod util;
 pub mod virtual_forwarder;
+
+#[cfg(test)]
+mod p0_tests;
 
 #[allow(unused_imports)]
 pub use context::{ForwardContext, ForwardRequest};

@@ -97,7 +97,8 @@ impl GatewayRuntimeHandle {
 /// `State<GatewaySharedState>` 提取。
 #[derive(Clone)]
 pub struct GatewaySharedState {
-    pub app_handle: AppHandle,
+    /// Tauri AppHandle，用于向后端广播事件；无窗口的管道测试可为 `None`
+    pub app_handle: Option<AppHandle>,
     pub ai_gateway_handle: AiGatewayServiceHandle,
     pub secret_handle: SecretServiceHandle,
     pub logger_handle: LoggerServiceHandle,
@@ -136,7 +137,7 @@ impl GatewayRuntimeService {
             app_handle: app_handle.clone(),
             state: Mutex::new(GatewayRuntimeState::default()),
             shared: GatewaySharedState {
-                app_handle,
+                app_handle: Some(app_handle),
                 ai_gateway_handle,
                 secret_handle,
                 logger_handle,

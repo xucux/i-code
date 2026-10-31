@@ -28,8 +28,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible"
 import { useTranslation } from "@/modules/i18n/use-translation"
-import { testRoute } from "@/hooks/use-virtual-provider-mutation"
+import { testRoute, restoreRouteHealth } from "@/hooks/use-virtual-provider-mutation"
 import { toast } from "sonner"
+import { toIcodeError } from "@/core/errors"
 import { cn } from "@/lib/utils"
 import type { ExposedModel, Provider } from "@/modules/ai-gateway/types"
 import type { VirtualModelRoute } from "@/modules/virtual-provider/types"
@@ -42,22 +43,14 @@ export interface SelectedModelDetail {
   routeId?: string
   /** 优先级（数值越小越优先） */
   priority: number
-  /** 是否启用该路由（原硬编码 true，改为可单独禁用） */
+  /** 是否启用该路由（前端传入以支持单独禁用） */
   enabled: boolean
-  /** 是否健康 */
+  /** 运行态健康状态（只读展示：由网关判定与探活维护，不允许手动改写） */
   isHealthy: boolean
-  /** 最大重试次数 */
-  maxRetries: number
-  /** 重试间隔毫秒数 */
-  retryIntervalMs: number
-  /** 路由级超时（毫秒）；undefined 表示继承供应商级 */
-  timeoutMs?: number
   /** 路由级附加请求头 JSON 字符串（编辑器原始值）；空串表示无 */
   extraHeadersJson?: string
   /** 路由级附加请求体 JSON 字符串（编辑器原始值）；空串表示无 */
   extraBodyJson?: string
-  /** 负载均衡权重（默认 1，0 表示不参与轮询）；仅在 load_balance 策略下生效 */
-  weight: number
 }
 
 export interface ModelTransferListProps {
@@ -112,6 +105,13 @@ export function ModelTransferList({
 
   const [sortBy, setSortBy] = React.useState<'default' | 'modelId'>('default')
 
+  const selectedIds: string[] = React.useMemo(() => {
+    if (controlledSelectedIds) {
+      return controlledSelectedIds
+    }
+    return routes.map((route) => `${route.targetProviderId}/${route.targetModelId}`)
+  }, [routes, controlledSelectedIds])
+
   const items: TransferListItem[] = React.useMemo(() => {
     const result: TransferListItem[] = []
     for (const model of providerModels) {
@@ -130,21 +130,27 @@ export function ModelTransferList({
     if (sortBy === 'modelId') {
       result.sort((a, b) => a.id.localeCompare(b.id))
     }
-    return result
-  }, [providerModels, providerBySlug, sortBy])
 
-  const selectedIds: string[] = React.useMemo(() => {
-    if (controlledSelectedIds) {
-      return controlledSelectedIds
-    }
-    const result: string[] = []
-    for (const route of routes) {
-      const provider = providerById.get(route.targetProviderId)
-      if (!provider) continue
-      result.push(`${provider.id}/${route.targetModelId}`)
+    // 已选但不在候选池（模型已在供应商中删除）：补充占位条目。
+    // 否则右侧「已选」列表既不显示该条目、也无法把 key 从 selectedIds 中移除，
+    // 保存时又会原样写回，形成无法删除的失效路由。
+    const knownIds = new Set(result.map((item) => item.id))
+    for (const id of selectedIds) {
+      if (knownIds.has(id)) continue
+      const slashIdx = id.indexOf('/')
+      const providerId = slashIdx >= 0 ? id.slice(0, slashIdx) : id
+      const modelId = slashIdx >= 0 ? id.slice(slashIdx + 1) : ''
+      const provider = providerById.get(providerId)
+      result.push({
+        id,
+        label: modelId || id,
+        description: t('invalidRouteTarget'),
+        secondary: provider?.displayName ?? providerId,
+        group: provider?.displayName ?? providerId,
+      })
     }
     return result
-  }, [routes, providerById, controlledSelectedIds])
+  }, [providerModels, providerBySlug, providerById, selectedIds, sortBy, t])
 
   return (
     <div className={className}>
@@ -192,8 +198,6 @@ export interface RouteSettingsListProps {
   providerModels: ExposedModel[]
   /** 真实供应商列表 */
   realProviders: Provider[]
-  /** 虚拟供应商策略；load_balance 时显示 weight 输入框 */
-  strategy?: 'fallback' | 'on_all' | 'load_balance'
   /** 自定义类名 */
   className?: string
 }
@@ -209,10 +213,10 @@ interface SortableRouteItemProps {
   detail: SelectedModelDetail
   /** 在列表中的索引 */
   index: number
-  /** 虚拟供应商策略；load_balance 时显示 weight 输入框 */
-  strategy: RouteSettingsListProps['strategy']
   /** 正在测试的路由 key（用于禁用重复点击） */
   testingId: string | null
+  /** 正在恢复健康的路由 key（用于禁用重复点击） */
+  restoringId: string | null
   /** providerId -> Provider 映射，用于显示供应商名称 */
   providerById: Map<string, Provider>
   /** 所有对外暴露的真实供应商模型，用于显示模型名称 */
@@ -225,17 +229,20 @@ interface SortableRouteItemProps {
   ) => void
   /** 单条路由测试回调 */
   onTest: (detail: SelectedModelDetail) => void
+  /** 立即恢复健康回调 */
+  onRestore: (detail: SelectedModelDetail) => void
 }
 
 function SortableRouteItem({
   detail,
   index,
-  strategy,
   testingId,
+  restoringId,
   providerById,
   providerModels,
   onDetailChange,
   onTest,
+  onRestore,
 }: SortableRouteItemProps) {
   const { t } = useTranslation('virtualProvider')
   const {
@@ -263,9 +270,12 @@ function SortableRouteItem({
   )
   // 主文本：模型 ID；小字行：供应商名称 · 模型名称
   const label = mid
-  const subLabel = model?.displayName
-    ? `${provider?.displayName || pid} · ${model.displayName}`
-    : (provider?.displayName || pid)
+  // 模型已从供应商中删除（不在候选池）时明确标记，提示用户移除该失效路由
+  const subLabel = !model
+    ? `${provider?.displayName || pid} · ${t('invalidRouteTarget')}`
+    : model.displayName
+      ? `${provider?.displayName || pid} · ${model.displayName}`
+      : (provider?.displayName || pid)
 
   return (
     <div
@@ -310,50 +320,42 @@ function SortableRouteItem({
               {detail.enabled ? t('enabled') : t('disabled')}
             </Label>
           </div>
-          <div className="flex items-center gap-1">
-            <Switch
-              checked={detail.isHealthy}
-              onCheckedChange={(v) => onDetailChange(index, 'isHealthy', v)}
-              className="scale-75"
+          {/* 健康状态：由网关判定与探活维护，只读展示；未保存的路由不提供恢复操作 */}
+          <div
+            className="flex items-center gap-1"
+            title={t('healthManagedByGateway')}
+          >
+            <span
+              className={cn(
+                'inline-block size-1.5 rounded-full',
+                detail.isHealthy ? 'bg-primary' : 'bg-destructive',
+              )}
             />
             <Label className="text-[10px]">
               {detail.isHealthy ? t('healthy') : t('unhealthy')}
             </Label>
+            {!detail.isHealthy && detail.routeId && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  void onRestore(detail)
+                }}
+                disabled={restoringId === detail.key}
+                className={cn(
+                  'text-muted-foreground hover:text-foreground text-[10px] underline-offset-2 hover:underline',
+                  'disabled:cursor-not-allowed disabled:opacity-40',
+                )}
+                title={t('restoreHealthHint')}
+              >
+                {restoringId === detail.key ? (
+                  <i className="fa-solid fa-circle-notch fa-spin size-3" />
+                ) : (
+                  t('restoreHealth')
+                )}
+              </button>
+            )}
           </div>
-          <div className="flex items-center gap-1.5">
-            <Label className="text-[10px]">{t('maxRetries')}</Label>
-            <Input
-              type="number"
-              value={detail.maxRetries}
-              onChange={(e) => onDetailChange(index, 'maxRetries', Number(e.target.value))}
-              className="h-6 w-14 text-[10px]"
-              min={0}
-            />
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Label className="text-[10px]">{t('retryInterval')}</Label>
-            <Input
-              type="number"
-              value={detail.retryIntervalMs}
-              onChange={(e) => onDetailChange(index, 'retryIntervalMs', Number(e.target.value))}
-              className="h-6 w-20 text-[10px]"
-              min={0}
-            />
-            <span className="text-muted-foreground text-[10px]">ms</span>
-          </div>
-          {strategy === 'load_balance' && (
-            <div className="flex items-center gap-1.5">
-              <Label className="text-[10px]">{t('weight')}</Label>
-              <Input
-                type="number"
-                value={detail.weight}
-                onChange={(e) => onDetailChange(index, 'weight', Number(e.target.value))}
-                className="h-6 w-12 text-[10px]"
-                min={0}
-                title={t('weightHint')}
-              />
-            </div>
-          )}
           {/* 测试按钮：对目标供应商发起探活请求，仅已保存路由可用 */}
           <button
             type="button"
@@ -379,22 +381,7 @@ function SortableRouteItem({
         </div>
         <CollapsibleContent>
           <div className="border-border/60 mt-1 grid grid-cols-3 gap-2 rounded-md border bg-muted/30 px-2 py-1.5 text-[10px]">
-            <div className="flex items-center gap-1.5">
-              <Label className="text-[10px] whitespace-nowrap">{t('timeoutMs')}</Label>
-              <Input
-                type="number"
-                value={detail.timeoutMs ?? ''}
-                onChange={(e) => {
-                  const v = e.target.value
-                  onDetailChange(index, 'timeoutMs', v === '' ? undefined : Number(v))
-                }}
-                placeholder={t('inherit')}
-                className="h-6 w-20 text-[10px]"
-                min={0}
-              />
-              <span className="text-muted-foreground">ms</span>
-            </div>
-            <div className="col-span-2 flex flex-col gap-1">
+            <div className="col-span-3 flex flex-col gap-1">
               <Label className="text-[10px]">{t('extraHeaders')}</Label>
               <textarea
                 value={detail.extraHeadersJson ?? ''}
@@ -424,11 +411,11 @@ export function RouteSettingsList({
   onDetailChange,
   providerModels,
   realProviders,
-  strategy = 'fallback',
   className,
 }: RouteSettingsListProps) {
   const { t } = useTranslation('virtualProvider')
   const [testingId, setTestingId] = React.useState<string | null>(null)
+  const [restoringId, setRestoringId] = React.useState<string | null>(null)
 
   const providerById = React.useMemo(() => {
     const map = new Map<string, Provider>()
@@ -473,6 +460,23 @@ export function RouteSettingsList({
     }
   }
 
+  /** 立即恢复单条路由的健康状态：写库后同步把本地展示改为健康 */
+  const handleRestore = async (detail: SelectedModelDetail) => {
+    if (!detail.routeId) return
+    const idx = details.findIndex((d) => d.key === detail.key)
+    if (idx === -1) return
+    setRestoringId(detail.key)
+    try {
+      await restoreRouteHealth(detail.routeId)
+      handleDetailChange(idx, 'isHealthy', true)
+      toast.success(t('restoreHealthSuccess'))
+    } catch (err) {
+      toast.error(toIcodeError(err).message)
+    } finally {
+      setRestoringId(null)
+    }
+  }
+
   /** 拖拽排序结束：按新顺序重排 details 并自动重算 priority（数值越小越优先） */
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
@@ -510,12 +514,13 @@ export function RouteSettingsList({
                 key={detail.key}
                 detail={detail}
                 index={idx}
-                strategy={strategy}
                 testingId={testingId}
+                restoringId={restoringId}
                 providerById={providerById}
                 providerModels={providerModels}
                 onDetailChange={handleDetailChange}
                 onTest={handleTest}
+                onRestore={handleRestore}
               />
             ))}
           </div>

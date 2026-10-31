@@ -1021,6 +1021,39 @@
       }
     },
     {
+      "id": "MiniMax-M3.1-Flash",
+      "displayName": "MiniMax-M3.1-Flash",
+      "background": "MiniMax M3.1 Flash（2026-10-19 发布，10-23 开源权重，HuggingFace: MiniMaxAI/MiniMax-M3.1-Flash，MiniMax Community License）：M3 骨干的稀疏注意力多模态 MoE，428B 总参 / 23B 激活（60 层、128 路由专家每 token 激活 4 + 1 共享专家、GQA 64 头/4 KV 头）；1M 上下文（max_position_embeddings 1,048,576）、最大 524K 输出，输入支持文本/图像/视频（CLIP 式视觉塔）；全模型启用 MiniMax Sparse Attention（top-k 16 块、块大小 128）替换 M3 前三个全注意力层，配合 QAT（mxfp8 动态激活 + NVFP4 专家权重）与 DSpark 投机解码，在线推理约为前代 3 倍、智能体成本降至约 30%；思考常开不可关闭，reasoning_effort 五档 low/medium/high/xhigh/max，默认 max；采样固定 temperature=1.0、top_p=0.95。上线前以匿名代号 Space Bunny 运行，累计处理超 200 万亿 token。",
+      "family": "minimax",
+      "providerTypes": [
+        "openai-chat-completion",
+        "anthropic"
+      ],
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 524288,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "temperature": 1,
+      "topP": 0.95,
+      "thinkingEffortOptions": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "max"
+      }
+    },
+    {
       "id": "MiniMax-M3",
       "displayName": "MiniMax-M3",
       "background": "MiniMax M3（2026），旗舰 MoE，1M 上下文，多模态与智能体能力大幅升级，参数量未公开。",
@@ -1134,7 +1167,7 @@
     {
       "id": "space-bunny",
       "displayName": "Space Bunny",
-      "background": "Space Bunny（「太空兔」，2026-09-23 匿名上线 OpenRouter / OpenCode，代号 Space Bunny Alpha）：开发者未公开身份的 stealth 预览模型，第三方分词器比对指向 MiniMax 系列（社区推测为 M3.1 Flash 预览版，未获官方确认，官方标注族别待定）；1M 上下文 + 524K 最大输出，原生文本/图像/视频输入，推理常开且力度 low/medium/high/xhigh/max 五档可调，支持工具调用与 JSON 输出；预览期免费（输入/输出 $0），未发布权重与模型卡。",
+      "background": "Space Bunny（「太空兔」，2026-09-23 匿名上线 OpenRouter / OpenCode，代号 Space Bunny Alpha）：开发者未公开身份的 stealth 预览模型，第三方分词器比对指向 MiniMax 系列；MiniMax 发布 M3.1 Flash 时官方确认其即为该模型的早期版本（匿名期累计处理超 200 万亿 token）。1M 上下文 + 524K 最大输出，原生文本/图像/视频输入，推理常开且力度 low/medium/high/xhigh/max 五档可调，支持工具调用与 JSON 输出；预览期免费（输入/输出 $0），未单独发布权重与模型卡，可参考 MiniMaxAI/MiniMax-M3.1-Flash。",
       "family": "minimax",
       "providerTypes": [
         "openai-chat-completion",
@@ -1597,6 +1630,70 @@
       },
       "thinking": {
         "type": "enabled"
+      }
+    },
+    {
+      "id": "kimi-k3.1-pro",
+      "displayName": "Kimi K3.1 Pro",
+      "background": "Kimi K3.1 Pro（2026-10-24 发布）：Kimi K3 的加大后训练版本，架构不变，2.8T 总参 MoE / 104B 激活（3 万亿级，93 层、隐藏维度 7168、96 个 KV 头/头维度 192），1M token 上下文，原生支持文本/图像/视频理解；思考强制开启无法关闭，reasoning_effort 支持 low/high/max，默认 max，采样固定 temperature=1.0、top_p=0.95；终端编程 Terminal-Bench 4.0 65.7、事实幻觉错误率由 23.4% 降至 8.3%，新增 3D 代码生成与金融建模优化；完整权重承诺 2026-11-04 前开源。",
+      "family": "moonshot",
+      "providerTypes": [
+        "openai-chat-completion",
+        "openai-responses",
+        "anthropic"
+      ],
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 131072,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "temperature": 1,
+      "topP": 0.95,
+      "thinkingEffortOptions": [
+        "low",
+        "high",
+        "max"
+      ],
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "max"
+      }
+    },
+    {
+      "id": "kimi-k3.1-pro-highspeed",
+      "displayName": "Kimi K3.1 Pro Highspeed",
+      "background": "Kimi K3.1 Pro 高速版（2026-10-24 随普速版同步上线）：与 K3.1 Pro 同参同能力（2.8T 总参 MoE / 104B 激活，1M token 上下文，原生文本/图像/视频理解），官方称输出速度约为普速版 2~3 倍，第三方实测约 1.6~1.75 倍、且 85~90% 的 completion token 为思考 token；面向交互式会话与高并发 API 场景，定价约翻倍（¥26 / ¥136 每百万输入/输出 token，普速版 ¥13 / ¥68）；思考强制开启，reasoning_effort 支持 low/high/max，默认 max，采样固定 temperature=1.0、top_p=0.95。",
+      "family": "moonshot",
+      "providerTypes": [
+        "openai-chat-completion",
+        "openai-responses",
+        "anthropic"
+      ],
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 131072,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "temperature": 1,
+      "topP": 0.95,
+      "thinkingEffortOptions": [
+        "low",
+        "high",
+        "max"
+      ],
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "max"
       }
     },
     {

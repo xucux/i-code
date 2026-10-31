@@ -20,14 +20,10 @@ import type { Timestamp, SnowflakeId } from '@/core/types'
  * 故障转移策略
  * 与后端 `VirtualProviderStrategy` 对齐，使用 snake_case 字符串。
  *
- * - `fallback`：按优先级顺序尝试，失败则切换下一条（默认）
- * - `on_all`：同时请求所有可用路由（v0.1 未实现）
- * - `load_balance`：按权重轮询（v0.1 未实现）
+ * 当前仅支持顺序回退：按优先级尝试，失败即切换下一条。
+ * 历史策略 `on_all` / `load_balance` 已移除（旧数据由迁移归一为 `fallback`）。
  */
-export type FailoverStrategy =
-  | 'fallback'
-  | 'on_all'
-  | 'load_balance'
+export type FailoverStrategy = 'fallback'
 
 /**
  * 虚拟供应商
@@ -118,8 +114,12 @@ export interface VirtualModelRoute {
   lastCheckDurationMs?: number
   /** 上次探活时间戳 */
   lastCheckAt?: Timestamp
-  /** 负载均衡权重（默认 1，0 表示不参与轮询）；仅在 load_balance 策略下生效 */
+  /** 负载均衡权重历史字段（load_balance 已移除，保留以兼容后端数据结构） */
   weight: number
+  /** 冷却截止时间（RFC3339）；未到期前该路由不参与选路（永久故障仅作最后兜底） */
+  cooldownUntil?: Timestamp
+  /** 最近一次失败类型（quota_exhausted / auth_failure / model_unavailable / ...） */
+  failureKind?: string
   createdAt: Timestamp
   updatedAt: Timestamp
 }
@@ -273,24 +273,20 @@ export interface VirtualModelRouteInput {
 /**
  * 保存虚拟模型时携带的单条子级路由输入
  * 与后端 `SaveVirtualModelRouteInput` 对齐。
+ *
+ * 运行态字段（健康 / 冷却 / 重试 / 超时 / 权重）不在保存入参中：
+ * 后端会按 `(providerId, modelId)` 继承已有路由状态，避免编辑弹窗覆盖运行态。
  */
 export interface SaveVirtualModelRouteInput {
   targetProviderId: string
   targetModelId: string
   priority: number
-  /** 是否启用该路由（原硬编码 true，改为前端传入以支持单独禁用） */
+  /** 是否启用该路由（前端传入以支持单独禁用） */
   enabled: boolean
-  isHealthy: boolean
-  maxRetries: number
-  retryIntervalMs: number
-  /** 路由级超时（毫秒），覆盖供应商级配置；undefined 表示继承 */
-  timeoutMs?: number
   /** 路由级附加请求头（JSON 对象），覆盖供应商级同名头 */
   extraHeaders?: Record<string, unknown>
   /** 路由级附加请求体参数（JSON 对象），浅合并到请求体 */
   extraBody?: Record<string, unknown>
-  /** 负载均衡权重（默认 1，0 表示不参与轮询）；仅在 load_balance 策略下生效 */
-  weight?: number
 }
 
 /**
@@ -350,6 +346,48 @@ export interface VirtualRouteAttempt {
   durationMs: number
   /** 尝试时间戳（RFC3339 字符串） */
   attemptedAt: string
+}
+
+/**
+ * 失败请求尝试链中的单条路由尝试
+ * 由后端 `virtual_provider_failed_chains` 命令返回，供 UI 展示「本次请求走了哪几条路由」。
+ */
+export interface RequestAttemptStep {
+  /** 尝试序号（0 起） */
+  attemptIndex: number
+  /** 关联 virtual_model_routes.id */
+  virtualRouteId: string
+  /** 目标真实供应商 ID（路由已删除时缺失） */
+  targetProviderId?: string
+  /** 目标真实模型 ID */
+  targetModelId?: string
+  /** 目标供应商展示名（路由已删除时缺失） */
+  targetProviderName?: string
+  /** 是否成功 */
+  success: boolean
+  /** HTTP 状态码（网络错误时缺失） */
+  statusCode?: number
+  /** 失败原因 */
+  errorMessage?: string
+  /** 该路由耗时（毫秒） */
+  durationMs: number
+  /** 尝试时间（RFC3339 字符串） */
+  attemptedAt: Timestamp
+}
+
+/**
+ * 按 request_id 聚合的失败请求尝试链
+ * 对应后端 `RequestAttemptChain`，一条记录代表一次网关请求的完整选路过程。
+ */
+export interface RequestAttemptChain {
+  /** 网关请求 ID */
+  requestId: string
+  /** 虚拟供应商 alias */
+  virtualProviderAlias: string
+  /** 该请求首条尝试时间（RFC3339 字符串） */
+  startedAt: Timestamp
+  /** 尝试顺序（attemptIndex 升序） */
+  attempts: RequestAttemptStep[]
 }
 
 /**
@@ -413,8 +451,6 @@ export interface AliasImpactResult {
 export interface GenerateVirtualProviderInput {
   /** 可选，覆盖设置中的自定义数据源 URL */
   dataSourceUrl?: string
-  /** 可选，覆盖数据源 JSON 中的策略 */
-  strategy?: string
   /** 可选，覆盖数据源 JSON 中的重试次数 */
   maxRetries?: number
   /** 可选，覆盖数据源 JSON 中的重试间隔 */
@@ -447,4 +483,39 @@ export interface VirtualSlotsConfigDto {
 /** 数据源配置写入输入 */
 export interface VirtualSlotsConfigSetInput {
   dataSourceUrl: string
+}
+
+/**
+ * 探活全局配置
+ * 对应后端 `virtual_health_check_config_get` 返回值；
+ * 间隔字段单位为秒，保留天数单位为天。
+ */
+export interface VirtualHealthCheckConfig {
+  /** 已降级路由的探活间隔（秒） */
+  healthCheckIntervalSecs: number
+  /** 全部路由永久失活时的兜底尝试间隔（秒） */
+  allFailedFallbackIntervalSecs: number
+  /** 路由尝试历史保留天数 */
+  attemptsKeepDays: number
+  /** 探活间隔默认值（秒） */
+  defaultHealthCheckIntervalSecs: number
+  /** 兜底间隔默认值（秒） */
+  defaultAllFailedFallbackIntervalSecs: number
+  /** 路由尝试历史默认保留天数 */
+  defaultAttemptsKeepDays: number
+  /** 允许的最小间隔（秒） */
+  minIntervalSecs: number
+  /** 允许的最大间隔（秒） */
+  maxIntervalSecs: number
+  /** 允许的最小保留天数 */
+  minAttemptsKeepDays: number
+  /** 允许的最大保留天数 */
+  maxAttemptsKeepDays: number
+}
+
+/** 探活全局配置写入输入（未传字段由后端保持原值） */
+export interface VirtualHealthCheckConfigSetInput {
+  healthCheckIntervalSecs?: number
+  allFailedFallbackIntervalSecs?: number
+  attemptsKeepDays?: number
 }

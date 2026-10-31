@@ -25,6 +25,7 @@
 //! ### 路由尝试历史
 //! - `virtual_provider_route_attempts_list`：查询指定路由最近 N 次尝试
 //! - `virtual_provider_route_attempt_stats_list`：查询指定供应商下所有路由的尝试统计
+//! - `virtual_provider_failed_chains`：按 request_id 聚合最近失败请求的尝试链
 //! - `virtual_provider_route_test`：测试单条路由（探活请求，不写入历史）
 //!
 //! ### alias 变更影响检查
@@ -41,13 +42,49 @@ use crate::error::IcodeResult;
 use crate::modules::ai_gateway::AiGatewayServiceHandle;
 
 use super::service::VirtualProviderHandle;
+use super::settings;
 use super::types::{
     AliasImpactResult, CreateVirtualModelInput, CreateVirtualModelRouteInput,
     CreateVirtualProviderInput, GenerateVirtualProviderInput, GenerateVirtualProviderResult,
-    RouteAttemptStats, RouteTestResult, SaveVirtualModelInput, UpdateVirtualModelInput,
-    UpdateVirtualModelRouteInput, UpdateVirtualProviderInput, VirtualModel, VirtualModelRoute,
+    RequestAttemptChain, RouteAttemptStats, RouteTestResult, SaveVirtualModelInput,
+    UpdateVirtualModelInput,
+    UpdateVirtualModelRouteInput, UpdateVirtualProviderInput, VirtualHealthCheckConfig,
+    VirtualHealthCheckConfigSetInput, VirtualModel, VirtualModelRoute,
     VirtualProvider, VirtualRouteAttempt, VirtualSlotsConfigDto, VirtualSlotsConfigSetInput,
 };
+
+// ===== 探活 / 兜底间隔配置 =====
+
+/// 读取虚拟路由探活、兜底间隔与尝试历史保留天数
+#[tauri::command]
+pub async fn virtual_health_check_config_get() -> IcodeResult<VirtualHealthCheckConfig> {
+    Ok(VirtualHealthCheckConfig {
+        health_check_interval_secs: settings::health_check_interval_secs(),
+        all_failed_fallback_interval_secs: settings::all_failed_fallback_interval_secs(),
+        attempts_keep_days: settings::attempts_keep_days(),
+        default_health_check_interval_secs: settings::DEFAULT_HEALTH_CHECK_INTERVAL_SECS,
+        default_all_failed_fallback_interval_secs:
+            settings::DEFAULT_ALL_FAILED_FALLBACK_INTERVAL_SECS,
+        default_attempts_keep_days: settings::DEFAULT_ATTEMPTS_KEEP_DAYS,
+        min_interval_secs: settings::MIN_INTERVAL_SECS,
+        max_interval_secs: settings::MAX_INTERVAL_SECS,
+        min_attempts_keep_days: settings::MIN_ATTEMPTS_KEEP_DAYS,
+        max_attempts_keep_days: settings::MAX_ATTEMPTS_KEEP_DAYS,
+    })
+}
+
+/// 更新间隔 / 保留天数配置，返回最新配置
+#[tauri::command]
+pub async fn virtual_health_check_config_set(
+    input: VirtualHealthCheckConfigSetInput,
+) -> IcodeResult<VirtualHealthCheckConfig> {
+    settings::set_intervals(
+        input.health_check_interval_secs,
+        input.all_failed_fallback_interval_secs,
+        input.attempts_keep_days,
+    )?;
+    virtual_health_check_config_get().await
+}
 
 // ===== 虚拟供应商命令 =====
 
@@ -159,7 +196,9 @@ pub async fn virtual_provider_model_delete(
 
 // ===== 虚拟模型路由命令 =====
 
-/// 列出指定虚拟模型下的所有启用路由
+/// 列出指定虚拟模型下的全部路由（含已禁用）
+///
+/// 供编辑弹窗使用：必须包含禁用路由，否则保存时全量重写会静默删除它们。
 #[tauri::command]
 pub async fn virtual_provider_route_list(
     state: State<'_, VirtualProviderHandle>,
@@ -250,6 +289,31 @@ pub async fn virtual_provider_route_attempt_stats_list(
     state
         .service()
         .list_route_attempt_stats_by_provider(&virtual_provider_id)
+}
+
+/// 列出最近的失败请求尝试链（按 request_id 聚合，含每条路由的失败原因）
+#[tauri::command]
+pub async fn virtual_provider_failed_chains(
+    state: State<'_, VirtualProviderHandle>,
+    limit: Option<u32>,
+) -> IcodeResult<Vec<RequestAttemptChain>> {
+    state.service().list_recent_failed_chains(limit.unwrap_or(20))
+}
+
+/// 手动恢复单条路由健康：清除冷却 / 故障状态，立即参与选路
+///
+/// 若上游仍故障，下一次请求会重新判定并降级（不保证持续可用）。
+#[tauri::command]
+pub async fn virtual_provider_route_restore_health(
+    state: State<'_, VirtualProviderHandle>,
+    route_id: String,
+) -> IcodeResult<VirtualModelRoute> {
+    let route = state.service().restore_route_health(&route_id)?;
+    tracing::info!(
+        "virtual_provider_route_restore_health({}) => healthy",
+        route_id
+    );
+    Ok(route)
 }
 
 /// 测试单条路由：对目标供应商发起轻量探活请求（GET /v1/models，5s 超时）
