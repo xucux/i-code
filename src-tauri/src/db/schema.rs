@@ -9,7 +9,7 @@
 ///
 /// 与 `src-tauri/src/db/migrations/V{n}__*.sql` 文件名中的 `{n}` 对应。
 /// 每次新增增量迁移时同步更新。
-pub const SCHEMA_VERSION: u32 = 14;
+pub const SCHEMA_VERSION: u32 = 15;
 
 /// 所有业务表名常量
 ///
@@ -72,6 +72,8 @@ pub mod table {
     pub const VIRTUAL_MODEL_ROUTES: &str = "virtual_model_routes";
     /// 虚拟路由尝试历史表
     pub const VIRTUAL_ROUTE_ATTEMPTS: &str = "virtual_route_attempts";
+    /// 虚拟路由探活历史表
+    pub const VIRTUAL_ROUTE_PROBE_LOGS: &str = "virtual_route_probe_logs";
     /// 额度监控脚本模板表
     pub const SCRIPT_TEMPLATES: &str = "script_templates";
     /// 图像生成历史表

@@ -4,10 +4,12 @@ import type { ExposedModel } from '@/modules/ai-gateway/types'
 import type {
   RequestAttemptChain,
   RouteAttemptStats,
+  RouteProbeStats,
   VirtualProvider,
   VirtualModel,
   VirtualModelRoute,
   VirtualRouteAttempt,
+  VirtualRouteProbe,
 } from '@/modules/virtual-provider/types'
 
 /**
@@ -376,6 +378,92 @@ export function useVirtualRouteAttemptStats(
     try {
       const result = await invokeCommand<RouteAttemptStats[]>(
         'virtual_provider_route_attempt_stats_list',
+        { virtualProviderId },
+      )
+      setStats(result)
+    } catch {
+      setStats([])
+    } finally {
+      setLoading(false)
+    }
+  }, [virtualProviderId])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  return { stats, loading, refetch: load }
+}
+
+/**
+ * 获取指定路由最近 N 次探活记录（自动探活 + 手动测试）
+ *
+ * 调用后端 `virtual_provider_route_probes_list` 命令。
+ */
+export function useVirtualRouteProbes(
+  routeId: string | null,
+  limit: number = 50,
+): {
+  probes: VirtualRouteProbe[]
+  loading: boolean
+  refetch: () => void
+} {
+  const [probes, setProbes] = useState<VirtualRouteProbe[]>([])
+  const [loading, setLoading] = useState(false)
+
+  const load = useCallback(async () => {
+    if (!routeId) {
+      setProbes([])
+      return
+    }
+    setLoading(true)
+    try {
+      const result = await invokeCommand<VirtualRouteProbe[]>(
+        'virtual_provider_route_probes_list',
+        { routeId, limit },
+      )
+      setProbes(result)
+    } catch {
+      setProbes([])
+    } finally {
+      setLoading(false)
+    }
+  }, [routeId, limit])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  return { probes, loading, refetch: load }
+}
+
+/**
+ * 获取指定虚拟供应商下所有路由的探活统计
+ *
+ * 调用后端 `virtual_provider_route_probe_stats_list` 命令。
+ * 用于「探活记录」Tab 展示每条路由的探活成功率 / 平均耗时。
+ *
+ * @param virtualProviderId 虚拟供应商 ID，传 null 时不加载
+ */
+export function useVirtualRouteProbeStats(
+  virtualProviderId: string | null,
+): {
+  stats: RouteProbeStats[]
+  loading: boolean
+  refetch: () => void
+} {
+  const [stats, setStats] = useState<RouteProbeStats[]>([])
+  const [loading, setLoading] = useState(false)
+
+  const load = useCallback(async () => {
+    if (!virtualProviderId) {
+      setStats([])
+      return
+    }
+    setLoading(true)
+    try {
+      const result = await invokeCommand<RouteProbeStats[]>(
+        'virtual_provider_route_probe_stats_list',
         { virtualProviderId },
       )
       setStats(result)

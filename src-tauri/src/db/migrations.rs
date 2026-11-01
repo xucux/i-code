@@ -97,6 +97,10 @@ const V013__NORMALIZE_VIRTUAL_PROVIDER_STRATEGY: &str =
 const V014__VIRTUAL_ROUTE_LAST_ATTEMPTED: &str =
     include_str!("./migrations/V014__virtual_route_last_attempted.sql");
 
+/// 虚拟路由探活历史：新增 virtual_route_probe_logs 表（自动探活 + 手动测试记录）
+const V015__VIRTUAL_ROUTE_PROBE_LOGS: &str =
+    include_str!("./migrations/V015__virtual_route_probe_logs.sql");
+
 /// 内置迁移列表：(版本号, 描述, SQL 内容)
 ///
 /// 增量迁移模式：V001 为基线，V002+ 为增量变更。
@@ -116,6 +120,7 @@ const BUILTIN_MIGRATIONS: &[(u32, &str, &str)] = &[
     (12, "virtual_route_cooldown", V012__VIRTUAL_ROUTE_COOLDOWN),
     (13, "normalize_virtual_provider_strategy", V013__NORMALIZE_VIRTUAL_PROVIDER_STRATEGY),
     (14, "virtual_route_last_attempted", V014__VIRTUAL_ROUTE_LAST_ATTEMPTED),
+    (15, "virtual_route_probe_logs", V015__VIRTUAL_ROUTE_PROBE_LOGS),
 ];
 
 /// 执行所有未应用的迁移

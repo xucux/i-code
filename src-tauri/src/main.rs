@@ -923,6 +923,8 @@ fn main() {
             modules::virtual_provider::commands::virtual_provider_route_attempts_list,
             modules::virtual_provider::commands::virtual_provider_route_attempt_stats_list,
             modules::virtual_provider::commands::virtual_provider_failed_chains,
+            modules::virtual_provider::commands::virtual_provider_route_probes_list,
+            modules::virtual_provider::commands::virtual_provider_route_probe_stats_list,
             modules::virtual_provider::commands::virtual_health_check_config_get,
             modules::virtual_provider::commands::virtual_health_check_config_set,
             modules::virtual_provider::commands::virtual_provider_route_restore_health,

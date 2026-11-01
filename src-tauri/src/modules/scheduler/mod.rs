@@ -13,8 +13,9 @@
 //!   其余对目标模型发起**模型级最小请求**（OpenAI 兼容 `chat/completions`、
 //!   Anthropic `messages`，`max_tokens=1`），不支持的协议退化为 `/v1/models` 存在性校验。
 //!   连续成功 2 次后置 is_healthy=1；命中额度/鉴权/模型/限流/5xx 时按判定写冷却。
-//! - **虚拟路由尝试历史清理**：每 24 小时清理 `virtual_route_attempts` 表中
-//!   超过保留天数（默认 3 天，可在虚拟供应商「配置」中调整）的历史记录。
+//! - **虚拟路由尝试历史清理**：每 24 小时清理 `virtual_route_attempts` 与
+//!   `virtual_route_probe_logs` 表中超过保留天数（默认 3 天，可在虚拟供应商「配置」中调整）
+//!   的历史记录。
 //! - **模型调用聚合统计窗口重算**：每 10 分钟从 `model_call_logs` 明细表
 //!   重新计算「当前时刻 − 10 分钟」所在小时/天桶，覆盖式写回
 //!   `model_call_stats_hourly` / `model_call_stats_daily`（聚合与明细严格同源）。
@@ -281,6 +282,15 @@ async fn run_health_check_once(
                 let _ = virtual_provider
                     .service()
                     .mark_route_healthy(&route.id, duration_ms);
+                virtual_provider.service().record_route_probe(
+                    &route.id,
+                    "auto",
+                    true,
+                    Some(200),
+                    None,
+                    None,
+                    duration_ms,
+                );
                 Log::info(&format!(
                     "[Scheduler] 虚拟路由探活恢复：route_id={}, provider={}, model={}, duration={}ms",
                     route.id, provider.slug, route.target_model_id, duration_ms
@@ -292,6 +302,15 @@ async fn run_health_check_once(
                     failure.verdict.kind,
                     failure.verdict.penalty,
                     &failure.message,
+                );
+                virtual_provider.service().record_route_probe(
+                    &route.id,
+                    "auto",
+                    false,
+                    failure.status,
+                    Some(&failure.message),
+                    Some(failure.verdict.kind.as_str()),
+                    duration_ms,
                 );
                 Log::warn(&format!(
                     "[Scheduler] 虚拟路由探活失败，已按判定降级：route_id={}, provider={}, model={}, status={:?}, kind={}, err={}",
@@ -309,6 +328,15 @@ async fn run_health_check_once(
                     &err,
                     duration_ms,
                     false,
+                );
+                virtual_provider.service().record_route_probe(
+                    &route.id,
+                    "auto",
+                    false,
+                    None,
+                    Some(&err),
+                    None,
+                    duration_ms,
                 );
                 tracing::warn!(
                     "虚拟路由探活结果无法判定（不降级）：route_id={}, provider={}, err={}",
@@ -369,6 +397,21 @@ async fn attempts_cleanup_loop() {
                     "[Scheduler] 虚拟路由尝试历史清理失败：{}",
                     e.message
                 ));
+            }
+        }
+        // 探活记录与尝试历史共用保留天数
+        match crate::modules::virtual_provider::repository::cleanup_old_probe_logs(keep_days) {
+            Ok(affected) => {
+                if affected > 0 {
+                    tracing::info!(
+                        "虚拟路由探活记录清理完成：删除 {} 条记录（保留 {} 天）",
+                        affected,
+                        keep_days
+                    );
+                }
+            }
+            Err(e) => {
+                tracing::warn!("虚拟路由探活记录清理失败: {}", e.message);
             }
         }
     }

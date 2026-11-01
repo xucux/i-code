@@ -414,9 +414,65 @@ export interface RouteAttemptStats {
 }
 
 /**
+ * 探活来源
+ * - `auto`：调度器按探活间隔自动发起
+ * - `manual`：用户在路由上点击「测试路由」
+ */
+export type RouteProbeSource = 'auto' | 'manual'
+
+/**
+ * 单条路由探活记录
+ * 对应数据库表 `virtual_route_probe_logs`，由调度器自动探活与手动测试写入。
+ */
+export interface VirtualRouteProbe {
+  id: string
+  /** 关联 virtual_model_routes.id */
+  virtualRouteId: string
+  /** 冗余 virtual_provider_id，便于按供应商维度查询 */
+  virtualProviderId: string
+  /** 探活来源 */
+  source: RouteProbeSource
+  /** 是否成功 */
+  success: boolean
+  /** HTTP 状态码（网络错误 / 无法判定时缺失） */
+  statusCode?: number
+  /** 探活耗时（毫秒） */
+  durationMs: number
+  /** 失败原因 */
+  errorMessage?: string
+  /** 失败类型（后端 RouteFailureKind），无法判定 / 手动失败时为 undefined */
+  failureKind?: string
+  /** 探活时间戳（RFC3339 字符串） */
+  probedAt: string
+}
+
+/**
+ * 路由维度探活统计
+ * 由后端 `virtual_provider_route_probe_stats_list` 命令返回。
+ */
+export interface RouteProbeStats {
+  /** 关联 virtual_model_routes.id */
+  virtualRouteId: string
+  /** 总探活次数 */
+  total: number
+  /** 成功次数 */
+  successCount: number
+  /** 失败次数（含无法判定） */
+  failureCount: number
+  /** 成功率（0-100，整数百分比） */
+  successRate: number
+  /** 平均耗时（毫秒） */
+  avgDurationMs: number
+  /** 最近一次失败原因 */
+  lastError?: string
+  /** 最近一次探活时间（RFC3339 字符串） */
+  lastProbedAt?: string
+}
+
+/**
  * 单条路由测试结果
  * 由后端 `virtual_provider_route_test` 命令返回，供前端 toast 展示。
- * 不写入 `virtual_route_attempts`（避免污染统计）。
+ * 结果同时写入探活历史，但不写入 `virtual_route_attempts`（避免污染请求统计）。
  */
 export interface RouteTestResult {
   /** 是否成功（2xx） */

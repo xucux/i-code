@@ -13,9 +13,9 @@ use crate::error::{IcodeError, IcodeResult};
 use super::types::{
     CreateVirtualModelInput, CreateVirtualModelRouteInput, CreateVirtualProviderInput,
     ExposedVirtualModel, RequestAttemptChain, RequestAttemptStep, RouteAttemptStats,
-    SaveVirtualModelInput, UpdateVirtualModelInput, UpdateVirtualModelRouteInput,
+    RouteProbeStats, SaveVirtualModelInput, UpdateVirtualModelInput, UpdateVirtualModelRouteInput,
     UpdateVirtualProviderInput, VirtualModel, VirtualModelRoute, VirtualProvider,
-    VirtualProviderStrategy, VirtualRouteAttempt,
+    VirtualProviderStrategy, VirtualRouteAttempt, VirtualRouteProbe,
 };
 
 fn get_conn() -> IcodeResult<DbConn> {
@@ -1168,6 +1168,144 @@ pub fn cleanup_old_attempts(days_to_keep: u32) -> IcodeResult<u64> {
     let cutoff = (Utc::now() - chrono::Duration::days(days_to_keep as i64)).to_rfc3339();
     let affected = conn.execute(
         "DELETE FROM virtual_route_attempts WHERE attempted_at < ?1",
+        [&cutoff],
+    )?;
+    Ok(affected as u64)
+}
+
+// ===== virtual_route_probe_logs =====
+
+/// 写入一条路由探活记录
+///
+/// `virtual_provider_id` 由路由所属虚拟模型反查，避免调用方重复查询。
+pub fn insert_route_probe(
+    virtual_route_id: &str,
+    source: &str,
+    success: bool,
+    status_code: Option<u16>,
+    error_message: Option<&str>,
+    failure_kind: Option<&str>,
+    duration_ms: u64,
+) -> IcodeResult<()> {
+    let conn = get_conn()?;
+    let id = new_id();
+    let now = now();
+    let success_i: i64 = if success { 1 } else { 0 };
+    conn.execute(
+        "INSERT INTO virtual_route_probe_logs
+            (id, virtual_route_id, virtual_provider_id, source, success,
+             status_code, duration_ms, error_message, failure_kind, probed_at)
+         VALUES (?1, ?2,
+                 (SELECT vm.virtual_provider_id
+                  FROM virtual_model_routes r
+                  JOIN virtual_models vm ON vm.id = r.virtual_model_id
+                  WHERE r.id = ?2),
+                 ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        rusqlite::params![
+            id,
+            virtual_route_id,
+            source,
+            success_i,
+            status_code.map(|s| s as i64),
+            duration_ms as i64,
+            error_message,
+            failure_kind,
+            now,
+        ],
+    )?;
+    Ok(())
+}
+
+/// 查询指定路由的最近 N 次探活记录
+pub fn list_recent_probes_by_route(
+    route_id: &str,
+    limit: u32,
+) -> IcodeResult<Vec<VirtualRouteProbe>> {
+    let conn = get_conn()?;
+    let mut stmt = conn.prepare(
+        "SELECT id, virtual_route_id, virtual_provider_id, source, success,
+                status_code, duration_ms, error_message, failure_kind, probed_at
+         FROM virtual_route_probe_logs
+         WHERE virtual_route_id = ?1
+         ORDER BY probed_at DESC
+         LIMIT ?2",
+    )?;
+    let rows = stmt.query_map(rusqlite::params![route_id, limit], |row| {
+        let success: i64 = row.get(4)?;
+        Ok(VirtualRouteProbe {
+            id: row.get(0)?,
+            virtual_route_id: row.get(1)?,
+            virtual_provider_id: row.get(2)?,
+            source: row.get(3)?,
+            success: success != 0,
+            status_code: row.get(5)?,
+            duration_ms: row.get(6)?,
+            error_message: row.get(7)?,
+            failure_kind: row.get(8)?,
+            probed_at: row.get(9)?,
+        })
+    })?;
+    let mut result = Vec::new();
+    for row in rows {
+        result.push(row?);
+    }
+    Ok(result)
+}
+
+/// 查询指定供应商下所有路由的探活统计
+pub fn list_route_probe_stats_by_provider(
+    virtual_provider_id: &str,
+) -> IcodeResult<Vec<RouteProbeStats>> {
+    let conn = get_conn()?;
+    let mut stmt = conn.prepare(
+        "SELECT
+            virtual_route_id,
+            COUNT(*) AS total,
+            SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) AS success_count,
+            SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) AS failure_count,
+            CASE WHEN COUNT(*) > 0
+                 THEN CAST(SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) * 100 / COUNT(*) AS INTEGER)
+                 ELSE 0 END AS success_rate,
+            CASE WHEN COUNT(*) > 0
+                 THEN CAST(AVG(duration_ms) AS INTEGER)
+                 ELSE 0 END AS avg_duration_ms,
+            (SELECT error_message FROM virtual_route_probe_logs p2
+             WHERE p2.virtual_route_id = virtual_route_probe_logs.virtual_route_id
+               AND p2.success = 0
+             ORDER BY p2.probed_at DESC LIMIT 1) AS last_error,
+            MAX(probed_at) AS last_probed_at
+         FROM virtual_route_probe_logs
+         WHERE virtual_provider_id = ?1
+         GROUP BY virtual_route_id
+         ORDER BY last_probed_at DESC",
+    )?;
+    let rows = stmt.query_map([virtual_provider_id], |row| {
+        Ok(RouteProbeStats {
+            virtual_route_id: row.get(0)?,
+            total: row.get(1)?,
+            success_count: row.get(2)?,
+            failure_count: row.get(3)?,
+            success_rate: row.get(4)?,
+            avg_duration_ms: row.get(5)?,
+            last_error: row.get(6)?,
+            last_probed_at: row.get(7)?,
+        })
+    })?;
+    let mut result = Vec::new();
+    for row in rows {
+        result.push(row?);
+    }
+    Ok(result)
+}
+
+/// 清理 N 天前的路由探活记录
+///
+/// 与路由尝试历史共用保留天数配置，由调度器每日清理。
+pub fn cleanup_old_probe_logs(days_to_keep: u32) -> IcodeResult<u64> {
+    let conn = get_conn()?;
+    let cutoff = (Utc::now() - chrono::Duration::days(days_to_keep as i64)).to_rfc3339();
+    let affected = conn.execute(
+        "DELETE FROM virtual_route_probe_logs WHERE probed_at < ?1",
         [&cutoff],
     )?;
     Ok(affected as u64)

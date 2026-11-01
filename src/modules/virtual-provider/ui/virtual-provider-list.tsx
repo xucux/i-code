@@ -40,6 +40,7 @@ import { HelpIcon } from '@/components/ui/help-icon'
 import { VirtualProviderDialog } from './virtual-provider-create-dialog'
 import { VirtualModelDialog } from './virtual-model-form'
 import { RouteHistoryTab } from './route-history-tab'
+import { ProbeHistoryTab } from './probe-history-tab'
 import { FailedChainsTab } from './failed-chains-tab'
 import { HealthCheckSettingsButton } from './health-check-settings-dialog'
 import { FailoverStrategyHelp } from './failover-strategy-dialog'
@@ -81,6 +82,8 @@ export function VirtualProviderList() {
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0)
   /** 失败请求刷新信号，自增后触发 FailedChainsTab 重新拉取 */
   const [failuresRefreshKey, setFailuresRefreshKey] = useState(0)
+  /** 探活记录刷新信号，自增后触发 ProbeHistoryTab 重新拉取 */
+  const [probesRefreshKey, setProbesRefreshKey] = useState(0)
   /** 路由历史自动刷新间隔（毫秒，null 表示关闭） */
   const [historyAutoRefreshMs, setHistoryAutoRefreshMs] = useState<RefreshInterval>(null)
 
@@ -422,6 +425,7 @@ export function VirtualProviderList() {
               <TabsList className="h-8 w-fit">
                 <TabsTrigger value="models" className="text-xs">{t('tabModelList')}</TabsTrigger>
                 <TabsTrigger value="history" className="text-xs">{t('tabRouteHistory')}</TabsTrigger>
+                <TabsTrigger value="probes" className="text-xs">{t('tabProbeHistory')}</TabsTrigger>
                 <TabsTrigger value="failures" className="text-xs">{t('tabFailedRequests')}</TabsTrigger>
               </TabsList>
 
@@ -435,6 +439,18 @@ export function VirtualProviderList() {
                     onValueChange={setHistoryAutoRefreshMs}
                   />
                   <TabRefreshButton label={t('failedRequestsRefresh')} onClick={bumpHistoryRefresh} />
+                </div>
+              )}
+
+              {activeTab === 'probes' && (
+                <div className="flex items-center gap-1">
+                  <HelpIcon size="sm" side="bottom" align="end" contentClassName="max-w-[260px] text-xs">
+                    {t('probeHistoryHint')}
+                  </HelpIcon>
+                  <TabRefreshButton
+                    label={t('failedRequestsRefresh')}
+                    onClick={() => setProbesRefreshKey((key) => key + 1)}
+                  />
                 </div>
               )}
 
@@ -513,6 +529,15 @@ export function VirtualProviderList() {
                 virtualProviderId={selectedProviderId}
                 providerMap={providerById}
                 refreshKey={historyRefreshKey}
+              />
+            </TabsContent>
+
+            {/* 探活记录 Tab */}
+            <TabsContent value="probes" className="min-h-0 flex-1">
+              <ProbeHistoryTab
+                virtualProviderId={selectedProviderId}
+                providerMap={providerById}
+                refreshKey={probesRefreshKey}
               />
             </TabsContent>
 

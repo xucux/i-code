@@ -438,6 +438,54 @@ pub struct RouteAttemptStats {
     pub last_attempted_at: Option<String>,
 }
 
+/// 单条路由探活记录
+///
+/// 对应 `virtual_route_probe_logs` 表，由调度器自动探活与手动「测试路由」写入。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VirtualRouteProbe {
+    pub id: String,
+    pub virtual_route_id: String,
+    pub virtual_provider_id: String,
+    /// 来源：`auto`（调度器自动探活）/ `manual`（手动测试路由）
+    pub source: String,
+    pub success: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status_code: Option<i64>,
+    pub duration_ms: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error_message: Option<String>,
+    /// 失败类型（见 [`RouteFailureKind::as_str`]），无法判定 / 手动失败时为 None
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub failure_kind: Option<String>,
+    pub probed_at: String,
+}
+
+/// 路由维度探活统计聚合
+///
+/// 供 UI 展示每条路由的探活成功率 / 平均耗时 / 最近失败原因。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RouteProbeStats {
+    pub virtual_route_id: String,
+    /// 总探活次数
+    pub total: i64,
+    /// 成功次数
+    pub success_count: i64,
+    /// 失败次数（含无法判定）
+    pub failure_count: i64,
+    /// 成功率（0-100，整数百分比）
+    pub success_rate: i64,
+    /// 平均耗时（毫秒）
+    pub avg_duration_ms: i64,
+    /// 最近一次失败原因
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_error: Option<String>,
+    /// 最近一次探活时间
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_probed_at: Option<String>,
+}
+
 /// 失败请求尝试链中的单条路由尝试
 ///
 /// 由 `virtual_route_attempts` 关联路由与供应商表得到，供 UI 展示“本次请求走了哪几条路由”。

@@ -903,6 +903,8 @@ interface ProviderShareConfig {
 - `delete_virtual_model(id: string) -> Result<void, Error>`。
 - `virtual_provider_route_list`：列出虚拟模型下的全部路由（含禁用）。
 - `virtual_provider_failed_chains`：按 `request_id` 聚合最近失败请求的尝试链（路由页「失败请求」Tab 数据源）。
+- `virtual_provider_route_probes_list`：查询指定路由最近 N 次探活记录（自动探活 + 手动测试，路由页「探活记录」Tab 明细数据源）。
+- `virtual_provider_route_probe_stats_list`：查询指定供应商下所有路由的探活统计（路由页「探活记录」Tab 统计数据源）。
 - `virtual_health_check_config_get` / `virtual_health_check_config_set`：读取 / 更新探活与全部失活兜底间隔（秒）。
 - `resolve_virtual_model(provider_id, model_id) -> VirtualProviderResolveResult`（调试用途）。
 

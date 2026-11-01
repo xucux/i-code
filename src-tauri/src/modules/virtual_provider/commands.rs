@@ -26,7 +26,11 @@
 //! - `virtual_provider_route_attempts_list`：查询指定路由最近 N 次尝试
 //! - `virtual_provider_route_attempt_stats_list`：查询指定供应商下所有路由的尝试统计
 //! - `virtual_provider_failed_chains`：按 request_id 聚合最近失败请求的尝试链
-//! - `virtual_provider_route_test`：测试单条路由（探活请求，不写入历史）
+//! - `virtual_provider_route_test`：测试单条路由（探活请求，记入探活历史）
+//!
+//! ### 路由探活历史
+//! - `virtual_provider_route_probes_list`：查询指定路由最近 N 次探活记录
+//! - `virtual_provider_route_probe_stats_list`：查询指定供应商下所有路由的探活统计
 //!
 //! ### alias 变更影响检查
 //! - `virtual_provider_check_alias_impact`：检查修改 alias 对 CLI 模型映射的影响
@@ -46,11 +50,12 @@ use super::settings;
 use super::types::{
     AliasImpactResult, CreateVirtualModelInput, CreateVirtualModelRouteInput,
     CreateVirtualProviderInput, GenerateVirtualProviderInput, GenerateVirtualProviderResult,
-    RequestAttemptChain, RouteAttemptStats, RouteTestResult, SaveVirtualModelInput,
-    UpdateVirtualModelInput,
+    RequestAttemptChain, RouteAttemptStats, RouteProbeStats, RouteTestResult,
+    SaveVirtualModelInput, UpdateVirtualModelInput,
     UpdateVirtualModelRouteInput, UpdateVirtualProviderInput, VirtualHealthCheckConfig,
     VirtualHealthCheckConfigSetInput, VirtualModel, VirtualModelRoute,
-    VirtualProvider, VirtualRouteAttempt, VirtualSlotsConfigDto, VirtualSlotsConfigSetInput,
+    VirtualProvider, VirtualRouteAttempt, VirtualRouteProbe, VirtualSlotsConfigDto,
+    VirtualSlotsConfigSetInput,
 };
 
 // ===== 探活 / 兜底间隔配置 =====
@@ -318,8 +323,9 @@ pub async fn virtual_provider_route_restore_health(
 
 /// 测试单条路由：对目标供应商发起轻量探活请求（GET /v1/models，5s 超时）
 ///
-/// 与调度器健康检查逻辑一致，但不写入 `virtual_route_attempts`（避免污染统计）。
-/// 结果用 toast 展示，供用户手动验证路由配置是否可用。
+/// 与调度器健康检查逻辑一致，结果记入探活历史（source=manual），
+/// 但**不写入** `virtual_route_attempts`（避免污染请求统计）。
+/// 结果同时用 toast 展示，供用户手动验证路由配置是否可用。
 #[tauri::command]
 pub async fn virtual_provider_route_test(
     state: State<'_, VirtualProviderHandle>,
@@ -327,6 +333,29 @@ pub async fn virtual_provider_route_test(
     route_id: String,
 ) -> IcodeResult<RouteTestResult> {
     state.service().test_route(&route_id, ai_gateway.service()).await
+}
+
+/// 查询指定路由最近 N 次探活记录（自动探活 + 手动测试）
+#[tauri::command]
+pub async fn virtual_provider_route_probes_list(
+    state: State<'_, VirtualProviderHandle>,
+    route_id: String,
+    limit: Option<u32>,
+) -> IcodeResult<Vec<VirtualRouteProbe>> {
+    state
+        .service()
+        .list_recent_probes_by_route(&route_id, limit.unwrap_or(50).clamp(1, 200))
+}
+
+/// 查询指定供应商下所有路由的探活统计（按路由聚合）
+#[tauri::command]
+pub async fn virtual_provider_route_probe_stats_list(
+    state: State<'_, VirtualProviderHandle>,
+    virtual_provider_id: String,
+) -> IcodeResult<Vec<RouteProbeStats>> {
+    state
+        .service()
+        .list_route_probe_stats_by_provider(&virtual_provider_id)
 }
 
 /// 检查修改虚拟供应商 alias 的影响范围

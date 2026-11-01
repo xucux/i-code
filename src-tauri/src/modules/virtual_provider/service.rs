@@ -764,6 +764,55 @@ impl VirtualProviderService {
         repository::list_route_attempt_stats_by_provider(virtual_provider_id)
     }
 
+    // ===== 路由探活记录 =====
+
+    /// 写入一条路由探活记录
+    ///
+    /// 由调度器自动探活与手动「测试路由」调用。写入失败仅记录日志，不影响主流程。
+    pub fn record_route_probe(
+        &self,
+        route_id: &str,
+        source: &str,
+        success: bool,
+        status_code: Option<u16>,
+        error_message: Option<&str>,
+        failure_kind: Option<&str>,
+        duration_ms: u64,
+    ) {
+        if let Err(e) = repository::insert_route_probe(
+            route_id,
+            source,
+            success,
+            status_code,
+            error_message,
+            failure_kind,
+            duration_ms,
+        ) {
+            tracing::warn!(
+                "写入路由探活记录失败: route_id={}, error={}",
+                route_id,
+                e.message
+            );
+        }
+    }
+
+    /// 查询指定路由的最近 N 次探活记录
+    pub fn list_recent_probes_by_route(
+        &self,
+        route_id: &str,
+        limit: u32,
+    ) -> IcodeResult<Vec<super::types::VirtualRouteProbe>> {
+        repository::list_recent_probes_by_route(route_id, limit)
+    }
+
+    /// 查询指定供应商下所有路由的探活统计
+    pub fn list_route_probe_stats_by_provider(
+        &self,
+        virtual_provider_id: &str,
+    ) -> IcodeResult<Vec<super::types::RouteProbeStats>> {
+        repository::list_route_probe_stats_by_provider(virtual_provider_id)
+    }
+
     /// 查询最近的失败请求尝试链（按 request_id 聚合）
     ///
     /// attempts 表中的 `virtual_provider_id` 可能存的是供应商 ID 或 alias，
@@ -788,7 +837,7 @@ impl VirtualProviderService {
 
     /// 测试单条路由：对目标模型发起模型级最小探活（与调度器一致的判定逻辑，5s 超时）
     ///
-    /// 不写入 `virtual_route_attempts`（避免污染统计）。
+    /// 结果记入探活历史（source=manual），但不写入 `virtual_route_attempts`（避免污染请求统计）。
     /// 由前端「测试」按钮调用，结果用 toast 展示。
     ///
     /// 需要 `AiGatewayService` 来解析目标供应商的认证配置与附加请求头。
@@ -841,16 +890,33 @@ impl VirtualProviderService {
         .await;
         let duration_ms = start.elapsed().as_millis() as u64;
 
-        let (success, status_code, error_message) = match outcome {
-            super::probe::ProbeOutcome::Success => (true, Some(200), None),
-            super::probe::ProbeOutcome::Failure(f) => (false, f.status, Some(f.message)),
-            super::probe::ProbeOutcome::Inconclusive(msg) => (false, None, Some(msg)),
+        let (success, status_code, error_message, failure_kind) = match outcome {
+            super::probe::ProbeOutcome::Success => (true, Some(200), None, None),
+            super::probe::ProbeOutcome::Failure(f) => (
+                false,
+                f.status,
+                Some(f.message),
+                Some(f.verdict.kind.as_str()),
+            ),
+            super::probe::ProbeOutcome::Inconclusive(msg) => (false, None, Some(msg), None),
             super::probe::ProbeOutcome::Unsupported => (
                 false,
                 None,
                 Some("上游不支持可用的探活端点".to_string()),
+                None,
             ),
         };
+
+        // 手动测试结果同样落库（source=manual），供「探活记录」Tab 与自动探活区分展示
+        self.record_route_probe(
+            route_id,
+            "manual",
+            success,
+            status_code,
+            error_message.as_deref(),
+            failure_kind,
+            duration_ms,
+        );
 
         Ok(super::types::RouteTestResult {
             success,
