@@ -1507,6 +1507,35 @@
           "matchModelId": "gpt-6-astra"
         }
       ]
+    },
+    {
+      "id": "qiniu",
+      "displayName": "Qiniu Cloud",
+      "category": "General",
+      "providerType": "openai-chat-completion",
+      "providerTypes": [
+        "openai-chat-completion",
+        "anthropic"
+      ],
+      "baseUrl": "https://api.qnaigc.com",
+      "useRawBaseUrl": false,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "sortOrder": 70,
+      "displayCnName": "七牛云 AI 大模型推理",
+      "remark": "七牛云大模型推理服务：同一 API Key 可调用 OpenAI 兼容（Completions BaseURL https://api.qnaigc.com/v1）与 Anthropic Messages（Messages BaseURL https://api.qnaigc.com/）两种协议，支持 Claude Code、Codex、OpenAI SDK 等接入；图像生成模型（如 sensenova-u1-pro）走视觉生成通道。默认关联模型 Conatus Free（qiniu/conatus-free）为免费活动融合模型，限时免费至 2026-11-30 23:59。",
+      "defaultModels": [
+        {
+          "modelId": "qiniu/conatus-free",
+          "displayName": "Conatus Free（免费至 2026-11-30）",
+          "matchModelId": "conatus-free"
+        }
+      ]
     }
   ]
 }

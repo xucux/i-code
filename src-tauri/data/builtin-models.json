@@ -3636,12 +3636,12 @@
     {
       "id": "sensenova-6.8-flash-lite",
       "displayName": "SenseNova 6.8 Flash Lite",
-      "background": "日日新轻量高效的多模态智能体模型（2026），重点提升多模态 Agent 场景能力，复杂数据分析能力显著增强，支持主/次 Agent 协作与原生多模态交付物生成。",
+      "background": "SenseNova 6.8 Flash Lite（2026-09-01 发布）：商汤日日新轻量高效多模态智能体模型，256K 上下文、单次最大输出 64K；接受文本与图片输入（JPG/JPEG/PNG/WebP）并输出文本；思考模式默认开启（thinking.type=disabled 或 reasoning_effort=none 可关闭），支持 Function Calling 与结构化输出（response_format=json_object）；面向日常办公、数据分析与高频 Agent 调用。",
       "family": "sensenova",
       "providerTypes": [
         "openai-chat-completion"
       ],
-      "maxInputTokens": null,
+      "maxInputTokens": 262144,
       "maxOutputTokens": 65536,
       "tokenCountMultiplier": 1,
       "stream": true,
@@ -3719,6 +3719,29 @@
       "thinking": {
         "type": "enabled",
         "effort": "high"
+      }
+    },
+    {
+      "id": "conatus-free",
+      "displayName": "Conatus Free",
+      "background": "Conatus Free（2026-10-24 发布）：七牛云免费活动融合模型，由多个顶级模型组成，统一通过 qiniu/conatus-free 调用；1000K 上下文、128K 输出，文本/图像输入、文本输出，支持工具调用、深度思考、结构化输出与内容缓存；仅消耗活动每日免费 Token 额度（认证用户每日 1 亿，充值后最高 10 亿），额度不足时请求直接拒绝，不扣账户余额/资源包/积分，也不自动切换模型；限时免费至 2026-11-30 23:59。",
+      "family": "qiniu",
+      "providerTypes": [
+        "openai-chat-completion",
+        "anthropic"
+      ],
+      "maxInputTokens": 1024000,
+      "maxOutputTokens": 131072,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled"
       }
     }
   ]

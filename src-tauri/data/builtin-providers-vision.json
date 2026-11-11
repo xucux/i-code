@@ -22,6 +22,27 @@
       "isMediaGeneration": true,
       "sortOrder": 69,
       "displayCnName": "日日新图像生成（商汤科技）"
+    },
+    {
+      "id": "qiniu-image",
+      "displayName": "Qiniu Cloud Image",
+      "category": "General",
+      "providerType": "sensenova-image-generation",
+      "providerTypes": [
+        "sensenova-image-generation"
+      ],
+      "baseUrl": "https://api.qnaigc.com/v1",
+      "useRawBaseUrl": true,
+      "authMethods": [
+        "api-key"
+      ],
+      "defaultAuth": {
+        "method": "api-key"
+      },
+      "autoFetchOfficialModels": false,
+      "isMediaGeneration": true,
+      "sortOrder": 70,
+      "displayCnName": "七牛云图像生成"
     }
   ]
 }

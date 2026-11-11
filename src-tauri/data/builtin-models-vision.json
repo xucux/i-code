@@ -23,6 +23,50 @@
       "thinking": {
         "type": "disabled"
       }
+    },
+    {
+      "id": "sensenova-u1-pro",
+      "displayName": "SenseNova U1 Pro",
+      "background": "SenseNova U1 Pro（2026-09-21 发布）：商汤日日新旗舰级原生多模态图片创作模型，面向长程视觉创作任务，通过内生的图文交错思维链生成内容准确、布局完整、可直接投入生产的图片素材，支持原生 8K 超清输出；接受文本与图像输入、输出图像，使用 OpenAI Images 兼容接口（POST {base_url}/images/generations）调用。",
+      "family": "sensenova",
+      "providerTypes": [
+        "sensenova-image-generation"
+      ],
+      "maxInputTokens": null,
+      "maxOutputTokens": null,
+      "tokenCountMultiplier": 1,
+      "stream": false,
+      "parallelToolCalling": false,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": false,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled"
+      }
+    },
+    {
+      "id": "sensenova-u1.5-lite",
+      "displayName": "SenseNova U1.5 Lite",
+      "background": "SenseNova U1.5 Lite（2026-08-21 发布）：商汤日日新轻量级原生统一多模态模型，基于 Neo-unify 架构，将图像理解、生成与编辑统一在同一端到端模型中；支持原生 4K 输出、3–4K 字符超长指令、多参考图与 Bounding Box 精细视觉控制；接受文本与图像输入、输出图像，使用 OpenAI Images 兼容接口（POST {base_url}/images/generations）调用。",
+      "family": "sensenova",
+      "providerTypes": [
+        "sensenova-image-generation"
+      ],
+      "maxInputTokens": null,
+      "maxOutputTokens": null,
+      "tokenCountMultiplier": 1,
+      "stream": false,
+      "parallelToolCalling": false,
+      "tokenizer": null,
+      "capabilities": {
+        "toolCalling": false,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "disabled"
+      }
     }
   ]
 }
