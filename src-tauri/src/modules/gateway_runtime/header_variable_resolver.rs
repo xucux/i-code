@@ -305,33 +305,37 @@ mod tests {
         // - msg（非取反）解码毫秒 = now_ms mod 2^36
         // - ses（取反）解码毫秒 = 2^36 - 1 - (now_ms mod 2^36)
         const MS_MOD: u64 = 1u64 << 36;
-        const SEG_MASK: u64 = 0x0000_000F_FFFF_FFFF; // 2^36 - 1
-        let now_ms = chrono::Utc::now().timestamp_millis().max(0) as u64;
-        let expected = now_ms % MS_MOD;
+        const SEG_MASK: u64 = MS_MOD - 1;
 
-        let request = resolve_header_template_variables("${opencode_request()}", &HashMap::new());
-        let msg_ts = u64::from_str_radix(&request[4..16], 16).expect("hex");
-        let msg_decoded = msg_ts >> 12;
-        // 容许与生成时刻相差 1ms（测试执行跨毫秒边界）
-        let drift = (msg_decoded as i64 - expected as i64).abs();
+        let t_start = chrono::Utc::now().timestamp_millis().max(0) as u64;
+        // 会话 ID 走进程级按天缓存，可能由其他并行测试提前生成，不能假设
+        // 它与本测试的请求 ID 处于同一毫秒；这里直接对比生成算法本身。
+        let request = generate_opencode_id(false);
+        let session = generate_opencode_id(true);
+        let t_end = chrono::Utc::now().timestamp_millis().max(0) as u64;
+        // 允许生成期间跨毫秒（CI 上线程调度可能引入数毫秒延迟）
+        let window = (t_end.saturating_sub(t_start) + 2) as i128;
+
+        let msg_ms = u64::from_str_radix(&request[..12], 16).expect("hex") >> 12;
+        let expected = (t_start % MS_MOD) as i128;
         assert!(
-            drift <= 1,
-            "请求 ID 时间戳段过期: decoded={} expected={}",
-            msg_decoded,
-            expected
+            (msg_ms as i128 - expected).abs() <= window,
+            "请求 ID 时间戳段过期: decoded={} expected={} window={}",
+            msg_ms,
+            expected,
+            window
         );
 
-        // 会话 ID 为取反形态：与同毫秒请求 ID 的毫秒段之和应为 2^36 - 1（容许 ±2 跨毫秒）
-        let session = resolve_header_template_variables("${opencode_session()}", &HashMap::new());
-        let ses_ts = u64::from_str_radix(&session[4..16], 16).expect("hex");
-        let ses_sum = (msg_ts >> 12) + (ses_ts >> 12);
+        // 会话 ID 为取反形态：两者毫秒段之和应为 2^36 - 1 减去生成时间差
+        let ses_ms = u64::from_str_radix(&session[..12], 16).expect("hex") >> 12;
+        let gap = SEG_MASK as i128 - msg_ms as i128 - ses_ms as i128;
         assert!(
-            ses_sum >= SEG_MASK - 2 && ses_sum <= SEG_MASK + 2,
-            "会话/请求 ID 取反关系不成立: msg={:x} ses={:x} sum={:x} mask={:x}",
-            msg_ts >> 12,
-            ses_ts >> 12,
-            ses_sum,
-            SEG_MASK
+            gap.abs() <= window,
+            "会话/请求 ID 取反关系不成立: msg={:x} ses={:x} gap={} window={}",
+            msg_ms,
+            ses_ms,
+            gap,
+            window
         );
     }
 
