@@ -3351,6 +3351,60 @@
       }
     },
     {
+      "id": "hy4",
+      "displayName": "Hy4",
+      "background": "腾讯混元 Hy4 正式版（2026-11-04），770B 总参数 / 49B 激活，1M 上下文，首次引入视觉理解与电脑操作（Computer Use），长程 Agent 与生产力任务能力大幅提升。",
+      "family": "tencent",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65536,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "thinkingEffortOptions": [
+        "high",
+        "no_think"
+      ],
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "high"
+      }
+    },
+    {
+      "id": "hy4-flash",
+      "displayName": "Hy4 Flash",
+      "background": "腾讯混元 Hy4 flash（2026-11-16），224B 总参数（含 64B Engram）/ 12B 激活，原生多模态输入，1M 上下文，KV cache 仅为 Hy4 的 1/6，主打高性价比日常办公。",
+      "family": "tencent",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 1048576,
+      "maxOutputTokens": 65536,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "thinkingEffortOptions": [
+        "high",
+        "no_think"
+      ],
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "high"
+      }
+    },
+    {
       "id": "LongCat-2.0",
       "displayName": "LongCat 2.0",
       "background": "LongCat 2.0（2026），美团 MoE，1M 上下文，代码与推理均衡，参数量未公开（LongCat-Flash 开源版为 560B 总参/24B 激活）。",
