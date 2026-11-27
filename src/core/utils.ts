@@ -124,30 +124,40 @@ export function formatMemory(kb: number | null): string {
 }
 
 /**
- * 将大数字格式化为紧凑计数（K / W / B）
+ * 将大数字格式化为紧凑计数（K / M / B，统一西式单位）
  * - K = 千（1,000）
- * - W = 万（10,000）
- * - B = 亿（100,000,000）
+ * - M = 百万（1,000,000）
+ * - B = 十亿（1,000,000,000）
  *
  * 常用于 token 消耗、额度等可能快速增长的数值展示。
+ * **全应用必须统一使用本函数**：历史上这里用的是 `W = 万 / B = 亿`，
+ * 与统计页的 `M = 百万` 混排，导致同一个数值在标题栏显示 `1.02B`（实为 1.02 亿）、
+ * 在统计卡显示 `102.18M`，`B` 一词两义、差一个数量级。
  * 支持 number、bigint 与字符串，避免大整数超过 JS Number 安全范围时丢失精度。
  */
 export function formatCompactCount(value: number | bigint | string | null): string {
   if (value === null) return '—'
 
-  // 统一转换为 bigint 进行安全比较与运算
+  // number 直接走数值实现：图表刻度等小数无法转 bigint（BigInt(1.5) 会抛错）
+  if (typeof value === 'number') return formatCompactNumber(value)
+
+  // bigint / 字符串走整数路径，保留精度
   let n: bigint
   try {
     n = typeof value === 'bigint' ? value : BigInt(value)
   } catch {
     return '—'
   }
+  return formatCompactNumber(Number(n))
+}
 
-  if (n < 0n) return '—'
-  if (n < 1_000n) return String(n)
-  if (n < 10_000n) return `${(Number(n) / 1_000).toFixed(1)}K`
-  if (n < 100_000_000n) return `${(Number(n) / 10_000).toFixed(1)}W`
-  return `${(Number(n) / 100_000_000).toFixed(2)}B`
+/** `formatCompactCount` 的数值实现 */
+function formatCompactNumber(value: number): string {
+  if (!Number.isFinite(value) || value < 0) return '—'
+  if (value < 1_000) return String(Math.round(value))
+  if (value < 1_000_000) return `${(value / 1_000).toFixed(1)}K`
+  if (value < 1_000_000_000) return `${(value / 1_000_000).toFixed(2)}M`
+  return `${(value / 1_000_000_000).toFixed(2)}B`
 }
 
 /**

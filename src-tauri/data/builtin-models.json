@@ -523,6 +523,131 @@
       }
     },
     {
+      "id": "gpt-6.2-astra",
+      "displayName": "GPT-6.2 Astra",
+      "background": "GPT-6.2 Astra（2026-11-17），OpenAI 最强旗舰，专业输出、编程与计算机使用再升级，1.05M 上下文（922K 最大输入），128K 最大输出，知识截止 2026-05-18，标准价 $8/$40 每百万 tokens，参数量未公开。",
+      "family": "openai",
+      "providerTypes": [
+        "openai-responses"
+      ],
+      "maxInputTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": "openai",
+      "thinkingEffortOptions": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true,
+        "editTools": "apply-patch"
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "medium"
+      }
+    },
+    {
+      "id": "gpt-6.2-sol",
+      "displayName": "GPT-6.2 Sol",
+      "background": "GPT-6.2 Sol（2026-11-17），面向日常编码与大规模智能体工作的高性价比主力，1.05M 上下文（922K 最大输入），128K 最大输出，知识截止 2026-06-01，标准价 $2/$10 每百万 tokens，参数量未公开。",
+      "family": "openai",
+      "providerTypes": [
+        "openai-responses"
+      ],
+      "maxInputTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": "openai",
+      "thinkingEffortOptions": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true,
+        "editTools": "apply-patch"
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "medium"
+      }
+    },
+    {
+      "id": "gpt-6.1-terra",
+      "displayName": "GPT-6.1 Terra",
+      "background": "GPT-6.1 Terra（2026-11-16），面向视觉推理、精确计算机操作与自然文本写作的高效模型，1.05M 上下文（922K 最大输入），128K 最大输出，知识截止 2026-06-01，标准价 $1/$5 每百万 tokens，参数量未公开。",
+      "family": "openai",
+      "providerTypes": [
+        "openai-responses"
+      ],
+      "maxInputTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": "openai",
+      "thinkingEffortOptions": [
+        "none",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true,
+        "editTools": "apply-patch"
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "medium"
+      }
+    },
+    {
+      "id": "gpt-6.1-sol",
+      "displayName": "GPT-6.1 Sol",
+      "background": "GPT-6.1 Sol（2026-09-29 DevDay），GPT-6 Sol 的重大升级，接近 Astra 的智能水平，价格为 Astra 的五分之一，1.05M 上下文（922K 最大输入），128K 最大输出，知识截止 2026-04-30，标准价 $2/$10 每百万 tokens，参数量未公开。",
+      "family": "openai",
+      "providerTypes": [
+        "openai-responses"
+      ],
+      "maxInputTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": "openai",
+      "thinkingEffortOptions": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true,
+        "editTools": "apply-patch"
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "medium"
+      }
+    },
+    {
       "id": "gpt-6-astra",
       "displayName": "GPT-6 Astra",
       "background": "GPT-6 Astra（2026-09-03），OpenAI 第六代首个旗舰，1.05M 上下文，Experiential 平台 Promotional 免费模型，参数量未公开。",
@@ -2398,6 +2523,34 @@
       },
       "thinking": {
         "type": "enabled"
+      }
+    },
+    {
+      "id": "glm-5.4",
+      "displayName": "GLM-5.4",
+      "background": "GLM-5.4（2026-11-23），智谱首款 Loop Transformer 架构旗舰：GLM-5 基座 28 层两轮循环，750B 规模、智能对标 2-3T 级；新增视觉理解，支持泛 Coding（视频/游戏/3D 建模/机械设计），1M 上下文，128K 最大输出，Coding Plan 已开放、API 待安全评估后开放。",
+      "family": "zhipu",
+      "providerTypes": [
+        "openai-chat-completion"
+      ],
+      "maxInputTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "tokenCountMultiplier": 1,
+      "stream": true,
+      "parallelToolCalling": true,
+      "tokenizer": null,
+      "thinkingEffortOptions": [
+        "low",
+        "high",
+        "max"
+      ],
+      "capabilities": {
+        "toolCalling": true,
+        "imageInput": true
+      },
+      "thinking": {
+        "type": "enabled",
+        "effort": "max"
       }
     },
     {

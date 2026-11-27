@@ -12,6 +12,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { AutoRefreshSelect } from '@/components/ui/auto-refresh'
 import { DateTimeRangePicker } from '@/components/ui/date-time-range-picker'
 import { cn } from '@/lib/utils'
+import { formatCompactCount } from '@/core/utils'
 import { useModelCallStats } from '@/hooks/use-model-call-stats'
 import { useAggregatedStats } from '@/hooks/use-aggregated-stats'
 import { useAvailableHeight } from '@/hooks/use-available-height'
@@ -65,22 +66,6 @@ function truncateApiKey(key: string | undefined | null, maxLen = 12): string {
   if (!key) return ''
   if (key.length <= maxLen) return key
   return `${key.slice(0, maxLen)}...`
-}
-
-/**
- * 将 token 数值格式化为紧凑计数（K / M / B 西式单位）
- * - K = 千（1,000）
- * - M = 百万（1,000,000）
- * - B = 十亿（1,000,000,000）
- *
- * 用于统计描述中的总 token 展示。
- */
-function formatTokenKMB(value: number): string {
-  if (!Number.isFinite(value) || value < 0) return '0'
-  if (value < 1_000) return String(Math.round(value))
-  if (value < 1_000_000) return `${(value / 1_000).toFixed(1)}K`
-  if (value < 1_000_000_000) return `${(value / 1_000_000).toFixed(2)}M`
-  return `${(value / 1_000_000_000).toFixed(2)}B`
 }
 
 /**
@@ -334,7 +319,7 @@ export function ModelList() {
   const totalTokensText = useMemo(() => {
     const rows = activeTab === 'detail' ? detailRows : aggRows
     const sum = rows.reduce((acc, r) => acc + (r.totalTokens ?? 0), 0)
-    return formatTokenKMB(sum)
+    return formatCompactCount(sum)
   }, [activeTab, detailRows, aggRows])
 
   // 统计描述文本

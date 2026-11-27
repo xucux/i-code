@@ -395,7 +395,8 @@ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Micr
 #### 数值与精度
 
 - **内存**：统一由 Rust 返回 KB，前端使用 `formatMemory(kb)` 格式化为 `KB / MB / GB`（边界为 1 MB、1 GB）。
-- **计数（token、额度等）**：统一使用 `formatCompactCount(n)` 格式化为 `K / W / B`（1 K = 1,000；1 W = 10,000；1 B = 100,000,000）。
+- **计数（token、额度等）**：统一使用 `formatCompactCount(n)` 格式化为 `K / M / B`（1 K = 1,000；1 M = 1,000,000；1 B = 1,000,000,000）。
+  - `B` 只能表示 **十亿**，不得再用作「亿」；历史上 `B = 亿` 与统计页的 `M = 百万` 混排，曾导致同一份数据在标题栏显示 `1.02B`（实为 1.02 亿）、在统计卡显示 `102.18M`，相差一个数量级。
 - 格式化函数位于 `src/core/utils.ts`，禁止在组件内重复实现。
 
 **精度注意事项：**
